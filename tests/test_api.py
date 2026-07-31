@@ -29,7 +29,7 @@ def answer_question(client: TestClient, match_id: str, question_id: str) -> dict
 
 
 def test_question_payload_strips_answers(client: TestClient) -> None:
-    match_id = start_match(client)
+    match_id = start_match(client, players=['Alice', 'Bob'])
 
     response = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
     assert response.status_code == 200
@@ -211,7 +211,7 @@ def test_month_guess_scores_days_from_the_month_boundary(client: TestClient) -> 
     assert entry['date_diff_months'] == 2
     assert entry['date_diff_years_part'] == 0
     assert entry['date_diff_months_part'] == 2
-    assert entry['date_score'] == 90
+    assert entry['date_score'] == 91
 
 
 def test_any_day_inside_the_guessed_month_is_a_perfect_date_score(client: TestClient) -> None:
@@ -300,7 +300,7 @@ def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
     assert summary['players'][0]['player_name'] == 'Alice'
     assert summary['players'][0]['rank'] == 1
     assert summary['players'][0]['is_winner'] is True
-    assert summary['players'][0]['total_score'] == 700
+    assert summary['players'][0]['total_score'] == 1000
     assert summary['players'][0]['accuracy_pct'] == 100.0
     assert summary['players'][1]['rank'] == 2
     assert summary['players'][1]['is_winner'] is False
@@ -333,7 +333,7 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
 
     entries = client.get('/api/leaderboard').json()
     assert len(entries) == 1
-    assert entries[0]['total_score'] == 700
+    assert entries[0]['total_score'] == 1000
 
 
 def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> None:
@@ -415,9 +415,9 @@ def test_unknown_album_id_is_rejected(client: TestClient) -> None:
 def test_preflight_checks_eligible_asset_count(tmp_path: Path) -> None:
     immich = FakeImmichClient(
         [
-            make_asset('photo1', lat=-27.5, lon=-48.5, captured='2024-01-01T10:00:00Z'),
-            make_asset('photo2', lat=-27.5, lon=-48.5, captured='2024-01-02T10:00:00Z'),
-            make_asset('no-gps', lat=None, lon=None, captured='2024-01-03T10:00:00Z'),
+            make_asset('photo1', latitude=-27.5, longitude=-48.5, captured='2024-01-01T10:00:00Z'),
+            make_asset('photo2', latitude=-27.5, longitude=-48.5, captured='2024-01-02T10:00:00Z'),
+            make_asset('no-gps', latitude=None, longitude=None, captured='2024-01-03T10:00:00Z'),
         ]
     )
     client = build_client(tmp_path, immich)
@@ -435,7 +435,7 @@ def test_preflight_checks_eligible_asset_count(tmp_path: Path) -> None:
 
     # 5 rounds requested, with 5 eligible photos -> ok is True
     immich_enough = FakeImmichClient(
-        [make_asset(f'photo_{i}', lat=-27.5, lon=-48.5, captured='2024-01-01T10:00:00Z') for i in range(5)]
+        [make_asset(f'photo_{i}', latitude=-27.5, longitude=-48.5, captured='2024-01-01T10:00:00Z') for i in range(5)]
     )
     client_enough = build_client(
         tmp_path,

@@ -24,7 +24,7 @@ def location_score(
     decay_km: float = 700.0,
     max_points: int = 100,
 ) -> int:
-    return max(0, math.ceil(max_points * math.exp(-distance_km / decay_km)))
+    return max(0, round(max_points * math.exp(-distance_km / decay_km)))
 
 
 def month_index(year: int, month: int) -> int:

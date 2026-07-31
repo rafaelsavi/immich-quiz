@@ -26,6 +26,7 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'SCORE_MAX_POINTS',
         'LOCATION_SCORE_DECAY_KM',
         'DATE_SCORE_DECAY_DAYS',
+        'LANGUAGE',
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -186,3 +187,23 @@ def test_date_score_decay_days_rejects_non_numeric(monkeypatch: pytest.MonkeyPat
 
     with pytest.raises(ConfigError, match='DATE_SCORE_DECAY_DAYS'):
         load_settings()
+
+
+def test_language_setting_supports_pt(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('LANGUAGE', 'pt')
+
+    settings = load_settings()
+
+    assert settings.language == 'PT'
+
+
+def test_language_setting_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('LANGUAGE', 'fr')
+
+    with pytest.raises(ConfigError, match='LANGUAGE'):
+        load_settings()
+

@@ -23,9 +23,9 @@ def test_haversine_one_degree_of_longitude_at_equator() -> None:
 
 def test_location_score_formula() -> None:
     assert location_score(0.0) == 100
-    assert location_score(0.05) == 99
-    assert location_score(1.0) == 99
-    assert location_score(700) == 36
+    assert location_score(0.05) == 100
+    assert location_score(1.0) == 100
+    assert location_score(700) == 37
     assert location_score(20000) == 0
 
 
