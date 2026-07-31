@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "immich-quiz"
+version = "0.1.0"
+description = "Local-first pass-and-play trivia game powered by Immich"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi>=0.116.0",
+  "uvicorn[standard]>=0.35.0",
+  "httpx>=0.28.0",
+  "pydantic>=2.11.0",
+  "python-dotenv>=1.1.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4.0",
+  "pytest-asyncio>=1.1.0",
+  "pytest-cov>=6.0.0",
+  "ruff>=0.9.0",
+  "mypy>=1.14.0"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
+
+[tool.mypy]
+python_version = "3.13"
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+exclude = ["**/.venv/**"]
+
+[tool.ruff.lint]
+select = [
+    "D",
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # quotes
+    "Q",
+]
+
+ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D203",
+    "D205",
+    "D212",
+    "D213",
+    "D400",
+    "D415",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency injection intentionally evaluates these in defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body"]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.format]
+docstring-code-format = true
+quote-style = "single"

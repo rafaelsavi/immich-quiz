@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="{{LANG_CODE}}">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{APP_TITLE}}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+
+<body>
+  <canvas id="confetti-canvas" class="confetti-canvas"></canvas>
+  <div class="bg-shape bg-1"></div>
+  <div class="bg-shape bg-2"></div>
+  <main class="app-shell">
+    <header class="app-header">
+      <div class="header-main">
+        <h1>{{APP_HEADING}}</h1>
+        <p>{{APP_TAGLINE}}</p>
+      </div>
+      <button type="button" id="audio-toggle-btn" class="audio-toggle-btn" title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
+        <span id="audio-icon">🔊</span>
+      </button>
+    </header>
+
+    <section id="setup-card" class="card">
+      <h2 data-i18n="setup.heading">Game Setup</h2>
+      <form id="setup-form">
+        <label data-i18n="setup.players_label">Players (comma separated)</label>
+        <input id="players" required placeholder="" />
+
+        <div class="grid-2">
+          <div>
+            <label data-i18n="setup.rounds_label">Rounds</label>
+            <select id="round-count">
+              <option value="5">5</option>
+              <option value="10" selected>10</option>
+              <option value="20">20</option>
+            </select>
+          </div>
+          <div>
+            <label data-i18n="setup.round_length_label">Round Length</label>
+            <select id="round-length">
+              <option value="30s" data-i18n="setup.round_30s">30s</option>
+              <option value="1m" selected data-i18n="setup.round_1m">1 min</option>
+              <option value="unlimited" data-i18n="setup.round_unlimited">Unlimited</option>
+            </select>
+          </div>
+        </div>
+
+        <label data-i18n="setup.guess_mode">Guess Mode</label>
+        <div class="goals-row">
+          <label><input type="checkbox" id="goal-location" checked /> <span
+              data-i18n="setup.goal_location">Location</span></label>
+          <label><input type="checkbox" id="goal-date" checked /> <span data-i18n="setup.goal_date">Date</span></label>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label data-i18n="setup.library_label">Library</label>
+            <select id="library" required></select>
+          </div>
+          <div>
+            <label data-i18n="setup.album_label">Album</label>
+            <select id="album">
+              <option value="" data-i18n="setup.all_photos">-</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" data-i18n="setup.start_btn">Start Match</button>
+      </form>
+    </section>
+
+    <section id="game-card" class="card hidden">
+      <div id="round-meta" class="round-meta"></div>
+
+      <div id="pass-overlay" class="overlay hidden">
+        <div class="overlay-content">
+          <h3 id="overlay-title">Pass device</h3>
+          <p id="overlay-subtitle">Hand the device to the next player before revealing the image.</p>
+          <button id="ready-btn" class="btn-primary" data-i18n="game.ready_btn">I'm Ready</button>
+        </div>
+      </div>
+
+      <div id="media-frame" class="media-frame">
+        <p id="media-placeholder" class="media-placeholder" data-i18n="game.media_placeholder">Photo hidden until you
+          press "I'm Ready".</p>
+        <div id="media-error-card" class="media-error-card hidden">
+          <p id="media-error-msg" data-i18n="game.media_error_msg">Photo failed to load from Immich server.</p>
+          <button type="button" id="media-skip-btn" class="btn-secondary" data-i18n="game.media_skip_btn">Skip Photo</button>
+        </div>
+        <img id="quiz-image" class="hidden" alt="Quiz media" />
+        <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+          title="Toggle fullscreen image" data-i18n="game.fullscreen_btn">
+          Fullscreen
+        </button>
+      </div>
+
+      <div id="guessing-ui">
+        <div class="grid-2 round-guess-layout">
+          <div id="map-guess-wrap" class="hidden">
+            <div class="field-head">
+              <label data-i18n="game.location_guess_label">Location Guess</label>
+            </div>
+            <div id="guess-map-shell" class="map-shell">
+              <div id="guess-map"></div>
+              <button type="button" id="guess-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
+                Fullscreen
+              </button>
+            </div>
+          </div>
+          <div id="date-guess-wrap" class="hidden">
+            <label data-i18n="game.date_guess_label">Date Guess (year / month)</label>
+            <div class="grid-2 date-guess-grid">
+              <select id="date-guess-year" aria-label="Guessed year"></select>
+              <select id="date-guess-month" aria-label="Guessed month"></select>
+            </div>
+          </div>
+        </div>
+
+        <button id="submit-answer" class="btn-primary" data-i18n="game.submit_btn">Submit Answer</button>
+
+        <div class="timer-row">
+          <div class="timer-head">
+            <span id="timer-label"></span>
+            <span id="timer-remaining"></span>
+          </div>
+          <div id="timer-track" class="timer-track">
+            <div id="timer-fill" class="timer-fill"></div>
+          </div>
+          <p id="timeout-notice" class="timeout-notice hidden"></p>
+        </div>
+
+        <div class="game-actions">
+          <button type="button" id="game-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
+          <button type="button" id="game-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
+        </div>
+      </div>
+
+      <div id="reveal-ui" class="hidden">
+        <div id="reveal-actual" class="reveal-actual"></div>
+        <div id="reveal-legend" class="reveal-legend"></div>
+        <div class="table-scroll">
+          <table id="reveal-table">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="field-head" id="reveal-map-head">
+          <label data-i18n="reveal.map_label">Round Map</label>
+        </div>
+        <div id="reveal-map-shell" class="map-shell">
+          <div id="reveal-map"></div>
+          <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+            title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
+            Fullscreen
+          </button>
+        </div>
+        <button id="next-round" class="btn-primary" data-i18n="reveal.next_round_btn">Next Round</button>
+        <div class="game-actions">
+          <button type="button" id="reveal-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
+          <button type="button" id="reveal-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="summary-card" class="card hidden">
+      <h2 data-i18n="summary.heading">Match Results</h2>
+      <div id="summary-winner" class="summary-winner"></div>
+      <div id="summary-meta" class="summary-meta"></div>
+      <div class="table-scroll">
+        <table id="summary-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button id="new-match" class="btn-primary" data-i18n="summary.new_match_btn">Start New Match</button>
+    </section>
+
+    <section id="leaderboard-card" class="card">
+      <div class="leaderboard-head">
+        <h2 data-i18n="leaderboard.heading">Leaderboard</h2>
+        <button id="refresh-leaderboard" class="btn-secondary" data-i18n="leaderboard.refresh_btn">Refresh</button>
+      </div>
+      <div class="table-scroll">
+        <table id="leaderboard-table">
+          <thead>
+            <tr>
+              <th data-sort="played_at" data-i18n="leaderboard.col_played_at">Played At<span class="sort-arrow"
+                  aria-hidden="true"></span></th>
+              <th data-sort="player_name" data-i18n="leaderboard.col_player">Player<span class="sort-arrow"
+                  aria-hidden="true"></span></th>
+              <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy">Accuracy %<span class="sort-arrow"
+                  aria-hidden="true"></span></th>
+              <th data-sort="total_score" data-i18n="leaderboard.col_score">Score<span class="sort-arrow"
+                  aria-hidden="true"></span></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+
+</html>

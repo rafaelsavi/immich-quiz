@@ -1,0 +1,210 @@
+from __future__ import annotations
+
+from datetime import date, datetime
+from enum import Enum
+
+from pydantic import BaseModel, Field, model_validator
+
+
+class RoundLength(str, Enum):
+    seconds_30 = '30s'
+    minute_1 = '1m'
+    unlimited = 'unlimited'
+
+
+def _validate_and_normalize_players(players: list[str], *, allow_empty: bool = False) -> list[str]:
+    if not allow_empty and not players:
+        raise ValueError('Player list cannot be empty')
+
+    normalized_players: list[str] = []
+    seen: set[str] = set()
+    for player in players:
+        cleaned = player.strip()
+        if not cleaned:
+            raise ValueError('Player names must be non-empty')
+        key = cleaned.lower()
+        if key in seen:
+            raise ValueError('Player names must be unique')
+        seen.add(key)
+        normalized_players.append(cleaned)
+    return normalized_players
+
+
+class GameSetupRequest(BaseModel):
+    players: list[str] = Field(min_length=1)
+    round_count: int = Field(default=10)
+    round_length: RoundLength = RoundLength.minute_1
+    location_mode: bool = True
+    date_mode: bool = True
+    library_name: str = Field(min_length=1)
+    album_id: str | None = None
+    album_name: str | None = None
+
+    @model_validator(mode='after')
+    def validate_modes_and_rounds(self) -> GameSetupRequest:
+        if self.round_count not in {5, 10, 20}:
+            raise ValueError('round_count must be one of: 5, 10, 20')
+        if not (self.location_mode or self.date_mode):
+            raise ValueError('At least one mode must be enabled')
+
+        self.players = _validate_and_normalize_players(self.players, allow_empty=False)
+        return self
+
+
+class GameSetupResponse(BaseModel):
+    match_id: str
+    total_turns: int
+    players: list[str]
+
+
+class QuestionRequest(BaseModel):
+    match_id: str
+    played_asset_ids: list[str] = Field(default_factory=list)
+
+
+class QuestionResponse(BaseModel):
+    question_id: str
+    asset_id: str
+    media_url: str
+    library_name: str
+    album_name: str | None
+    player_name: str
+    player_number: int
+    total_players: int
+    player_round_number: int
+    total_rounds_per_player: int
+    turn_number: int
+    total_turns: int
+    location_mode: bool
+    date_mode: bool
+    round_length: RoundLength
+
+
+class AnswerRequest(BaseModel):
+    match_id: str
+    question_id: str
+    guessed_latitude: float | None = None
+    guessed_longitude: float | None = None
+    guessed_year: int | None = Field(default=None, ge=1826, le=2200)
+    guessed_month: int | None = Field(default=None, ge=1, le=12)
+    timed_out: bool = False
+
+    @model_validator(mode='after')
+    def validate_month_pair(self) -> AnswerRequest:
+        if (self.guessed_year is None) != (self.guessed_month is None):
+            raise ValueError('guessed_year and guessed_month must be provided together')
+        return self
+
+
+class AnswerResponse(BaseModel):
+    """Acknowledgement only: answers stay hidden until the whole round is in."""
+
+    player_name: str
+    question_id: str
+    round_number: int
+    turn_completed: int
+    total_turns: int
+    round_complete: bool
+    waiting_for: list[str]
+    match_finished: bool
+
+
+class PlayerRoundResult(BaseModel):
+    player_name: str
+    guessed_latitude: float | None
+    guessed_longitude: float | None
+    guessed_year: int | None
+    guessed_month: int | None
+    location_score: int | None
+    date_score: int | None
+    round_score: int
+    total_score: int
+    distance_km: float | None
+    date_diff_days: int | None
+    date_diff_months: int | None
+    date_diff_years_part: int | None
+    date_diff_months_part: int | None
+    timed_out: bool
+
+
+class RoundResultRequest(BaseModel):
+    match_id: str
+    round_number: int
+
+
+class RoundResultResponse(BaseModel):
+    round_number: int
+    total_rounds: int
+    location_mode: bool
+    date_mode: bool
+    actual_latitude: float | None
+    actual_longitude: float | None
+    actual_date: date | None
+    actual_year: int | None
+    actual_month: int | None
+    actual_city: str | None = None
+    actual_country: str | None = None
+    results: list[PlayerRoundResult]
+    match_finished: bool
+    score_max_points: int = 100
+
+
+class MatchSummaryPlayer(BaseModel):
+    player_name: str
+    location_score: int | None
+    date_score: int | None
+    total_score: int
+    max_possible_score: int
+    accuracy_pct: float
+    rank: int
+    is_winner: bool
+
+
+class MatchSummaryResponse(BaseModel):
+    match_id: str
+    rounds_played: int
+    location_mode: bool
+    date_mode: bool
+    library_name: str
+    album_name: str
+    finished: bool
+    winners: list[str]
+    players: list[MatchSummaryPlayer]
+
+
+class LeaderboardEntry(BaseModel):
+    match_id: str
+    played_at: datetime
+    player_name: str
+    max_possible_score: int
+    total_score: int
+    config: dict
+
+
+class PreflightRequest(BaseModel):
+    players: list[str] = Field(default_factory=list)
+    round_count: int = Field(default=10)
+    location_mode: bool = True
+    date_mode: bool = True
+    library_name: str = Field(min_length=1)
+    album_id: str | None = None
+
+    @model_validator(mode='after')
+    def validate_modes_and_rounds(self) -> PreflightRequest:
+        if self.round_count not in {5, 10, 20}:
+            raise ValueError('round_count must be one of: 5, 10, 20')
+        if not (self.location_mode or self.date_mode):
+            raise ValueError('At least one mode must be enabled')
+
+        self.players = _validate_and_normalize_players(self.players, allow_empty=True)
+        return self
+
+
+class PreflightResponse(BaseModel):
+    eligible_count: int
+    required: int
+    ok: bool
+    # Human-readable list of active filters that narrow eligibility
+    active_filters: list[str]
+    min_date: date | None = None
+    max_date: date | None = None

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <style>
+    .question-mark {
+      fill: #000000;
+    }
+    @media (prefers-color-scheme: dark) {
+      .question-mark {
+        fill: #FFFFFF;
+      }
+    }
+  </style>
+  <defs>
+    <!-- Red Swoosh Gradient -->
+    <linearGradient id="redGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#FF5252" />
+      <stop offset="100%" stop-color="#D32F2F" />
+    </linearGradient>
+
+    <!-- Yellow Swoosh Gradient -->
+    <linearGradient id="yellowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD54F" />
+      <stop offset="100%" stop-color="#FF9800" />
+    </linearGradient>
+
+    <!-- Green Swoosh Gradient -->
+    <linearGradient id="greenGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#81C784" />
+      <stop offset="100%" stop-color="#388E3C" />
+    </linearGradient>
+
+    <!-- Blue Swoosh Gradient -->
+    <linearGradient id="blueGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4FC3F7" />
+      <stop offset="100%" stop-color="#1976D2" />
+    </linearGradient>
+
+    <!-- Soft Drop Shadow for Depth -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <g filter="url(#dropShadow)">
+    <!-- Red Swoosh (Top Left / Pinwheel Accent) -->
+    <path fill="url(#redGrad)" d="M 152.8,47.2 C 248.8,-4.8 384.8,27.2 460.8,151.2 C 372.8,79.2 248.8,87.2 184.8,167.2 C 144.8,217.2 144.8,287.2 168.8,311.2 C 104.8,215.2 96.8,111.2 152.8,47.2 Z" />
+
+    <!-- Yellow Swoosh (Top Right) -->
+    <path fill="url(#yellowGrad)" d="M 464.8,151.2 C 516.8,247.2 484.8,383.2 360.8,459.2 C 432.8,371.2 424.8,247.2 344.8,183.2 C 294.8,143.2 224.8,143.2 200.8,167.2 C 296.8,103.2 400.8,95.2 464.8,151.2 Z" />
+
+    <!-- Green Swoosh (Bottom Right) -->
+    <path fill="url(#greenGrad)" d="M 359.2,464.8 C 263.2,516.8 127.2,484.8 51.2,360.8 C 139.2,432.8 263.2,424.8 327.2,344.8 C 367.2,294.8 367.2,224.8 343.2,200.8 C 407.2,296.8 415.2,400.8 359.2,464.8 Z" />
+
+    <!-- Blue Swoosh (Bottom Left) -->
+    <path fill="url(#blueGrad)" d="M 47.2,360.8 C -4.8,264.8 27.2,128.8 151.2,52.8 C 79.2,140.8 87.2,264.8 167.2,328.8 C 217.2,368.8 287.2,368.8 311.2,344.8 C 215.2,408.8 111.2,416.8 47.2,360.8 Z" />
+
+    <!-- Center Question Mark -->
+    <path class="question-mark" d="M 256,176 C 220.7,176 198.4,198.3 198.4,228.8 H 230.4 C 230.4,213.6 241.6,204.8 256,204.8 C 270.4,204.8 281.6,213.6 281.6,226.4 C 281.6,238.4 274.4,245.6 261.6,256 C 245.6,268.8 236.8,283.2 236.8,308.8 V 316.8 H 272 V 312 C 272,293.6 279.2,284.8 294.4,272 C 309.6,259.2 320,244.8 320,224.8 C 320,196.8 293.6,176 256,176 Z M 254.4,342.4 C 241.6,342.4 232,352 232,364.8 C 232,377.6 241.6,387.2 254.4,387.2 C 267.2,387.2 276.8,377.6 276.8,364.8 C 276.8,352 267.2,342.4 254.4,342.4 Z" />
+  </g>
+</svg>
