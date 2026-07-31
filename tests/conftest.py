@@ -93,6 +93,7 @@ def build_client(
     score_max_points: int = 100,
     location_score_decay_km: float = 700.0,
     date_score_decay_days: float = 500.0,
+    language: str = 'EN',
 ) -> TestClient:
     settings = AppSettings(
         immich_server_url='https://placeholder.example.com/api',
@@ -109,6 +110,7 @@ def build_client(
         score_max_points=score_max_points,
         location_score_decay_km=location_score_decay_km,
         date_score_decay_days=date_score_decay_days,
+        language=language,
     )
     app = create_app(settings=settings)
     app.state.immich_client = immich

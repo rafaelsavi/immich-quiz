@@ -192,7 +192,8 @@ async def _resolve_album_name(immich: ImmichClient, library_name: str, album_id:
 
 
 def _build_question_response(state: MatchState, question: QuestionState) -> QuestionResponse:
-    player_index = state.setup.players.index(question.player_name) if question.player_name in state.setup.players else 0
+    players = state.setup.players
+    player_index = players.index(question.player_name) if question.player_name in players else 0
     return QuestionResponse(
         question_id=question.question_id,
         asset_id=question.asset_id,

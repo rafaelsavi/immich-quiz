@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -77,7 +77,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     )
 
     @app.middleware('http')
-    async def add_security_headers(request: Request, call_next) -> Response:
+    async def add_security_headers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         response: Response = await call_next(request)
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
