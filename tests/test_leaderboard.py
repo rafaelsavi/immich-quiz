@@ -64,12 +64,16 @@ def test_leaderboard_filter_by_config(tmp_path: Path) -> None:
     )
 
     # Filter to match m1's config
-    filtered = store.list_entries(rounds=10, round_length='1m', location_mode=True, date_mode=True, library='family', album='-')
+    filtered = store.list_entries(
+        rounds=10, round_length='1m', location_mode=True, date_mode=True, library='family', album='-'
+    )
     assert len(filtered) == 1
     assert filtered[0].match_id == 'm1'
 
     # Filter to match m2's config
-    filtered = store.list_entries(rounds=5, round_length='30s', location_mode=False, date_mode=True, library='family', album='Holidays')
+    filtered = store.list_entries(
+        rounds=5, round_length='30s', location_mode=False, date_mode=True, library='family', album='Holidays'
+    )
     assert len(filtered) == 1
     assert filtered[0].match_id == 'm2'
 

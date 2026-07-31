@@ -326,9 +326,9 @@ class ImmichClient:
 
     @staticmethod
     def _album_owner_id(album: dict[str, Any]) -> str:
-        for user in album.get("albumUsers", []):
-            if user.get("role") == "owner":
-                user_id = user.get("user", {}).get("id")
+        for user in album.get('albumUsers', []):
+            if user.get('role') == 'owner':
+                user_id = user.get('user', {}).get('id')
                 if user_id:
                     return str(user_id).strip()
         logger.warning(f"Album {album.get('id')} does not have an owner")
