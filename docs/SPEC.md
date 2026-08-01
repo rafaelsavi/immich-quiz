@@ -206,7 +206,7 @@ Each goal is scored from 0 to SCORE_MAX_POINTS per round.
 
 Let d be geodesic distance in kilometers between guessed and actual coordinates using Haversine.
 
-S_loc = max(0, floor(SCORE_MAX_POINTS * exp(-d / LOCATION_SCORE_DECAY_KM)))
+S_loc = max(0, round(SCORE_MAX_POINTS * exp(-d / LOCATION_SCORE_DECAY_KM)))
 
 ### 8.2 Date Score
 
@@ -218,7 +218,7 @@ capture date to the boundary of the guessed month:
 - If the actual date is before the guessed month: delta_days = days from the 1st of the guessed month to the actual date.
 - If the actual date is after the guessed month: delta_days = days from the last day of the guessed month to the actual date.
 
-S_date = max(0, floor(SCORE_MAX_POINTS * exp(-delta_days / DATE_SCORE_DECAY_DAYS)))
+S_date = max(0, round(SCORE_MAX_POINTS * exp(-delta_days / DATE_SCORE_DECAY_DAYS)))
 
 ### 8.3 Round and Match Aggregation
 

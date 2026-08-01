@@ -55,7 +55,7 @@ def date_diff_days(guessed_year: int, guessed_month: int, actual: date) -> int:
 
 
 def date_score(delta_days: int, *, decay_days: float = 500.0, max_points: int = 100) -> int:
-    return max(0, math.floor(max_points * math.exp(-delta_days / decay_days)))
+    return max(0, round(max_points * math.exp(-delta_days / decay_days)))
 
 
 def max_possible_score(

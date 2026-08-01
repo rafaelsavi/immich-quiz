@@ -16,7 +16,7 @@ the guessed-month interval boundary.
 
 Distance d is computed in km using Haversine.
 
-- score = floor(SCORE_MAX_POINTS * exp(-d / LOCATION_SCORE_DECAY_KM)), clamped to 0
+- score = round(SCORE_MAX_POINTS * exp(-d / LOCATION_SCORE_DECAY_KM)), clamped to 0
 
 ## Date Score
 
@@ -30,7 +30,7 @@ faces the actual capture date:
 
 (The last day accounts for month length and leap years.)
 
-- score = floor(SCORE_MAX_POINTS * exp(-DeltaD / DATE_SCORE_DECAY_DAYS)), clamped to 0
+- score = round(SCORE_MAX_POINTS * exp(-DeltaD / DATE_SCORE_DECAY_DAYS)), clamped to 0
 
 Reference points with defaults: 0 days -> 100, 500 days -> 36, 4500 days -> 0.
 

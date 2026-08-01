@@ -36,13 +36,13 @@ def test_location_score_supports_custom_parameters() -> None:
 
 def test_date_score_formula() -> None:
     assert date_score(0) == 100
-    assert date_score(500) == 36
+    assert date_score(500) == 37
     assert date_score(4500) == 0
 
 
 def test_date_score_supports_custom_parameters() -> None:
     assert date_score(0, decay_days=300, max_points=75) == 75
-    assert date_score(300, decay_days=300, max_points=75) == 27
+    assert date_score(300, decay_days=300, max_points=75) == 28
 
 
 def test_date_difference_is_zero_anywhere_inside_the_guessed_month() -> None:
