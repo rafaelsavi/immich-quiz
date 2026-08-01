@@ -123,7 +123,7 @@ export const TRANSLATIONS = {
     "award.time_traveler": "\u23F3 Time Traveler",
     "award.time_traveler_desc": (n) => `Most perfect date guesses (${n})`,
     "award.speed_demon": "\u26A1 Speed Demon",
-    "award.speed_demon_desc": (n) => `Most fast rounds (${n}) with no timeouts`,
+    "award.speed_demon_desc": (n) => `Most fast rounds (${n})`,
     // Errors & Popups
     "error.Player names must be unique": "Player names must be unique.",
     "error.Player list cannot be empty": "Player list cannot be empty.",
@@ -257,7 +257,7 @@ export const TRANSLATIONS = {
     "award.time_traveler": "\u23F3 Viajante do Tempo",
     "award.time_traveler_desc": (n) => `Maior número de palpites perfeitos de data (${n})`,
     "award.speed_demon": "\u26A1 Relâmpago",
-    "award.speed_demon_desc": (n) => `Maior número de rodadas rápidas (${n}) sem tempo esgotado`,
+    "award.speed_demon_desc": (n) => `Maior número de rodadas rápidas (${n})`,
     // Errors & Popups
     "error.Player names must be unique": "Os nomes dos jogadores devem ser únicos.",
     "error.Player list cannot be empty": "A lista de jogadores não pode estar vazia.",
