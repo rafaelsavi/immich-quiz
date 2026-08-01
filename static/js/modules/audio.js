@@ -141,6 +141,55 @@ export function playChime() {
   } catch (_) {}
 }
 
+export function playPinDropSound() {
+  if (!state || !state.audioEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.08);
+
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.08);
+  } catch (_) {}
+}
+
+export function playScoreRollupTick(progress = 0) {
+  if (!state || !state.audioEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    const clampedProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+    const baseFreq = 580 + clampedProgress * 520;
+    osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.035);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.035);
+  } catch (_) {}
+}
+
 export function playVictoryFanfare() {
   if (!state || !state.audioEnabled) return;
   try {

@@ -6,6 +6,7 @@ import {
   playBuzzer,
   playChime,
   playVictoryFanfare,
+  playScoreRollupTick,
   toggleAudio,
   updateAudioUi,
 } from "./modules/audio.js";
@@ -22,7 +23,7 @@ import {
   playerBadge,
   playerNameCell,
 } from "./modules/formatters.js";
-import { launchGoldConfetti, createPerfectBadge } from "./modules/effects.js";
+import { launchGoldConfetti, createPerfectBadge, launchStarBurst, spawnFloatingScorePop } from "./modules/effects.js";
 import {
   updateSubmitState,
   createPinIcon,
@@ -90,6 +91,13 @@ function initDateDropdowns() {
 
   el.dateGuessYear.value = String(currentYear);
   renderMonthOptions();
+
+  bindSelectWheelScroll(el.dateGuessYear, true);
+  bindSelectWheelScroll(el.dateGuessMonth, false);
+  bindSelectWheelScroll(el.roundCount, false);
+  bindSelectWheelScroll(el.roundLength, false);
+  bindSelectWheelScroll(el.library, false);
+  bindSelectWheelScroll(el.album, false);
 }
 
 function renderMonthOptions(keepSelection = true) {
@@ -204,6 +212,7 @@ function resetTimerBar() {
   const timerRow = el.timerTrack.closest(".timer-row");
   if (timerRow) timerRow.classList.remove("is-pulsing");
   el.timerRemaining.classList.remove("is-critical-text");
+  if (el.mediaFrame) el.mediaFrame.classList.remove("timer-tension");
 
   // Feature 7: reset all fullscreen timer overlays
   document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
@@ -250,6 +259,7 @@ function startTimer(roundLength) {
     const timerRow = el.timerTrack.closest(".timer-row");
     if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
     el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
+    if (el.mediaFrame) el.mediaFrame.classList.toggle("timer-tension", clamped <= 5 && clamped > 0);
 
     // Feature 7: sync fullscreen timer overlays
     syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
@@ -561,6 +571,48 @@ async function showRoundReveal(roundNumber) {
   }
 }
 
+function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 200) {
+  if (!cellElement || targetScore <= 0) {
+    if (cellElement) cellElement.textContent = String(targetScore);
+    return;
+  }
+  // Strictly proportional ratio (0.0 to 1.0) of score points vs max possible round points.
+  const maxPossible = maxPossibleScore || 200;
+  const scoreRatio = Math.max(0.05, Math.min(1, targetScore / maxPossible));
+
+  // Directly proportional sound & animation duration (linear scaling from 150ms to 1400ms):
+  const durationMs = Math.round(150 + scoreRatio * 1250);
+  const tickInterval = 45;
+
+  const span = document.createElement("span");
+  span.className = "score-rollup is-rolling";
+  span.textContent = "0";
+  cellElement.replaceChildren(span);
+
+  let startTime = null;
+  let lastTickTime = 0;
+
+  function step(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const progress = Math.min(1, (timestamp - startTime) / durationMs);
+    const currentVal = Math.floor(progress * targetScore);
+    span.textContent = String(currentVal);
+
+    if (timestamp - lastTickTime > tickInterval && progress < 1) {
+      lastTickTime = timestamp;
+      playScoreRollupTick(progress);
+    }
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      span.textContent = String(targetScore);
+      span.classList.remove("is-rolling");
+    }
+  }
+  requestAnimationFrame(step);
+}
+
 function renderRevealSummary(reveal) {
   el.roundMeta.textContent = t("reveal.title", reveal.round_number, reveal.total_rounds);
 
@@ -641,7 +693,7 @@ function renderRevealSummary(reveal) {
   const ordered = [...reveal.results].sort((a, b) => b.round_score - a.round_score);
   el.revealTableBody.replaceChildren();
 
-  ordered.forEach((result) => {
+  ordered.forEach((result, rIdx) => {
     const isPerfectLocation = reveal.location_mode && (result.location_score === maxPoints || result.distance_km === 0);
     const isPerfectDate = reveal.date_mode && (result.date_score === maxPoints || result.date_diff_days === 0);
     const isPerfectRound = maxRoundPoints > 0 && result.round_score === maxRoundPoints;
@@ -715,8 +767,12 @@ function renderRevealSummary(reveal) {
         ],
       });
     }
+
+    const isTotalScoreGroup = true;
     valueGroups.push({
       isPerfect: isPerfectRound,
+      isScoreGroup: isTotalScoreGroup,
+      roundScoreNum: result.round_score,
       items: [String(result.round_score), String(result.total_score)],
     });
 
@@ -730,15 +786,31 @@ function renderRevealSummary(reveal) {
             cell.appendChild(createPerfectBadge());
           }
         }
+        if (group.isScoreGroup && index === 0) {
+          // Only animate the points gained in this round (round_score), NOT the total score.
+          animateScoreRollup(cell, group.roundScoreNum, maxRoundPoints);
+        }
         row.appendChild(cell);
       });
     });
 
     el.revealTableBody.appendChild(row);
+
+    // Floating Score Pops per player row
+    setTimeout(() => {
+      if (isPerfectLocation) {
+        spawnFloatingScorePop(row, `🎯 BULLSEYE! +${result.location_score}`, "bullseye");
+      } else if (isPerfectDate) {
+        spawnFloatingScorePop(row, `⏳ TIME TRAVELER! +${result.date_score}`, "perfect");
+      } else if (result.round_score > 0) {
+        spawnFloatingScorePop(row, `+${result.round_score} pts`, "good");
+      }
+    }, rIdx * 250);
   });
 
   if (hasAnyPerfectInRound) {
     playChime();
+    launchStarBurst();
     launchGoldConfetti();
   }
 }

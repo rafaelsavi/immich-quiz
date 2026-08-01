@@ -1,6 +1,7 @@
 import { state, el } from "./state.js";
 import { t, showAlert } from "./i18n.js";
 import { playerInitial, playerColor, ACTUAL_COLOR } from "./formatters.js";
+import { playPinDropSound } from "./audio.js";
 
 export function createBaseTileLayers() {
   const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -61,6 +62,32 @@ export function createPinIcon(label, color) {
   });
 }
 
+export function spawnPinPulseEffect(map, latlng, color) {
+  if (!map) return;
+  const circle = L.circleMarker(latlng, {
+    radius: 10,
+    color: color || "#2563eb",
+    fillColor: color || "#2563eb",
+    fillOpacity: 0.5,
+    weight: 3,
+  }).addTo(map);
+
+  let start = null;
+  const duration = 550;
+  function animatePulse(timestamp) {
+    if (!start) start = timestamp;
+    const progress = (timestamp - start) / duration;
+    if (progress < 1) {
+      circle.setRadius(10 + progress * 25);
+      circle.setStyle({ fillOpacity: 0.6 * (1 - progress), opacity: 1 - progress });
+      requestAnimationFrame(animatePulse);
+    } else {
+      circle.remove();
+    }
+  }
+  requestAnimationFrame(animatePulse);
+}
+
 export function ensureGuessMap() {
   if (state.guessMap) {
     state.guessMap.invalidateSize();
@@ -79,13 +106,19 @@ export function ensureGuessMap() {
     // always resolve to canonical coordinates, avoiding mismatched pin placement.
     const lat = event.latlng.lat;
     const lng = (((event.latlng.lng + 180) % 360) + 360) % 360 - 180;
-    state.guessedLatLng = L.latLng(lat, lng);
+    const clickLatLng = L.latLng(lat, lng);
+    state.guessedLatLng = clickLatLng;
     const player = state.currentQuestion ? state.currentQuestion.player_name : "";
-    const icon = createPinIcon(playerInitial(player), playerColor(player));
+    const color = playerColor(player);
+    const icon = createPinIcon(playerInitial(player), color);
     if (state.guessMarker) {
       state.guessMarker.remove();
     }
     state.guessMarker = L.marker([lat, lng], { icon }).addTo(state.guessMap);
+
+    playPinDropSound();
+    spawnPinPulseEffect(state.guessMap, clickLatLng, color);
+
     updateSubmitState();
   });
 

@@ -5,6 +5,8 @@ import {
   playBuzzer,
   playChime,
   playVictoryFanfare,
+  playPinDropSound,
+  playScoreRollupTick,
   toggleAudio,
   unlockAudioContext,
   getAudioContext,
@@ -20,6 +22,8 @@ const playTickBtn = document.getElementById("play-tick-btn");
 const playBuzzerBtn = document.getElementById("play-buzzer-btn");
 const playChimeBtn = document.getElementById("play-chime-btn");
 const playFanfareBtn = document.getElementById("play-fanfare-btn");
+const playPinBtn = document.getElementById("play-pin-btn");
+const playRollupBtn = document.getElementById("play-rollup-btn");
 
 const synthFreq = document.getElementById("synth-freq");
 const synthFreqNum = document.getElementById("synth-freq-num");
@@ -198,6 +202,30 @@ function setupPresets() {
       playVictoryFanfare();
       triggerVisualizer(523, "triangle", 1.0);
       logEvent("playVictoryFanfare()", "Fanfare [349, 440, 523, 698 Hz] • Triangle");
+    });
+  }
+
+  if (playPinBtn) {
+    playPinBtn.addEventListener("click", () => {
+      unlockAudioContext();
+      playPinDropSound();
+      triggerVisualizer(320, "sine", 0.08);
+      logEvent("playPinDropSound()", "440 ➔ 180 Hz • Sine • 0.08s");
+    });
+  }
+
+  if (playRollupBtn) {
+    playRollupBtn.addEventListener("click", () => {
+      unlockAudioContext();
+      let stepCount = 0;
+      const interval = setInterval(() => {
+        const progress = stepCount / 10;
+        playScoreRollupTick(progress);
+        triggerVisualizer(580 + progress * 520, "triangle", 0.035);
+        stepCount++;
+        if (stepCount > 10) clearInterval(interval);
+      }, 50);
+      logEvent("playScoreRollupTick()", "580 ➔ 1100 Hz • Ascending ticker sequence");
     });
   }
 }
