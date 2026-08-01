@@ -634,7 +634,7 @@ function renderRevealSummary(reveal) {
         totalDistanceKm: 0, distanceCount: 0,
         totalDateDiffDays: 0, dateCount: 0,
         perfectLocationCount: 0, perfectDateCount: 0,
-        perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0,
+        perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0, totalDurationSec: 0,
       };
     }
     const ps = state.playerStats[result.player_name];
@@ -971,54 +971,46 @@ function renderAwards(summary) {
   const awards = [];
   const summaryByName = new Map((summary.players || []).map((player) => [player.player_name, player]));
 
-  const pickAwardWinner = (metricKey, tieBreakValueFn, { preferHigher = true, tieBreakPreferHigher = true } = {}) => {
+  const pickAwardWinner = (metricKey, tieBreakValueFn, { tieBreakPreferHigher = true, filterFn = null } = {}) => {
     let bestName = null;
-    let bestMetricValue = null;
+    let bestMetricValue = -Infinity;
     let bestTieValue = null;
     let hasTie = false;
 
     for (const [name, stats] of Object.entries(state.playerStats)) {
-      const metricValue = stats[metricKey] ?? 0;
-      if (metricValue < 1) {
+      if (filterFn && !filterFn(name, stats)) {
         continue;
       }
 
-      const tieValue = tieBreakValueFn ? tieBreakValueFn(name) : null;
-      if (bestName === null) {
-        bestName = name;
-        bestMetricValue = metricValue;
-        bestTieValue = tieValue;
+      const metricValue = stats[metricKey] ?? 0;
+      if (metricValue < 1) {
         continue;
       }
 
       if (metricValue > bestMetricValue) {
         bestName = name;
         bestMetricValue = metricValue;
-        bestTieValue = tieValue;
+        bestTieValue = tieBreakValueFn ? tieBreakValueFn(name) : null;
         hasTie = false;
-        continue;
-      }
+      } else if (metricValue === bestMetricValue) {
+        if (tieBreakValueFn) {
+          const tieValue = tieBreakValueFn(name);
+          const isBetter = tieBreakPreferHigher ? tieValue > bestTieValue : tieValue < bestTieValue;
+          const isWorse = tieBreakPreferHigher ? tieValue < bestTieValue : tieValue > bestTieValue;
 
-      if (metricValue < bestMetricValue) {
-        continue;
-      }
-
-      if (tieBreakValueFn) {
-        if (tieValue !== bestTieValue) {
-          const isBetterTie = tieBreakPreferHigher ? tieValue > bestTieValue : tieValue < bestTieValue;
-          if (isBetterTie) {
+          if (isBetter) {
             bestName = name;
             bestMetricValue = metricValue;
             bestTieValue = tieValue;
             hasTie = false;
+          } else if (isWorse) {
+            // Current leader remains ahead; no tie
           } else {
             hasTie = true;
           }
         } else {
           hasTie = true;
         }
-      } else {
-        hasTie = true;
       }
     }
 
@@ -1052,9 +1044,9 @@ function renderAwards(summary) {
   }
 
   // 3. Speed Demon — max fast rounds (<=50% max time) and 0 timeouts
-  const speedDemonPlayer = pickAwardWinner("fastRoundCount", (name) => state.playerStats[name]?.totalDurationSec ?? 0, {
-    preferHigher: true,
+  const speedDemonPlayer = pickAwardWinner("fastRoundCount", (name) => state.playerStats[name]?.totalDurationSec ?? Infinity, {
     tieBreakPreferHigher: false,
+    filterFn: (name, stats) => stats.timedOutCount === 0,
   });
 
   if (speedDemonPlayer) {

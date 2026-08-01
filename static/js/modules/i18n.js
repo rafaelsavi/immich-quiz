@@ -252,7 +252,7 @@ export const TRANSLATIONS = {
     "fmt.perfect_count": (n) => `\u{1F525}\u00D7${n}`,
     // Podium & Awards
     "summary.podium_score": (pts) => `${pts} pts`,
-    "award.sniper": "\u{1F3AF} Atirador de Élite",
+    "award.sniper": "\u{1F3AF} Sniper",
     "award.sniper_desc": (n) => `Maior número de palpites perfeitos de localização (${n})`,
     "award.time_traveler": "\u23F3 Viajante do Tempo",
     "award.time_traveler_desc": (n) => `Maior número de palpites perfeitos de data (${n})`,
