@@ -17,10 +17,11 @@ export const state = {
   matchFinished: false,
   leaderboardRows: [],
   leaderboardSort: { key: "total_score", asc: false },
-  audioEnabled: localStorage.getItem("immich_quiz_audio") !== "0",
+  timerTotalSeconds: 0,
+  timerRemainingSeconds: 0,
   /** @type {Record<string, number>} Total perfect rounds per player in current match */
   perfectCounts: {},
-  /** @type {Record<string, {totalDistanceKm: number, distanceCount: number, totalDateDiffDays: number, dateCount: number, perfectRounds: number, timedOutCount: number}>} */
+  /** @type {Record<string, {totalDistanceKm: number, distanceCount: number, totalDateDiffDays: number, dateCount: number, perfectLocationCount: number, perfectDateCount: number, perfectRounds: number, timedOutCount: number, fastRoundCount: number}>} */
   playerStats: {},
 };
 

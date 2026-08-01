@@ -226,6 +226,8 @@ function startTimer(roundLength) {
 
   const total = roundLength === "30s" ? 30 : 60;
   let remaining = total;
+  state.timerTotalSeconds = total;
+  state.timerRemainingSeconds = remaining;
   el.timerTrack.classList.remove("is-idle");
   el.timerLabel.textContent = t("game.timer_time_left");
   el.timerRemaining.textContent = `${remaining}s`;
@@ -233,6 +235,7 @@ function startTimer(roundLength) {
   state.timerRef = setInterval(() => {
     remaining -= 1;
     const clamped = Math.max(remaining, 0);
+    state.timerRemainingSeconds = clamped;
     const ratio = clamped / total;
     const isCritical = ratio <= 0.2 || clamped <= 5;
     const isWarning = ratio <= 0.5 && ratio > 0.2 && clamped > 5;
@@ -445,6 +448,23 @@ async function submitAnswer(fromTimeout = false) {
 
   try {
     const question = state.currentQuestion;
+    const playerName = question ? question.player_name : null;
+    const totalSec = state.timerTotalSeconds || 0;
+    const remainingSec = state.timerRemainingSeconds || 0;
+    const elapsedSec = fromTimeout ? totalSec : Math.max(0, totalSec - remainingSec);
+
+    if (playerName && totalSec > 0 && !fromTimeout && elapsedSec <= totalSec / 2) {
+      if (!state.playerStats[playerName]) {
+        state.playerStats[playerName] = {
+          totalDistanceKm: 0, distanceCount: 0,
+          totalDateDiffDays: 0, dateCount: 0,
+          perfectLocationCount: 0, perfectDateCount: 0,
+          perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0,
+        };
+      }
+      state.playerStats[playerName].fastRoundCount = (state.playerStats[playerName].fastRoundCount || 0) + 1;
+    }
+
     const payload = {
       match_id: state.matchId,
       question_id: question.question_id,
@@ -598,7 +618,8 @@ function renderRevealSummary(reveal) {
       state.playerStats[result.player_name] = {
         totalDistanceKm: 0, distanceCount: 0,
         totalDateDiffDays: 0, dateCount: 0,
-        perfectRounds: 0, timedOutCount: 0,
+        perfectLocationCount: 0, perfectDateCount: 0,
+        perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0,
       };
     }
     const ps = state.playerStats[result.player_name];
@@ -610,6 +631,8 @@ function renderRevealSummary(reveal) {
       ps.totalDateDiffDays += result.date_diff_days;
       ps.dateCount += 1;
     }
+    if (isPerfectLocation) ps.perfectLocationCount += 1;
+    if (isPerfectDate) ps.perfectDateCount += 1;
     if (isPerfectPlayer) ps.perfectRounds += 1;
     if (result.timed_out) ps.timedOutCount += 1;
 
@@ -925,81 +948,64 @@ function renderAwards(summary) {
 
   const awards = [];
 
-  // Globe Trotter — closest average distance (location mode, multiplayer with data)
+  // 1. Sniper — most perfect location guesses (0 km / max points)
   if (summary.location_mode) {
-    let bestPlayer = null;
-    let bestAvg = Infinity;
+    let bestSniper = null;
+    let maxLocationPerfect = 0;
     for (const [name, stats] of Object.entries(state.playerStats)) {
-      if (stats.distanceCount > 0) {
-        const avg = stats.totalDistanceKm / stats.distanceCount;
-        if (avg < bestAvg) {
-          bestAvg = avg;
-          bestPlayer = name;
-        }
+      if (stats.perfectLocationCount > maxLocationPerfect) {
+        maxLocationPerfect = stats.perfectLocationCount;
+        bestSniper = name;
       }
     }
-    if (bestPlayer) {
+    if (bestSniper && maxLocationPerfect > 0) {
       awards.push({
-        titleKey: "award.globe_trotter",
-        descKey: "award.globe_trotter_desc",
-        player: bestPlayer,
+        titleKey: "award.sniper",
+        descKey: "award.sniper_desc",
+        descArgs: [maxLocationPerfect],
+        player: bestSniper,
       });
     }
   }
 
-  // Time Traveler — most accurate dates (date mode)
+  // 2. Time Traveler — most perfect date guesses (0 days / exact month / max points)
   if (summary.date_mode) {
-    let bestPlayer = null;
-    let bestAvg = Infinity;
+    let bestTimeTraveler = null;
+    let maxDatePerfect = 0;
     for (const [name, stats] of Object.entries(state.playerStats)) {
-      if (stats.dateCount > 0) {
-        const avg = stats.totalDateDiffDays / stats.dateCount;
-        if (avg < bestAvg) {
-          bestAvg = avg;
-          bestPlayer = name;
-        }
+      if (stats.perfectDateCount > maxDatePerfect) {
+        maxDatePerfect = stats.perfectDateCount;
+        bestTimeTraveler = name;
       }
     }
-    if (bestPlayer) {
+    if (bestTimeTraveler && maxDatePerfect > 0) {
       awards.push({
         titleKey: "award.time_traveler",
         descKey: "award.time_traveler_desc",
-        player: bestPlayer,
+        descArgs: [maxDatePerfect],
+        player: bestTimeTraveler,
       });
     }
   }
 
-  // Bullseye Master — most perfect rounds
-  let bestPerfectPlayer = null;
-  let bestPerfectCount = 0;
-  for (const [name, count] of Object.entries(state.perfectCounts)) {
-    if (count > bestPerfectCount) {
-      bestPerfectCount = count;
-      bestPerfectPlayer = name;
+  // 3. Speed Demon — max fast rounds (<=50% max time) and 0 timeouts
+  let maxFastRounds = 0;
+  let speedDemonPlayer = null;
+
+  for (const [name, stats] of Object.entries(state.playerStats)) {
+    if (stats.timedOutCount === 0 && (stats.fastRoundCount || 0) > maxFastRounds) {
+      maxFastRounds = stats.fastRoundCount;
+      speedDemonPlayer = name;
     }
-  }
-  if (bestPerfectPlayer && bestPerfectCount > 0) {
-    awards.push({
-      titleKey: "award.bullseye_master",
-      descKey: "award.bullseye_master_desc",
-      descArgs: [bestPerfectCount],
-      player: bestPerfectPlayer,
-    });
   }
 
-  // Speed Demon — no timeouts (only if timed rounds AND at least one other player timed out)
-  if (summary.players.length > 1) {
-    const anyTimedOut = Object.values(state.playerStats).some((s) => s.timedOutCount > 0);
-    if (anyTimedOut) {
-      const neverTimedOut = Object.entries(state.playerStats).filter(([, s]) => s.timedOutCount === 0);
-      if (neverTimedOut.length > 0 && neverTimedOut.length < summary.players.length) {
-        awards.push({
-          titleKey: "award.speed_demon",
-          descKey: "award.speed_demon_desc",
-          player: neverTimedOut[0][0],
-        });
-      }
-    }
+  if (speedDemonPlayer && maxFastRounds > 0) {
+    awards.push({
+      titleKey: "award.speed_demon",
+      descKey: "award.speed_demon_desc",
+      descArgs: [maxFastRounds],
+      player: speedDemonPlayer,
+    });
   }
 
   if (awards.length === 0) return;
