@@ -919,24 +919,6 @@ td.is-perfect-cell {
   }
 }
 
-.pin-ripple {
-  border-radius: 50%;
-  border: 2px dashed;
-  background: transparent;
-  animation: pinRipple 1.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
-  pointer-events: none;
-}
-
-@keyframes pinRipple {
-  0% {
-    transform: scale(0.2);
-    opacity: 0.95;
-  }
-  100% {
-    transform: scale(3.5);
-    opacity: 0;
-  }
-}
 
 /* ─── Feature 6: Pulsing Low-Time Warning ─── */
 

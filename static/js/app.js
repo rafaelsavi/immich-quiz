@@ -693,6 +693,7 @@ function renderRevealMap(reveal) {
     return;
   }
 
+  // 1. Plot the actual (correct) pinpoint star marker immediately
   const actual = L.latLng(reveal.actual_latitude, reveal.actual_longitude);
   const actualMarker = L.marker(actual, {
     icon: createPinIcon("\u2605", ACTUAL_COLOR),
@@ -703,16 +704,15 @@ function renderRevealMap(reveal) {
   state.revealLayers.push(actualMarker);
 
   const points = [actual];
+  const playerGuesses = [];
 
-  // Feature 5: fit bounds first, then add player pins with staggered animation
-  const playerPins = [];
   reveal.results.forEach((result) => {
     if (result.guessed_latitude === null || result.guessed_longitude === null) {
       return;
     }
     const guessed = L.latLng(result.guessed_latitude, result.guessed_longitude);
     points.push(guessed);
-    playerPins.push({ result, guessed });
+    playerGuesses.push({ result, guessed });
   });
 
   if (points.length > 1) {
@@ -721,34 +721,60 @@ function renderRevealMap(reveal) {
     state.revealMap.setView(actual, 4);
   }
 
-  // Stagger pin drops (slower stagger: 750ms between each pin)
-  playerPins.forEach(({ result, guessed }, index) => {
-    setTimeout(() => {
+  if (playerGuesses.length === 0) {
+    return;
+  }
+
+  // 2. Expand ALL lines simultaneously from actual location to player guess points!
+  const lineDuration = 800; // ms for line expansion
+
+  setTimeout(() => {
+    // Create all polylines anchored at actual location
+    const lineEntries = playerGuesses.map(({ result, guessed }) => {
       const color = playerColor(result.player_name);
-      const icon = createAnimatedPinIcon(playerInitial(result.player_name), color);
-      const marker = L.marker(guessed, { icon })
-        .addTo(state.revealMap)
-        .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(result.distance_km)));
-      const line = L.polyline([guessed, actual], { color, weight: 2, dashArray: "8, 10" }).addTo(state.revealMap);
-
-      // Add ripple circle at pin location
-      const ripple = L.circleMarker(guessed, {
-        radius: 22,
-        className: "pin-ripple",
-        color: color,
-        fillOpacity: 0,
-        weight: 2,
+      const line = L.polyline([actual, actual], {
+        color,
+        weight: 3,
+        dashArray: "8, 8",
+        opacity: 0.85,
       }).addTo(state.revealMap);
-      setTimeout(() => state.revealMap.removeLayer(ripple), 1800);
+      state.revealLayers.push(line);
+      return { result, guessed, color, line };
+    });
 
-      state.revealLayers.push(marker, line);
-    }, index * 750);
-  });
+    const startTime = performance.now();
+
+    function animateAllLines(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / lineDuration);
+
+      lineEntries.forEach(({ guessed, line }) => {
+        const curLat = actual.lat + (guessed.lat - actual.lat) * progress;
+        const curLng = actual.lng + (guessed.lng - actual.lng) * progress;
+        line.setLatLngs([actual, [curLat, curLng]]);
+      });
+
+      if (progress < 1) {
+        requestAnimationFrame(animateAllLines);
+      } else {
+        // All lines reached their guess points! Pop in all player markers together!
+        lineEntries.forEach(({ result, guessed, color }) => {
+          const icon = createPopPinIcon(playerInitial(result.player_name), color);
+          const marker = L.marker(guessed, { icon })
+            .addTo(state.revealMap)
+            .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(result.distance_km)));
+          state.revealLayers.push(marker);
+        });
+      }
+    }
+
+    requestAnimationFrame(animateAllLines);
+  }, 350);
 }
 
-function createAnimatedPinIcon(label, color) {
+function createPopPinIcon(label, color) {
   return L.divIcon({
-    className: "player-pin player-pin-animated",
+    className: "player-pin player-pin-pop",
     html: `<span style="background:${color}"><b>${label}</b></span>`,
     iconSize: [28, 28],
     iconAnchor: [14, 28],
