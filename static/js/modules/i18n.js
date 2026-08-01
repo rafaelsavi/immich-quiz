@@ -134,6 +134,15 @@ export const TRANSLATIONS = {
     "error.unknown_album": "Unknown album ID for selected library.",
     "game.fullscreen_error": (msg) => `Fullscreen unavailable: ${msg}`,
     "setup.startup_error": (details) => `Some startup data could not be loaded:\n\n${details}`,
+    // Map theme layers
+    "map.layer_streets": "Streets",
+    "map.layer_satellite": "Satellite",
+    // Summary Journey & Memory Cards
+    "summary.journey_map_heading": "World Journey Map",
+    "summary.polaroids_heading": "Match Memory Cards",
+    "summary.share_btn": "Share Match",
+    "summary.share_copied": "Match summary copied to clipboard!",
+    "summary.journey_round": (n) => `Round ${n}`,
   },
   PT: {
     // Setup card
@@ -268,6 +277,15 @@ export const TRANSLATIONS = {
     "error.unknown_album": "Álbum desconhecido para a biblioteca selecionada.",
     "game.fullscreen_error": (msg) => `Tela cheia indisponível: ${msg}`,
     "setup.startup_error": (details) => `Não foi possível carregar alguns dados iniciais:\n\n${details}`,
+    // Map theme layers
+    "map.layer_streets": "Ruas",
+    "map.layer_satellite": "Satélite",
+    // Summary Journey & Memory Cards
+    "summary.journey_map_heading": "Mapa da Jornada Mundial",
+    "summary.polaroids_heading": "Cartões de Memória da Partida",
+    "summary.share_btn": "Compartilhar Partida",
+    "summary.share_copied": "Resumo da partida copiado para a área de transferência!",
+    "summary.journey_round": (n) => `Rodada ${n}`,
   },
 };
 

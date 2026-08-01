@@ -28,6 +28,7 @@ import {
   createPinIcon,
   ensureGuessMap,
   ensureRevealMap,
+  renderJourneyMap,
   toggleMapFullscreen,
   syncFullscreenButtons,
 } from "./modules/maps.js";
@@ -357,6 +358,7 @@ async function startMatch(event) {
   state.matchFinished = false;
   state.perfectCounts = {};
   state.playerStats = {};
+  state.roundHistory = [];
 
   // Standings stay secret while a match is in progress.
   el.leaderboardCard.classList.add("hidden");
@@ -522,6 +524,26 @@ async function showRoundReveal(roundNumber) {
     method: "POST",
     body: JSON.stringify({ match_id: state.matchId, round_number: roundNumber }),
   });
+
+  // Record round history for end-game recap (World Journey Map & Polaroid Cards)
+  const existingIdx = state.roundHistory.findIndex((r) => r.round_number === reveal.round_number);
+  const entry = {
+    round_number: reveal.round_number,
+    media_url: state.currentQuestion ? state.currentQuestion.media_url : null,
+    actual_latitude: reveal.actual_latitude,
+    actual_longitude: reveal.actual_longitude,
+    actual_year: reveal.actual_year,
+    actual_month: reveal.actual_month,
+    actual_city: reveal.actual_city,
+    actual_country: reveal.actual_country,
+    location_string: formatPlace(reveal),
+    results: reveal.results,
+  };
+  if (existingIdx >= 0) {
+    state.roundHistory[existingIdx] = entry;
+  } else {
+    state.roundHistory.push(entry);
+  }
 
   showCard(el.gameCard);
   el.guessingUi.classList.add("hidden");
@@ -904,8 +926,103 @@ async function showMatchSummary() {
     el.summaryTableBody.appendChild(row);
   });
 
+  state.lastSummary = summary;
+
+  // Render World Journey Map
+  renderJourneyMap(state.roundHistory);
+
+  // Render Polaroid Memory Cards
+  renderPolaroidGallery(state.roundHistory);
+
   el.leaderboardCard.classList.remove("hidden");
   await loadLeaderboard();
+}
+
+function renderPolaroidGallery(roundHistory) {
+  if (!el.polaroidGallery) return;
+  el.polaroidGallery.replaceChildren();
+
+  (roundHistory || []).forEach((round) => {
+    const card = document.createElement("div");
+    card.className = "polaroid-card";
+
+    const imgWrap = document.createElement("div");
+    imgWrap.className = "polaroid-img-wrap";
+
+    if (round.media_url) {
+      const img = document.createElement("img");
+      img.className = "polaroid-img";
+      img.src = round.media_url;
+      img.alt = `Round ${round.round_number}`;
+      imgWrap.appendChild(img);
+    }
+
+    const caption = document.createElement("div");
+    caption.className = "polaroid-caption";
+
+    const badge = document.createElement("span");
+    badge.className = "polaroid-round-badge";
+    badge.textContent = t("summary.journey_round", round.round_number);
+
+    const loc = document.createElement("span");
+    loc.className = "polaroid-location";
+    loc.textContent = round.location_string || t("fmt.unknown_place");
+
+    const date = document.createElement("span");
+    date.className = "polaroid-date";
+    date.textContent = formatMonth(round.actual_year, round.actual_month);
+
+    caption.append(badge, loc, date);
+    card.append(imgWrap, caption);
+    el.polaroidGallery.appendChild(card);
+  });
+}
+
+async function shareMatchSummary() {
+  if (!state.lastSummary) return;
+  const summary = state.lastSummary;
+
+  const winnerText =
+    summary.winners.length > 1
+      ? t("summary.tie", summary.winners.join(" & "))
+      : t("summary.winner", summary.winners[0]);
+
+  let text = `🏆 Immich Quiz - ${winnerText}\n`;
+  text += `📍 ${summary.library_name} | ${summary.rounds_played} rounds\n\n`;
+  text += `Scores:\n`;
+  summary.players.forEach((p) => {
+    text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;
+  });
+
+  try {
+    if (navigator.share && navigator.canShare && navigator.canShare({ text })) {
+      await navigator.share({ title: "Immich Quiz Results", text });
+    } else {
+      await navigator.clipboard.writeText(text);
+      showShareToast(t("summary.share_copied"));
+    }
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      try {
+        await navigator.clipboard.writeText(text);
+        showShareToast(t("summary.share_copied"));
+      } catch (clipErr) {
+        showAlert(clipErr.message);
+      }
+    }
+  }
+}
+
+function showShareToast(message) {
+  let toast = document.querySelector(".share-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.className = "share-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
 /* ── Feature 3: Podium ── */
@@ -1212,6 +1329,12 @@ el.nextRound.addEventListener("click", () => {
 
 el.newMatch.addEventListener("click", returnToSetup);
 
+if (el.shareSummaryBtn) {
+  el.shareSummaryBtn.addEventListener("click", () => {
+    shareMatchSummary().catch((err) => showAlert(err.message));
+  });
+}
+
 el.gameRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
 el.gameExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
@@ -1220,12 +1343,15 @@ el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
 el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
 el.revealMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.revealMapShell));
+if (el.journeyMapFullscreen) {
+  el.journeyMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.journeyMapShell));
+}
 
 document.addEventListener("fullscreenchange", () => {
   syncFullscreenButtons();
 
   // Leaflet needs to re-measure after the container resizes.
-  [state.guessMap, state.revealMap].forEach((map) => {
+  [state.guessMap, state.revealMap, state.journeyMap].forEach((map) => {
     if (map) {
       setTimeout(() => map.invalidateSize(), 120);
     }
