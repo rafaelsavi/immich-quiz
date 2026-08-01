@@ -1,5 +1,9 @@
 # Immich Quiz
 
+[![GitHub Release](https://img.shields.io/github/v/release/rafaelsavi/immich-quiz?color=blue&logo=github)](https://github.com/rafaelsavi/immich-quiz/releases)
+[![GHCR Container](https://img.shields.io/badge/docker-ghcr.io%2Frafaelsavi%2Fimmich--quiz-blue?logo=docker)](https://github.com/rafaelsavi/immich-quiz/pkgs/container/immich-quiz)
+[![CI](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml)
+
 Immich Quiz is a local-first, pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when each photo was taken, scored on map distance and date accuracy.
 
 ![Immich Quiz Home Screen](docs/assets/home.webp)
@@ -19,6 +23,18 @@ For scoring details see [docs/SCORING.md](docs/SCORING.md).
 ---
 
 ## Self-Hosting
+
+### Container Image & Tag Reference
+
+The official Docker image is published to GitHub Container Registry (GHCR):
+
+`ghcr.io/rafaelsavi/immich-quiz`
+
+| Tag | Description | Command |
+|---|---|---|
+| `:latest` | Latest build from `main` branch | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
+| `:v0.1.2` / `:0.1.2` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v0.1.2` |
+| `:<sha>` | Exact commit hash build | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>` |
 
 ### Starting the server
 
