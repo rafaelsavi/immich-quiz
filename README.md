@@ -129,3 +129,5 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 - [docs/API.md](docs/API.md) — full API contract and response schemas
 - [docs/SCORING.md](docs/SCORING.md) — mathematical scoring formulas and decay reference tables
 - [docs/AUDIO_PLAYGROUND.md](docs/AUDIO_PLAYGROUND.md) — Web Audio sound engine documentation and testing playground guide
+- [docs/AWARDS.md](docs/AWARDS.md) — guide to performance awards, criteria, and customization instructions
+- [docs/TODO.md](docs/TODO.md) — project roadmap and backlog for planned features and technical tasks

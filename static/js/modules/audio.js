@@ -2,6 +2,23 @@ import { state, el } from "./state.js";
 
 let audioCtx = null;
 
+function getInitialAudioPreference() {
+  try {
+    const stored = localStorage.getItem("immich_quiz_audio");
+    if (stored === null) return true;
+    return stored === "1";
+  } catch (_) {
+    return true;
+  }
+}
+
+function initializeAudioState() {
+  state.audioEnabled = getInitialAudioPreference();
+  updateAudioUi();
+}
+
+initializeAudioState();
+
 export function unlockAudioContext() {
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -15,18 +32,26 @@ export function unlockAudioContext() {
 }
 
 document.addEventListener("pointerdown", unlockAudioContext, { capture: true });
+document.addEventListener("mousedown", unlockAudioContext, { capture: true });
+document.addEventListener("touchstart", unlockAudioContext, { capture: true });
 document.addEventListener("keydown", unlockAudioContext, { capture: true });
+document.addEventListener("click", unlockAudioContext, { capture: true });
 
 export function getAudioContext() {
   unlockAudioContext();
   return audioCtx;
 }
 
-export function playTone(freq, type, duration, gainValue = 0.15) {
+export function playTone(freq, type, duration, gainValue = 0.22) {
   if (!state || !state.audioEnabled) return;
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
+
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
 
@@ -34,24 +59,63 @@ export function playTone(freq, type, duration, gainValue = 0.15) {
     osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
     gain.gain.setValueAtTime(gainValue, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+    gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + duration);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
 
-    osc.start();
+    osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
   } catch (_) {
-    // Ignore audio autoplay restrictions
+    // Ignore audio restrictions
   }
 }
 
-export function playTick() {
-  playTone(800, "sine", 0.05, 0.08);
+export function playTick(clampedSec = 5) {
+  if (!state || !state.audioEnabled) return;
+  const clamped = Math.max(1, Math.min(5, Number(clampedSec) || 5));
+  const step = 5 - clamped; // 0 (at 5s) to 4 (at 1s)
+
+  // Gentle pitch rise: 520Hz at 5s up to 720Hz at 1s
+  const freq = 520 + step * 50;
+  // Moderate volume rise: 0.15 at 5s up to 0.25 at 1s
+  const gain = 0.15 + step * 0.025;
+
+  playTone(freq, "sine", 0.09, gain);
 }
 
 export function playBuzzer() {
-  playTone(220, "sawtooth", 0.4, 0.12);
+  if (!state || !state.audioEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    // Dramatic double-pulse buzzer (BUZZ - BUZZ!)
+    [0, 0.22].forEach((delay) => {
+      setTimeout(() => {
+        [140, 210].forEach((freq) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = "sawtooth";
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+          gain.gain.setValueAtTime(0.35, ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.18);
+        });
+      }, delay * 1000);
+    });
+  } catch (_) {}
 }
 
 export function playChime() {
@@ -74,6 +138,55 @@ export function playChime() {
         osc.stop(ctx.currentTime + 0.35);
       }, idx * 100);
     });
+  } catch (_) {}
+}
+
+export function playPinDropSound() {
+  if (!state || !state.audioEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.08);
+
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.08);
+  } catch (_) {}
+}
+
+export function playScoreRollupTick(progress = 0) {
+  if (!state || !state.audioEnabled) return;
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    const clampedProgress = Math.max(0, Math.min(1, Number(progress) || 0));
+    const baseFreq = 580 + clampedProgress * 520;
+    osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.035);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.035);
   } catch (_) {}
 }
 

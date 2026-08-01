@@ -92,7 +92,7 @@ export const TRANSLATIONS = {
     "summary.mode_location": "location",
     "summary.mode_date": "date",
     "summary.meta": (rounds, modes, library, album) =>
-      `${rounds} rounds\nGuess Mode: ${modes}\nLibrary: ${library} / ${album}`,
+      `Rounds: ${rounds}\nGuess Mode: ${modes}\nLibrary: ${library} / ${album}`,
     "summary.col_rank": "#",
     "summary.col_player": "Player",
     "summary.col_location": "Location",
@@ -115,6 +115,15 @@ export const TRANSLATIONS = {
     "fmt.day": "day",
     "fmt.days": "days",
     "fmt.timed_out_tag": "TIMED OUT",
+    "fmt.perfect_count": (n) => `\u{1F525}\u00D7${n}`,
+    // Podium & Awards
+    "summary.podium_score": (pts) => `${pts} pts`,
+    "award.sniper": "\u{1F3AF} Sniper",
+    "award.sniper_desc": (n) => `Most perfect location guesses (${n})`,
+    "award.time_traveler": "\u23F3 Time Traveler",
+    "award.time_traveler_desc": (n) => `Most perfect date guesses (${n})`,
+    "award.speed_demon": "\u26A1 Speed Demon",
+    "award.speed_demon_desc": (n) => `Most fast rounds (${n})`,
     // Errors & Popups
     "error.Player names must be unique": "Player names must be unique.",
     "error.Player list cannot be empty": "Player list cannot be empty.",
@@ -125,6 +134,15 @@ export const TRANSLATIONS = {
     "error.unknown_album": "Unknown album ID for selected library.",
     "game.fullscreen_error": (msg) => `Fullscreen unavailable: ${msg}`,
     "setup.startup_error": (details) => `Some startup data could not be loaded:\n\n${details}`,
+    // Map theme layers
+    "map.layer_streets": "Streets",
+    "map.layer_satellite": "Satellite",
+    // Summary Journey & Memory Cards
+    "summary.journey_map_heading": "World Journey Map",
+    "summary.polaroids_heading": "Match Memory Cards",
+    "summary.share_btn": "Share Match",
+    "summary.share_copied": "Match summary copied to clipboard!",
+    "summary.journey_round": (n) => `Round ${n}`,
   },
   PT: {
     // Setup card
@@ -217,7 +235,7 @@ export const TRANSLATIONS = {
     "summary.mode_location": "localização",
     "summary.mode_date": "data",
     "summary.meta": (rounds, modes, library, album) =>
-      `${rounds} rodadas\nAdivinhação: ${modes}\nBiblioteca: ${library} / ${album}`,
+      `Rodadas: ${rounds}\nAdivinhação: ${modes}\nBiblioteca: ${library} / ${album}`,
     "summary.col_rank": "#",
     "summary.col_player": "Jogador",
     "summary.col_location": "Localização",
@@ -240,6 +258,15 @@ export const TRANSLATIONS = {
     "fmt.day": "dia",
     "fmt.days": "dias",
     "fmt.timed_out_tag": "TEMPO ESGOTADO",
+    "fmt.perfect_count": (n) => `\u{1F525}\u00D7${n}`,
+    // Podium & Awards
+    "summary.podium_score": (pts) => `${pts} pts`,
+    "award.sniper": "\u{1F3AF} Sniper",
+    "award.sniper_desc": (n) => `Maior número de palpites perfeitos de localização (${n})`,
+    "award.time_traveler": "\u23F3 Viajante do Tempo",
+    "award.time_traveler_desc": (n) => `Maior número de palpites perfeitos de data (${n})`,
+    "award.speed_demon": "\u26A1 Relâmpago",
+    "award.speed_demon_desc": (n) => `Maior número de rodadas rápidas (${n})`,
     // Errors & Popups
     "error.Player names must be unique": "Os nomes dos jogadores devem ser únicos.",
     "error.Player list cannot be empty": "A lista de jogadores não pode estar vazia.",
@@ -250,6 +277,15 @@ export const TRANSLATIONS = {
     "error.unknown_album": "Álbum desconhecido para a biblioteca selecionada.",
     "game.fullscreen_error": (msg) => `Tela cheia indisponível: ${msg}`,
     "setup.startup_error": (details) => `Não foi possível carregar alguns dados iniciais:\n\n${details}`,
+    // Map theme layers
+    "map.layer_streets": "Ruas",
+    "map.layer_satellite": "Satélite",
+    // Summary Journey & Memory Cards
+    "summary.journey_map_heading": "Mapa da Jornada Mundial",
+    "summary.polaroids_heading": "Cartões de Memória da Partida",
+    "summary.share_btn": "Compartilhar Partida",
+    "summary.share_copied": "Resumo da partida copiado para a área de transferência!",
+    "summary.journey_round": (n) => `Rodada ${n}`,
   },
 };
 

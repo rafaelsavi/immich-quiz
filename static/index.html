@@ -103,6 +103,13 @@
           title="Toggle fullscreen image" data-i18n="game.fullscreen_btn">
           Fullscreen
         </button>
+        <div class="fullscreen-timer" id="fs-timer-image">
+          <div class="fs-timer-head">
+            <span class="fs-timer-label"></span>
+            <span class="fs-timer-remaining"></span>
+          </div>
+          <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
+        </div>
       </div>
 
       <div id="guessing-ui">
@@ -117,6 +124,13 @@
                 title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
                 Fullscreen
               </button>
+              <div class="fullscreen-timer" id="fs-timer-guess-map">
+                <div class="fs-timer-head">
+                  <span class="fs-timer-label"></span>
+                  <span class="fs-timer-remaining"></span>
+                </div>
+                <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
+              </div>
             </div>
           </div>
           <div id="date-guess-wrap" class="hidden">
@@ -150,12 +164,6 @@
       <div id="reveal-ui" class="hidden">
         <div id="reveal-actual" class="reveal-actual"></div>
         <div id="reveal-legend" class="reveal-legend"></div>
-        <div class="table-scroll">
-          <table id="reveal-table">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-        </div>
         <div class="field-head" id="reveal-map-head">
           <label data-i18n="reveal.map_label">Round Map</label>
         </div>
@@ -165,6 +173,12 @@
             title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
             Fullscreen
           </button>
+        </div>
+        <div class="table-scroll">
+          <table id="reveal-table">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
         </div>
         <button id="next-round" class="btn-primary" data-i18n="reveal.next_round_btn">Next Round</button>
         <div class="game-actions">
@@ -176,15 +190,37 @@
 
     <section id="summary-card" class="card hidden">
       <h2 data-i18n="summary.heading">Match Results</h2>
-      <div id="summary-winner" class="summary-winner"></div>
       <div id="summary-meta" class="summary-meta"></div>
+      <div id="summary-winner" class="summary-winner"></div>
       <div class="table-scroll">
         <table id="summary-table">
           <thead></thead>
           <tbody></tbody>
         </table>
       </div>
-      <button id="new-match" class="btn-primary" data-i18n="summary.new_match_btn">Start New Match</button>
+
+      <div class="field-head hidden" id="journey-map-head">
+        <label data-i18n="summary.journey_map_heading">World Journey Map</label>
+      </div>
+      <div id="journey-map-shell" class="map-shell hidden">
+        <div id="journey-map"></div>
+        <button type="button" id="journey-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+          title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
+          Fullscreen
+        </button>
+      </div>
+
+      <div class="polaroids-section">
+        <div class="field-head">
+          <label data-i18n="summary.polaroids_heading">Match Memory Cards</label>
+        </div>
+        <div id="polaroid-gallery" class="polaroid-grid"></div>
+      </div>
+
+      <div class="summary-actions">
+        <button id="new-match" class="btn-primary" data-i18n="summary.new_match_btn">Start New Match</button>
+        <button id="share-summary-btn" class="btn-secondary" data-i18n="summary.share_btn">Share Match</button>
+      </div>
     </section>
 
     <section id="leaderboard-card" class="card">

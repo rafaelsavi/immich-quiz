@@ -48,7 +48,8 @@ After every player in the round has submitted, the reveal screen appears:
   by a dashed line. Your distance error is shown in kilometres.
 - **Date**: the actual month/year is shown next to your guess. Your error is
   shown as a years and months difference.
-- Your score for the round and your running total are shown.
+- **Score Rollup Ticker**: points gained in the current round tick up dynamically (`0` ➔ `+round_score`) accompanied by an ascending-pitch audio stream whose duration is directly proportional to the points scored.
+- **Floating Score Popups & Star Bursts**: floating badge popups (e.g. 🎯 **BULLSEYE!**, ⏳ **TIME TRAVELER!**) float up over player reveal cards, and perfect scores trigger golden star particle celebrations.
 
 The next round starts with the pass-device overlay for the first player again.
 
@@ -69,6 +70,13 @@ See [SCORING.md](SCORING.md) for the exact formulas.
 
 After the final round (or from the setup screen navigation), the leaderboard shows all historical matches sorted by most recent. Filter entries by round count, timer duration, enabled game modes, library, or album using the filter bar, and sort rows by clicking the column headers.
 
-## Sound Effects & Audio
+## Sound Effects & Arcade Audio
 
-The game includes audio feedback for key interactions (selection ticks, wrong answer buzzers, high accuracy chimes, and victory fanfares). Sound effects can be toggled on or off at any time using the speaker icon (🔊/🔇) in the header.
+Immich Quiz features Web Audio API synthesized sound feedback for key interactions:
+- **UI & Map Pin Ticks**: tactile clicks for selections and map pin drops (`playPinDropSound`, `playTick`).
+- **Score Rollup Ticker**: ascending pitch ticks proportional to round points (`playScoreRollupTick`).
+- **Wrong Answer Buzzers**: low-pitch alert sounds (`playBuzzer`).
+- **High Accuracy Chimes & Star Bursts**: arpeggio chords for high precision (`playChime`).
+- **Victory Fanfare**: celebratory end-of-match fanfare (`playVictoryFanfare`).
+
+Sound effects can be toggled on or off at any time using the speaker icon (🔊/🔇) in the header. Test, audit, and synthesize sounds interactively using the [Audio Testing Playground](AUDIO_PLAYGROUND.md).
