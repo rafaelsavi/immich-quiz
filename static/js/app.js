@@ -892,13 +892,25 @@ async function showMatchSummary() {
 /* ── Feature 3: Podium ── */
 
 function renderPodium(summary) {
-  const medals = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
-  const top3 = summary.players.slice(0, 3);
+  const isMultiplayer = summary.players.length > 1;
 
-  if (top3.length === 0) {
-    el.summaryWinner.textContent = "";
+  const titleText = summary.winners.length > 1
+    ? t("summary.tie", summary.winners.join(" & "))
+    : t("summary.winner", summary.winners[0]);
+
+  el.summaryWinner.replaceChildren();
+  const title = document.createElement("div");
+  title.textContent = titleText;
+  el.summaryWinner.appendChild(title);
+
+  // Do not render podium steps in single-player mode
+  if (!isMultiplayer) {
     return;
   }
+
+  const medals = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
+  const top3 = summary.players.slice(0, 3);
+  if (top3.length === 0) return;
 
   const podium = document.createElement("div");
   podium.className = "podium";
@@ -927,15 +939,6 @@ function renderPodium(summary) {
     podium.appendChild(step);
   });
 
-  // If there's a tie or only 1 player, still show a title line
-  const titleText = summary.winners.length > 1
-    ? t("summary.tie", summary.winners.join(" & "))
-    : t("summary.winner", summary.winners[0]);
-
-  el.summaryWinner.replaceChildren();
-  const title = document.createElement("div");
-  title.textContent = titleText;
-  el.summaryWinner.appendChild(title);
   el.summaryWinner.appendChild(podium);
 }
 
