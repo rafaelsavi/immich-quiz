@@ -189,6 +189,32 @@ async def test_list_albums_excludes_shared_albums() -> None:
     await client.aclose()
 
     assert albums == [
-        {'id': 'album-1', 'name': 'Mine'},
         {'id': 'album-3', 'name': 'Also Mine'},
+        {'id': 'album-1', 'name': 'Mine'},
+    ]
+
+
+async def test_list_albums_returns_ascending_by_name() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/albums'):
+            return httpx.Response(
+                200,
+                json=[
+                    {'id': 'album-1', 'albumName': 'Zebra', 'ownerId': 'me-user'},
+                    {'id': 'album-2', 'albumName': 'Apple', 'ownerId': 'me-user'},
+                    {'id': 'album-3', 'albumName': 'banana', 'ownerId': 'me-user'},
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    albums = await client.list_albums('family')
+    await client.aclose()
+
+    assert albums == [
+        {'id': 'album-2', 'name': 'Apple'},
+        {'id': 'album-3', 'name': 'banana'},
+        {'id': 'album-1', 'name': 'Zebra'},
     ]

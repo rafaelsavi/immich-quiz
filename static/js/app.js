@@ -63,7 +63,10 @@ async function initAlbums(libraryName) {
   allPhotos.setAttribute("data-i18n", "setup.all_photos");
   allPhotos.textContent = t("setup.all_photos");
   el.album.replaceChildren(allPhotos);
-  data.albums.forEach((album) => {
+  const albums = [...data.albums].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true })
+  );
+  albums.forEach((album) => {
     const option = document.createElement("option");
     option.value = album.id;
     option.textContent = album.name;

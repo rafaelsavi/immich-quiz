@@ -82,6 +82,7 @@ class ImmichClient:
                 album_name = str(album.get('albumName', '')).strip()
                 if album_id and album_name:
                     items.append({'id': album_id, 'name': album_name})
+        items.sort(key=lambda item: (item['name'].lower(), item['id']))
         logger.info(
             'list_albums(%s): %d raw album(s) from Immich, %d returned (include_shared=%s)',
             library_name, raw_count, len(items), include_shared_albums,
