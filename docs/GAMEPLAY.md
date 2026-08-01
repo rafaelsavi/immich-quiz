@@ -17,7 +17,7 @@ When you open the app you land on the setup screen. Fill in:
 | **Library**      | Which Immich library to pull photos from.                                                        |
 | **Album**        | Optional. Narrow the photo pool to a specific album; leave blank for the whole library.          |
 
-Press **Start** when ready.
+Press **Start** when ready. Before launching, a preflight check automatically validates that the selected library or album contains enough eligible photos meeting your active game parameters (e.g. valid location metadata, capture dates, or configured date boundaries).
 
 ## Playing a Round
 
@@ -67,6 +67,5 @@ See [SCORING.md](SCORING.md) for the exact formulas.
 
 ## Leaderboard
 
-After the final round the leaderboard shows all historical matches, sorted by
-most recent. Each row shows the player's total score and accuracy percentage
-(score as a fraction of the maximum possible). Use the column headers to sort.
+After the final round (or from the setup screen navigation), the leaderboard shows all historical matches sorted by most recent. Filter entries by round count, timer duration, enabled game modes, library, or album using the filter bar, and sort rows by clicking the column headers.
+

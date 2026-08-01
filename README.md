@@ -2,7 +2,7 @@
 
 Immich Quiz is a local-first, pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when each photo was taken, scored on map distance and date accuracy.
 
-See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for a full explanation of setup options, round flow, and scoring.
+![Immich Quiz Home Screen](docs/assets/home.webp)
 
 ---
 
@@ -13,21 +13,16 @@ See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for a full explanation of setup options
 3. Pass the device to each player when prompted.
 4. After all rounds the leaderboard appears.
 
+See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for a full explanation of setup options, round flow, and scoring.
 For scoring details see [docs/SCORING.md](docs/SCORING.md).
 
 ---
 
 ## Self-Hosting
 
-### Immich API Token Permissions
+### Starting the server
 
-Immich v3 API keys are permission-based. Create a custom-scoped key with exactly:
-
-- `asset.read` — required for photo search.
-- `album.read` — required for album listing.
-- `asset.view` — required for thumbnail proxy.
-
-The app requests preview thumbnails only; original files are never downloaded.
+To run with Docker Compose use the provided [docker-compose.example.yml](docker-compose.example.yml) and edit it to your needs. Mount `./data` volume to store the leaderboard CSV file and persist scores across container restarts. Pass environment variables to the container to configure the app.
 
 ### Environment Variables
 
@@ -45,55 +40,23 @@ The app requests preview thumbnails only; original files are never downloaded.
 | `APP_PORT`                      | No       | `8010`            | Port the app listens on                                                       |
 | `QUIZ_IMAGE_MAX_HEIGHT_PX`      | No       | `420`             | Max displayed quiz image height in px; valid range `200` to `1600`            |
 | `SCORE_MAX_POINTS`              | No       | `100`             | Max points per enabled goal, per turn                                         |
-| `LOCATION_SCORE_DECAY_KM`       | No       | `700`             | Location decay constant in km for `exp(-distance/decay)`                      |
+| `LOCATION_SCORE_DECAY_KM`       | No       | `500`             | Location decay constant in km for `exp(-distance/decay)`                      |
 | `DATE_SCORE_DECAY_DAYS`         | No       | `500`             | Date decay constant in days for `exp(-delta_days/decay)`                      |
 | `LANGUAGE`                      | No       | `EN`              | UI language (`EN` for English, `PT` for Brazilian Portuguese)                 |
 
-### Docker
+### Immich API Token Permissions
 
-A `Dockerfile` is included for container builds (e.g. in GitHub Actions release pipelines).
+The `IMMICH_LIBRARIES` value is a JSON object where keys are display names of the libraries and values are Immich v3 API keys. Each API key must be custom-scoped with exactly the following permissions:
 
-**Leaderboard persistence**: mount `./data` volume to persist scores across container restarts.
+- `asset.read` — required for photo search.
+- `album.read` — required for album listing.
+- `asset.view` — required for visualization.
 
-#### Example `docker run` (Self-Hosters)
-
-```bash
-docker run -d \
-  --name immich-quiz \
-  -p 8010:8010 \
-  -e IMMICH_SERVER_URL=https://photos.example.com/api \
-  -e 'IMMICH_LIBRARIES={"Family": "your-api-key"}' \
-  -v ./data:/app/data \
-  ghcr.io/rafaelsavi/immich-quiz:latest
-```
-
-#### Example Docker Compose (Self-Hosters)
-
-To run with Docker Compose, create a `docker-compose.yml` on your server (or copy [docker-compose.example.yml](docker-compose.example.yml)):
-
-```yaml
-services:
-  immich-quiz:
-    image: ghcr.io/rafaelsavi/immich-quiz:latest
-    container_name: immich-quiz
-    restart: unless-stopped
-    ports:
-      - "8010:8010"
-    environment:
-      IMMICH_SERVER_URL: "https://photos.example.com/api"
-      IMMICH_LIBRARIES: '{"Family": "your-api-key"}'
-    volumes:
-      - ./data:/app/data
-```
+The app requests preview thumbnails only; original files are never downloaded.
 
 ---
 
 ## Development
-
-### Privacy and Public-Repo Safety
-
-- Committed config files use placeholder URLs and keys.
-- Put your real server URL and API keys only in a local `.env` file (never committed).
 
 ### Quick Start
 
@@ -103,24 +66,24 @@ services:
 uv sync --extra dev
 ```
 
-2. Create local config:
+1. Use `.env.example` to create a local `.env` file for local development.
+2. Start the app:
 
 ```bash
-copy .env.example .env
+uv run src.main
 ```
-
-3. Edit `.env` with your real values.
-4. Start the app:
-
-```bash
-uv run uvicorn src.main:app --reload --host 127.0.0.1 --port 8010
-```
-
-5. Open http://127.0.0.1:8010
 
 ### Tests and Quality Gates
 
-See [docs/TESTING.md](docs/TESTING.md) for the full test strategy.
+#### Pre-push Hook
+
+To enable automatic pre-push CI checks locally:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+#### Run all tests manually
 
 ```bash
 uv run pytest -q
@@ -129,9 +92,9 @@ uv run mypy src
 uv run pytest --cov=src --cov-report=term-missing
 ```
 
-### Further Reading
+### Documentation
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module structure and data flow
-- [docs/API.md](docs/API.md) — full API endpoint reference
-- [docs/SCORING.md](docs/SCORING.md) — scoring formulas
-- [docs/SPEC.md](docs/SPEC.md) — internal design specification
+- [docs/GAMEPLAY.md](docs/GAMEPLAY.md) — gameplay rules, setup parameters, and UI walkthrough
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module design, anti-cheat boundary, and data flow
+- [docs/API.md](docs/API.md) — full API contract and response schemas
+- [docs/SCORING.md](docs/SCORING.md) — mathematical scoring formulas and decay reference tables

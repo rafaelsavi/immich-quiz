@@ -3,9 +3,23 @@
 All endpoints are served under `/api`. Schema violations return `422`; domain
 errors return `400`, `404` or `409` with an actionable `detail` message.
 
-## Health
+## System & Config
+
+### GET /api/health
 
 - `GET /api/health` -> `{"status": "ok"}`
+
+### GET /api/ui-config
+
+Returns frontend configuration parameters:
+
+```json
+{
+  "quiz_image_max_height_px": 600,
+  "language": "EN",
+  "score_max_points": 100
+}
+```
 
 ## Setup and Metadata
 
@@ -21,15 +35,44 @@ errors return `400`, `404` or `409` with an actionable `detail` message.
 Libraries whose API key failed validation at startup are reported in
 `unavailable` and omitted from `libraries`. A bad key no longer stops the app.
 
-### GET /api/albums?library_name={name}
+### GET /api/albums?library_name={name}&include_shared_albums={bool}
 
 Returns `{"albums": [{"id": "...", "name": "..."}]}`.
 By default this includes only albums owned by the authenticated user.
-The default can be changed with `INCLUDE_SHARED_ALBUMS`.
-Set `include_shared_albums=true` to also include shared albums.
+The default can be configured with `INCLUDE_SHARED_ALBUMS`.
+Set `include_shared_albums=true` or `false` to explicitly override.
+
+### POST /api/game/preflight
+
+Validates whether the selected library or album contains enough eligible media assets for the requested match parameters before starting a game.
+
+Request:
+```json
+{
+  "players": ["Alice", "Bob"],
+  "round_count": 10,
+  "location_mode": true,
+  "date_mode": true,
+  "library_name": "family_library",
+  "album_id": null
+}
+```
+
+Response:
+```json
+{
+  "eligible_count": 45,
+  "required": 10,
+  "ok": true,
+  "active_filters": ["location", "date"],
+  "min_date": null,
+  "max_date": null
+}
+```
 
 ### POST /api/game/setup
 
+Request:
 ```json
 {
   "players": ["Alice", "Bob"],
@@ -42,10 +85,11 @@ Set `include_shared_albums=true` to also include shared albums.
 }
 ```
 
-- `round_count` must be 5, 10 or 20; at least one mode must be enabled.
+- `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
+- `round_length` supports `"30s"`, `"1m"`, or `"unlimited"`.
 - `album_name` is resolved server-side from `album_id`, so a client cannot
   spoof leaderboard metadata. Unknown `album_id` returns `400`.
-- Responds with `{"match_id": "...", "total_turns": N}`.
+- Responds with `{"match_id": "...", "total_turns": N, "players": ["Alice", "Bob"]}`.
 
 ## Round Flow
 
@@ -54,6 +98,7 @@ Set `include_shared_albums=true` to also include shared albums.
 Body: `{"match_id": "...", "played_asset_ids": []}`
 
 - Returns the sanitized question payload (no EXIF, coordinates or capture date).
+- Response includes round context: `question_id`, `asset_id`, `media_url`, `player_name`, `player_number`, `total_players`, `player_round_number`, `total_rounds_per_player`, `turn_number`, `total_turns`, `location_mode`, `date_mode`, and `round_length`.
 - One photo is drawn per round and shared by every player in that round, so
   scores within a round are comparable.
 - If the current turn already has an unanswered question, the **same** question
@@ -73,7 +118,7 @@ Body: `{"match_id": "...", "played_asset_ids": []}`
 
 ### POST /api/answer
 
-Body: `{"match_id", "question_id", "guessed_latitude", "guessed_longitude", "guessed_year", "guessed_month", "timed_out"}`
+Body: `{"match_id": "...", "question_id": "...", "guessed_latitude": 48.85, "guessed_longitude": 2.35, "guessed_year": 2022, "guessed_month": 6, "timed_out": false}`
 
 - `guessed_year` and `guessed_month` must be supplied together (month resolution).
 - `timed_out` marks an answer that was auto-submitted when the round timer hit zero.
@@ -87,20 +132,32 @@ Body: `{"match_id", "question_id", "guessed_latitude", "guessed_longitude", "gue
 
 ### POST /api/round/result
 
-Body: `{"match_id", "round_number"}`
+Body: `{"match_id": "...", "round_number": 1}`
 
-- Reveals the round: actual coordinates, actual year/month, plus every player's
-  guess, per-task scores, round score, running total, distance error and
-  date error (`date_diff_days` drives the score; the month breakdown is for
-  display).
+- Reveals the round: actual coordinates (`actual_latitude`, `actual_longitude`), actual location (`actual_city`, `actual_country`), actual date (`actual_date`, `actual_year`, `actual_month`), `score_max_points`, plus every player's
+  guess, per-task scores, round score, running total, distance error (`distance_km`) and
+  date error (`date_diff_days` drives the score; `date_diff_months`, `date_diff_years_part`, and `date_diff_months_part` are for display).
 - `409` while any player in the round still owes an answer, so results are only
   ever shown simultaneously.
 - `404` for a round number outside the match.
 
 ### GET /api/match/{match_id}/summary
 
-- Final overview: per-player location/date/total scores, accuracy, rank and
-  winner flags, plus the `winners` list (multiple entries on a tie).
+- Final overview: match config (`rounds_played`, `location_mode`, `date_mode`, `library_name`, `album_name`), per-player location/date/total scores, `max_possible_score`, `accuracy_pct`, `rank` and `is_winner` flags, plus the `winners` list (multiple entries on a tie).
+
+## Leaderboard
+
+### GET /api/leaderboard
+
+Optional query parameters:
+- `rounds`: Filter by round count (`5`, `10`, `20`)
+- `round_length`: Filter by timer setting (`30s`, `1m`, `unlimited`)
+- `location_mode`: Filter by location mode enabled (`true`/`false`)
+- `date_mode`: Filter by date mode enabled (`true`/`false`)
+- `library`: Filter by library name
+- `album`: Filter by album name
+
+Returns rows sorted by newest `played_at` first. Each entry contains `match_id`, `played_at`, `player_name`, `max_possible_score`, `total_score`, and `config` dictionary.
 
 ## Anti-Cheat Rules
 
@@ -113,6 +170,3 @@ Question payloads never include answer fields:
 Answer submissions return no reveal data either. Reveal data is only available
 from `POST /api/round/result` once every player in the round has answered.
 
-## Leaderboard
-
-- `GET /api/leaderboard` -> rows sorted by newest `played_at` first.

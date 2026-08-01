@@ -12,33 +12,37 @@
 ## Module Map
 
 ```
-src/
-├── main.py              App factory and lifespan. Creates ImmichClient,
-│                        SessionStore, and LeaderboardStore; validates Immich
-│                        access on startup; mounts static files and routes.
-├── config.py            AppSettings dataclass. Parses and validates all env
-│                        vars at startup; raises ConfigError on bad input.
-├── models.py            Pydantic request/response models for all endpoints.
-├── scoring.py           Pure scoring functions: haversine_km, location_score,
-│                        date_diff_days, date_score, accuracy_pct.
-├── api/
-│   └── routes.py        All API endpoints. Depends on SessionStore,
-│                        ImmichClient, and LeaderboardStore via FastAPI DI.
-├── immich/
-│   └── client.py        ImmichClient adapter. Wraps httpx AsyncClient.
-│                        Provides: validate_access, list_albums, search_assets,
-│                        search_random_assets, get_asset_bytes.
-│                        One shared AsyncClient per app instance (connection
-│                        pooling). All Immich calls are made here; no other
-│                        module calls Immich directly.
-└── storage/
-    ├── session.py       In-memory state. SessionStore holds MatchState objects
-    │                    keyed by match_id. MatchState owns the round list,
-    │                    player rotation, and QuestionState per turn.
-    │                    QuestionState holds the answer data (RoundAsset) and
-    │                    the player's submitted guess + computed scores.
-    └── leaderboard.py   LeaderboardStore appends and reads rows from a CSV
-                         file using the exact required schema.
+immich-quiz/
+├── src/
+│   ├── main.py          App factory and lifespan. Creates ImmichClient,
+│   │                    SessionStore, and LeaderboardStore; validates Immich
+│   │                    access on startup; mounts static files and routes.
+│   ├── config.py        AppSettings dataclass. Parses and validates all env
+│   │                    vars at startup; raises ConfigError on bad input.
+│   ├── models.py        Pydantic request/response models for all endpoints.
+│   ├── scoring.py       Pure scoring functions: haversine_km, location_score,
+│   │                    date_diff_days, date_score, accuracy_pct.
+│   ├── api/
+│   │   └── routes.py    All API endpoints. Depends on SessionStore,
+│   │                    ImmichClient, and LeaderboardStore via FastAPI DI.
+│   ├── immich/
+│   │   └── client.py    ImmichClient adapter. Wraps httpx AsyncClient.
+│   │                    Provides: validate_access, list_albums, search_assets,
+│   │                    search_random_assets, get_asset_bytes.
+│   │                    One shared AsyncClient per app instance (connection
+│   │                    pooling). All Immich calls are made here; no other
+│   │                    module calls Immich directly.
+│   └── storage/
+│       ├── session.py   In-memory state. SessionStore holds MatchState objects
+│       │                keyed by match_id. MatchState owns the round list,
+│       │                player rotation, and QuestionState per turn.
+│       │                QuestionState holds the answer data (RoundAsset) and
+│       │                the player's submitted guess + computed scores.
+│       └── leaderboard.py LeaderboardStore appends and reads rows from a CSV
+│                            file using the exact required schema.
+└── static/              Vanilla HTML/CSS/JS frontend.
+    ├── js/app.js        Main application controller & UI router.
+    └── js/modules/      ES modules (api, state, leaderboard, map, quiz, sound, setup, i18n, formatters).
 ```
 
 ---
@@ -46,10 +50,17 @@ src/
 ## Round Data Flow
 
 ```
+GET /api/ui-config
+  └── Returns max image height, language, max score settings to frontend
+
+POST /api/game/preflight
+  └── Validates asset pool eligibility (location/date/date-range requirements)
+  └── Confirms eligible photo count >= requested round count
+
 POST /api/game/setup
   └── routes.py resolves album name from ImmichClient
   └── Creates MatchState in SessionStore (players, round config, empty rounds)
-  └── Returns match_id
+  └── Returns match_id and total turns
 
 POST /api/question
   └── routes.py looks up MatchState by match_id
@@ -71,7 +82,7 @@ POST /api/answer
 
 POST /api/round/result
   └── routes.py checks all players in round have answered (409 if not)
-  └── Returns actual coordinates, actual date, all guesses, per-player scores
+  └── Returns actual coordinates, actual date, actual location, all guesses, per-player scores
 ```
 
 ---
