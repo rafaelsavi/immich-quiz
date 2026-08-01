@@ -808,10 +808,6 @@ bindSelectWheelScroll(el.roundLength);
 bindSelectWheelScroll(el.library);
 bindSelectWheelScroll(el.album);
 
-if (el.audioToggleBtn) {
-  el.audioToggleBtn.addEventListener("click", toggleAudio);
-}
-
 if (el.mediaSkipBtn) {
   el.mediaSkipBtn.addEventListener("click", () => {
     submitAnswer(true).catch((err) => showAlert(err.message));
