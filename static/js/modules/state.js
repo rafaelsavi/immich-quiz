@@ -11,6 +11,8 @@ export const state = {
   revealMap: null,
   guessMarker: null,
   revealLayers: [],
+  revealAnimationTimeoutId: null,
+  revealAnimationFrameId: null,
   timerRef: null,
   timedOut: false,
   submitting: false,

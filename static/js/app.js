@@ -285,7 +285,19 @@ function handleTimeout() {
 
 /* ------------------------------------------------------------- game cycle */
 
+function clearRevealAnimation() {
+  if (state.revealAnimationFrameId !== null) {
+    cancelAnimationFrame(state.revealAnimationFrameId);
+    state.revealAnimationFrameId = null;
+  }
+  if (state.revealAnimationTimeoutId !== null) {
+    clearTimeout(state.revealAnimationTimeoutId);
+    state.revealAnimationTimeoutId = null;
+  }
+}
+
 function showCard(cardEl) {
+  clearRevealAnimation();
   [el.setupCard, el.gameCard, el.summaryCard].forEach((c) => {
     c.classList.add("hidden");
   });
@@ -704,10 +716,12 @@ function renderRevealMap(reveal) {
   el.revealMapShell.classList.toggle("hidden", !reveal.location_mode);
   el.revealMapHead.classList.toggle("hidden", !reveal.location_mode);
   if (!reveal.location_mode) {
+    clearRevealAnimation();
     return;
   }
 
   ensureRevealMap();
+  clearRevealAnimation();
 
   state.revealLayers.forEach((layer) => state.revealMap.removeLayer(layer));
   state.revealLayers = [];
@@ -751,7 +765,8 @@ function renderRevealMap(reveal) {
   // 2. Expand ALL lines simultaneously from actual location to player guess points!
   const lineDuration = 800; // ms for line expansion
 
-  setTimeout(() => {
+  state.revealAnimationTimeoutId = window.setTimeout(() => {
+    state.revealAnimationTimeoutId = null;
     // Create all polylines anchored at actual location
     const lineEntries = playerGuesses.map(({ result, guessed }) => {
       const color = playerColor(result.player_name);
@@ -778,8 +793,9 @@ function renderRevealMap(reveal) {
       });
 
       if (progress < 1) {
-        requestAnimationFrame(animateAllLines);
+        state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
       } else {
+        state.revealAnimationFrameId = null;
         // All lines reached their guess points! Pop in all player markers together!
         lineEntries.forEach(({ result, guessed, color }) => {
           const icon = createPopPinIcon(playerInitial(result.player_name), color);
@@ -791,7 +807,7 @@ function renderRevealMap(reveal) {
       }
     }
 
-    requestAnimationFrame(animateAllLines);
+    state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
   }, 350);
 }
 
