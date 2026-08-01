@@ -2,6 +2,23 @@ import { state, el } from "./state.js";
 
 let audioCtx = null;
 
+function getInitialAudioPreference() {
+  try {
+    const stored = localStorage.getItem("immich_quiz_audio");
+    if (stored === null) return true;
+    return stored === "1";
+  } catch (_) {
+    return true;
+  }
+}
+
+function initializeAudioState() {
+  state.audioEnabled = getInitialAudioPreference();
+  updateAudioUi();
+}
+
+initializeAudioState();
+
 export function unlockAudioContext() {
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;

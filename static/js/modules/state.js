@@ -2,6 +2,7 @@ export const state = {
   matchId: null,
   players: [],
   language: "EN",
+  audioEnabled: true,
   scoreMaxPoints: 100,
   lastMatchConfig: null,
   playedAssetIds: [],
