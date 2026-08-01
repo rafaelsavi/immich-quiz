@@ -34,6 +34,17 @@ uv run mypy src
 uv run pytest --cov=src --cov-report=term-missing
 ```
 
+## Git Pre-Push Hook
+
+A Git `pre-push` hook is available in `.githooks/pre-push` to automatically run all CI quality gates (Ruff linter, Mypy type checker, and Pytest coverage) prior to pushing code.
+
+To configure Git to use `.githooks/`:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+
 ## Definition of Done
 
 1. All tests pass.

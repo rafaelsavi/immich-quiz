@@ -1,0 +1,39 @@
+#!/bin/sh
+# Git pre-push hook executing CI checks (.github/workflows/ci.yml)
+
+echo "=========================================="
+echo "Running Pre-Push Quality Checks (CI parity)"
+echo "=========================================="
+
+echo "[1/4] Syncing dependencies..."
+uv sync --extra dev
+if [ $? -ne 0 ]; then
+    echo "❌ uv sync failed. Push aborted."
+    exit 1
+fi
+
+echo "[2/4] Running Ruff Linter..."
+uv run ruff check .
+if [ $? -ne 0 ]; then
+    echo "❌ Ruff check failed. Push aborted."
+    exit 1
+fi
+
+echo "[3/4] Running Mypy Type Checker..."
+uv run mypy src
+if [ $? -ne 0 ]; then
+    echo "❌ Mypy type check failed. Push aborted."
+    exit 1
+fi
+
+echo "[4/4] Running Pytest with Coverage..."
+uv run pytest --cov=src --cov-report=term-missing
+if [ $? -ne 0 ]; then
+    echo "❌ Pytest failed. Push aborted."
+    exit 1
+fi
+
+echo "=========================================="
+echo "✅ All CI checks passed! Proceeding with push."
+echo "=========================================="
+exit 0
