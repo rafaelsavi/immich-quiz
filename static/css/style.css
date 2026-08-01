@@ -250,7 +250,8 @@ button:disabled {
   gap: 0.5rem;
 }
 
-#setup-form {
+#setup-form,
+#reveal-ui {
   display: grid;
   gap: 0.75rem;
 }

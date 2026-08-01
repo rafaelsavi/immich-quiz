@@ -374,6 +374,7 @@ async function loadQuestion() {
   state.currentQuestion = null;
   el.guessingUi.classList.remove("hidden");
   el.revealUi.classList.add("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
   el.submitAnswer.textContent = t("game.submit_btn");
   el.dateGuessYear.disabled = false;
   el.dateGuessMonth.disabled = false;
@@ -553,6 +554,11 @@ async function showRoundReveal(roundNumber) {
   renderRevealMap(reveal);
 
   el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
+
+  const targetScrollEl = reveal.location_mode ? el.revealMapShell : el.nextRound;
+  if (targetScrollEl) {
+    targetScrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 }
 
 function renderRevealSummary(reveal) {
