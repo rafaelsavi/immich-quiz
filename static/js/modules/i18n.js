@@ -92,7 +92,7 @@ export const TRANSLATIONS = {
     "summary.mode_location": "location",
     "summary.mode_date": "date",
     "summary.meta": (rounds, modes, library, album) =>
-      `${rounds} rounds\nGuess Mode: ${modes}\nLibrary: ${library} / ${album}`,
+      `Rounds: ${rounds}\nGuess Mode: ${modes}\nLibrary: ${library} / ${album}`,
     "summary.col_rank": "#",
     "summary.col_player": "Player",
     "summary.col_location": "Location",
@@ -115,6 +115,17 @@ export const TRANSLATIONS = {
     "fmt.day": "day",
     "fmt.days": "days",
     "fmt.timed_out_tag": "TIMED OUT",
+    "fmt.perfect_count": (n) => `\u{1F525}\u00D7${n}`,
+    // Podium & Awards
+    "summary.podium_score": (pts) => `${pts} pts`,
+    "award.globe_trotter": "\u{1F30D} Globe Trotter",
+    "award.globe_trotter_desc": "Closest average distance",
+    "award.time_traveler": "\u23F3 Time Traveler",
+    "award.time_traveler_desc": "Most accurate dates",
+    "award.bullseye_master": "\u{1F3AF} Bullseye Master",
+    "award.bullseye_master_desc": (n) => `${n} perfect round${n === 1 ? '' : 's'}`,
+    "award.speed_demon": "\u26A1 Speed Demon",
+    "award.speed_demon_desc": "Never timed out",
     // Errors & Popups
     "error.Player names must be unique": "Player names must be unique.",
     "error.Player list cannot be empty": "Player list cannot be empty.",
@@ -217,7 +228,7 @@ export const TRANSLATIONS = {
     "summary.mode_location": "localização",
     "summary.mode_date": "data",
     "summary.meta": (rounds, modes, library, album) =>
-      `${rounds} rodadas\nAdivinhação: ${modes}\nBiblioteca: ${library} / ${album}`,
+      `Rodadas: ${rounds}\nAdivinhação: ${modes}\nBiblioteca: ${library} / ${album}`,
     "summary.col_rank": "#",
     "summary.col_player": "Jogador",
     "summary.col_location": "Localização",
@@ -240,6 +251,17 @@ export const TRANSLATIONS = {
     "fmt.day": "dia",
     "fmt.days": "dias",
     "fmt.timed_out_tag": "TEMPO ESGOTADO",
+    "fmt.perfect_count": (n) => `\u{1F525}\u00D7${n}`,
+    // Podium & Awards
+    "summary.podium_score": (pts) => `${pts} pts`,
+    "award.globe_trotter": "\u{1F30D} Globetrotter",
+    "award.globe_trotter_desc": "Menor distância média",
+    "award.time_traveler": "\u23F3 Viajante do Tempo",
+    "award.time_traveler_desc": "Datas mais precisas",
+    "award.bullseye_master": "\u{1F3AF} Mestre da Mira",
+    "award.bullseye_master_desc": (n) => `${n} rodada${n === 1 ? '' : 's'} perfeita${n === 1 ? '' : 's'}`,
+    "award.speed_demon": "\u26A1 Relâmpago",
+    "award.speed_demon_desc": "Nunca estourou o tempo",
     // Errors & Popups
     "error.Player names must be unique": "Os nomes dos jogadores devem ser únicos.",
     "error.Player list cannot be empty": "A lista de jogadores não pode estar vazia.",

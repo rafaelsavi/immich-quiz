@@ -198,6 +198,21 @@ function resetTimerBar() {
   el.timerRemaining.textContent = "";
   el.timeoutNotice.classList.add("hidden");
   el.timeoutNotice.textContent = "";
+
+  // Feature 6: remove timer pulse
+  const timerRow = el.timerTrack.closest(".timer-row");
+  if (timerRow) timerRow.classList.remove("is-pulsing");
+  el.timerRemaining.classList.remove("is-critical-text");
+
+  // Feature 7: reset all fullscreen timer overlays
+  document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
+    const fill = ft.querySelector(".fs-timer-fill");
+    const label = ft.querySelector(".fs-timer-label");
+    const remaining = ft.querySelector(".fs-timer-remaining");
+    if (fill) { fill.style.width = "100%"; fill.className = "fs-timer-fill"; }
+    if (label) label.textContent = "";
+    if (remaining) remaining.textContent = "";
+  });
 }
 
 function startTimer(roundLength) {
@@ -219,14 +234,24 @@ function startTimer(roundLength) {
     remaining -= 1;
     const clamped = Math.max(remaining, 0);
     const ratio = clamped / total;
+    const isCritical = ratio <= 0.2 || clamped <= 5;
+    const isWarning = ratio <= 0.5 && ratio > 0.2 && clamped > 5;
 
     el.timerRemaining.textContent = `${clamped}s`;
     el.timerFill.style.width = `${ratio * 100}%`;
-    el.timerFill.classList.toggle("is-warning", ratio <= 0.5 && ratio > 0.2);
-    el.timerFill.classList.toggle("is-critical", ratio <= 0.2);
+    el.timerFill.classList.toggle("is-warning", isWarning);
+    el.timerFill.classList.toggle("is-critical", isCritical);
+
+    // Feature 6: pulsing timer warning
+    const timerRow = el.timerTrack.closest(".timer-row");
+    if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
+    el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
+
+    // Feature 7: sync fullscreen timer overlays
+    syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
 
     if (clamped <= 5 && clamped > 0) {
-      playTick();
+      playTick(clamped);
     }
 
     if (clamped <= 0) {
@@ -315,6 +340,8 @@ async function startMatch(event) {
   state.players = response.players;
   state.playedAssetIds = [];
   state.matchFinished = false;
+  state.perfectCounts = {};
+  state.playerStats = {};
 
   // Standings stay secret while a match is in progress.
   el.leaderboardCard.classList.add("hidden");
@@ -561,12 +588,46 @@ function renderRevealSummary(reveal) {
       hasAnyPerfectInRound = true;
     }
 
+    // Feature 1: track perfect count for any perfect guess or round
+    if (isPerfectPlayer) {
+      state.perfectCounts[result.player_name] = (state.perfectCounts[result.player_name] || 0) + 1;
+    }
+
+    // Feature 4: accumulate player stats for awards
+    if (!state.playerStats[result.player_name]) {
+      state.playerStats[result.player_name] = {
+        totalDistanceKm: 0, distanceCount: 0,
+        totalDateDiffDays: 0, dateCount: 0,
+        perfectRounds: 0, timedOutCount: 0,
+      };
+    }
+    const ps = state.playerStats[result.player_name];
+    if (result.distance_km !== null && result.distance_km !== undefined) {
+      ps.totalDistanceKm += result.distance_km;
+      ps.distanceCount += 1;
+    }
+    if (result.date_diff_days !== null && result.date_diff_days !== undefined) {
+      ps.totalDateDiffDays += result.date_diff_days;
+      ps.dateCount += 1;
+    }
+    if (isPerfectPlayer) ps.perfectRounds += 1;
+    if (result.timed_out) ps.timedOutCount += 1;
+
     const row = document.createElement("tr");
     if (isPerfectPlayer) {
       row.className = "is-perfect-row";
     }
 
-    row.appendChild(buildCell(playerNameCell(result.player_name, result.timed_out)));
+    // Build player name cell with perfect count badge
+    const nameCell = playerNameCell(result.player_name, result.timed_out);
+    const count = state.perfectCounts[result.player_name] || 0;
+    if (count > 0) {
+      const countBadge = document.createElement("span");
+      countBadge.className = "perfect-count-badge";
+      countBadge.textContent = t("fmt.perfect_count", count);
+      nameCell.appendChild(countBadge);
+    }
+    row.appendChild(buildCell(nameCell));
 
     const valueGroups = [];
     if (reveal.location_mode) {
@@ -642,19 +703,16 @@ function renderRevealMap(reveal) {
   state.revealLayers.push(actualMarker);
 
   const points = [actual];
+
+  // Feature 5: fit bounds first, then add player pins with staggered animation
+  const playerPins = [];
   reveal.results.forEach((result) => {
     if (result.guessed_latitude === null || result.guessed_longitude === null) {
       return;
     }
-    const color = playerColor(result.player_name);
     const guessed = L.latLng(result.guessed_latitude, result.guessed_longitude);
-    const marker = L.marker(guessed, { icon: createPinIcon(playerInitial(result.player_name), color) })
-      .addTo(state.revealMap)
-      .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(result.distance_km)));
-    const line = L.polyline([guessed, actual], { color, weight: 2, dashArray: "8, 10" }).addTo(state.revealMap);
-
-    state.revealLayers.push(marker, line);
     points.push(guessed);
+    playerPins.push({ result, guessed });
   });
 
   if (points.length > 1) {
@@ -662,6 +720,40 @@ function renderRevealMap(reveal) {
   } else {
     state.revealMap.setView(actual, 4);
   }
+
+  // Stagger pin drops (slower stagger: 750ms between each pin)
+  playerPins.forEach(({ result, guessed }, index) => {
+    setTimeout(() => {
+      const color = playerColor(result.player_name);
+      const icon = createAnimatedPinIcon(playerInitial(result.player_name), color);
+      const marker = L.marker(guessed, { icon })
+        .addTo(state.revealMap)
+        .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(result.distance_km)));
+      const line = L.polyline([guessed, actual], { color, weight: 2, dashArray: "8, 10" }).addTo(state.revealMap);
+
+      // Add ripple circle at pin location
+      const ripple = L.circleMarker(guessed, {
+        radius: 22,
+        className: "pin-ripple",
+        color: color,
+        fillOpacity: 0,
+        weight: 2,
+      }).addTo(state.revealMap);
+      setTimeout(() => state.revealMap.removeLayer(ripple), 1800);
+
+      state.revealLayers.push(marker, line);
+    }, index * 750);
+  });
+}
+
+function createAnimatedPinIcon(label, color) {
+  return L.divIcon({
+    className: "player-pin player-pin-animated",
+    html: `<span style="background:${color}"><b>${label}</b></span>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -26],
+  });
 }
 
 async function handleNextRound() {
@@ -680,10 +772,8 @@ async function showMatchSummary() {
   showCard(el.summaryCard);
   playVictoryFanfare();
 
-  el.summaryWinner.textContent =
-    summary.winners.length > 1
-      ? t("summary.tie", summary.winners.join(" & "))
-      : t("summary.winner", summary.winners[0]);
+  // Feature 3: Winner Podium
+  renderPodium(summary);
 
   const modes = [];
   if (summary.location_mode) {
@@ -699,6 +789,9 @@ async function showMatchSummary() {
     summary.library_name,
     summary.album_name
   );
+
+  // Feature 4: Fun Performance Awards
+  renderAwards(summary);
 
   const columns = [t("summary.col_rank"), t("summary.col_player")];
   if (summary.location_mode) {
@@ -719,7 +812,17 @@ async function showMatchSummary() {
     row.classList.toggle("is-winner", player.is_winner);
 
     row.appendChild(buildCell(String(player.rank)));
-    row.appendChild(buildCell(playerNameCell(player.player_name)));
+
+    // Feature 1: show perfect count in summary table
+    const nameCell = playerNameCell(player.player_name);
+    const count = state.perfectCounts[player.player_name] || 0;
+    if (count > 0) {
+      const countBadge = document.createElement("span");
+      countBadge.className = "perfect-count-badge";
+      countBadge.textContent = t("fmt.perfect_count", count);
+      nameCell.appendChild(countBadge);
+    }
+    row.appendChild(buildCell(nameCell));
 
     if (summary.location_mode) {
       row.appendChild(buildCell(String(player.location_score ?? 0)));
@@ -737,11 +840,195 @@ async function showMatchSummary() {
   await loadLeaderboard();
 }
 
+/* ── Feature 3: Podium ── */
+
+function renderPodium(summary) {
+  const medals = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
+  const top3 = summary.players.slice(0, 3);
+
+  if (top3.length === 0) {
+    el.summaryWinner.textContent = "";
+    return;
+  }
+
+  const podium = document.createElement("div");
+  podium.className = "podium";
+
+  top3.forEach((player, index) => {
+    const step = document.createElement("div");
+    step.className = "podium-step";
+
+    const medal = document.createElement("div");
+    medal.className = "podium-medal";
+    medal.textContent = medals[index] || "";
+
+    const name = document.createElement("div");
+    name.className = "podium-name";
+    name.textContent = player.player_name;
+
+    const score = document.createElement("div");
+    score.className = "podium-score";
+    score.textContent = t("summary.podium_score", player.total_score);
+
+    const accuracy = document.createElement("div");
+    accuracy.className = "podium-accuracy";
+    accuracy.textContent = `${player.accuracy_pct}%`;
+
+    step.append(medal, name, score, accuracy);
+    podium.appendChild(step);
+  });
+
+  // If there's a tie or only 1 player, still show a title line
+  const titleText = summary.winners.length > 1
+    ? t("summary.tie", summary.winners.join(" & "))
+    : t("summary.winner", summary.winners[0]);
+
+  el.summaryWinner.replaceChildren();
+  const title = document.createElement("div");
+  title.textContent = titleText;
+  el.summaryWinner.appendChild(title);
+  el.summaryWinner.appendChild(podium);
+}
+
+/* ── Feature 4: Awards ── */
+
+function renderAwards(summary) {
+  // Remove any existing awards row
+  const existingAwards = el.summaryCard.querySelector(".awards-row");
+  if (existingAwards) existingAwards.remove();
+
+  const awards = [];
+
+  // Globe Trotter — closest average distance (location mode, multiplayer with data)
+  if (summary.location_mode) {
+    let bestPlayer = null;
+    let bestAvg = Infinity;
+    for (const [name, stats] of Object.entries(state.playerStats)) {
+      if (stats.distanceCount > 0) {
+        const avg = stats.totalDistanceKm / stats.distanceCount;
+        if (avg < bestAvg) {
+          bestAvg = avg;
+          bestPlayer = name;
+        }
+      }
+    }
+    if (bestPlayer) {
+      awards.push({
+        titleKey: "award.globe_trotter",
+        descKey: "award.globe_trotter_desc",
+        player: bestPlayer,
+      });
+    }
+  }
+
+  // Time Traveler — most accurate dates (date mode)
+  if (summary.date_mode) {
+    let bestPlayer = null;
+    let bestAvg = Infinity;
+    for (const [name, stats] of Object.entries(state.playerStats)) {
+      if (stats.dateCount > 0) {
+        const avg = stats.totalDateDiffDays / stats.dateCount;
+        if (avg < bestAvg) {
+          bestAvg = avg;
+          bestPlayer = name;
+        }
+      }
+    }
+    if (bestPlayer) {
+      awards.push({
+        titleKey: "award.time_traveler",
+        descKey: "award.time_traveler_desc",
+        player: bestPlayer,
+      });
+    }
+  }
+
+  // Bullseye Master — most perfect rounds
+  let bestPerfectPlayer = null;
+  let bestPerfectCount = 0;
+  for (const [name, count] of Object.entries(state.perfectCounts)) {
+    if (count > bestPerfectCount) {
+      bestPerfectCount = count;
+      bestPerfectPlayer = name;
+    }
+  }
+  if (bestPerfectPlayer && bestPerfectCount > 0) {
+    awards.push({
+      titleKey: "award.bullseye_master",
+      descKey: "award.bullseye_master_desc",
+      descArgs: [bestPerfectCount],
+      player: bestPerfectPlayer,
+    });
+  }
+
+  // Speed Demon — no timeouts (only if timed rounds AND at least one other player timed out)
+  if (summary.players.length > 1) {
+    const anyTimedOut = Object.values(state.playerStats).some((s) => s.timedOutCount > 0);
+    if (anyTimedOut) {
+      const neverTimedOut = Object.entries(state.playerStats).filter(([, s]) => s.timedOutCount === 0);
+      if (neverTimedOut.length > 0 && neverTimedOut.length < summary.players.length) {
+        awards.push({
+          titleKey: "award.speed_demon",
+          descKey: "award.speed_demon_desc",
+          player: neverTimedOut[0][0],
+        });
+      }
+    }
+  }
+
+  if (awards.length === 0) return;
+
+  const row = document.createElement("div");
+  row.className = "awards-row";
+
+  awards.forEach((award) => {
+    const card = document.createElement("div");
+    card.className = "award-card";
+
+    const titleEl = document.createElement("div");
+    titleEl.className = "award-title";
+    titleEl.textContent = t(award.titleKey);
+
+    const playerEl = document.createElement("div");
+    playerEl.className = "award-player";
+    playerEl.textContent = award.player;
+
+    const descEl = document.createElement("div");
+    descEl.className = "award-desc";
+    descEl.textContent = award.descArgs ? t(award.descKey, ...award.descArgs) : t(award.descKey);
+
+    card.append(titleEl, playerEl, descEl);
+    row.appendChild(card);
+  });
+
+  // Insert awards between summaryWinner and the table
+  el.summaryWinner.after(row);
+}
+
+/* ── Feature 7: Fullscreen timer sync ── */
+
+function syncFullscreenTimers(seconds, ratio, isWarning, isCritical) {
+  document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
+    const fill = ft.querySelector(".fs-timer-fill");
+    const label = ft.querySelector(".fs-timer-label");
+    const remaining = ft.querySelector(".fs-timer-remaining");
+    if (fill) {
+      fill.style.width = `${ratio * 100}%`;
+      fill.classList.toggle("is-warning", isWarning);
+      fill.classList.toggle("is-critical", isCritical);
+    }
+    if (label) label.textContent = el.timerLabel.textContent;
+    if (remaining) remaining.textContent = `${seconds}s`;
+  });
+}
+
 function returnToSetup() {
   state.matchId = null;
   state.currentQuestion = null;
   state.matchFinished = false;
   state.playedAssetIds = [];
+  state.perfectCounts = {};
+  state.playerStats = {};
   resetTimerBar();
   showCard(el.setupCard);
   el.leaderboardCard.classList.remove("hidden");
@@ -771,6 +1058,8 @@ async function restartSameGame() {
   state.currentQuestion = null;
   state.matchFinished = false;
   state.playedAssetIds = [];
+  state.perfectCounts = {};
+  state.playerStats = {};
   resetTimerBar();
 
   const response = await api("/api/game/setup", {

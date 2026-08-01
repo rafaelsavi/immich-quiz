@@ -18,6 +18,10 @@ export const state = {
   leaderboardRows: [],
   leaderboardSort: { key: "total_score", asc: false },
   audioEnabled: localStorage.getItem("immich_quiz_audio") !== "0",
+  /** @type {Record<string, number>} Total perfect rounds per player in current match */
+  perfectCounts: {},
+  /** @type {Record<string, {totalDistanceKm: number, distanceCount: number, totalDateDiffDays: number, dateCount: number, perfectRounds: number, timedOutCount: number}>} */
+  playerStats: {},
 };
 
 export const el = {

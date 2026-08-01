@@ -103,6 +103,13 @@
           title="Toggle fullscreen image" data-i18n="game.fullscreen_btn">
           Fullscreen
         </button>
+        <div class="fullscreen-timer" id="fs-timer-image">
+          <div class="fs-timer-head">
+            <span class="fs-timer-label"></span>
+            <span class="fs-timer-remaining"></span>
+          </div>
+          <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
+        </div>
       </div>
 
       <div id="guessing-ui">
@@ -117,6 +124,13 @@
                 title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
                 Fullscreen
               </button>
+              <div class="fullscreen-timer" id="fs-timer-guess-map">
+                <div class="fs-timer-head">
+                  <span class="fs-timer-label"></span>
+                  <span class="fs-timer-remaining"></span>
+                </div>
+                <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
+              </div>
             </div>
           </div>
           <div id="date-guess-wrap" class="hidden">
@@ -176,8 +190,8 @@
 
     <section id="summary-card" class="card hidden">
       <h2 data-i18n="summary.heading">Match Results</h2>
-      <div id="summary-winner" class="summary-winner"></div>
       <div id="summary-meta" class="summary-meta"></div>
+      <div id="summary-winner" class="summary-winner"></div>
       <div class="table-scroll">
         <table id="summary-table">
           <thead></thead>
