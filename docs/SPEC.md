@@ -98,7 +98,7 @@ Optional:
 2. APP_HOST: Default 127.0.0.1.
 3. APP_PORT: Default 8010.
 4. SCORE_MAX_POINTS: Per-goal maximum score. Default 100.
-5. LOCATION_SCORE_DECAY_KM: Location exponential decay constant in km. Default 700.
+5. LOCATION_SCORE_DECAY_KM: Location exponential decay constant in km. Default 500.
 6. DATE_SCORE_DECAY_DAYS: Date exponential decay constant in days. Default 500.
 
 ### 4.2 Local Development

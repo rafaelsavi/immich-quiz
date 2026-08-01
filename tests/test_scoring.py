@@ -22,11 +22,11 @@ def test_haversine_one_degree_of_longitude_at_equator() -> None:
 
 
 def test_location_score_formula() -> None:
-    assert location_score(0.0) == 100
-    assert location_score(0.05) == 100
-    assert location_score(1.0) == 100
-    assert location_score(700) == 37
-    assert location_score(20000) == 0
+    assert location_score(0.0, decay_km=500.0, max_points=100) == 100
+    assert location_score(0.05, decay_km=500.0, max_points=100) == 100
+    assert location_score(1.0, decay_km=500.0, max_points=100) == 100
+    assert location_score(700, decay_km=500.0, max_points=100) == 25
+    assert location_score(20000, decay_km=500.0, max_points=100) == 0
 
 
 def test_location_score_supports_custom_parameters() -> None:
@@ -35,9 +35,9 @@ def test_location_score_supports_custom_parameters() -> None:
 
 
 def test_date_score_formula() -> None:
-    assert date_score(0) == 100
-    assert date_score(500) == 37
-    assert date_score(4500) == 0
+    assert date_score(0, decay_days=500.0, max_points=100) == 100
+    assert date_score(500, decay_days=500.0, max_points=100) == 37
+    assert date_score(4500, decay_days=500.0, max_points=100) == 0
 
 
 def test_date_score_supports_custom_parameters() -> None:
@@ -69,9 +69,9 @@ def test_date_difference_months_is_display_only() -> None:
 
 
 def test_max_possible_score_respects_enabled_modes() -> None:
-    assert max_possible_score(10, True, True) == 2000
-    assert max_possible_score(10, True, False) == 1000
-    assert max_possible_score(10, False, False) == 0
+    assert max_possible_score(10, True, True, per_goal_max_points=100) == 2000
+    assert max_possible_score(10, True, False, per_goal_max_points=100) == 1000
+    assert max_possible_score(10, False, False, per_goal_max_points=100) == 0
 
 
 def test_max_possible_score_supports_custom_per_goal_points() -> None:

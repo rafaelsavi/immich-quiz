@@ -89,7 +89,7 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.fetch_photos_date_lower_bound is None
     assert settings.fetch_photos_date_upper_bound is None
     assert settings.score_max_points == 100
-    assert settings.location_score_decay_km == 700.0
+    assert settings.location_score_decay_km == 500.0
     assert settings.date_score_decay_days == 500.0
 
 

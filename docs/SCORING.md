@@ -4,13 +4,8 @@ Each enabled goal is scored using exponential decay, with parameters from
 environment variables. Defaults:
 
 - `SCORE_MAX_POINTS = 100`
-- `LOCATION_SCORE_DECAY_KM = 700`
+- `LOCATION_SCORE_DECAY_KM = 500`
 - `DATE_SCORE_DECAY_DAYS = 500`
-
-With defaults, a very close location guess is near 100 and the score decays
-gently with distance (100 km away scores ~86; 700 km away scores ~36).
-Date scoring rewards guessing the right month and decays with day distance from
-the guessed-month interval boundary.
 
 ## Location Score
 
@@ -36,6 +31,43 @@ Reference points with defaults: 0 days -> 100, 500 days -> 36, 4500 days -> 0.
 
 The reveal additionally shows a whole-month distance split into a years part
 and a months part (`divmod(DeltaM, 12)`) purely for readability.
+
+## Common values for scoring exponential function
+
+Common values for inverse exponential decay scoring with `SCORE_MAX_POINTS`:
+
+| Error value (km/~days) | Decay | Score |
+|------------------------|-------|-------|
+| 1 (1d)                 | 100   | 99.0  |
+| 5 (1w)                 | 100   | 95.1  |
+| 10 (2w)                | 100   | 90.5  |
+| 100 (3m)               | 100   | 36.8  |
+| 1000 (3y)              | 100   | 0.0   |
+| 1 (1d)                 | 200   | 99.5  |
+| 5 (1w)                 | 200   | 97.5  |
+| 10 (2w)                | 200   | 95.1  |
+| 100 (3m)               | 200   | 60.7  |
+| 1000 (3y)              | 200   | 0.7   |
+| 1 (1d)                 | 300   | 99.7  |
+| 5 (1w)                 | 300   | 98.3  |
+| 10 (2w)                | 300   | 96.7  |
+| 100 (3m)               | 300   | 71.7  |
+| 1000 (3y)              | 300   | 3.6   |
+| 1 (1d)                 | 500   | 99.8  |
+| 5 (1w)                 | 500   | 99.0  |
+| 10 (2w)                | 500   | 98.0  |
+| 100 (3m)               | 500   | 81.9  |
+| 1000 (3y)              | 500   | 13.5  |
+| 1 (1d)                 | 750   | 99.9  |
+| 5 (1w)                 | 750   | 99.3  |
+| 10 (2w)                | 750   | 98.7  |
+| 100 (3m)               | 750   | 87.5  |
+| 1000 (3y)              | 750   | 26.4  |
+| 1 (1d)                 | 1000  | 99.9  |
+| 5 (1w)                 | 1000  | 99.5  |
+| 10 (2w)                | 1000  | 99.0  |
+| 100 (3m)               | 1000  | 90.5  |
+| 1000 (3y)              | 1000  | 36.8  |
 
 ## Match Totals
 

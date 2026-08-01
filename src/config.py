@@ -151,7 +151,7 @@ def load_settings() -> AppSettings:
         max_value=10000,
     )
     location_score_decay_km = _parse_positive_float(
-        os.getenv('LOCATION_SCORE_DECAY_KM', '700'),
+        os.getenv('LOCATION_SCORE_DECAY_KM', '500'),
         'LOCATION_SCORE_DECAY_KM',
     )
     date_score_decay_days = _parse_positive_float(

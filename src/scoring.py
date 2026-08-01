@@ -21,7 +21,7 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 def location_score(
     distance_km: float,
     *,
-    decay_km: float = 700.0,
+    decay_km: float = 500.0,
     max_points: int = 100,
 ) -> int:
     return max(0, round(max_points * math.exp(-distance_km / decay_km)))

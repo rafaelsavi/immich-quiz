@@ -91,7 +91,7 @@ def build_client(
     fetch_photos_date_lower_bound: date | None = None,
     fetch_photos_date_upper_bound: date | None = None,
     score_max_points: int = 100,
-    location_score_decay_km: float = 700.0,
+    location_score_decay_km: float = 500.0,
     date_score_decay_days: float = 500.0,
     language: str = 'EN',
 ) -> TestClient:
