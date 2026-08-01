@@ -23,3 +23,16 @@ jobs:
         run: uv run mypy src
       - name: Run Pytest with Coverage
         run: uv run pytest --cov=src --cov-report=term-missing
+      - name: Check Version Bump in pyproject.toml
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main --depth=1
+          OLD_VERSION=$(git show origin/main:pyproject.toml | python3 -c "import tomllib, sys; print(tomllib.loads(sys.stdin.read())['project']['version'])")
+          NEW_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "main branch version: $OLD_VERSION"
+          echo "PR branch version:   $NEW_VERSION"
+          if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+            echo "::error::Version in pyproject.toml has not been updated! (Current: $OLD_VERSION). Please bump the version before merging to main."
+            exit 1
+          fi
+
