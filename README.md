@@ -26,23 +26,23 @@ To run with Docker Compose use the provided [docker-compose.example.yml](docker-
 
 ### Environment Variables
 
-| Variable                        | Required | Default           | Notes                                                                         |
-|---------------------------------|----------|-------------------|-------------------------------------------------------------------------------|
-| `IMMICH_SERVER_URL`             | Yes      | —                 | Full URL to the Immich API, e.g. `https://photos.example.com/api`             |
-| `IMMICH_LIBRARIES`              | Yes      | —                 | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`    |
-| `APP_TITLE`                     | No       | `Immich Quiz`     | Browser tab title and main heading shown on the landing page                  |
-| `APP_TAGLINE`                   | No       |                   | Optional tagline shown below the main heading on the landing page             |
-| `INCLUDE_SHARED_ALBUMS`         | No       | `false`           | Set to `true` to include shared albums by default                             |
-| `FETCH_PHOTOS_DATE_LOWER_BOUND` | No       | —                 | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
-| `FETCH_PHOTOS_DATE_UPPER_BOUND` | No       | —                 | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
+| Variable                        | Required | Default                | Notes                                                                         |
+|---------------------------------|----------|------------------------|-------------------------------------------------------------------------------|
+| `IMMICH_SERVER_URL`             | Yes      | —                      | Full URL to the Immich API, e.g. `https://photos.example.com/api`             |
+| `IMMICH_LIBRARIES`              | Yes      | —                      | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`    |
+| `APP_TITLE`                     | No       | `Immich Quiz`          | Browser tab title and main heading shown on the landing page                  |
+| `APP_TAGLINE`                   | No       |                        | Optional tagline shown below the main heading on the landing page             |
+| `INCLUDE_SHARED_ALBUMS`         | No       | `false`                | Set to `true` to include shared albums by default                             |
+| `FETCH_PHOTOS_DATE_LOWER_BOUND` | No       | —                      | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
+| `FETCH_PHOTOS_DATE_UPPER_BOUND` | No       | —                      | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
 | `LEADERBOARD_CSV_PATH`          | No       | `data/leaderboard.csv` | Path to leaderboard CSV file (relative to working dir or absolute path)       |
-| `APP_HOST`                      | No       | `127.0.0.1`       | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
-| `APP_PORT`                      | No       | `8010`            | Port the app listens on                                                       |
-| `QUIZ_IMAGE_MAX_HEIGHT_PX`      | No       | `420`             | Max displayed quiz image height in px; valid range `200` to `1600`            |
-| `SCORE_MAX_POINTS`              | No       | `100`             | Max points per enabled goal, per turn                                         |
-| `LOCATION_SCORE_DECAY_KM`       | No       | `500`             | Location decay constant in km for `exp(-distance/decay)`                      |
-| `DATE_SCORE_DECAY_DAYS`         | No       | `500`             | Date decay constant in days for `exp(-delta_days/decay)`                      |
-| `LANGUAGE`                      | No       | `EN`              | UI language (`EN` for English, `PT` for Brazilian Portuguese)                 |
+| `APP_HOST`                      | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
+| `APP_PORT`                      | No       | `8010`                 | Port the app listens on                                                       |
+| `QUIZ_IMAGE_MAX_HEIGHT_PX`      | No       | `420`                  | Max displayed quiz image height in px; valid range `200` to `1600`            |
+| `SCORE_MAX_POINTS`              | No       | `100`                  | Max points per enabled goal, per turn                                         |
+| `LOCATION_SCORE_DECAY_KM`       | No       | `500`                  | Location decay constant in km for `exp(-distance/decay)`                      |
+| `DATE_SCORE_DECAY_DAYS`         | No       | `500`                  | Date decay constant in days for `exp(-delta_days/decay)`                      |
+| `LANGUAGE`                      | No       | `EN`                   | UI language (`EN` for English, `PT` for Brazilian Portuguese)                 |
 
 ### Immich API Token Permissions
 
@@ -70,7 +70,7 @@ uv sync --extra dev
 2. Start the app:
 
 ```bash
-uv run src.main
+uv run -m src.main
 ```
 
 ### Tests and Quality Gates
@@ -91,6 +91,16 @@ uv run ruff check .
 uv run mypy src
 uv run pytest --cov=src --cov-report=term-missing
 ```
+
+### VS Code Integration (Tasks & Debugging)
+
+If you use VS Code, pre-configured tasks and launch files are available in `.vscode/`:
+
+- **Run / Debug App (`F5`)**: Use the `FastAPI: Debug App (Uvicorn)` launch profile or press **F5** to start the app with debugging and hot reload.
+- **Run Tasks (`Ctrl+Shift+B` / `Cmd+Shift+B`)**: Access project tasks via **Terminal > Run Task**:
+  - `Run App`: Start the dev server (`uv run python src/main.py`).
+  - `Run Pytest`: Execute test suite (`uv run pytest`).
+  - `Run All CI Checks`: Run Ruff, Mypy, and Pytest coverage in sequence.
 
 ### Documentation
 

@@ -1,0 +1,110 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run App",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "-m",
+        "src.main"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Run Pytest",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "pytest"
+      ],
+      "problemMatcher": "$gcc",
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run Pytest with Coverage",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "pytest",
+        "--cov=src",
+        "--cov-report=term-missing"
+      ],
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Lint (Ruff)",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "ruff",
+        "check",
+        "."
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Format Code (Ruff)",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "ruff",
+        "format",
+        "."
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Type Check (Mypy)",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "mypy",
+        "src"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Run All CI Checks",
+      "type": "shell",
+      "command": "uv run ruff check . ; uv run mypy src ; uv run pytest --cov=src --cov-report=term-missing",
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker Build",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "immich-quiz",
+        "."
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker Run",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-p",
+        "8000:8000",
+        "--env-file",
+        ".env",
+        "immich-quiz"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
