@@ -497,5 +497,17 @@ def test_session_store_cleanup(client: TestClient) -> None:
     assert match_id not in store._matches
 
 
+def test_audio_playground_endpoint(client: TestClient) -> None:
+    res = client.get('/audio-playground')
+    assert res.status_code == 200
+    assert 'text/html' in res.headers['content-type']
+    assert 'Audio Testing Playground' in res.text
+    assert 'playTick()' in res.text
+    assert 'playBuzzer()' in res.text
+    assert 'playChime()' in res.text
+    assert 'playVictoryFanfare()' in res.text
+
+
+
 
 

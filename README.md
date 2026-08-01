@@ -118,9 +118,14 @@ If you use VS Code, pre-configured tasks and launch files are available in `.vsc
   - `Run Pytest`: Execute test suite (`uv run pytest`).
   - `Run All CI Checks`: Run Ruff, Mypy, and Pytest coverage in sequence.
 
+### Audio Testing Playground
+
+An interactive playground is available at [`/audio-playground`](http://localhost:8010/audio-playground) (or [`/static/audio-playground.html`](http://localhost:8010/static/audio-playground.html)) for testing, custom-synthesizing, and auditing sound effects built into `static/js/modules/audio.js`. See [docs/AUDIO_PLAYGROUND.md](docs/AUDIO_PLAYGROUND.md) for details.
+
 ### Documentation
 
 - [docs/GAMEPLAY.md](docs/GAMEPLAY.md) — gameplay rules, setup parameters, and UI walkthrough
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module design, anti-cheat boundary, and data flow
 - [docs/API.md](docs/API.md) — full API contract and response schemas
 - [docs/SCORING.md](docs/SCORING.md) — mathematical scoring formulas and decay reference tables
+- [docs/AUDIO_PLAYGROUND.md](docs/AUDIO_PLAYGROUND.md) — Web Audio sound engine documentation and testing playground guide
