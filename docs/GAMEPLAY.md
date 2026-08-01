@@ -69,3 +69,6 @@ See [SCORING.md](SCORING.md) for the exact formulas.
 
 After the final round (or from the setup screen navigation), the leaderboard shows all historical matches sorted by most recent. Filter entries by round count, timer duration, enabled game modes, library, or album using the filter bar, and sort rows by clicking the column headers.
 
+## Sound Effects & Audio
+
+The game includes audio feedback for key interactions (selection ticks, wrong answer buzzers, high accuracy chimes, and victory fanfares). Sound effects can be toggled on or off at any time using the speaker icon (🔊/🔇) in the header.

@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Testing Playground — Immich Quiz</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <style>
+    .playground-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.25rem;
+      margin-top: 1rem;
+    }
+    
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: rgba(255, 253, 248, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 0.85rem 1.25rem;
+      border-radius: 12px;
+      border: 1px solid rgba(15, 124, 127, 0.15);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    
+    .status-items {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    
+    .badge-running {
+      background: #e6f7ed;
+      color: #107c41;
+      border: 1px solid #a3e2bb;
+    }
+    
+    .badge-suspended {
+      background: #fff4e5;
+      color: #b76e00;
+      border: 1px solid #ffd8a8;
+    }
+    
+    .badge-muted {
+      background: #ffebe9;
+      color: #c5221f;
+      border: 1px solid #f8b4b1;
+    }
+    
+    .preset-card {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 1.2rem;
+      border-radius: 14px;
+      background: var(--card);
+      border: 1px solid rgba(0,0,0,0.06);
+      box-shadow: var(--shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .preset-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 36px rgba(23, 32, 58, 0.18);
+    }
+    
+    .preset-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    
+    .preset-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin: 0;
+      color: var(--ink);
+    }
+    
+    .preset-badge {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      background: rgba(15, 124, 127, 0.1);
+      color: var(--accent);
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+    }
+    
+    .preset-desc {
+      font-size: 0.9rem;
+      color: #55607a;
+      margin: 0.4rem 0 1rem 0;
+      line-height: 1.4;
+    }
+    
+    .preset-meta {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+      color: #7b879d;
+      margin-bottom: 1rem;
+      background: #f8f6f0;
+      padding: 0.5rem;
+      border-radius: 6px;
+    }
+
+    .synth-control-group {
+      display: grid;
+      grid-template-columns: 140px 1fr 70px;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
+    }
+    
+    .synth-control-group label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .synth-control-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .synth-control-group input[type="number"], .synth-control-group select {
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.85rem;
+      text-align: right;
+    }
+
+    .pitch-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+
+    .pitch-btn {
+      padding: 0.25rem 0.55rem;
+      border-radius: 6px;
+      border: 1px solid #d0d7de;
+      background: #f6f8fa;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .pitch-btn:hover {
+      background: #e1e4e8;
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .visualizer-card {
+      background: #192132;
+      color: #fff;
+      border-radius: 14px;
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .visualizer-card h3 {
+      margin-top: 0;
+      margin-bottom: 0.8rem;
+      font-family: "Fraunces", serif;
+      color: #7ce8e2;
+    }
+
+    .visualizer-canvas {
+      width: 100%;
+      height: 140px;
+      background: #0f1522;
+      border-radius: 8px;
+      display: block;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .sim-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 0.5rem;
+    }
+
+    .btn-sim {
+      padding: 0.55rem 1rem;
+      border-radius: 8px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+
+    .btn-sim:hover {
+      background: #0b5e60;
+      transform: translateY(-1px);
+    }
+
+    .btn-sim-alt {
+      background: var(--accent-2);
+    }
+
+    .btn-sim-alt:hover {
+      background: #d44340;
+    }
+
+    .btn-sim-outline {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-sim-outline:hover {
+      background: rgba(15, 124, 127, 0.08);
+    }
+
+    .log-table-wrap {
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #e1e4e8;
+      border-radius: 8px;
+      margin-top: 0.75rem;
+    }
+
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.8rem;
+    }
+
+    .log-table th, .log-table td {
+      padding: 0.45rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #eaecef;
+    }
+
+    .log-table th {
+      background: #f6f8fa;
+      position: sticky;
+      top: 0;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .log-table tr:nth-child(even) {
+      background: #fafbfc;
+    }
+
+    .nav-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .nav-back:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-shape bg-1"></div>
+  <div class="bg-shape bg-2"></div>
+
+  <main class="app-shell">
+    <a href="/" class="nav-back">← Back to Immich Quiz</a>
+    
+    <header class="app-header">
+      <div class="header-main">
+        <h1>Audio Testing Playground</h1>
+        <p>Simulate, audit, and custom-synthesize sound effects for Immich Quiz</p>
+      </div>
+      <button type="button" id="audio-toggle-btn" class="audio-toggle-btn" title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
+        <span id="audio-icon">🔊</span>
+      </button>
+    </header>
+
+    <!-- Audio Context & System Status Bar -->
+    <div class="status-bar">
+      <div class="status-items">
+        <span>Audio Status:</span>
+        <span id="audio-enabled-badge" class="badge badge-running">🔊 Enabled</span>
+        <span id="audio-ctx-badge" class="badge badge-suspended">AudioContext: Suspended</span>
+      </div>
+      <button type="button" id="unlock-audio-btn" class="btn-sim btn-sim-outline">
+        🔓 Unlock / Resume AudioContext
+      </button>
+    </div>
+
+    <!-- Real-time Visualizer Canvas -->
+    <section class="visualizer-card">
+      <h3>Audio Waveform Visualizer</h3>
+      <canvas id="visualizer-canvas" class="visualizer-canvas" width="800" height="140"></canvas>
+    </section>
+
+    <!-- Preset Sounds Grid -->
+    <section class="card">
+      <h2>Built-in Sound Presets</h2>
+      <p class="preset-desc">Test the core sound effects exported by <code>static/js/modules/audio.js</code>.</p>
+
+      <div class="playground-grid">
+        <!-- Tick -->
+        <div class="preset-card">
+          <div>
+            <div class="preset-header">
+              <h3 class="preset-title">👆 UI Tick</h3>
+              <span class="preset-badge">playTick()</span>
+            </div>
+            <p class="preset-desc">Short click feedback for button navigation, map pin selection, and date pickers.</p>
+            <div class="preset-meta">800 Hz • Sine • 0.05s • Gain 0.08</div>
+          </div>
+          <button type="button" id="play-tick-btn" class="btn-sim">▶ Play Tick</button>
+        </div>
+
+        <!-- Buzzer -->
+        <div class="preset-card">
+          <div>
+            <div class="preset-header">
+              <h3 class="preset-title">❌ Incorrect / Buzzer</h3>
+              <span class="preset-badge">playBuzzer()</span>
+            </div>
+            <p class="preset-desc">Alert sound for incorrect answers, timeout alerts, or low accuracy scores.</p>
+            <div class="preset-meta">220 Hz • Sawtooth • 0.4s • Gain 0.12</div>
+          </div>
+          <button type="button" id="play-buzzer-btn" class="btn-sim btn-sim-alt">▶ Play Buzzer</button>
+        </div>
+
+        <!-- Chime -->
+        <div class="preset-card">
+          <div>
+            <div class="preset-header">
+              <h3 class="preset-title">✨ Correct / Chime</h3>
+              <span class="preset-badge">playChime()</span>
+            </div>
+            <p class="preset-desc">Upbeat multi-tone arpeggio played when a player submits a high accuracy guess.</p>
+            <div class="preset-meta">C5-E5-G5-C6 • Triangle • 0.35s • Gain 0.18</div>
+          </div>
+          <button type="button" id="play-chime-btn" class="btn-sim">▶ Play Chime</button>
+        </div>
+
+        <!-- Fanfare -->
+        <div class="preset-card">
+          <div>
+            <div class="preset-header">
+              <h3 class="preset-title">🎉 Victory Fanfare</h3>
+              <span class="preset-badge">playVictoryFanfare()</span>
+            </div>
+            <p class="preset-desc">Celebratory fanfare played on match completion when the leaderboard is displayed.</p>
+            <div class="preset-meta">F4-A4-C5-F5 • Triangle • 0.65s • Gain 0.22</div>
+          </div>
+          <button type="button" id="play-fanfare-btn" class="btn-sim">▶ Play Fanfare</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Custom Synthesizer Controls -->
+    <section class="card">
+      <h2>Custom Tone Synthesizer</h2>
+      <p class="preset-desc">Simulate arbitrary frequencies, waveforms, durations, and volume levels using <code>playTone(freq, type, duration, gain)</code>.</p>
+
+      <div class="synth-control-group">
+        <label for="synth-freq">Frequency (Hz)</label>
+        <input type="range" id="synth-freq" min="50" max="3000" step="5" value="440" />
+        <input type="number" id="synth-freq-num" min="50" max="4000" value="440" />
+      </div>
+
+      <div class="pitch-presets">
+        <span>Quick Pitch:</span>
+        <button type="button" class="pitch-btn" data-freq="220">A3 (220 Hz)</button>
+        <button type="button" class="pitch-btn" data-freq="261.63">C4 (261 Hz)</button>
+        <button type="button" class="pitch-btn" data-freq="440">A4 (440 Hz)</button>
+        <button type="button" class="pitch-btn" data-freq="523.25">C5 (523 Hz)</button>
+        <button type="button" class="pitch-btn" data-freq="880">A5 (880 Hz)</button>
+        <button type="button" class="pitch-btn" data-freq="1046.5">C6 (1046 Hz)</button>
+      </div>
+
+      <div class="synth-control-group">
+        <label for="synth-type">Waveform</label>
+        <select id="synth-type" style="grid-column: span 2;">
+          <option value="sine" selected>Sine (Pure / Smooth)</option>
+          <option value="triangle">Triangle (Soft / Flute-like)</option>
+          <option value="square">Square (Retro 8-bit)</option>
+          <option value="sawtooth">Sawtooth (Buzzer / Harsh)</option>
+        </select>
+      </div>
+
+      <div class="synth-control-group">
+        <label for="synth-duration">Duration (sec)</label>
+        <input type="range" id="synth-duration" min="0.01" max="3.0" step="0.05" value="0.25" />
+        <input type="number" id="synth-duration-num" min="0.01" max="5.0" step="0.05" value="0.25" />
+      </div>
+
+      <div class="synth-control-group">
+        <label for="synth-gain">Gain (Volume)</label>
+        <input type="range" id="synth-gain" min="0.01" max="1.0" step="0.01" value="0.15" />
+        <input type="number" id="synth-gain-num" min="0.01" max="1.0" step="0.01" value="0.15" />
+      </div>
+
+      <div style="margin-top: 1rem;">
+        <button type="button" id="play-custom-btn" class="btn-sim">▶ Play Custom Tone</button>
+      </div>
+    </section>
+
+    <!-- Game Flow Simulator -->
+    <section class="card">
+      <h2>Game Sequence Simulator</h2>
+      <p class="preset-desc">Simulate realistic game event sequences to test audio transition timing.</p>
+      
+      <div class="sim-buttons">
+        <button type="button" id="sim-click" class="btn-sim btn-sim-outline">👆 Option Selection</button>
+        <button type="button" id="sim-wrong" class="btn-sim btn-sim-alt">❌ Incorrect Guess</button>
+        <button type="button" id="sim-correct" class="btn-sim">✨ Perfect Guess</button>
+        <button type="button" id="sim-victory" class="btn-sim">🎉 Match Finished</button>
+        <button type="button" id="sim-toggle" class="btn-sim btn-sim-outline">🔄 Toggle Mute</button>
+      </div>
+    </section>
+
+    <!-- Audio Log Inspector -->
+    <section class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin: 0;">Audio Event Log</h2>
+        <button type="button" id="clear-log-btn" class="btn-sim btn-sim-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Clear Log</button>
+      </div>
+
+      <div class="log-table-wrap">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Function / Event</th>
+              <th>Details / Frequency</th>
+              <th>Audio State</th>
+            </tr>
+          </thead>
+          <tbody id="log-body">
+            <tr>
+              <td colspan="4" style="text-align: center; color: #888;">No audio events logged yet. Click any button to play sound.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/static/js/audio-playground.js"></script>
+</body>
+</html>

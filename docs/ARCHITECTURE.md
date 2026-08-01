@@ -41,8 +41,11 @@ immich-quiz/
 │       └── leaderboard.py LeaderboardStore appends and reads rows from a CSV
 │                            file using the exact required schema.
 └── static/              Vanilla HTML/CSS/JS frontend.
+    ├── index.html       Main quiz application HTML.
+    ├── audio-playground.html Interactive Web Audio testing playground page.
     ├── js/app.js        Main application controller & UI router.
-    └── js/modules/      ES modules (api, state, leaderboard, map, quiz, sound, setup, i18n, formatters).
+    ├── js/audio-playground.js Playground controller & visualizer logic.
+    └── js/modules/      ES modules (api, state, leaderboard, map, quiz, audio, setup, i18n, formatters).
 ```
 
 ---
