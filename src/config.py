@@ -100,9 +100,11 @@ def _parse_optional_date(value: str, env_name: str) -> date | None:
 def load_settings() -> AppSettings:
     load_dotenv()
 
-    server_url = os.getenv('IMMICH_SERVER_URL', '').strip()
+    server_url = os.getenv('IMMICH_SERVER_URL', '').strip().rstrip('/')
     if not server_url:
         raise ConfigError('IMMICH_SERVER_URL is required')
+    if not server_url.endswith('/api'):
+        server_url = f'{server_url}/api'
 
     app_title = os.getenv('APP_TITLE', 'Immich Quiz').strip() or 'Immich Quiz'
     app_tagline = os.getenv('APP_TAGLINE', '').strip() 
@@ -159,7 +161,7 @@ def load_settings() -> AppSettings:
     language = _parse_language(os.getenv('LANGUAGE', 'EN'))
 
     return AppSettings(
-        immich_server_url=server_url.rstrip('/'),
+        immich_server_url=server_url,
         immich_libraries=libraries,
         leaderboard_csv_path=csv_path,
         app_title=app_title,

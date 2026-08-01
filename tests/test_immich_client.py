@@ -18,6 +18,18 @@ def build_client(handler) -> ImmichClient:
     )
 
 
+def test_immich_client_url_normalization() -> None:
+    client1 = ImmichClient('https://example.test', {'family': 'token'})
+    assert client1._server_url == 'https://example.test/api'
+
+    client2 = ImmichClient('https://example.test/', {'family': 'token'})
+    assert client2._server_url == 'https://example.test/api'
+
+    client3 = ImmichClient('https://example.test/api/', {'family': 'token'})
+    assert client3._server_url == 'https://example.test/api'
+
+
+
 def asset(**overrides) -> dict:
     base = {
         'id': 'asset-1',

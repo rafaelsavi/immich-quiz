@@ -93,6 +93,25 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.date_score_decay_days == 500.0
 
 
+@pytest.mark.parametrize(
+    'raw_url, expected_url',
+    [
+        ('https://example.test', 'https://example.test/api'),
+        ('https://example.test/', 'https://example.test/api'),
+        ('https://example.test/api', 'https://example.test/api'),
+        ('https://example.test/api/', 'https://example.test/api'),
+        ('http://192.168.1.10:2283', 'http://192.168.1.10:2283/api'),
+        ('http://192.168.1.10:2283/', 'http://192.168.1.10:2283/api'),
+    ],
+)
+def test_server_url_adds_api_if_missing(monkeypatch: pytest.MonkeyPatch, raw_url: str, expected_url: str) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', raw_url)
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    settings = load_settings()
+    assert settings.immich_server_url == expected_url
+
+
+
 def test_date_bounds_parse_when_valid(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')

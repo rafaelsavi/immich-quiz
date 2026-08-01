@@ -34,7 +34,10 @@ class ImmichClient:
         timeout_seconds: int = 25,
         client: httpx.AsyncClient | None = None,
     ) -> None:
-        self._server_url = server_url.rstrip('/')
+        url = server_url.strip().rstrip('/')
+        if not url.endswith('/api'):
+            url = f'{url}/api'
+        self._server_url = url
         self._library_keys = library_keys
         self._timeout = timeout_seconds
         self._client = client
