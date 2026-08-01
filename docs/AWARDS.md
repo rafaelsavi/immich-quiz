@@ -6,11 +6,13 @@ This guide documents all end-of-match performance awards in **Immich Quiz**, the
 
 ## 🏆 Summary of Available Awards
 
-| Award             | Icon | Description / Criteria                                                                                                                                                                                                                                |
-|-------------------|------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Sniper**        | 🎯   | Awarded to the player with the most **perfect location guesses** (100% score).<br>**Requirement**: `≥ 1 perfect location guess`.                                                                                       |
-| **Time Traveler** | ⏳    | Awarded to the player with the most **perfect date guesses** (100% score).<br>**Requirement**: `≥ 1 perfect date guess`.                                                                                                     |
-| **Speed Demon**   | ⚡    | Awarded to the player with the maximum number of fast rounds (submitted within **≤ 50% of the max round time limit**), provided they had **0 timeouts** in the match.<br>**Requirement**: Timed game (`30s` or `1m`), `0 timeouts`, `≥ 1 fast round`. |
+| Award             | Icon | Requirement                                                 | Description                                                                                                              | Tie-breaker           |
+|-------------------|------|-------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|-----------------------|
+| **Sniper**        | 🎯   | `≥ 1 perfect location guess`                                | Awarded to the player with the most **perfect location guesses** (100% score)                                            | Higher location score |
+| **Time Traveler** | ⏳    | `≥ 1 perfect date guess`                                    | Awarded to the player with the most **perfect date guesses** (100% score)                                                | Higher date score     |
+| **Speed Demon**   | ⚡    | `≥ 1 fast round`; `Timed game` (`30s` or `1m`); `0 timeouts | Awarded to the player with the maximum number of fast rounds (submitted within **≤ 50% of the max round time limit**)  ` | Lower total duration  |
+
+If the tie cannot be broken, the award is not given to any player.
 
 ---
 

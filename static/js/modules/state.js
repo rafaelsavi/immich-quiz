@@ -23,7 +23,7 @@ export const state = {
   timerRemainingSeconds: 0,
   /** @type {Record<string, number>} Total perfect rounds per player in current match */
   perfectCounts: {},
-  /** @type {Record<string, {totalDistanceKm: number, distanceCount: number, totalDateDiffDays: number, dateCount: number, perfectLocationCount: number, perfectDateCount: number, perfectRounds: number, timedOutCount: number, fastRoundCount: number}>} */
+  /** @type {Record<string, {totalDistanceKm: number, distanceCount: number, totalDateDiffDays: number, dateCount: number, perfectLocationCount: number, perfectDateCount: number, perfectRounds: number, timedOutCount: number, fastRoundCount: number, totalDurationSec: number}>} */
   playerStats: {},
 };
 

@@ -119,11 +119,11 @@ export const TRANSLATIONS = {
     // Podium & Awards
     "summary.podium_score": (pts) => `${pts} pts`,
     "award.sniper": "\u{1F3AF} Sniper",
-    "award.sniper_desc": (n) => `${n} perfect location guess${n === 1 ? '' : 'es'}`,
+    "award.sniper_desc": (n) => `Most perfect location guesses (${n})`,
     "award.time_traveler": "\u23F3 Time Traveler",
-    "award.time_traveler_desc": (n) => `${n} perfect date guess${n === 1 ? '' : 'es'}`,
+    "award.time_traveler_desc": (n) => `Most perfect date guesses (${n})`,
     "award.speed_demon": "\u26A1 Speed Demon",
-    "award.speed_demon_desc": (n) => `${n} fast round${n === 1 ? '' : 's'} (\u226450% time limit, 0 timeouts)`,
+    "award.speed_demon_desc": (n) => `Most fast rounds (${n}) with no timeouts`,
     // Errors & Popups
     "error.Player names must be unique": "Player names must be unique.",
     "error.Player list cannot be empty": "Player list cannot be empty.",
@@ -253,11 +253,11 @@ export const TRANSLATIONS = {
     // Podium & Awards
     "summary.podium_score": (pts) => `${pts} pts`,
     "award.sniper": "\u{1F3AF} Atirador de Élite",
-    "award.sniper_desc": (n) => `${n} palpite${n === 1 ? '' : 's'} de localização perfeito${n === 1 ? '' : 's'}`,
+    "award.sniper_desc": (n) => `Maior número de palpites perfeitos de localização (${n})`,
     "award.time_traveler": "\u23F3 Viajante do Tempo",
-    "award.time_traveler_desc": (n) => `${n} palpite${n === 1 ? '' : 's'} de data perfeito${n === 1 ? '' : 's'}`,
+    "award.time_traveler_desc": (n) => `Maior número de palpites perfeitos de data (${n})`,
     "award.speed_demon": "\u26A1 Relâmpago",
-    "award.speed_demon_desc": (n) => `${n} rodada${n === 1 ? '' : 's'} rápida${n === 1 ? '' : 's'} (\u226450% do tempo, 0 estoiros)`,
+    "award.speed_demon_desc": (n) => `Maior número de rodadas rápidas (${n}) sem tempo esgotado`,
     // Errors & Popups
     "error.Player names must be unique": "Os nomes dos jogadores devem ser únicos.",
     "error.Player list cannot be empty": "A lista de jogadores não pode estar vazia.",

@@ -465,16 +465,19 @@ async function submitAnswer(fromTimeout = false) {
     const remainingSec = state.timerRemainingSeconds || 0;
     const elapsedSec = fromTimeout ? totalSec : Math.max(0, totalSec - remainingSec);
 
-    if (playerName && totalSec > 0 && !fromTimeout && elapsedSec <= totalSec / 2) {
+    if (playerName && totalSec > 0) {
       if (!state.playerStats[playerName]) {
         state.playerStats[playerName] = {
           totalDistanceKm: 0, distanceCount: 0,
           totalDateDiffDays: 0, dateCount: 0,
           perfectLocationCount: 0, perfectDateCount: 0,
-          perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0,
+          perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0, totalDurationSec: 0,
         };
       }
-      state.playerStats[playerName].fastRoundCount = (state.playerStats[playerName].fastRoundCount || 0) + 1;
+      state.playerStats[playerName].totalDurationSec = (state.playerStats[playerName].totalDurationSec || 0) + elapsedSec;
+      if (!fromTimeout && elapsedSec <= totalSec / 2) {
+        state.playerStats[playerName].fastRoundCount = (state.playerStats[playerName].fastRoundCount || 0) + 1;
+      }
     }
 
     const payload = {
@@ -966,22 +969,70 @@ function renderAwards(summary) {
   if (existingAwards) existingAwards.remove();
 
   const awards = [];
+  const summaryByName = new Map((summary.players || []).map((player) => [player.player_name, player]));
+
+  const pickAwardWinner = (metricKey, tieBreakValueFn, { preferHigher = true, tieBreakPreferHigher = true } = {}) => {
+    let bestName = null;
+    let bestMetricValue = null;
+    let bestTieValue = null;
+    let hasTie = false;
+
+    for (const [name, stats] of Object.entries(state.playerStats)) {
+      const metricValue = stats[metricKey] ?? 0;
+      if (metricValue < 1) {
+        continue;
+      }
+
+      const tieValue = tieBreakValueFn ? tieBreakValueFn(name) : null;
+      if (bestName === null) {
+        bestName = name;
+        bestMetricValue = metricValue;
+        bestTieValue = tieValue;
+        continue;
+      }
+
+      if (metricValue > bestMetricValue) {
+        bestName = name;
+        bestMetricValue = metricValue;
+        bestTieValue = tieValue;
+        hasTie = false;
+        continue;
+      }
+
+      if (metricValue < bestMetricValue) {
+        continue;
+      }
+
+      if (tieBreakValueFn) {
+        if (tieValue !== bestTieValue) {
+          const isBetterTie = tieBreakPreferHigher ? tieValue > bestTieValue : tieValue < bestTieValue;
+          if (isBetterTie) {
+            bestName = name;
+            bestMetricValue = metricValue;
+            bestTieValue = tieValue;
+            hasTie = false;
+          } else {
+            hasTie = true;
+          }
+        } else {
+          hasTie = true;
+        }
+      } else {
+        hasTie = true;
+      }
+    }
+
+    return hasTie ? null : bestName;
+  };
 
   // 1. Sniper — most perfect location guesses (0 km / max points)
   if (summary.location_mode) {
-    let bestSniper = null;
-    let maxLocationPerfect = 0;
-    for (const [name, stats] of Object.entries(state.playerStats)) {
-      if (stats.perfectLocationCount > maxLocationPerfect) {
-        maxLocationPerfect = stats.perfectLocationCount;
-        bestSniper = name;
-      }
-    }
-    if (bestSniper && maxLocationPerfect > 0) {
+    const bestSniper = pickAwardWinner("perfectLocationCount", (name) => summaryByName.get(name)?.location_score ?? -1);
+    if (bestSniper) {
       awards.push({
         titleKey: "award.sniper",
         descKey: "award.sniper_desc",
-        descArgs: [maxLocationPerfect],
+        descArgs: [state.playerStats[bestSniper]?.perfectLocationCount || 0],
         player: bestSniper,
       });
     }
@@ -989,40 +1040,28 @@ function renderAwards(summary) {
 
   // 2. Time Traveler — most perfect date guesses (0 days / exact month / max points)
   if (summary.date_mode) {
-    let bestTimeTraveler = null;
-    let maxDatePerfect = 0;
-    for (const [name, stats] of Object.entries(state.playerStats)) {
-      if (stats.perfectDateCount > maxDatePerfect) {
-        maxDatePerfect = stats.perfectDateCount;
-        bestTimeTraveler = name;
-      }
-    }
-    if (bestTimeTraveler && maxDatePerfect > 0) {
+    const bestTimeTraveler = pickAwardWinner("perfectDateCount", (name) => summaryByName.get(name)?.date_score ?? -1);
+    if (bestTimeTraveler) {
       awards.push({
         titleKey: "award.time_traveler",
         descKey: "award.time_traveler_desc",
-        descArgs: [maxDatePerfect],
+        descArgs: [state.playerStats[bestTimeTraveler]?.perfectDateCount || 0],
         player: bestTimeTraveler,
       });
     }
   }
 
   // 3. Speed Demon — max fast rounds (<=50% max time) and 0 timeouts
-  let maxFastRounds = 0;
-  let speedDemonPlayer = null;
+  const speedDemonPlayer = pickAwardWinner("fastRoundCount", (name) => state.playerStats[name]?.totalDurationSec ?? 0, {
+    preferHigher: true,
+    tieBreakPreferHigher: false,
+  });
 
-  for (const [name, stats] of Object.entries(state.playerStats)) {
-    if (stats.timedOutCount === 0 && (stats.fastRoundCount || 0) > maxFastRounds) {
-      maxFastRounds = stats.fastRoundCount;
-      speedDemonPlayer = name;
-    }
-  }
-
-  if (speedDemonPlayer && maxFastRounds > 0) {
+  if (speedDemonPlayer) {
     awards.push({
       titleKey: "award.speed_demon",
       descKey: "award.speed_demon_desc",
-      descArgs: [maxFastRounds],
+      descArgs: [state.playerStats[speedDemonPlayer]?.fastRoundCount || 0],
       player: speedDemonPlayer,
     });
   }
