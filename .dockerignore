@@ -1,14 +1,40 @@
+# Virtual environment & Python caches
 .venv
 __pycache__
 *.pyc
 *.pyo
 *.pyd
+
+# Git & GitHub metadata
 .git
 .gitignore
+.githooks
+.github
+
+# Environment & Secrets
 .env
 .env.*
+
+# Testing & Linting artifacts
 tests
-*.csv
+.coverage
+htmlcov
 .pytest_cache
 .mypy_cache
 .ruff_cache
+
+# Persistent runtime data & docs
+data/
+*.csv
+docs
+*.md
+
+# Docker & Compose configs
+docker-compose*.yml
+
+# IDE & OS clutter
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db

@@ -14,8 +14,6 @@ RUN uv sync --frozen --no-dev
 # Copy project source code and assets
 COPY src ./src
 COPY static ./static
-COPY docs ./docs
-COPY README.md ./
 
 # Create default data directory for leaderboard persistence
 RUN mkdir -p data
