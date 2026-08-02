@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import csv
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 from src.models import LeaderboardEntry
 from src.scoring import max_possible_score
+
+logger = logging.getLogger(__name__)
 
 CSV_HEADER = [
     'match_id',
@@ -136,8 +139,37 @@ class LeaderboardStore:
 
     def _ensure_file(self) -> None:
         self._csv_path.parent.mkdir(parents=True, exist_ok=True)
-        if self._csv_path.exists():
+        if not self._csv_path.exists():
+            self._write_header_file(self._csv_path)
             return
-        with self._csv_path.open('w', newline='', encoding='utf-8') as handle:
+
+        existing_header = self._read_existing_header()
+        if existing_header != CSV_HEADER:
+            backup_path = self._backup_existing_file()
+            logger.warning(
+                'Leaderboard CSV schema mismatch detected. Backed up invalid file %r to %r and recreated %r.',
+                self._csv_path,
+                backup_path,
+                self._csv_path,
+            )
+            self._write_header_file(self._csv_path)
+
+    def _read_existing_header(self) -> list[str] | None:
+        with self._csv_path.open('r', newline='', encoding='utf-8') as handle:
+            reader = csv.reader(handle)
+            return next(reader, None)
+
+    def _write_header_file(self, path: Path) -> None:
+        with path.open('w', newline='', encoding='utf-8') as handle:
             writer = csv.writer(handle)
             writer.writerow(CSV_HEADER)
+
+    def _backup_existing_file(self) -> Path:
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        backup_path = self._csv_path.with_name(f'{self._csv_path.name}.bak.{timestamp}')
+        counter = 0
+        while backup_path.exists():
+            counter += 1
+            backup_path = self._csv_path.with_name(f'{self._csv_path.name}.bak.{timestamp}.{counter}')
+        self._csv_path.rename(backup_path)
+        return backup_path

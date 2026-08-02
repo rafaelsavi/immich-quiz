@@ -23,6 +23,7 @@ def test_leaderboard_config_stored_as_flat_columns(tmp_path: Path) -> None:
         round_length='1m',
         location_mode=False,
         date_mode=True,
+        game_mode='pinpoint',
         player_scores={'Alice': {'location': 0, 'date': 350, 'total': 350}},
     )
 
@@ -50,6 +51,7 @@ def test_leaderboard_filter_by_config(tmp_path: Path) -> None:
         round_length='1m',
         location_mode=True,
         date_mode=True,
+        game_mode='pinpoint',
         player_scores={'Alice': {'location': 200, 'date': 300, 'total': 500}},
     )
     store.append_match(
@@ -60,6 +62,7 @@ def test_leaderboard_filter_by_config(tmp_path: Path) -> None:
         round_length='30s',
         location_mode=False,
         date_mode=True,
+        game_mode='pinpoint',
         player_scores={'Bob': {'location': 0, 'date': 150, 'total': 150}},
     )
 
@@ -90,3 +93,17 @@ def test_leaderboard_filter_by_config(tmp_path: Path) -> None:
     # No filter — return both
     all_entries = store.list_entries()
     assert len(all_entries) == 2
+
+
+def test_leaderboard_invalid_header_is_backed_up_and_recreated(tmp_path: Path) -> None:
+    csv_path = tmp_path / 'leaderboard.csv'
+    csv_path.write_text('bad,header,value\n1,2,3\n', encoding='utf-8')
+
+    store = LeaderboardStore(csv_path)
+
+    assert csv_path.exists()
+    assert csv_path.read_text(encoding='utf-8').splitlines()[0] == ','.join(CSV_HEADER)
+
+    backup_files = sorted(tmp_path.glob('leaderboard.csv.bak.*'))
+    assert len(backup_files) == 1
+    assert backup_files[0].read_text(encoding='utf-8').splitlines()[0] == 'bad,header,value'
