@@ -23,7 +23,7 @@ import {
   playerBadge,
   playerNameCell,
 } from "./modules/formatters.js";
-import { launchGoldConfetti, createPerfectBadge, launchStarBurst, spawnFloatingScorePop } from "./modules/effects.js";
+import { launchGoldConfetti, createPerfectBadge, launchStarBurst, spawnFloatingScorePop, animateScoreRollup } from "./modules/effects.js";
 import {
   updateSubmitState,
   createPinIcon,
@@ -597,47 +597,7 @@ async function showRoundReveal(roundNumber) {
   }
 }
 
-function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 200) {
-  if (!cellElement || targetScore <= 0) {
-    if (cellElement) cellElement.textContent = String(targetScore);
-    return;
-  }
-  // Strictly proportional ratio (0.0 to 1.0) of score points vs max possible round points.
-  const maxPossible = maxPossibleScore || 200;
-  const scoreRatio = Math.max(0.05, Math.min(1, targetScore / maxPossible));
 
-  // Directly proportional sound & animation duration (linear scaling from 150ms to 1400ms):
-  const durationMs = Math.round(150 + scoreRatio * 1250);
-  const tickInterval = 45;
-
-  const span = document.createElement("span");
-  span.className = "score-rollup is-rolling";
-  span.textContent = "0";
-  cellElement.replaceChildren(span);
-
-  let startTime = null;
-  let lastTickTime = 0;
-
-  function step(timestamp) {
-    if (!startTime) startTime = timestamp;
-    const progress = Math.min(1, (timestamp - startTime) / durationMs);
-    const currentVal = Math.floor(progress * targetScore);
-    span.textContent = String(currentVal);
-
-    if (timestamp - lastTickTime > tickInterval && progress < 1) {
-      lastTickTime = timestamp;
-      playScoreRollupTick(progress);
-    }
-
-    if (progress < 1) {
-      requestAnimationFrame(step);
-    } else {
-      span.textContent = String(targetScore);
-      span.classList.remove("is-rolling");
-    }
-  }
-  requestAnimationFrame(step);
-}
 
 function renderRevealSummary(reveal) {
   el.roundMeta.textContent = t("reveal.title", reveal.round_number, reveal.total_rounds);

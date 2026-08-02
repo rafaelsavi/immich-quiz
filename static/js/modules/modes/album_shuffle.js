@@ -1,7 +1,10 @@
 import { t } from "../i18n.js";
 import { state, el } from "../state.js";
-import { updateSubmitState } from "../maps.js";
+import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
+import { playerBadge, playerNameCell, buildCell } from "../formatters.js";
+import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
+import { playChime } from "../audio.js";
 
 let shuffleMap = null;
 let revealShuffleMap = null;
@@ -27,6 +30,8 @@ export const albumShuffleMode = {
   renderQuestion(guessingUi, questionData) {
     const pinpointUi = document.getElementById("pinpoint-ui");
     if (pinpointUi) pinpointUi.classList.add("hidden");
+
+    if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
     let uiContainer = document.getElementById("album-shuffle-ui");
     if (!uiContainer) {
@@ -64,19 +69,15 @@ export const albumShuffleMode = {
     const mapFsBtn = document.createElement("button");
     mapFsBtn.type = "button";
     mapFsBtn.className = "map-fullscreen-btn";
-    mapFsBtn.textContent = "Fullscreen";
-    mapFsBtn.addEventListener("click", () => {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => { });
-      } else {
-        mapShell.requestFullscreen().catch(() => { });
-      }
-    });
+    mapFsBtn.setAttribute("aria-pressed", "false");
+    mapFsBtn.title = "Toggle fullscreen map";
+    mapFsBtn.textContent = t("game.fullscreen_btn");
+    mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
 
     mapShell.appendChild(mapFsBtn);
     mapCol.appendChild(mapShell);
 
-    // Right Column: Cards List with Sequence Info Banner, Rank Buttons (NO PIN DROPDOWN)
+    // Right Column: Cards List with Sequence Info Banner, Rank Buttons
     const cardsCol = document.createElement("div");
     cardsCol.className = "shuffle-photo-column";
     cardsCol.id = "shuffle-cards-list";
@@ -112,125 +113,310 @@ export const albumShuffleMode = {
     revealUi.replaceChildren();
     revealUi.classList.remove("hidden");
 
+    // Standardize Round Meta header banner (matching Pinpoint mode)
+    if (el.roundMeta) {
+      el.roundMeta.textContent = t("reveal.title", revealData.round_number, revealData.total_rounds);
+    }
+
     const batchReveal = revealData.batch_reveal || [];
     const playerResults = revealData.results || [];
     const libraryName = revealData.library_name || (state.currentQuestion ? state.currentQuestion.library_name : "");
+    const totalPhotos = batchReveal.length;
 
-    // Title
-    const heading = document.createElement("h2");
-    heading.style.textAlign = "center";
-    heading.style.marginBottom = "1rem";
-    heading.textContent = `Round ${revealData.round_number} of ${revealData.total_rounds} - Reveal`;
-
-    // Multi-Player Summary Score Cards Container
-    const scoreContainer = document.createElement("div");
-    scoreContainer.style.display = "grid";
-    scoreContainer.style.gridTemplateColumns = "repeat(auto-fit, minmax(280px, 1fr))";
-    scoreContainer.style.gap = "1rem";
-    scoreContainer.style.marginBottom = "1.5rem";
-
-    playerResults.forEach((pRes) => {
-      const scoreCard = document.createElement("div");
-      scoreCard.className = "card";
-      scoreCard.style.padding = "1rem";
-      scoreCard.style.background = "linear-gradient(135deg, #f0fdfa 0%, #e0f2fe 100%)";
-      scoreCard.style.border = "2px solid #0f7c7f";
-
-      const rScore = pRes.round_score ?? pRes.total_score ?? 0;
-      const lScore = pRes.location_score ?? 0;
-      const dScore = pRes.date_score ?? 0;
-
-      scoreCard.innerHTML = `
-        <h3 style="margin:0 0 0.5rem 0; font-size:1.1rem; color:var(--accent);">${pRes.player_name}: ${rScore} pts</h3>
-        <div style="font-size:0.9rem; font-weight:600; display:flex; flex-direction:column; gap:0.2rem;">
-          ${revealData.location_mode ? `<span>📍 Location Pins: <strong>${lScore} / 100 pts</strong></span>` : ""}
-          ${revealData.date_mode ? `<span>📅 Chronological Order: <strong>${dScore} / 100 pts</strong></span>` : ""}
-        </div>
-      `;
-      scoreContainer.appendChild(scoreCard);
-    });
-
-    // Grid Layout for Map & Reveal List
-    const revealBoard = document.createElement("div");
-    revealBoard.className = "shuffle-board";
-
-    // Map Column
-    const mapCol = document.createElement("div");
-    mapCol.className = "shuffle-map-column";
-    const mapShell = document.createElement("div");
-    mapShell.className = "map-shell";
-    mapShell.id = "reveal-shuffle-map-shell";
-    mapShell.style.height = "480px";
-    mapCol.appendChild(mapShell);
-
-    // Photos Breakdown Column
-    const listCol = document.createElement("div");
-    listCol.className = "shuffle-photo-column";
-
-    // Sort batch items in TRUE chronological order (reverse=True -> Newest #1 down to Oldest #5)
+    // Sort batch items in TRUE chronological order (newest #1 to oldest #N)
     const sortedTrueBatch = [...batchReveal].sort((a, b) => {
       const dateA = a.actual_date ? new Date(a.actual_date).getTime() : 0;
       const dateB = b.actual_date ? new Date(b.actual_date).getTime() : 0;
       return dateB - dateA;
     });
 
+    // Map photo_id to true rank index (0-based)
+    const trueRankMap = {};
     sortedTrueBatch.forEach((item, trueRankIdx) => {
-      const photoCard = document.createElement("div");
-      photoCard.className = "shuffle-card-row";
-      photoCard.style.cursor = "default";
-      photoCard.style.marginBottom = "0.75rem";
+      trueRankMap[item.photo_id] = trueRankIdx;
+    });
 
-      // Rank Badge
-      const rankBadge = document.createElement("div");
-      rankBadge.className = "shuffle-rank-badge";
-      rankBadge.textContent = `#${trueRankIdx + 1}`;
+    // Compute player accuracy metrics
+    const playerAccuracy = {};
+    playerResults.forEach((pRes) => {
+      const pGuesses = pRes.album_shuffle_guesses || [];
+      let correctPins = 0;
+      let correctRanks = 0;
 
-      // Thumbnail
+      batchReveal.forEach((item) => {
+        const pGuess = pGuesses.find((g) => g.photo_id === item.photo_id);
+        if (pGuess) {
+          if (pGuess.assigned_pin_id && String(pGuess.assigned_pin_id) === String(item.true_pin_id)) {
+            correctPins++;
+          }
+          const trueRank = trueRankMap[item.photo_id];
+          if (pGuess.assigned_timeline_index !== null && pGuess.assigned_timeline_index === trueRank) {
+            correctRanks++;
+          }
+        }
+      });
+
+      playerAccuracy[pRes.player_name] = { correctPins, correctRanks };
+    });
+
+    // --- SECTION 1: POINT SCORING RESULTS TABLE (PINPOINT STYLE) ---
+    const tableScroll = document.createElement("div");
+    tableScroll.className = "table-scroll";
+    const scoreTable = document.createElement("table");
+    scoreTable.id = "reveal-table";
+    const thead = document.createElement("thead");
+    const tbody = document.createElement("tbody");
+    scoreTable.append(thead, tbody);
+    tableScroll.appendChild(scoreTable);
+
+    // Build Table Headers
+    const groups = [];
+    if (revealData.location_mode) {
+      groups.push({ label: t("reveal.col_location"), columns: [t("reveal.col_points"), t("reveal.col_pins_correct")] });
+    }
+    if (revealData.date_mode) {
+      groups.push({ label: t("reveal.col_date"), columns: [t("reveal.col_points"), t("reveal.col_order_correct")] });
+    }
+    groups.push({ label: t("reveal.col_score"), columns: [t("reveal.col_round"), t("reveal.col_total")] });
+
+    const groupRow = document.createElement("tr");
+    const playerHead = buildCell(t("reveal.col_player"), true);
+    playerHead.rowSpan = 2;
+    groupRow.appendChild(playerHead);
+    groups.forEach((group) => {
+      const cell = buildCell(group.label, true);
+      cell.colSpan = group.columns.length;
+      cell.className = "group-head group-start";
+      groupRow.appendChild(cell);
+    });
+
+    const columnRow = document.createElement("tr");
+    groups.forEach((group) => {
+      group.columns.forEach((label, index) => {
+        const cell = buildCell(label, true);
+        if (index === 0) cell.className = "group-start";
+        columnRow.appendChild(cell);
+      });
+    });
+    thead.replaceChildren(groupRow, columnRow);
+
+    // Build Table Body
+    const maxPoints = revealData.score_max_points || state.scoreMaxPoints || 100;
+    const maxRoundPoints = (revealData.location_mode ? maxPoints : 0) + (revealData.date_mode ? maxPoints : 0);
+    const orderedResults = [...playerResults].sort((a, b) => (b.round_score ?? 0) - (a.round_score ?? 0));
+    let hasAnyPerfectInRound = false;
+
+    orderedResults.forEach((pRes, rIdx) => {
+      const acc = playerAccuracy[pRes.player_name] || { correctPins: 0, correctRanks: 0 };
+      const isPerfectLocation = revealData.location_mode && acc.correctPins === totalPhotos && totalPhotos > 0;
+      const isPerfectDate = revealData.date_mode && acc.correctRanks === totalPhotos && totalPhotos > 0;
+      const isPerfectRound = maxRoundPoints > 0 && pRes.round_score === maxRoundPoints;
+
+      if (isPerfectLocation || isPerfectDate || isPerfectRound) {
+        hasAnyPerfectInRound = true;
+      }
+
+      const row = document.createElement("tr");
+      const pCell = buildCell();
+      pCell.appendChild(playerNameCell(pRes.player_name, pRes.timed_out));
+      row.appendChild(pCell);
+
+      const valueGroups = [];
+      if (revealData.location_mode) {
+        valueGroups.push({
+          isPerfect: isPerfectLocation,
+          items: [
+            pRes.location_score === null || pRes.location_score === undefined ? "-" : String(pRes.location_score),
+            `${acc.correctPins} / ${totalPhotos}`,
+          ],
+        });
+      }
+      if (revealData.date_mode) {
+        valueGroups.push({
+          isPerfect: isPerfectDate,
+          items: [
+            pRes.date_score === null || pRes.date_score === undefined ? "-" : String(pRes.date_score),
+            `${acc.correctRanks} / ${totalPhotos}`,
+          ],
+        });
+      }
+      valueGroups.push({
+        isPerfect: isPerfectRound,
+        isScoreGroup: true,
+        roundScoreNum: pRes.round_score ?? 0,
+        items: [String(pRes.round_score ?? 0), String(pRes.total_score ?? 0)],
+      });
+
+      valueGroups.forEach((group) => {
+        group.items.forEach((value, index) => {
+          const cell = buildCell(value);
+          if (index === 0) {
+            cell.classList.add("group-start");
+            if (group.isPerfect) {
+              cell.classList.add("is-perfect-cell");
+              cell.appendChild(createPerfectBadge());
+            }
+          }
+          if (group.isScoreGroup && index === 0) {
+            animateScoreRollup(cell, group.roundScoreNum, maxRoundPoints);
+          }
+          row.appendChild(cell);
+        });
+      });
+
+      tbody.appendChild(row);
+
+      setTimeout(() => {
+        if (isPerfectLocation && isPerfectDate) {
+          spawnFloatingScorePop(row, `🎯 PERFECT ROUND! +${pRes.round_score}`, "bullseye");
+        } else if (isPerfectLocation) {
+          spawnFloatingScorePop(row, `🎯 ALL PINS CORRECT! +${pRes.location_score}`, "bullseye");
+        } else if (isPerfectDate) {
+          spawnFloatingScorePop(row, `⏳ PERFECT ORDER! +${pRes.date_score}`, "perfect");
+        } else if ((pRes.round_score ?? 0) > 0) {
+          spawnFloatingScorePop(row, `+${pRes.round_score} pts`, "good");
+        }
+      }, rIdx * 250);
+    });
+
+    if (hasAnyPerfectInRound) {
+      playChime();
+      launchStarBurst();
+      launchGoldConfetti();
+    }
+
+    // --- SECTION 2: MAP LAYOUT (WITH FULLSCREEN & MAP IMAGERY LAYER CONTROLS) ---
+    const mapHead = document.createElement("div");
+    mapHead.className = "field-head";
+    mapHead.style.marginTop = "0.25rem";
+    mapHead.innerHTML = `<label>${t("reveal.map_label")}</label>`;
+
+    const mapShell = document.createElement("div");
+    mapShell.className = "map-shell";
+    mapShell.id = "reveal-shuffle-map-shell";
+    mapShell.style.height = "450px";
+
+    const mapFsBtn = document.createElement("button");
+    mapFsBtn.type = "button";
+    mapFsBtn.className = "map-fullscreen-btn";
+    mapFsBtn.setAttribute("aria-pressed", "false");
+    mapFsBtn.title = "Toggle fullscreen map";
+    mapFsBtn.textContent = t("game.fullscreen_btn");
+    mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
+    mapShell.appendChild(mapFsBtn);
+
+    // --- SECTION 3: PHOTO BREAKDOWN TABLE ---
+    const breakdownHead = document.createElement("div");
+    breakdownHead.className = "field-head";
+    breakdownHead.style.marginTop = "1.5rem";
+    breakdownHead.innerHTML = `<label>${t("reveal.photo_breakdown_title")}</label>`;
+
+    const breakdownScroll = document.createElement("div");
+    breakdownScroll.className = "table-scroll";
+    const bdTable = document.createElement("table");
+    bdTable.className = "shuffle-breakdown-table";
+
+    const bdThead = document.createElement("thead");
+    const bdTr = document.createElement("tr");
+    const bdCols = [t("reveal.col_photo"), t("reveal.col_true_values"), t("reveal.col_player")];
+    if (revealData.location_mode) bdCols.push(t("reveal.col_pin_guess"));
+    if (revealData.date_mode) bdCols.push(t("reveal.col_rank_guess"));
+
+    bdCols.forEach((colText) => {
+      const th = document.createElement("th");
+      th.textContent = colText;
+      bdTr.appendChild(th);
+    });
+    bdThead.appendChild(bdTr);
+
+    const bdTbody = document.createElement("tbody");
+
+    sortedTrueBatch.forEach((item, trueRankIdx) => {
       const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(libraryName)}`;
-      const thumbWrap = document.createElement("div");
-      thumbWrap.className = "shuffle-card-thumb-wrap";
-      const img = document.createElement("img");
-      img.className = "shuffle-card-thumb-lg";
-      img.src = imgUrl;
-      img.alt = `Photo ${trueRankIdx + 1}`;
-      img.addEventListener("click", () => openPhotoLightbox(imgUrl));
-      thumbWrap.appendChild(img);
+      const dateStr = item.actual_date
+        ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+        : "Unknown date";
 
-      // Multi-Player Details Breakdown
-      const details = document.createElement("div");
-      details.className = "shuffle-card-details";
+      playerResults.forEach((pRes, pIdx) => {
+        const tr = document.createElement("tr");
 
-      const dateStr = item.actual_date ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "Unknown date";
+        // Photo Column (only on first player row for this photo, with rowSpan)
+        if (pIdx === 0) {
+          const photoTd = document.createElement("td");
+          photoTd.rowSpan = playerResults.length;
+          photoTd.style.verticalAlign = "middle";
 
-      let playerBadgesHtml = "";
-      playerResults.forEach((pRes) => {
+          const photoWrap = document.createElement("div");
+          photoWrap.className = "shuffle-photo-cell";
+
+          const rankBadge = document.createElement("div");
+          rankBadge.className = "shuffle-rank-badge";
+          rankBadge.textContent = `#${trueRankIdx + 1}`;
+
+          const thumbWrap = document.createElement("div");
+          thumbWrap.className = "shuffle-card-thumb-wrap";
+          const img = document.createElement("img");
+          img.className = "shuffle-card-thumb-lg";
+          img.src = imgUrl;
+          img.alt = `Photo ${trueRankIdx + 1}`;
+          img.addEventListener("click", () => openPhotoLightbox(imgUrl));
+          thumbWrap.appendChild(img);
+
+          photoWrap.append(rankBadge, thumbWrap);
+          photoTd.appendChild(photoWrap);
+          tr.appendChild(photoTd);
+
+          // True Values Column (rowSpan)
+          const trueTd = document.createElement("td");
+          trueTd.rowSpan = playerResults.length;
+          trueTd.style.verticalAlign = "middle";
+          trueTd.innerHTML = `
+            <div style="font-size:0.85rem; font-weight:600; color:var(--text-main);">
+              ${revealData.date_mode ? `<div>📅 Date: ${dateStr}</div>` : ""}
+              ${revealData.location_mode ? `<div>📍 Pin: <strong>${item.true_pin_id}</strong></div>` : ""}
+            </div>
+          `;
+          tr.appendChild(trueTd);
+        }
+
+        // Player Column
+        const pTd = document.createElement("td");
+        pTd.style.verticalAlign = "middle";
+        pTd.appendChild(playerNameCell(pRes.player_name, pRes.timed_out));
+        tr.appendChild(pTd);
+
         const pGuesses = pRes.album_shuffle_guesses || [];
         const pGuess = pGuesses.find((g) => g.photo_id === item.photo_id);
-        const isPinCorrect = pGuess && pGuess.assigned_pin_id === item.true_pin_id;
+        const isPinCorrect = pGuess && String(pGuess.assigned_pin_id) === String(item.true_pin_id);
         const pSubmittedRank = pGuess ? pGuess.assigned_timeline_index : null;
         const isRankCorrect = pSubmittedRank === trueRankIdx;
 
-        playerBadgesHtml += `
-          <div style="margin-top:0.4rem; font-size:0.82rem;">
-            <strong>${pRes.player_name}:</strong>
-            ${revealData.location_mode ? `<span class="shuffle-badge-reveal ${isPinCorrect ? "correct" : "incorrect"}">Pin ${pGuess && pGuess.assigned_pin_id ? pGuess.assigned_pin_id : "None"} ${isPinCorrect ? "✓" : "✗"}</span>` : ""}
-            ${revealData.date_mode ? `<span class="shuffle-badge-reveal ${isRankCorrect ? "correct" : "incorrect"}">Rank ${pSubmittedRank !== null ? `#${pSubmittedRank + 1}` : "None"} ${isRankCorrect ? "✓" : "✗"}</span>` : ""}
-          </div>
-        `;
+        // Pin Guess Column
+        if (revealData.location_mode) {
+          const pinTd = document.createElement("td");
+          pinTd.style.verticalAlign = "middle";
+          const pinBadgeText = pGuess && pGuess.assigned_pin_id ? `Pin ${pGuess.assigned_pin_id}` : "None";
+          pinTd.innerHTML = `<span class="shuffle-badge-reveal ${isPinCorrect ? "correct" : "incorrect"}">${pinBadgeText} ${isPinCorrect ? "✓" : "✗"}</span>`;
+          tr.appendChild(pinTd);
+        }
+
+        // Rank Guess Column
+        if (revealData.date_mode) {
+          const rankTd = document.createElement("td");
+          rankTd.style.verticalAlign = "middle";
+          const rankBadgeText = pSubmittedRank !== null && pSubmittedRank !== undefined ? `Rank #${pSubmittedRank + 1}` : "None";
+          rankTd.innerHTML = `<span class="shuffle-badge-reveal ${isRankCorrect ? "correct" : "incorrect"}">${rankBadgeText} ${isRankCorrect ? "✓" : "✗"}</span>`;
+          tr.appendChild(rankTd);
+        }
+
+        bdTbody.appendChild(tr);
       });
-
-      details.innerHTML = `
-        <div style="font-size: 0.85rem; color: #64748b; font-weight: 600;">📅 True Date: ${dateStr} | True Pin: 📍 Pin ${item.true_pin_id}</div>
-        ${playerBadgesHtml}
-      `;
-
-      photoCard.append(rankBadge, thumbWrap, details);
-      listCol.appendChild(photoCard);
     });
 
-    revealBoard.append(mapCol, listCol);
+    bdTable.append(bdThead, bdTbody);
+    breakdownScroll.appendChild(bdTable);
 
-    // Next Round / Final Results Button
+    // --- SECTION 4: NEXT ROUND BUTTON & ACTIONS ---
     const nextBtn = document.createElement("button");
     nextBtn.id = "next-round";
     nextBtn.className = "btn-primary";
@@ -245,8 +431,31 @@ export const albumShuffleMode = {
       }
     });
 
-    revealUi.append(heading, scoreContainer, revealBoard, nextBtn);
+    const actionsDiv = document.createElement("div");
+    actionsDiv.className = "game-actions";
+    actionsDiv.style.marginTop = "1rem";
+    const restartBtn = document.createElement("button");
+    restartBtn.type = "button";
+    restartBtn.className = "btn-danger";
+    restartBtn.textContent = t("game.restart_btn");
+    restartBtn.addEventListener("click", () => {
+      if (el.revealRestartBtn) el.revealRestartBtn.click();
+    });
+    const exitBtn = document.createElement("button");
+    exitBtn.type = "button";
+    exitBtn.className = "btn-danger";
+    exitBtn.textContent = t("game.exit_btn");
+    exitBtn.addEventListener("click", () => {
+      if (el.revealExitBtn) el.revealExitBtn.click();
+    });
+    actionsDiv.append(restartBtn, exitBtn);
 
+    tableScroll.style.marginTop = "1.5rem";
+
+    // Append everything to revealUi: Map -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
+    revealUi.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+
+    // Render Leaflet Map with tile imagery layers & controls
     renderBatchRevealMap(mapShell, batchReveal);
   },
 };
@@ -256,40 +465,46 @@ function renderPhotoCardsList(containerEl, questionData) {
 
   // Informational Banner informing user of chronological sequence
   if (questionData.date_mode) {
-    const banner = document.createElement("div");
-    banner.className = "shuffle-info-banner";
-    banner.textContent = "ℹ️ Order photos from newest (#1) at top to oldest (#5) at bottom";
-    containerEl.appendChild(banner);
+    const totalCount = (questionData.batch_photos || []).length || 5;
+    const infoBanner = document.createElement("div");
+    infoBanner.className = "shuffle-info-banner";
+    infoBanner.innerHTML = `<span>${t("game.shuffle_info_banner", totalCount)}</span>`;
+    containerEl.appendChild(infoBanner);
   }
 
-  const photos = questionData.batch_photos || [];
-  const photoById = new Map(photos.map((p) => [p.photo_id, p]));
   const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
+  const selectedPhotoId = state.albumShuffleState ? state.albumShuffleState.selectedPhotoId : null;
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+  const photosMap = {};
+  (questionData.batch_photos || []).forEach((p) => {
+    photosMap[p.photo_id] = p;
+  });
 
   orderedIds.forEach((photoId, index) => {
-    const photo = photoById.get(photoId);
+    const photo = photosMap[photoId];
     if (!photo) return;
 
     const card = document.createElement("div");
-    card.className = "shuffle-card-row";
-    if (photoId === state.albumShuffleState.selectedPhotoId) {
-      card.classList.add("selected");
-    }
+    card.className = `shuffle-card-row ${selectedPhotoId === photoId ? "selected" : ""}`;
 
     card.addEventListener("click", () => {
-      state.albumShuffleState.selectedPhotoId = photoId;
-      document.querySelectorAll(".shuffle-card-row").forEach((c) => c.classList.remove("selected"));
-      card.classList.add("selected");
-      highlightMapMarker(pinAssignments[photoId]);
+      if (state.albumShuffleState) {
+        state.albumShuffleState.selectedPhotoId = photoId;
+        renderPhotoCardsList(containerEl, questionData);
+
+        const assignedPin = state.albumShuffleState.pinAssignments
+          ? state.albumShuffleState.pinAssignments[photoId]
+          : null;
+        highlightMapMarker(assignedPin || null);
+      }
     });
 
-    // Clean Rank Badge (#1, #2, #3...)
+    // Rank Badge
     const rankBadge = document.createElement("div");
     rankBadge.className = "shuffle-rank-badge";
     rankBadge.textContent = `#${index + 1}`;
 
-    // Thumbnail (50% Larger 220px x 150px preview with Fullscreen Lightbox button)
+    // Thumbnail
     const thumbWrap = document.createElement("div");
     thumbWrap.className = "shuffle-card-thumb-wrap";
 
@@ -310,18 +525,18 @@ function renderPhotoCardsList(containerEl, questionData) {
 
     thumbWrap.append(img, fsBtn);
 
-    // Assigned Pin Badge Indicator (NO DROPDOWN - Map Click Only!)
+    // Assigned Pin Badge Indicator
     const pinBadgeWrap = document.createElement("div");
     pinBadgeWrap.className = "shuffle-card-details";
 
     const assignedPin = pinAssignments[photoId];
     const pinBadge = document.createElement("div");
     pinBadge.className = `shuffle-assigned-pin-badge ${assignedPin ? "assigned" : "unassigned"}`;
-    pinBadge.textContent = assignedPin ? `📍 Pin ${assignedPin}` : "📍 Map Pin Unassigned";
+    pinBadge.textContent = assignedPin ? `📍 Pin ${assignedPin}` : "📍";
 
     pinBadgeWrap.appendChild(pinBadge);
 
-    // Compact Arrow Buttons (▲ Move up / ▼ Move down)
+    // Compact Arrow Buttons
     const rankControls = document.createElement("div");
     rankControls.className = "shuffle-rank-controls";
 
@@ -371,6 +586,20 @@ function renderPhotoCardsList(containerEl, questionData) {
   updateSubmitState();
 }
 
+function updateShuffleMapMarkers(pins) {
+  const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+  pins.forEach((pin) => {
+    const isTaken = Object.values(pinAssignments).includes(pin.pin_id);
+    const bgColor = isTaken ? "#f59f00" : "#0f7c7f";
+    const badgeText = isTaken ? `${pin.pin_id} ✓` : pin.pin_id;
+    const el = document.getElementById(`pin-marker-${pin.pin_id}`);
+    if (el) {
+      el.style.background = bgColor;
+      el.textContent = badgeText;
+    }
+  });
+}
+
 function renderShuffleMap(containerEl, pins, questionData) {
   if (!window.L) return;
   if (shuffleMap) {
@@ -380,10 +609,9 @@ function renderShuffleMap(containerEl, pins, questionData) {
   shuffleMarkers = {};
 
   const mapShell = containerEl.id ? containerEl : document.getElementById("shuffle-map-shell");
-  const map = L.map(mapShell).setView([20, 0], 2);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap",
-  }).addTo(map);
+  const base = createBaseTileLayers();
+  const map = L.map(mapShell, { layers: [base.streets] }).setView([20, 0], 2);
+  addLayerControl(map, base);
 
   shuffleMap = map;
   const bounds = L.latLngBounds();
@@ -417,7 +645,7 @@ function renderShuffleMap(containerEl, pins, questionData) {
           }
         });
         pinAssignments[selectedId] = pin.pin_id;
-        renderShuffleMap(mapShell, pins, questionData);
+        updateShuffleMapMarkers(pins);
         const cardsList = document.getElementById("shuffle-cards-list");
         if (cardsList) {
           renderPhotoCardsList(cardsList, questionData);
@@ -435,11 +663,10 @@ function renderShuffleMap(containerEl, pins, questionData) {
 }
 
 function highlightMapMarker(pinId) {
-  if (!pinId) return;
   Object.keys(shuffleMarkers).forEach((pid) => {
     const el = document.getElementById(`pin-marker-${pid}`);
     if (el) {
-      if (pid === pinId) {
+      if (pinId && pid === pinId) {
         el.style.transform = "scale(1.3)";
         el.style.boxShadow = "0 0 0 4px rgba(245, 159, 0, 0.6), 0 4px 12px rgba(0,0,0,0.4)";
         el.style.borderColor = "#f59f00";
@@ -459,10 +686,9 @@ function renderBatchRevealMap(containerEl, batchItems) {
     revealShuffleMap = null;
   }
 
-  const map = L.map(containerEl).setView([20, 0], 2);
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "&copy; OpenStreetMap",
-  }).addTo(map);
+  const base = createBaseTileLayers();
+  const map = L.map(containerEl, { layers: [base.streets] }).setView([20, 0], 2);
+  addLayerControl(map, base);
 
   revealShuffleMap = map;
   const bounds = L.latLngBounds();
@@ -479,7 +705,7 @@ function renderBatchRevealMap(containerEl, batchItems) {
       iconAnchor: [18, 18],
     });
 
-    const dateStr = item.actual_date ? new Date(item.actual_date).toLocaleDateString() : "";
+    const dateStr = item.actual_date ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
     L.marker([lat, lon], { icon })
       .bindPopup(`<b>Pin ${item.true_pin_id}</b><br>${dateStr}`)
       .addTo(map);

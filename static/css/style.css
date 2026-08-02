@@ -574,8 +574,9 @@ tr.is-winner td {
 }
 
 .round-meta {
-  font-weight: 700;
-  margin-bottom: 0.7rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
   white-space: pre-line;
 }
 
@@ -1700,6 +1701,36 @@ td.is-perfect-cell {
   border-color: var(--accent);
   background: #f0fdfa;
 }
+
+.shuffle-breakdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+}
+
+.shuffle-breakdown-table th,
+.shuffle-breakdown-table td {
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+}
+
+.shuffle-breakdown-table th {
+  background: var(--bg-surface-secondary, #f8fafc);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #64748b);
+}
+
+.shuffle-photo-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 
 
 

@@ -59,6 +59,8 @@ export const TRANSLATIONS = {
     "game.timer_time_up_notice": "Time's up! Your answers are frozen. Press Continue when you are ready.",
     "game.continue_btn": "Continue",
     "game.pin_required": "Place a pin on the map first",
+    "game.shuffle_info_banner": (count) =>
+      `⏳ Arrange photo cards from <strong>newest (#1)</strong> down to <strong>oldest (#${count})</strong>`,
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Round ${roundNum} of ${totalRounds}\nPlayer ${playerNum}: ${playerName}`,
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>
@@ -88,6 +90,13 @@ export const TRANSLATIONS = {
     "reveal.col_date_error": "Date Error",
     "reveal.col_round": "Round",
     "reveal.col_total": "Total",
+    "reveal.col_pins_correct": "Pins Correct",
+    "reveal.col_order_correct": "Order Correct",
+    "reveal.photo_breakdown_title": "Photo Breakdown",
+    "reveal.col_photo": "Photo",
+    "reveal.col_true_values": "True Values",
+    "reveal.col_pin_guess": "Pin Guess",
+    "reveal.col_rank_guess": "Rank Guess",
     "reveal.perfect_badge": "PERFECT!",
     "reveal.popup_actual": "Actual location",
     "reveal.popup_guess": (playerName, dist) => `${playerName}: ${dist} off`,
@@ -209,6 +218,8 @@ export const TRANSLATIONS = {
     "game.timer_time_up_notice": "Tempo esgotado! Suas respostas foram congeladas. Pressione Continuar quando estiver pronto.",
     "game.continue_btn": "Continuar",
     "game.pin_required": "Coloque um pino no mapa primeiro",
+    "game.shuffle_info_banner": (count) =>
+      `⏳ Organize as fotos da <strong>mais recente (#1)</strong> até a <strong>mais antiga (#${count})</strong>`,
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Rodada ${roundNum} de ${totalRounds}\nJogador ${playerNum}: ${playerName}`,
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>
@@ -238,6 +249,13 @@ export const TRANSLATIONS = {
     "reveal.col_date_error": "Erro de Data",
     "reveal.col_round": "Rodada",
     "reveal.col_total": "Total",
+    "reveal.col_pins_correct": "Pinos Corretos",
+    "reveal.col_order_correct": "Ordem Correta",
+    "reveal.photo_breakdown_title": "Detalhamento das Fotos",
+    "reveal.col_photo": "Foto",
+    "reveal.col_true_values": "Valores Reais",
+    "reveal.col_pin_guess": "Palpite de Pino",
+    "reveal.col_rank_guess": "Palpite de Ordem",
     "reveal.perfect_badge": "PERFEITO!",
     "reveal.popup_actual": "Local real",
     "reveal.popup_guess": (playerName, dist) => `${playerName}: ${dist} de distância`,
