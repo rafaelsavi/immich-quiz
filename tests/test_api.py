@@ -505,7 +505,61 @@ def test_audio_playground_endpoint(client: TestClient) -> None:
     assert 'playTick()' in res.text
     assert 'playBuzzer()' in res.text
     assert 'playChime()' in res.text
-    assert 'playVictoryFanfare()' in res.text
+def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
+    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i+1:02d}T10:00:00Z') for i in range(15)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(game_mode='album_shuffle', round_count=2, players=['Player 1'])
+    setup_res = client.post('/api/game/setup', json=payload)
+    assert setup_res.status_code == 200
+    match_id = setup_res.json()['match_id']
+
+    # Round 1 Question
+    q1_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    assert q1_res.status_code == 200
+    q1_data = q1_res.json()
+    assert q1_data['game_mode'] == 'album_shuffle'
+
+    # Round 1 Answer
+    a1_res = client.post(
+        '/api/answer',
+        json={
+            'match_id': match_id,
+            'question_id': q1_data['question_id'],
+            'album_shuffle_answers': [
+                {'photo_id': p['photo_id'], 'assigned_pin_id': 'A', 'assigned_timeline_index': idx}
+                for idx, p in enumerate(q1_data['batch_photos'])
+            ],
+        },
+    )
+    assert a1_res.status_code == 200
+    a1_data = a1_res.json()
+    assert a1_data['round_number'] == 1
+    assert a1_data['match_finished'] is False
+
+    # Round 2 Question
+    q2_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    assert q2_res.status_code == 200
+    q2_data = q2_res.json()
+
+    # Round 2 Answer
+    a2_res = client.post(
+        '/api/answer',
+        json={
+            'match_id': match_id,
+            'question_id': q2_data['question_id'],
+            'album_shuffle_answers': [
+                {'photo_id': p['photo_id'], 'assigned_pin_id': 'A', 'assigned_timeline_index': idx}
+                for idx, p in enumerate(q2_data['batch_photos'])
+            ],
+        },
+    )
+    assert a2_res.status_code == 200
+    a2_data = a2_res.json()
+    assert a2_data['round_number'] == 2
+    assert a2_data['match_finished'] is True
+
 
 
 

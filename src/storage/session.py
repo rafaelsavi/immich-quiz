@@ -6,7 +6,7 @@ from datetime import date
 from uuid import uuid4
 
 from src.immich.client import AssetAnswer
-from src.models import GameSetupRequest
+from src.models import GameMode, GameSetupRequest
 
 
 class QuestionAlreadyAnsweredError(RuntimeError):
@@ -43,6 +43,10 @@ class QuestionState:
     date_diff_days: int | None = None
     date_diff_months: int | None = None
     timed_out: bool = False
+    batch_assets: list[RoundAsset] | None = None
+    batch_pins: list[dict[str, object]] | None = None
+    album_shuffle_guesses: list[dict[str, object]] | None = None
+
 
 
 @dataclass
@@ -57,6 +61,8 @@ class MatchState:
     active_question_id: str | None = None
     asset_pool: dict[str, AssetAnswer] = field(default_factory=dict)
     round_assets: dict[int, RoundAsset] = field(default_factory=dict)
+    batch_round_assets: dict[int, list[RoundAsset]] = field(default_factory=dict)
+    batch_round_pins: dict[int, list[dict[str, object]]] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     last_activity_at: float = field(default_factory=time.time)
 
@@ -144,6 +150,8 @@ class SessionStore:
         actual_date: date | None,
         actual_city: str | None = None,
         actual_country: str | None = None,
+        batch_assets: list[RoundAsset] | None = None,
+        batch_pins: list[dict[str, object]] | None = None,
     ) -> QuestionState:
         state = self.get_match(match_id)
         question = QuestionState(
@@ -156,10 +164,16 @@ class SessionStore:
             actual_date=actual_date,
             actual_city=actual_city,
             actual_country=actual_country,
+            batch_assets=batch_assets,
+            batch_pins=batch_pins,
         )
         state.questions[question.question_id] = question
         state.active_question_id = question.question_id
-        state.played_asset_ids.add(asset_id)
+        if batch_assets:
+            for ba in batch_assets:
+                state.played_asset_ids.add(ba.asset_id)
+        else:
+            state.played_asset_ids.add(asset_id)
         state.touch()
         return question
 
@@ -181,6 +195,7 @@ class SessionStore:
         diff_days: int | None = None,
         diff_months: int | None = None,
         timed_out: bool = False,
+        album_shuffle_guesses: list[dict[str, object]] | None = None,
     ) -> MatchState:
         state = self.get_match(match_id)
         question = state.questions.get(question_id)
@@ -200,6 +215,8 @@ class SessionStore:
         question.date_diff_days = diff_days
         question.date_diff_months = diff_months
         question.timed_out = timed_out
+        question.album_shuffle_guesses = album_shuffle_guesses
+
 
         if state.active_question_id == question_id:
             state.active_question_id = None

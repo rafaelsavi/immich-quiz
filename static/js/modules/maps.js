@@ -42,6 +42,20 @@ export function updateSubmitState() {
     return;
   }
 
+  if (state.currentQuestion && state.currentQuestion.game_mode === "album_shuffle") {
+    const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+    const totalPhotos = (state.currentQuestion.batch_photos || []).length;
+    const assignedCount = Object.values(pinAssignments).filter(Boolean).length;
+    const missingPin = totalPhotos > 0 && assignedCount < totalPhotos;
+    el.submitAnswer.disabled = !state.currentQuestion || missingPin;
+    if (missingPin) {
+      el.submitAnswer.title = t("game.pin_required");
+    } else {
+      el.submitAnswer.removeAttribute("title");
+    }
+    return;
+  }
+
   const needsPin = Boolean(state.currentQuestion && state.currentQuestion.location_mode);
   const missingPin = needsPin && !state.guessedLatLng;
   el.submitAnswer.disabled = !state.currentQuestion || missingPin;

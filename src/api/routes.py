@@ -7,8 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
+    AlbumShuffleAnswerItem,
     AnswerRequest,
     AnswerResponse,
+    BatchPhotoItem,
+    BatchPinItem,
+    BatchRevealItem,
+    GameMode,
     GameSetupRequest,
     GameSetupResponse,
     MatchSummaryPlayer,
@@ -23,10 +28,12 @@ from src.models import (
 )
 from src.scoring import (
     accuracy_pct,
+    batch_strict_location_score,
     date_diff_days,
     date_diff_months,
     date_score,
     haversine_km,
+    kendall_tau_inversion_score,
     location_score,
     max_possible_score,
 )
@@ -38,6 +45,7 @@ from src.storage.session import (
     RoundAsset,
     SessionStore,
 )
+
 
 router = APIRouter(prefix='/api')
 
@@ -103,6 +111,7 @@ async def leaderboard(
     round_length: str | None = Query(default=None),
     location_mode: bool | None = Query(default=None),
     date_mode: bool | None = Query(default=None),
+    game_mode: str | None = Query(default=None),
     library: str | None = Query(default=None),
     album: str | None = Query(default=None),
 ) -> list[dict[str, object]]:
@@ -111,6 +120,7 @@ async def leaderboard(
         round_length=round_length,
         location_mode=location_mode,
         date_mode=date_mode,
+        game_mode=game_mode,
         library=library,
         album=album,
     )
@@ -149,7 +159,7 @@ async def game_preflight(
         )
     )
 
-    required = setup.round_count
+    required = 5 * setup.round_count if getattr(setup, "game_mode", GameMode.pinpoint) == GameMode.album_shuffle else setup.round_count
     return PreflightResponse(
         eligible_count=eligible_count,
         required=required,
@@ -194,6 +204,25 @@ async def _resolve_album_name(immich: ImmichClient, library_name: str, album_id:
 def _build_question_response(state: MatchState, question: QuestionState) -> QuestionResponse:
     players = state.setup.players
     player_index = players.index(question.player_name) if question.player_name in players else 0
+    batch_photos = None
+    batch_pins = None
+    if state.setup.game_mode == GameMode.album_shuffle and question.batch_assets and question.batch_pins:
+        batch_photos = [
+            BatchPhotoItem(
+                photo_id=ba.asset_id,
+                media_url=f'/api/media/{ba.asset_id}?library_name={state.setup.library_name}',
+            )
+            for ba in question.batch_assets
+        ]
+        batch_pins = [
+            BatchPinItem(
+                pin_id=str(bp['pin_id']),
+                latitude=float(bp['latitude']),
+                longitude=float(bp['longitude']),
+            )
+            for bp in question.batch_pins
+        ]
+
     return QuestionResponse(
         question_id=question.question_id,
         asset_id=question.asset_id,
@@ -209,7 +238,10 @@ def _build_question_response(state: MatchState, question: QuestionState) -> Ques
         total_turns=state.total_turns,
         location_mode=state.setup.location_mode,
         date_mode=state.setup.date_mode,
+        game_mode=state.setup.game_mode,
         round_length=state.setup.round_length,
+        batch_photos=batch_photos,
+        batch_pins=batch_pins,
     )
 
 
@@ -262,6 +294,57 @@ async def _select_round_asset(
     return RoundAsset(asset_id=asset_id, answer=state.asset_pool[asset_id])
 
 
+async def _select_batch_round_assets(
+    state: MatchState,
+    immich: ImmichClient,
+    count: int,
+    client_excluded: set[str],
+    min_capture_date: date | None,
+    max_capture_date: date | None,
+) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
+    excluded = state.played_asset_ids | client_excluded
+
+    if not state.asset_pool:
+        await _load_asset_pool(state, immich, min_capture_date, max_capture_date)
+    candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
+
+    if len(candidates) < count:
+        await _load_asset_pool(state, immich, min_capture_date, max_capture_date)
+        candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
+
+    if not candidates:
+        return None
+
+    if len(candidates) < count:
+        selected_ids = candidates
+    else:
+        selected_ids = random.sample(candidates, count)
+
+    assets = [RoundAsset(asset_id=aid, answer=state.asset_pool[aid]) for aid in selected_ids]
+
+    letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    raw_pins = []
+    for ra in assets:
+        lat = ra.answer.latitude or 0.0
+        lon = ra.answer.longitude or 0.0
+        raw_pins.append({'true_asset_id': ra.asset_id, 'latitude': lat, 'longitude': lon})
+
+    random.shuffle(raw_pins)
+    pins_data = []
+    for idx, p in enumerate(raw_pins):
+        letter = letters[idx % len(letters)]
+        if idx >= len(letters):
+            letter = f'{letter}{idx // len(letters)}'
+        pins_data.append({
+            'pin_id': letter,
+            'true_asset_id': p['true_asset_id'],
+            'latitude': p['latitude'],
+            'longitude': p['longitude'],
+        })
+
+    return assets, pins_data
+
+
 @router.post('/question', response_model=QuestionResponse)
 async def question(
     payload: QuestionRequest,
@@ -285,8 +368,45 @@ async def question(
         return _build_question_response(state, active)
 
     round_index = state.current_round_index
-    selection = state.round_assets.get(round_index)
 
+    if state.setup.game_mode == GameMode.album_shuffle:
+        batch_selection = state.batch_round_assets.get(round_index)
+        batch_pins = state.batch_round_pins.get(round_index)
+
+        if batch_selection is None or batch_pins is None:
+            try:
+                settings = request.app.state.settings
+                res = await _select_batch_round_assets(
+                    state,
+                    immich,
+                    5,
+                    set(payload.played_asset_ids),
+                    settings.fetch_photos_date_lower_bound,
+                    settings.fetch_photos_date_upper_bound,
+                )
+            except ImmichClientError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+            if res is None:
+                raise HTTPException(status_code=404, detail='No eligible assets available')
+            batch_selection, batch_pins = res
+            state.batch_round_assets[round_index] = batch_selection
+            state.batch_round_pins[round_index] = batch_pins
+
+        question_state = store.register_question(
+            payload.match_id,
+            asset_id=batch_selection[0].asset_id,
+            actual_latitude=batch_selection[0].answer.latitude,
+            actual_longitude=batch_selection[0].answer.longitude,
+            actual_date=batch_selection[0].answer.capture_date,
+            actual_city=batch_selection[0].answer.city,
+            actual_country=batch_selection[0].answer.country,
+            batch_assets=batch_selection,
+            batch_pins=batch_pins,
+        )
+        return _build_question_response(state, question_state)
+
+    selection = state.round_assets.get(round_index)
     if selection is None:
         try:
             settings = request.app.state.settings
@@ -365,48 +485,85 @@ async def answer(
     delta_months: int | None = None
     settings = request.app.state.settings
 
-    if state.setup.location_mode:
-        if (
-            payload.guessed_latitude is None
-            or payload.guessed_longitude is None
-            or question_state.actual_latitude is None
-            or question_state.actual_longitude is None
-        ):
-            location_points = 0
-        else:
-            distance = haversine_km(
-                payload.guessed_latitude,
-                payload.guessed_longitude,
-                question_state.actual_latitude,
-                question_state.actual_longitude,
-            )
-            location_points = location_score(
-                distance,
-                decay_km=settings.location_score_decay_km,
+    if state.setup.game_mode == GameMode.album_shuffle:
+        answers = payload.album_shuffle_answers or []
+        batch_assets = question_state.batch_assets or []
+        batch_pins = question_state.batch_pins or []
+
+        true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in batch_pins}
+
+        correct_pins = 0
+        album_shuffle_guesses = []
+        for ans in answers:
+            album_shuffle_guesses.append({
+                'photo_id': ans.photo_id,
+                'assigned_pin_id': ans.assigned_pin_id,
+                'assigned_timeline_index': ans.assigned_timeline_index,
+            })
+            if ans.photo_id in true_pin_map and ans.assigned_pin_id == true_pin_map[ans.photo_id]:
+                correct_pins += 1
+
+        location_points = (
+            batch_strict_location_score(
+                correct_pins,
+                total_photos=len(batch_assets),
                 max_points=settings.score_max_points,
+            )
+            if state.setup.location_mode
+            else 0
+        )
+
+        if state.setup.date_mode:
+            sorted_by_date = sorted(batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=True)
+            true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
+
+            sorted_answers = sorted(
+                answers,
+                key=lambda ans: ans.assigned_timeline_index if ans.assigned_timeline_index is not None else 999,
+            )
+            guessed_ranks = [true_rank_map[ans.photo_id] for ans in sorted_answers if ans.photo_id in true_rank_map]
+
+            date_points = kendall_tau_inversion_score(guessed_ranks, max_points=settings.score_max_points)
+        else:
+            date_points = 0
+
+        round_index = question_state.round_index
+        try:
+            state = store.apply_score(
+                payload.match_id,
+                payload.question_id,
+                location_points,
+                date_points,
+                timed_out=payload.timed_out,
+                album_shuffle_guesses=album_shuffle_guesses,
+            )
+        except QuestionAlreadyAnsweredError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        if state.finished:
+            leaderboard_store.append_match(
+                match_id=state.match_id,
+                library_name=state.setup.library_name,
+                album_name=state.setup.album_name or '-',
+                rounds_played=state.setup.round_count,
+                round_length=state.setup.round_length.value,
+                location_mode=state.setup.location_mode,
+                date_mode=state.setup.date_mode,
+                game_mode=state.setup.game_mode.value,
+                player_scores=state.scores,
             )
 
-    if state.setup.date_mode:
-        if payload.guessed_year is None or payload.guessed_month is None or question_state.actual_date is None:
-            date_points = 0
-        else:
-            # The guess covers a whole month, so the day error is measured from
-            # whichever month boundary faces the actual date.
-            delta_days = date_diff_days(
-                payload.guessed_year,
-                payload.guessed_month,
-                question_state.actual_date,
-            )
-            delta_months = date_diff_months(
-                payload.guessed_year,
-                payload.guessed_month,
-                question_state.actual_date,
-            )
-            date_points = date_score(
-                delta_days,
-                decay_days=settings.date_score_decay_days,
-                max_points=settings.score_max_points,
-            )
+        return AnswerResponse(
+            player_name=question_state.player_name,
+            question_id=question_state.question_id,
+            round_number=round_index + 1,
+            turn_completed=state.turn_index,
+            total_turns=state.total_turns,
+            round_complete=state.is_round_complete(round_index),
+            waiting_for=state.players_pending_in_round(round_index),
+            match_finished=state.finished,
+        )
+
 
     round_index = question_state.round_index
 
@@ -437,6 +594,7 @@ async def answer(
             round_length=state.setup.round_length.value,
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
+            game_mode=state.setup.game_mode.value,
             player_scores=state.scores,
         )
 
@@ -471,7 +629,8 @@ async def round_result(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     round_index = payload.round_number - 1
-    if round_index < 0 or round_index >= state.setup.round_count:
+    total_rounds = state.setup.round_count
+    if round_index < 0 or round_index >= total_rounds:
         raise HTTPException(status_code=404, detail='Unknown round_number')
 
     if not state.is_round_complete(round_index):
@@ -479,6 +638,22 @@ async def round_result(
 
     questions = state.round_questions(round_index)
     reference = questions[0]
+
+    batch_reveal = None
+    if state.setup.game_mode == GameMode.album_shuffle and reference.batch_assets and reference.batch_pins:
+        true_pin_map = {bp['true_asset_id']: bp['pin_id'] for bp in reference.batch_pins}
+        batch_reveal = [
+            BatchRevealItem(
+                photo_id=ba.asset_id,
+                true_pin_id=str(true_pin_map.get(ba.asset_id, '')),
+                actual_latitude=ba.answer.latitude,
+                actual_longitude=ba.answer.longitude,
+                actual_date=ba.answer.capture_date,
+                actual_year=ba.answer.capture_date.year if ba.answer.capture_date else None,
+                actual_month=ba.answer.capture_date.month if ba.answer.capture_date else None,
+            )
+            for ba in reference.batch_assets
+        ]
 
     results: list[PlayerRoundResult] = []
     for question in questions:
@@ -488,6 +663,18 @@ async def round_result(
             if other.player_name == question.player_name and other.answered and other.round_index <= round_index
         )
         years_part, months_part = _split_month_delta(question.date_diff_months)
+        shuffle_guesses = None
+        if question.album_shuffle_guesses:
+            shuffle_guesses = [
+                AlbumShuffleAnswerItem(
+                    photo_id=str(g['photo_id']),
+                    assigned_pin_id=str(g['assigned_pin_id']) if g.get('assigned_pin_id') else None,
+                    assigned_timeline_index=int(g['assigned_timeline_index'])
+                    if g.get('assigned_timeline_index') is not None
+                    else None,
+                )
+                for g in question.album_shuffle_guesses
+            ]
         results.append(
             PlayerRoundResult(
                 player_name=question.player_name,
@@ -505,14 +692,17 @@ async def round_result(
                 date_diff_years_part=years_part,
                 date_diff_months_part=months_part,
                 timed_out=question.timed_out,
+                album_shuffle_guesses=shuffle_guesses,
             )
         )
 
     return RoundResultResponse(
         round_number=round_index + 1,
-        total_rounds=state.setup.round_count,
+        total_rounds=total_rounds,
         location_mode=state.setup.location_mode,
         date_mode=state.setup.date_mode,
+        game_mode=state.setup.game_mode,
+        library_name=state.setup.library_name,
         actual_latitude=reference.actual_latitude,
         actual_longitude=reference.actual_longitude,
         actual_date=reference.actual_date,
@@ -520,6 +710,7 @@ async def round_result(
         actual_month=reference.actual_date.month if reference.actual_date else None,
         actual_city=reference.actual_city,
         actual_country=reference.actual_country,
+        batch_reveal=batch_reveal,
         results=results,
         match_finished=state.finished,
         score_max_points=request.app.state.settings.score_max_points,
@@ -577,9 +768,11 @@ async def match_summary(
         rounds_played=state.setup.round_count,
         location_mode=state.setup.location_mode,
         date_mode=state.setup.date_mode,
+        game_mode=state.setup.game_mode,
         library_name=state.setup.library_name,
         album_name=state.setup.album_name or '-',
         finished=state.finished,
         winners=winners,
         players=players,
     )
+

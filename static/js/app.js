@@ -33,10 +33,19 @@ import {
   toggleMapFullscreen,
   syncFullscreenButtons,
 } from "./modules/maps.js";
-import {
-  loadLeaderboard,
-  handleSortClick,
-} from "./modules/leaderboard.js";
+import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
+import { pinpointMode } from "./modules/modes/pinpoint.js";
+import { albumShuffleMode } from "./modules/modes/album_shuffle.js";
+
+const GAME_MODES = {
+  pinpoint: pinpointMode,
+  album_shuffle: albumShuffleMode,
+};
+
+function getActiveMode() {
+  return GAME_MODES[state.gameMode] || pinpointMode;
+}
+
 
 const EARLIEST_YEAR = 1950;
 const DEFAULT_MAP_WIDTH_PCT = 67;
@@ -177,6 +186,11 @@ function stepSelectOption(selectEl, direction) {
 }
 
 function bindSelectWheelScroll(selectEl, invertScroll = false) {
+  if (!selectEl || selectEl.dataset.wheelBound) {
+    return;
+  }
+  selectEl.dataset.wheelBound = "true";
+
   selectEl.addEventListener(
     "wheel",
     (event) => {
@@ -234,13 +248,19 @@ function startTimer(roundLength) {
     return;
   }
 
-  const total = roundLength === "30s" ? 30 : 60;
+  let total = 60;
+  if (roundLength === "30s") total = 30;
+  else if (roundLength === "1m") total = 60;
+  else if (roundLength === "2m") total = 120;
+  else if (roundLength === "5m") total = 300;
+
   let remaining = total;
   state.timerTotalSeconds = total;
   state.timerRemainingSeconds = remaining;
   el.timerTrack.classList.remove("is-idle");
   el.timerLabel.textContent = t("game.timer_time_left");
   el.timerRemaining.textContent = `${remaining}s`;
+
 
   state.timerRef = setInterval(() => {
     remaining -= 1;
@@ -323,16 +343,18 @@ async function startMatch(event) {
     .map((name) => name.trim())
     .filter(Boolean);
 
+  const activeMode = getActiveMode();
+  const modePayload = activeMode.getModePayload();
+
   const albumId = el.album.value || null;
   const payload = {
     players,
     round_count: Number(el.roundCount.value),
     round_length: el.roundLength.value,
-    location_mode: el.goalLocation.checked,
-    date_mode: el.goalDate.checked,
     library_name: el.library.value,
     album_id: albumId,
     album_name: albumId ? el.album.options[el.album.selectedIndex].text : "-",
+    ...modePayload,
   };
 
   try {
@@ -425,7 +447,8 @@ async function loadQuestion() {
   });
 
   state.currentQuestion = data;
-  if (!state.playedAssetIds.includes(data.asset_id)) {
+  state.gameMode = data.game_mode || "pinpoint";
+  if (data.asset_id && !state.playedAssetIds.includes(data.asset_id)) {
     state.playedAssetIds.push(data.asset_id);
   }
 
@@ -437,9 +460,9 @@ async function loadQuestion() {
     data.total_players,
     data.player_name
   );
-  applyGuessLayout(data.location_mode, data.date_mode);
-  el.mapGuessWrap.classList.toggle("hidden", !data.location_mode);
-  el.dateGuessWrap.classList.toggle("hidden", !data.date_mode);
+
+  const activeMode = getActiveMode();
+  activeMode.renderQuestion(el.guessingUi, data);
   updateSubmitState();
 
   if (data.total_players > 1) {
@@ -453,11 +476,13 @@ async function loadQuestion() {
     el.passOverlay.classList.remove("hidden");
   } else {
     el.passOverlay.classList.add("hidden");
-    el.quizImage.src = data.media_url;
-    el.quizImage.classList.remove("hidden");
-    el.mediaPlaceholder.classList.add("hidden");
-    if (data.location_mode) {
-      ensureGuessMap();
+    if (data.game_mode === "pinpoint") {
+      el.quizImage.src = data.media_url;
+      el.quizImage.classList.remove("hidden");
+      el.mediaPlaceholder.classList.add("hidden");
+      if (data.location_mode) {
+        ensureGuessMap();
+      }
     }
     startTimer(data.round_length);
   }
@@ -493,15 +518,9 @@ async function submitAnswer(fromTimeout = false) {
       }
     }
 
-    const payload = {
-      match_id: state.matchId,
-      question_id: question.question_id,
-      guessed_latitude: state.guessedLatLng ? state.guessedLatLng.lat : null,
-      guessed_longitude: state.guessedLatLng ? state.guessedLatLng.lng : null,
-      guessed_year: question.date_mode ? Number(el.dateGuessYear.value) : null,
-      guessed_month: question.date_mode ? Number(el.dateGuessMonth.value) : null,
-      timed_out: fromTimeout,
-    };
+    const activeMode = getActiveMode();
+    const payload = activeMode.buildAnswerPayload(question, fromTimeout);
+
 
     const result = await api("/api/answer", {
       method: "POST",
@@ -560,8 +579,13 @@ async function showRoundReveal(roundNumber) {
   el.guessingUi.classList.add("hidden");
   el.revealUi.classList.remove("hidden");
 
-  renderRevealSummary(reveal);
-  renderRevealMap(reveal);
+  const activeMode = getActiveMode();
+  if (activeMode && typeof activeMode.renderReveal === "function") {
+    activeMode.renderReveal(el.revealUi, reveal);
+  } else {
+    renderRevealSummary(reveal);
+    renderRevealMap(reveal);
+  }
 
   el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
 
@@ -1212,8 +1236,10 @@ function renderAwards(summary) {
     return hasTie ? null : bestName;
   };
 
+  const isAlbumShuffle = summary.game_mode === "album_shuffle";
+
   // 1. Sniper — most perfect location guesses (0 km / max points)
-  if (summary.location_mode) {
+  if (summary.location_mode && !isAlbumShuffle) {
     const bestSniper = pickAwardWinner("perfectLocationCount", (name) => summaryByName.get(name)?.location_score ?? -1);
     if (bestSniper) {
       awards.push({
@@ -1226,7 +1252,7 @@ function renderAwards(summary) {
   }
 
   // 2. Time Traveler — most perfect date guesses (0 days / exact month / max points)
-  if (summary.date_mode) {
+  if (summary.date_mode && !isAlbumShuffle) {
     const bestTimeTraveler = pickAwardWinner("perfectDateCount", (name) => summaryByName.get(name)?.date_score ?? -1);
     if (bestTimeTraveler) {
       awards.push({
@@ -1368,14 +1394,6 @@ el.album.addEventListener("change", () => {
 });
 
 el.dateGuessYear.addEventListener("change", () => renderMonthOptions(true));
-bindSelectWheelScroll(el.dateGuessYear);
-bindSelectWheelScroll(el.dateGuessMonth, true);
-
-// Setup form dropdowns
-bindSelectWheelScroll(el.roundCount);
-bindSelectWheelScroll(el.roundLength);
-bindSelectWheelScroll(el.library);
-bindSelectWheelScroll(el.album);
 
 if (el.mediaSkipBtn) {
   el.mediaSkipBtn.addEventListener("click", () => {
@@ -1388,11 +1406,13 @@ el.readyBtn.addEventListener("click", () => {
     return;
   }
   el.passOverlay.classList.add("hidden");
-  el.quizImage.src = state.currentQuestion.media_url;
-  el.quizImage.classList.remove("hidden");
-  el.mediaPlaceholder.classList.add("hidden");
-  if (state.currentQuestion.location_mode) {
-    ensureGuessMap();
+  if (state.currentQuestion.game_mode === "pinpoint") {
+    el.quizImage.src = state.currentQuestion.media_url;
+    el.quizImage.classList.remove("hidden");
+    el.mediaPlaceholder.classList.add("hidden");
+    if (state.currentQuestion.location_mode) {
+      ensureGuessMap();
+    }
   }
   startTimer(state.currentQuestion.round_length);
 });
@@ -1401,9 +1421,9 @@ el.submitAnswer.addEventListener("click", () => {
   submitAnswer(state.timedOut).catch((err) => showAlert(err.message));
 });
 
-el.nextRound.addEventListener("click", () => {
-  handleNextRound().catch((err) => showAlert(err.message));
-});
+window.handleNextRoundClick = () => handleNextRound().catch((err) => showAlert(err.message));
+
+el.nextRound.addEventListener("click", window.handleNextRoundClick);
 
 el.newMatch.addEventListener("click", returnToSetup);
 
@@ -1437,16 +1457,20 @@ document.addEventListener("fullscreenchange", () => {
 });
 
 // Setup form controls — reload leaderboard whenever any setting changes.
-[
-  el.roundCount,
-  el.roundLength,
-  el.goalLocation,
-  el.goalDate,
-].forEach((control) => {
-  control.addEventListener("change", () => {
+[el.roundCount, el.roundLength].forEach((control) => {
+  if (control) {
+    control.addEventListener("change", () => {
+      loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+    });
+  }
+});
+
+const settingsContainer = document.getElementById("game-settings-container");
+if (settingsContainer) {
+  settingsContainer.addEventListener("change", () => {
     loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
   });
-});
+}
 
 el.refreshLeaderboard.addEventListener("click", () => {
   loadLeaderboard().catch((err) => showAlert(err.message));
@@ -1508,14 +1532,36 @@ document.addEventListener("keydown", (event) => {
   button.click();
 });
 
-window.addEventListener("beforeunload", (event) => {
-  if (state.matchId && !state.matchFinished) {
-    event.preventDefault();
+function initModeButtons() {
+  const selector = document.getElementById("game-mode-selector");
+  const settingsContainer = document.getElementById("game-settings-container");
+  if (!selector) return;
+  const buttons = selector.querySelectorAll(".mode-btn");
+
+  function updateModeUI(modeName) {
+    state.gameMode = modeName || "pinpoint";
+    buttons.forEach((b) => b.classList.toggle("active", b.dataset.mode === state.gameMode));
+    if (settingsContainer) {
+      const mode = getActiveMode();
+      mode.renderSettings(settingsContainer);
+      applyLanguage();
+    }
+    loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
   }
-});
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      updateModeUI(btn.dataset.mode || "pinpoint");
+    });
+  });
+
+  updateModeUI("pinpoint");
+}
+
 
 (async function bootstrap() {
   initDateDropdowns();
+  initModeButtons();
   syncFullscreenButtons();
   updateAudioUi();
 

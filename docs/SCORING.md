@@ -32,6 +32,21 @@ Reference points with defaults: 0 days -> 100, 500 days -> 36, 4500 days -> 0.
 The reveal additionally shows a whole-month distance split into a years part
 and a months part (`divmod(DeltaM, 12)`) purely for readability.
 
+## Album Shuffle Mode Scoring
+
+In **Album Shuffle** mode, scoring is computed over the entire batch of $N$ photos:
+
+### 1. Location Matching Score (Strict Binary)
+
+- Each photo correctly matched to its corresponding map pin earns 100 points ($K_{\text{correct}} / N \times 100$).
+- Incorrectly matched pins earn 0 points for that photo.
+
+### 2. Chronological Timeline Score (Kendall-Tau Distance)
+
+- The assigned chronological sequence $[r_1, r_2, \dots, r_N]$ is evaluated against the true date sequence using the Kendall-Tau inversion count $K$.
+- $K_{\text{max}} = N(N - 1) / 2$.
+- $\text{Score} = \text{round}\left(100 \times \left(1 - \frac{K}{K_{\text{max}}}\right)\right)$.
+
 ## Common values for scoring exponential function
 
 Common values for inverse exponential decay scoring with `SCORE_MAX_POINTS`:

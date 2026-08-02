@@ -1,5 +1,6 @@
 export const state = {
   matchId: null,
+  gameMode: "pinpoint",
   players: [],
   language: "EN",
   audioEnabled: true,
@@ -8,6 +9,10 @@ export const state = {
   playedAssetIds: [],
   currentQuestion: null,
   guessedLatLng: null,
+  albumShuffleState: {
+    selectedPhotoId: null,
+    assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
+  },
   guessMap: null,
   revealMap: null,
   journeyMap: null,
@@ -44,8 +49,12 @@ export const el = {
   players: document.getElementById("players"),
   roundCount: document.getElementById("round-count"),
   roundLength: document.getElementById("round-length"),
-  goalLocation: document.getElementById("goal-location"),
-  goalDate: document.getElementById("goal-date"),
+  get goalLocation() {
+    return document.getElementById("goal-location");
+  },
+  get goalDate() {
+    return document.getElementById("goal-date");
+  },
   library: document.getElementById("library"),
   album: document.getElementById("album"),
   roundMeta: document.getElementById("round-meta"),

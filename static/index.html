@@ -26,7 +26,8 @@
         <h1>{{APP_HEADING}}</h1>
         <p>{{APP_TAGLINE}}</p>
       </div>
-      <button type="button" id="audio-toggle-btn" class="audio-toggle-btn" title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
+      <button type="button" id="audio-toggle-btn" class="audio-toggle-btn" title="Toggle Sound Effects"
+        aria-label="Toggle Sound Effects">
         <span id="audio-icon">🔊</span>
       </button>
     </header>
@@ -51,16 +52,11 @@
             <select id="round-length">
               <option value="30s" data-i18n="setup.round_30s">30s</option>
               <option value="1m" selected data-i18n="setup.round_1m">1 min</option>
+              <option value="2m" data-i18n="setup.round_2m">2 min</option>
+              <option value="5m" data-i18n="setup.round_5m">5 min</option>
               <option value="unlimited" data-i18n="setup.round_unlimited">Unlimited</option>
             </select>
           </div>
-        </div>
-
-        <label data-i18n="setup.guess_mode">Guess Mode</label>
-        <div class="goals-row">
-          <label><input type="checkbox" id="goal-location" checked /> <span
-              data-i18n="setup.goal_location">Location</span></label>
-          <label><input type="checkbox" id="goal-date" checked /> <span data-i18n="setup.goal_date">Date</span></label>
         </div>
 
         <div class="grid-2">
@@ -73,6 +69,29 @@
             <select id="album">
               <option value="" data-i18n="setup.all_photos">-</option>
             </select>
+          </div>
+        </div>
+
+        <div class="form-group mode-selection-group">
+          <label data-i18n="setup.game_mode_label">Game Mode</label>
+          <div class="mode-buttons" id="game-mode-selector">
+            <button type="button" class="mode-btn active" data-mode="pinpoint" id="mode-pinpoint-btn">
+              <span class="mode-title" data-i18n="mode.pinpoint">Pinpoint</span>
+              <span class="mode-desc" data-i18n="mode.pinpoint_desc">One photo per turn. Guess location pin & capture
+                date.</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="album_shuffle" id="mode-album-shuffle-btn">
+              <span class="mode-title" data-i18n="mode.album_shuffle">Album Shuffle</span>
+              <span class="mode-desc" data-i18n="mode.album_shuffle_desc">Match photo set to map pins & order
+                chronologically.</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group mode-selection-group">
+          <label data-i18n="setup.game_settings_label">Guessing mode</label>
+          <div id="game-settings-container" class="game-settings-container">
+            <!-- Dynamically populated by active game mode module (e.g. pinpoint.js, album_shuffle.js) -->
           </div>
         </div>
 
@@ -91,56 +110,68 @@
         </div>
       </div>
 
-      <div id="media-frame" class="media-frame">
-        <p id="media-placeholder" class="media-placeholder" data-i18n="game.media_placeholder">Photo hidden until you
-          press "I'm Ready".</p>
-        <div id="media-error-card" class="media-error-card hidden">
-          <p id="media-error-msg" data-i18n="game.media_error_msg">Photo failed to load from Immich server.</p>
-          <button type="button" id="media-skip-btn" class="btn-secondary" data-i18n="game.media_skip_btn">Skip Photo</button>
-        </div>
-        <img id="quiz-image" class="hidden" alt="Quiz media" />
-        <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-          title="Toggle fullscreen image" data-i18n="game.fullscreen_btn">
-          Fullscreen
-        </button>
-        <div class="fullscreen-timer" id="fs-timer-image">
-          <div class="fs-timer-head">
-            <span class="fs-timer-label"></span>
-            <span class="fs-timer-remaining"></span>
-          </div>
-          <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
-        </div>
-      </div>
-
       <div id="guessing-ui">
-        <div class="grid-2 round-guess-layout">
-          <div id="map-guess-wrap" class="hidden">
-            <div class="field-head">
-              <label data-i18n="game.location_guess_label">Location Guess</label>
+        <!-- Pinpoint Mode Container (controlled exclusively by pinpoint.js) -->
+        <div id="pinpoint-ui">
+          <div id="media-frame" class="media-frame">
+            <p id="media-placeholder" class="media-placeholder" data-i18n="game.media_placeholder">Photo hidden until
+              you
+              press "I'm Ready".</p>
+            <div id="media-error-card" class="media-error-card hidden">
+              <p id="media-error-msg" data-i18n="game.media_error_msg">Photo failed to load from Immich server.</p>
+              <button type="button" id="media-skip-btn" class="btn-secondary" data-i18n="game.media_skip_btn">Skip
+                Photo</button>
             </div>
-            <div id="guess-map-shell" class="map-shell">
-              <div id="guess-map"></div>
-              <button type="button" id="guess-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-                title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
-                Fullscreen
-              </button>
-              <div class="fullscreen-timer" id="fs-timer-guess-map">
-                <div class="fs-timer-head">
-                  <span class="fs-timer-label"></span>
-                  <span class="fs-timer-remaining"></span>
-                </div>
-                <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
+            <img id="quiz-image" class="hidden" alt="Quiz media" />
+            <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+              title="Toggle fullscreen image" data-i18n="game.fullscreen_btn">
+              Fullscreen
+            </button>
+            <div class="fullscreen-timer" id="fs-timer-image">
+              <div class="fs-timer-head">
+                <span class="fs-timer-label"></span>
+                <span class="fs-timer-remaining"></span>
+              </div>
+              <div class="fs-timer-track">
+                <div class="fs-timer-fill"></div>
               </div>
             </div>
           </div>
-          <div id="date-guess-wrap" class="hidden">
-            <label data-i18n="game.date_guess_label">Date Guess (year / month)</label>
-            <div class="grid-2 date-guess-grid">
-              <select id="date-guess-year" aria-label="Guessed year"></select>
-              <select id="date-guess-month" aria-label="Guessed month"></select>
+
+          <div class="grid-2 round-guess-layout">
+            <div id="map-guess-wrap" class="hidden">
+              <div class="field-head">
+                <label data-i18n="game.location_guess_label">Location Guess</label>
+              </div>
+              <div id="guess-map-shell" class="map-shell">
+                <div id="guess-map"></div>
+                <button type="button" id="guess-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                  title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
+                  Fullscreen
+                </button>
+                <div class="fullscreen-timer" id="fs-timer-guess-map">
+                  <div class="fs-timer-head">
+                    <span class="fs-timer-label"></span>
+                    <span class="fs-timer-remaining"></span>
+                  </div>
+                  <div class="fs-timer-track">
+                    <div class="fs-timer-fill"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="date-guess-wrap" class="hidden">
+              <label data-i18n="game.date_guess_label">Date Guess (year / month)</label>
+              <div class="grid-2 date-guess-grid">
+                <select id="date-guess-year" aria-label="Guessed year"></select>
+                <select id="date-guess-month" aria-label="Guessed month"></select>
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- Album Shuffle Mode Container (controlled exclusively by album_shuffle.js) -->
+        <div id="album-shuffle-ui" class="hidden"></div>
 
         <button id="submit-answer" class="btn-primary" data-i18n="game.submit_btn">Submit Answer</button>
 
