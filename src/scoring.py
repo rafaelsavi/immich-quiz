@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from calendar import monthrange
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 
@@ -52,6 +52,31 @@ def date_diff_days(guessed_year: int, guessed_month: int, actual: date) -> int:
     if actual > last_day:
         return (actual - last_day).days
     return 0
+
+
+def date_diff_parts(guessed_year: int, guessed_month: int, actual: date) -> tuple[int, int, int]:
+    """Break down the date difference into (years_part, months_part, days_part)."""
+    first_day = date(guessed_year, guessed_month, 1)
+    last_day = date(guessed_year, guessed_month, monthrange(guessed_year, guessed_month)[1])
+
+    if first_day <= actual <= last_day:
+        return 0, 0, 0
+
+    if actual > last_day:
+        delta_months = (actual.year * 12 + actual.month) - (guessed_year * 12 + guessed_month)
+        years_part, months_part = divmod(delta_months, 12)
+        prev_month_end = date(actual.year, actual.month, 1) - timedelta(days=1)
+        days_part = (actual - prev_month_end).days
+        return years_part, months_part, days_part
+
+    delta_months = (guessed_year * 12 + guessed_month) - (actual.year * 12 + actual.month)
+    years_part, months_part = divmod(delta_months, 12)
+    if actual.month == 12:
+        next_month_start = date(actual.year + 1, 1, 1)
+    else:
+        next_month_start = date(actual.year, actual.month + 1, 1)
+    days_part = (next_month_start - actual).days
+    return years_part, months_part, days_part
 
 
 def date_score(delta_days: int, *, decay_days: float = 500.0, max_points: int = 100) -> int:

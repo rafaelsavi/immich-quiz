@@ -31,6 +31,7 @@ from src.scoring import (
     batch_strict_location_score,
     date_diff_days,
     date_diff_months,
+    date_diff_parts,
     date_score,
     haversine_km,
     kendall_tau_inversion_score,
@@ -669,7 +670,15 @@ async def round_result(
             for other in state.questions.values()
             if other.player_name == question.player_name and other.answered and other.round_index <= round_index
         )
-        years_part, months_part = _split_month_delta(question.date_diff_months)
+        years_part, months_part, days_part = None, None, None
+        if question.date_diff_months is not None and question.date_diff_days is not None:
+            if reference.actual_date and question.guessed_year and question.guessed_month:
+                years_part, months_part, days_part = date_diff_parts(
+                    question.guessed_year, question.guessed_month, reference.actual_date
+                )
+            else:
+                years_part, months_part = _split_month_delta(question.date_diff_months)
+                days_part = question.date_diff_days
         shuffle_guesses = None
         if question.album_shuffle_guesses:
             shuffle_guesses = [
@@ -698,6 +707,7 @@ async def round_result(
                 date_diff_months=question.date_diff_months,
                 date_diff_years_part=years_part,
                 date_diff_months_part=months_part,
+                date_diff_days_part=days_part,
                 timed_out=question.timed_out,
                 album_shuffle_guesses=shuffle_guesses,
             )

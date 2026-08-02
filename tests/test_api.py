@@ -211,6 +211,7 @@ def test_month_guess_scores_days_from_the_month_boundary(client: TestClient) -> 
     assert entry['date_diff_months'] == 2
     assert entry['date_diff_years_part'] == 0
     assert entry['date_diff_months_part'] == 2
+    assert entry['date_diff_days_part'] == 14
     assert entry['date_score'] == 91
 
 

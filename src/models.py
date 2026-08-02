@@ -155,6 +155,7 @@ class PlayerRoundResult(BaseModel):
     date_diff_months: int | None
     date_diff_years_part: int | None
     date_diff_months_part: int | None
+    date_diff_days_part: int | None = None
     timed_out: bool
     album_shuffle_guesses: list[AlbumShuffleAnswerItem] | None = None
 

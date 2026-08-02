@@ -7,6 +7,7 @@ from src.scoring import (
     batch_strict_location_score,
     date_diff_days,
     date_diff_months,
+    date_diff_parts,
     date_score,
     haversine_km,
     kendall_tau_inversion_score,
@@ -68,6 +69,19 @@ def test_date_difference_handles_leap_year_month_length() -> None:
 def test_date_difference_months_is_display_only() -> None:
     assert date_diff_months(2024, 1, date(2024, 10, 20)) == 9
     assert date_diff_months(2023, 12, date(2024, 1, 15)) == 1
+
+
+def test_date_diff_parts_breakdown() -> None:
+    # Inside guessed month
+    assert date_diff_parts(2024, 3, date(2024, 3, 15)) == (0, 0, 0)
+    # Less than a year (next month)
+    assert date_diff_parts(2024, 3, date(2024, 4, 5)) == (0, 1, 5)
+    # Less than a year (2 months)
+    assert date_diff_parts(2023, 11, date(2024, 1, 14)) == (0, 2, 14)
+    # Less than a year (earlier date)
+    assert date_diff_parts(2024, 3, date(2024, 2, 20)) == (0, 1, 10)
+    # 1 year or more (1 year, 2 months)
+    assert date_diff_parts(2024, 3, date(2025, 5, 10)) == (1, 2, 10)
 
 
 def test_max_possible_score_respects_enabled_modes() -> None:
