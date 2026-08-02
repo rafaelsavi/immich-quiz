@@ -777,7 +777,7 @@ function renderRevealSummary(reveal) {
         isPerfect: isPerfectLocation,
         items: [
           result.location_score === null ? "-" : String(result.location_score),
-          result.guessed_latitude === null ? t("reveal.no_guess") : formatDistance(result.distance_km),
+          result.guessed_latitude === null ? t("fmt.no_guess") : formatDistance(result.distance_km),
         ],
       });
     }
