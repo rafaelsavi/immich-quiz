@@ -627,6 +627,7 @@ td {
     opacity: 0;
     transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -706,6 +707,7 @@ td.is-perfect-cell {
   0% {
     box-shadow: inset 0 0 0 2px #f59f00, 0 0 8px rgba(245, 159, 0, 0.3);
   }
+
   100% {
     box-shadow: inset 0 0 0 2px #ffd700, 0 0 20px rgba(255, 215, 0, 0.7);
   }
@@ -715,6 +717,7 @@ td.is-perfect-cell {
   0% {
     transform: scale(1);
   }
+
   100% {
     transform: scale(1.08);
   }
@@ -758,10 +761,12 @@ td.is-perfect-cell {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
   }
+
   50% {
     opacity: 1;
     transform: translateX(-50%) translateY(-40px) scale(1.15);
   }
+
   100% {
     opacity: 0;
     transform: translateX(-50%) translateY(-70px) scale(0.9);
@@ -847,6 +852,7 @@ td.is-perfect-cell {
     opacity: 0;
     transform: translateY(30px) scaleY(0.6);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scaleY(1);
@@ -858,9 +864,11 @@ td.is-perfect-cell {
     opacity: 0;
     transform: scale(0) rotate(-20deg);
   }
+
   60% {
     transform: scale(1.3) rotate(5deg);
   }
+
   100% {
     opacity: 1;
     transform: scale(1) rotate(0deg);
@@ -892,10 +900,21 @@ td.is-perfect-cell {
   animation: awardSlideIn 0.5s ease-out backwards;
 }
 
-.award-card:nth-child(1) { animation-delay: 0.1s; }
-.award-card:nth-child(2) { animation-delay: 0.25s; }
-.award-card:nth-child(3) { animation-delay: 0.4s; }
-.award-card:nth-child(4) { animation-delay: 0.55s; }
+.award-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.award-card:nth-child(2) {
+  animation-delay: 0.25s;
+}
+
+.award-card:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.award-card:nth-child(4) {
+  animation-delay: 0.55s;
+}
 
 .award-emoji {
   font-size: 1.5rem;
@@ -924,6 +943,7 @@ td.is-perfect-cell {
     opacity: 0;
     transform: translateY(15px) scale(0.92);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -941,9 +961,11 @@ td.is-perfect-cell {
     opacity: 0;
     transform: rotate(-45deg) scale(0.1);
   }
+
   70% {
     transform: rotate(-45deg) scale(1.2);
   }
+
   100% {
     opacity: 1;
     transform: rotate(-45deg) scale(1);
@@ -978,6 +1000,7 @@ td.is-perfect-cell {
     border-color: rgba(242, 95, 92, 0.4);
     transform: scale(1);
   }
+
   100% {
     box-shadow: 0 0 20px rgba(242, 95, 92, 0.6);
     border-color: #e03131;
@@ -989,6 +1012,7 @@ td.is-perfect-cell {
   0% {
     transform: scale(1);
   }
+
   100% {
     transform: scale(1.2);
   }
@@ -998,6 +1022,7 @@ td.is-perfect-cell {
   0% {
     opacity: 0.75;
   }
+
   100% {
     opacity: 1;
   }
@@ -1304,14 +1329,17 @@ td.is-perfect-cell {
     opacity: 0;
     transform: translate(-50%, 0) scale(0.6);
   }
+
   20% {
     opacity: 1;
     transform: translate(-50%, -20px) scale(1.15);
   }
+
   80% {
     opacity: 1;
     transform: translate(-50%, -50px) scale(1);
   }
+
   100% {
     opacity: 0;
     transform: translate(-50%, -75px) scale(0.85);
@@ -1328,6 +1356,7 @@ td.is-perfect-cell {
   0% {
     box-shadow: 0 0 0 3px #ef4444, 0 0 12px rgba(239, 68, 68, 0.4);
   }
+
   100% {
     box-shadow: 0 0 0 6px #dc2626, 0 0 28px rgba(220, 38, 38, 0.85);
   }
@@ -1432,9 +1461,21 @@ td.is-perfect-cell {
 }
 
 @keyframes shakeWarning {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-5px); }
-  40%, 80% { transform: translateX(5px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
 }
 
 .mode-btn.shake-warning {
@@ -1476,8 +1517,8 @@ td.is-perfect-cell {
 
   .shuffle-photo-column {
     flex: 0 0 auto;
-    width: 440px;
-    max-height: 760px;
+    width: 460px;
+    max-height: 780px;
     overflow-y: auto;
     padding-right: 0.5rem;
   }
@@ -1542,8 +1583,8 @@ td.is-perfect-cell {
 }
 
 .shuffle-card-thumb-lg {
-  width: 220px;
-  height: 150px;
+  width: 270px;
+  height: 180px;
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
@@ -1770,7 +1811,3 @@ td.is-perfect-cell {
   align-items: center;
   gap: 0.75rem;
 }
-
-
-
-
