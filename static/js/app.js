@@ -581,8 +581,10 @@ async function showRoundReveal(roundNumber) {
 
   const activeMode = getActiveMode();
   if (activeMode && typeof activeMode.renderReveal === "function") {
+    if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
     activeMode.renderReveal(el.revealUi, reveal);
   } else {
+    if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
     renderRevealSummary(reveal);
     renderRevealMap(reveal);
   }

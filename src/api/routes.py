@@ -539,51 +539,58 @@ async def answer(
             )
         except QuestionAlreadyAnsweredError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-        if state.finished:
-            leaderboard_store.append_match(
-                match_id=state.match_id,
-                library_name=state.setup.library_name,
-                album_name=state.setup.album_name or '-',
-                rounds_played=state.setup.round_count,
-                round_length=state.setup.round_length.value,
-                location_mode=state.setup.location_mode,
-                date_mode=state.setup.date_mode,
-                game_mode=state.setup.game_mode.value,
-                player_scores=state.scores,
+    else:
+        if (
+            state.setup.location_mode
+            and payload.guessed_latitude is not None
+            and payload.guessed_longitude is not None
+            and question_state.actual_latitude is not None
+            and question_state.actual_longitude is not None
+        ):
+            distance = haversine_km(
+                question_state.actual_latitude,
+                question_state.actual_longitude,
+                payload.guessed_latitude,
+                payload.guessed_longitude,
+            )
+            location_points = location_score(
+                distance,
+                decay_km=settings.location_score_decay_km,
+                max_points=settings.score_max_points,
             )
 
-        return AnswerResponse(
-            player_name=question_state.player_name,
-            question_id=question_state.question_id,
-            round_number=round_index + 1,
-            turn_completed=state.turn_index,
-            total_turns=state.total_turns,
-            round_complete=state.is_round_complete(round_index),
-            waiting_for=state.players_pending_in_round(round_index),
-            match_finished=state.finished,
-        )
+        if (
+            state.setup.date_mode
+            and payload.guessed_year is not None
+            and payload.guessed_month is not None
+            and question_state.actual_date is not None
+        ):
+            delta_days = date_diff_days(payload.guessed_year, payload.guessed_month, question_state.actual_date)
+            delta_months = date_diff_months(payload.guessed_year, payload.guessed_month, question_state.actual_date)
+            date_points = date_score(
+                delta_days,
+                decay_days=settings.date_score_decay_days,
+                max_points=settings.score_max_points,
+            )
 
-
-    round_index = question_state.round_index
-
-    try:
-        state = store.apply_score(
-            payload.match_id,
-            payload.question_id,
-            location_points,
-            date_points,
-            guessed_latitude=payload.guessed_latitude,
-            guessed_longitude=payload.guessed_longitude,
-            guessed_year=payload.guessed_year,
-            guessed_month=payload.guessed_month,
-            distance_km=distance,
-            diff_days=delta_days,
-            diff_months=delta_months,
-            timed_out=payload.timed_out,
-        )
-    except QuestionAlreadyAnsweredError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        round_index = question_state.round_index
+        try:
+            state = store.apply_score(
+                payload.match_id,
+                payload.question_id,
+                location_points,
+                date_points,
+                guessed_latitude=payload.guessed_latitude,
+                guessed_longitude=payload.guessed_longitude,
+                guessed_year=payload.guessed_year,
+                guessed_month=payload.guessed_month,
+                distance_km=distance,
+                diff_days=delta_days,
+                diff_months=delta_months,
+                timed_out=payload.timed_out,
+            )
+        except QuestionAlreadyAnsweredError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     if state.finished:
         leaderboard_store.append_match(
