@@ -124,6 +124,7 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 
 ### Documentation
 
+- [CHANGELOG.md](CHANGELOG.md) — release history and notable changes
 - [docs/GAMEPLAY.md](docs/GAMEPLAY.md) — gameplay rules, setup parameters, and UI walkthrough
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module design, anti-cheat boundary, and data flow
 - [docs/API.md](docs/API.md) — full API contract and response schemas
