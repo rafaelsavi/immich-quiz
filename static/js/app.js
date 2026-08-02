@@ -1,7 +1,7 @@
 import { state, el } from "./modules/state.js";
 import { t, translateError, showAlert, applyLanguage } from "./modules/i18n.js";
 import {
-  playTone,
+  playSubmitTone,
   playTick,
   playBuzzer,
   playChime,
@@ -570,7 +570,7 @@ async function submitAnswer(fromTimeout = false) {
   }
   state.submitting = true;
   updateSubmitState();
-  playTone(480, "sine", 0.08, 0.12);
+  playSubmitTone();
 
   try {
     const question = state.currentQuestion;

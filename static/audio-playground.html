@@ -186,6 +186,48 @@
       box-shadow: var(--shadow);
     }
 
+    .countdown-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.85rem;
+    }
+
+    .countdown-controls input[type="number"] {
+      width: 90px;
+      padding: 0.45rem 0.6rem;
+      border-radius: 8px;
+      border: 1px solid #d0d7de;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.9rem;
+    }
+
+    .countdown-track {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(15, 124, 127, 0.14);
+      overflow: hidden;
+      margin-top: 0.6rem;
+    }
+
+    .countdown-fill {
+      height: 100%;
+      width: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent) 0%, #4fb3b6 100%);
+      transition: width 0.2s ease;
+    }
+
+    .countdown-fill.is-warning {
+      background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+    }
+
+    .countdown-fill.is-critical {
+      background: linear-gradient(90deg, #dc2626 0%, #ef4444 100%);
+    }
+
     .visualizer-card h3 {
       margin-top: 0;
       margin-bottom: 0.8rem;
@@ -344,10 +386,23 @@
               <h3 class="preset-title">👆 UI Tick</h3>
               <span class="preset-badge">playTick()</span>
             </div>
-            <p class="preset-desc">Short click feedback for button navigation, map pin selection, and date pickers.</p>
-            <div class="preset-meta">800 Hz • Sine • 0.05s • Gain 0.08</div>
+            <p class="preset-desc">Short feedback for button navigation, countdown warnings, and quick UI interactions.</p>
+            <div class="preset-meta">520 ➔ 720 Hz • Sine • 0.09s • Gain 0.15 ➔ 0.25</div>
           </div>
           <button type="button" id="play-tick-btn" class="btn-sim">▶ Play Tick</button>
+        </div>
+
+        <!-- Submit Tone -->
+        <div class="preset-card">
+          <div>
+            <div class="preset-header">
+              <h3 class="preset-title">📝 Submit Confirmation</h3>
+              <span class="preset-badge">playSubmitTone()</span>
+            </div>
+            <p class="preset-desc">Short confirmation cue played when a player submits an answer in the main game flow.</p>
+            <div class="preset-meta">480 Hz • Sine • 0.08s • Gain 0.12</div>
+          </div>
+          <button type="button" id="play-submit-btn" class="btn-sim">▶ Play Submit Tone</button>
         </div>
 
         <!-- Buzzer -->
@@ -358,7 +413,7 @@
               <span class="preset-badge">playBuzzer()</span>
             </div>
             <p class="preset-desc">Alert sound for incorrect answers, timeout alerts, or low accuracy scores.</p>
-            <div class="preset-meta">220 Hz • Sawtooth • 0.4s • Gain 0.12</div>
+            <div class="preset-meta">220 Hz • Sawtooth • 0.4s • Gain 0.10</div>
           </div>
           <button type="button" id="play-buzzer-btn" class="btn-sim btn-sim-alt">▶ Play Buzzer</button>
         </div>
@@ -462,6 +517,27 @@
 
       <div style="margin-top: 1rem;">
         <button type="button" id="play-custom-btn" class="btn-sim">▶ Play Custom Tone</button>
+      </div>
+    </section>
+
+    <!-- Countdown Timer Simulator -->
+    <section class="card">
+      <h2>Countdown Timer Simulator</h2>
+      <p class="preset-desc">Mirror the in-game countdown behavior and hear the same warning tones as the round timer winds down.</p>
+
+      <div class="countdown-controls">
+        <label for="countdown-seconds">Seconds</label>
+        <input type="number" id="countdown-seconds" min="1" max="60" value="10" />
+        <button type="button" id="start-countdown-btn" class="btn-sim">▶ Start Countdown</button>
+        <button type="button" id="reset-countdown-btn" class="btn-sim btn-sim-outline">↺ Reset</button>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.2rem;">
+        <strong id="countdown-display">10s</strong>
+        <span id="countdown-status">Idle</span>
+      </div>
+      <div class="countdown-track" aria-hidden="true">
+        <div id="countdown-fill" class="countdown-fill"></div>
       </div>
     </section>
 

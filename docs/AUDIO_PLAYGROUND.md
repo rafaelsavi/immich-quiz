@@ -23,10 +23,11 @@ All sound effects in Immich Quiz are synthesized dynamically at runtime using br
 
 | Function               | Parameters                              | Waveform                                       | Frequency / Notes                                                    | Duration            | Description                                                                                                                           |
 |------------------------|-----------------------------------------|------------------------------------------------|----------------------------------------------------------------------|---------------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| `playTick()`           | —                                       | `sine`                                         | 800 Hz                                                               | 0.05 s              | Short click sound for button clicks, option selection, and date/map pin adjustments.                                                  |
+| `playSubmitTone()`    | —                                       | `sine`                                         | 480 Hz                                                               | 0.08 s              | Short confirmation cue played when a player submits an answer.                                                                      |
+| `playTick()`           | `clampedSec`                            | `sine`                                         | 520 Hz ➔ 720 Hz (rises as time gets shorter)                        | 0.09 s              | Short feedback used for countdown warnings, quick UI interactions, and other light alert cues.                                     |
 | `playPinDropSound()`   | —                                       | `sine`                                         | 440 Hz ➔ 180 Hz                                                      | 0.08 s              | Tactile pop/thump sound triggered when placing or moving a pin on the guess map.                                                     |
 | `playScoreRollupTick()`| `progress`                              | `triangle`                                     | 580 Hz ➔ 1100 Hz (ascending)                                         | 0.035 s per tick    | Ticker sound played during the round points count-up animation, with duration proportional to points scored in the round.           |
-| `playBuzzer()`         | —                                       | `sawtooth`                                     | 220 Hz                                                               | 0.40 s              | Low-pitch alert sound for wrong guesses, low accuracy scores, or timeouts.                                                            |
+| `playBuzzer()`         | —                                       | `sawtooth`                                     | 140 Hz + 210 Hz double pulse                                         | 0.18 s per pulse    | Low-pitch alert sound for wrong guesses, low accuracy scores, or timeouts.                                                            |
 | `playChime()`          | —                                       | `triangle`                                     | C5 (523.25 Hz)<br>E5 (659.25 Hz)<br>G5 (783.99 Hz)<br>C6 (1046.5 Hz) | 0.35 s per note     | Multi-note ascending chord arpeggio for correct guesses and high accuracy scores.                                                     |
 | `playVictoryFanfare()` | —                                       | `triangle`                                     | F4 (349.23 Hz)<br>A4 (440.00 Hz)<br>C5 (523.25 Hz)<br>F5 (698.46 Hz) | 0.65 s final note   | Celebratory fanfare played when a match finishes and final scores are displayed.                                                      |
 | `playTone()`           | `freq`, `type`, `duration`, `gainValue` | `sine`<br>`triangle`<br>`sawtooth`<br>`square` | Custom (50–4000 Hz)                                                  | Custom (0.01–5.0 s) | Low-level dynamic tone synthesizer helper function.                                                                                   |
@@ -71,6 +72,14 @@ The interactive testing playground (`static/audio-playground.html`) provides fiv
 
 - Real-time HTML5 canvas rendering live animated oscilloscope waveforms corresponding to played frequencies and oscillator types.
 - Live scrolling event log table detailing timestamps, event names, frequencies, duration, gain levels, and audio state.
+
+### 6. Game-submit confirmation cue
+
+- The main game flow now uses `playSubmitTone()` from the audio module when a player submits an answer. The playground exposes the same tone through the dedicated “Submit Confirmation” preset so it can be tested independently of a full round.
+
+### 7. Countdown timer simulator
+
+- A dedicated countdown demo now mirrors the in-game timer cadence with a visible countdown bar, per-second tick cues, and a final buzzer when the timer expires.
 
 ---
 

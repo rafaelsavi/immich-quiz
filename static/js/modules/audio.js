@@ -71,6 +71,11 @@ export function playTone(freq, type, duration, gainValue = 0.22) {
   }
 }
 
+export function playSubmitTone() {
+  if (!state || !state.audioEnabled) return;
+  playTone(480, "sine", 0.08, 0.12);
+}
+
 export function playTick(clampedSec = 5) {
   if (!state || !state.audioEnabled) return;
   const clamped = Math.max(1, Math.min(5, Number(clampedSec) || 5));
@@ -198,7 +203,7 @@ export function playVictoryFanfare() {
 
     const notes = [
       { freq: 349.23, delay: 0, duration: 0.18 },
-      { freq: 440.0, delay: 0.12, duration: 0.18 },
+      { freq: 440.0, delay: 0.10, duration: 0.18 },
       { freq: 523.25, delay: 0.24, duration: 0.18 },
       { freq: 698.46, delay: 0.36, duration: 0.65 },
     ];
