@@ -60,7 +60,7 @@ export const TRANSLATIONS = {
     "game.continue_btn": "Continue",
     "game.pin_required": "Place a pin on the map first",
     "game.shuffle_info_banner": (count) =>
-      `⏳ Arrange photo cards from <strong>newest (#1)</strong> down to <strong>oldest (#${count})</strong>`,
+      `⏳ Arrange photos from <strong>newest (#1)</strong> down to <strong>oldest (#${count})</strong>`,
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Round ${roundNum} of ${totalRounds}\nPlayer ${playerNum}: ${playerName}`,
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>

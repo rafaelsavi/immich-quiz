@@ -63,7 +63,6 @@ export const albumShuffleMode = {
     const mapShell = document.createElement("div");
     mapShell.className = "map-shell";
     mapShell.id = "shuffle-map-shell";
-    mapShell.style.height = "560px";
 
     // Add Map Fullscreen Button
     const mapFsBtn = document.createElement("button");
@@ -395,7 +394,7 @@ export const albumShuffleMode = {
         if (revealData.location_mode) {
           const pinTd = document.createElement("td");
           pinTd.style.verticalAlign = "middle";
-          const pinBadgeText = pGuess && pGuess.assigned_pin_id ? `Pin ${pGuess.assigned_pin_id}` : "None";
+          const pinBadgeText = pGuess && pGuess.assigned_pin_id ? `${pGuess.assigned_pin_id}` : "None";
           pinTd.innerHTML = `<span class="shuffle-badge-reveal ${isPinCorrect ? "correct" : "incorrect"}">${pinBadgeText} ${isPinCorrect ? "✓" : "✗"}</span>`;
           tr.appendChild(pinTd);
         }
@@ -404,7 +403,7 @@ export const albumShuffleMode = {
         if (revealData.date_mode) {
           const rankTd = document.createElement("td");
           rankTd.style.verticalAlign = "middle";
-          const rankBadgeText = pSubmittedRank !== null && pSubmittedRank !== undefined ? `Rank #${pSubmittedRank + 1}` : "None";
+          const rankBadgeText = pSubmittedRank !== null && pSubmittedRank !== undefined ? `#${pSubmittedRank + 1}` : "None";
           rankTd.innerHTML = `<span class="shuffle-badge-reveal ${isRankCorrect ? "correct" : "incorrect"}">${rankBadgeText} ${isRankCorrect ? "✓" : "✗"}</span>`;
           tr.appendChild(rankTd);
         }
@@ -532,7 +531,7 @@ function renderPhotoCardsList(containerEl, questionData) {
     const assignedPin = pinAssignments[photoId];
     const pinBadge = document.createElement("div");
     pinBadge.className = `shuffle-assigned-pin-badge ${assignedPin ? "assigned" : "unassigned"}`;
-    pinBadge.textContent = assignedPin ? `📍 Pin ${assignedPin}` : "📍";
+    pinBadge.textContent = assignedPin ? `📍 ${assignedPin}` : "📍";
 
     pinBadgeWrap.appendChild(pinBadge);
 
@@ -700,14 +699,14 @@ function renderBatchRevealMap(containerEl, batchItems) {
 
     const icon = L.divIcon({
       className: "custom-pin-icon",
-      html: `<div style="background:#0f7c7f;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);">📍 ${item.true_pin_id}</div>`,
+      html: `<div style="background:#0f7c7f;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);">${item.true_pin_id}</div>`,
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
 
     const dateStr = item.actual_date ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
     L.marker([lat, lon], { icon })
-      .bindPopup(`<b>Pin ${item.true_pin_id}</b><br>${dateStr}`)
+      .bindPopup(`<b>${item.true_pin_id}</b><br>${dateStr}`)
       .addTo(map);
   });
 

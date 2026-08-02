@@ -6,8 +6,15 @@
   --card: #fffdf8;
   --shadow: 0 14px 30px rgba(23, 32, 58, 0.14);
   --round-guess-layout-columns: minmax(0, 67fr) minmax(0, 33fr);
-  --quiz-image-max-height: 420px;
-  --quiz-map-height: 400px;
+  --quiz-image-max-height: 440px;
+  --quiz-map-height: 420px;
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --quiz-image-max-height: 540px;
+    --quiz-map-height: 480px;
+  }
 }
 
 * {
@@ -49,12 +56,20 @@ body {
 }
 
 .app-shell {
-  max-width: 1100px;
+  max-width: 1440px;
+  width: 100%;
   margin: 0 auto;
   padding: 1.2rem;
   display: grid;
   gap: 1rem;
   animation: slideIn 0.5s ease;
+}
+
+@media (min-width: 1440px) {
+  .app-shell {
+    padding: 1.5rem;
+    gap: 1.2rem;
+  }
 }
 
 .app-header {
@@ -619,6 +634,16 @@ td {
 }
 
 @media (max-width: 760px) {
+  :root {
+    --quiz-image-max-height: 320px;
+    --quiz-map-height: 350px;
+  }
+
+  .app-shell {
+    padding: 0.65rem;
+    gap: 0.75rem;
+  }
+
   .grid-2 {
     grid-template-columns: 1fr;
   }
@@ -629,6 +654,10 @@ td {
 
   #reveal-map {
     height: var(--quiz-map-height);
+  }
+
+  #shuffle-map-shell {
+    height: 380px !important;
   }
 }
 
@@ -1424,6 +1453,10 @@ td.is-perfect-cell {
 }
 
 /* ---------------------------------- Album Shuffle Dashboard Layout */
+#shuffle-map-shell {
+  height: 580px;
+}
+
 .shuffle-board {
   display: flex;
   flex-direction: column;
@@ -1443,8 +1476,8 @@ td.is-perfect-cell {
 
   .shuffle-photo-column {
     flex: 0 0 auto;
-    width: 360px;
-    max-height: 720px;
+    width: 440px;
+    max-height: 760px;
     overflow-y: auto;
     padding-right: 0.5rem;
   }
@@ -1548,15 +1581,21 @@ td.is-perfect-cell {
 .shuffle-card-details {
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .shuffle-assigned-pin-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0.4rem 0.6rem;
   border-radius: 8px;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
+  white-space: nowrap;
 }
 
 .shuffle-assigned-pin-badge.assigned {
@@ -1581,6 +1620,7 @@ td.is-perfect-cell {
   flex-direction: column;
   gap: 0.25rem;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .shuffle-rank-btn {
