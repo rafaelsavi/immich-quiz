@@ -12,13 +12,12 @@ Immich Quiz is a local-first, pass-and-play trivia game that generates rounds fr
 
 ## Playing the Game
 
-1. Open the app in your browser after starting the server (see [Self-Hosting](#self-hosting) or [Development](#development) below).
-2. Enter player names, choose round count, goals, and a library.
-3. Pass the device to each player when prompted.
-4. After all rounds the leaderboard appears.
+- Start the app in your browser after launching the server.
+- Add player names, choose rounds, guess mode, and a library.
+- Take turns guessing each photo's location, date, or both.
+- Review the leaderboard when the game ends.
 
-See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for a full explanation of setup options, round flow, and scoring.
-For scoring details see [docs/SCORING.md](docs/SCORING.md).
+See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough. For scoring details, see [docs/SCORING.md](docs/SCORING.md).
 
 ---
 
