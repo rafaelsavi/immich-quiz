@@ -4,16 +4,26 @@ Each enabled goal is scored using exponential decay, with parameters from
 environment variables. Defaults:
 
 - `SCORE_MAX_POINTS = 100`
-- `LOCATION_SCORE_DECAY_KM = 500`
-- `DATE_SCORE_DECAY_DAYS = 500`
 
-## Location Score
+## Pinpoint Game
+
+For Pinpoint game mode, score is calculated based on the error of the gueeses.
+
+### Location Score
+
+The location score uses the following environment variables:
+
+- `LOCATION_SCORE_DECAY_KM = 500`
 
 Distance d is computed in km using Haversine.
 
-- score = round(SCORE_MAX_POINTS * exp(-d / LOCATION_SCORE_DECAY_KM)), clamped to 0
+- score = round(SCORE_MAX_POINTS * exp(-d / `LOCATION_SCORE_DECAY_KM`)), clamped to 0
 
-## Date Score
+### Date Score
+
+The date score uses the following environment variables:
+
+- `DATE_SCORE_DECAY_DAYS = 500`
 
 The player only guesses a **year and a month**, so the guess covers that whole
 month. Scoring is still measured in **days**, using whichever month boundary
@@ -25,27 +35,19 @@ faces the actual capture date:
 
 (The last day accounts for month length and leap years.)
 
-- score = round(SCORE_MAX_POINTS * exp(-DeltaD / DATE_SCORE_DECAY_DAYS)), clamped to 0
+- score = round(SCORE_MAX_POINTS * exp(-DeltaD / `DATE_SCORE_DECAY_DAYS`)), clamped to 0
 
-Reference points with defaults: 0 days -> 100, 500 days -> 36, 4500 days -> 0.
+## Album Shuffle Game
 
-The reveal additionally shows a whole-month distance split into a years part
-and a months part (`divmod(DeltaM, 12)`) purely for readability.
+In **Album Shuffle** mode, the score of a round is computed over the entire batch of $N=5$ photos.
 
-## Album Shuffle Mode Scoring
+### Location Score
 
-In **Album Shuffle** mode, scoring is computed over the entire batch of $N$ photos:
+- Each photo correctly matched to its corresponding map pin earns $round($`SCORE_MAX_POINTS`$)/N$ points. If all photos are correctly matched, `SCORE_MAX_POINTS` is awarded to the location guess.
 
-### 1. Location Matching Score (Strict Binary)
+#### Date Score
 
-- Each photo correctly matched to its corresponding map pin earns 100 points ($K_{\text{correct}} / N \times 100$).
-- Incorrectly matched pins earn 0 points for that photo.
-
-### 2. Chronological Timeline Score (Kendall-Tau Distance)
-
-- The assigned chronological sequence $[r_1, r_2, \dots, r_N]$ is evaluated against the true date sequence using the Kendall-Tau inversion count $K$.
-- $K_{\text{max}} = N(N - 1) / 2$.
-- $\text{Score} = \text{round}\left(100 \times \left(1 - \frac{K}{K_{\text{max}}}\right)\right)$.
+The chronological order of the photos is evaluated using the Kendall-Tau inversion count $K$ on the sequence of guessed indices. That means, individual positions are not evaluated, but the relative order of the photos is.
 
 ## Common values for scoring exponential function
 
@@ -86,5 +88,4 @@ Common values for inverse exponential decay scoring with `SCORE_MAX_POINTS`:
 
 ## Match Totals
 
-- max_possible_score = rounds_played * ((SCORE_MAX_POINTS if location mode) + (SCORE_MAX_POINTS if date mode))
-- accuracy_pct = round((total_score / max_possible_score) * 100, 1)
+- $ MaxPossibleScore = roundsPlayed * ($`SCORE_MAX_POINTS` if location mode $) + ($`SCORE_MAX_POINTS` if date mode $)$
