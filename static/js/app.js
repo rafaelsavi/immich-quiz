@@ -101,8 +101,7 @@ function initDateDropdowns() {
   el.dateGuessYear.value = String(currentYear);
   renderMonthOptions();
 
-  bindSelectWheelScroll(el.dateGuessYear, true);
-  bindSelectWheelScroll(el.dateGuessMonth, false);
+  bindDateWheelScroll(el.dateGuessYear, el.dateGuessMonth);
   bindSelectWheelScroll(el.roundCount, false);
   bindSelectWheelScroll(el.roundLength, false);
   bindSelectWheelScroll(el.library, false);
@@ -201,6 +200,83 @@ function bindSelectWheelScroll(selectEl, invertScroll = false) {
     },
     { passive: false }
   );
+}
+
+function bindDateWheelScroll(yearSelect, monthSelect) {
+  if (!yearSelect || !monthSelect) return;
+
+  if (!yearSelect.dataset.wheelBound) {
+    yearSelect.dataset.wheelBound = "true";
+    yearSelect.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        if (yearSelect.disabled) return;
+        // Year options are ordered descending: [2026, 2025, 2024, ...]
+        // Scrolling UP (deltaY < 0) means going UP in years (smaller option index, -1).
+        // Scrolling DOWN (deltaY > 0) means going DOWN in years (larger option index, +1).
+        const direction = event.deltaY > 0 ? 1 : -1;
+        stepSelectOption(yearSelect, direction);
+      },
+      { passive: false }
+    );
+  }
+
+  if (!monthSelect.dataset.wheelBound) {
+    monthSelect.dataset.wheelBound = "true";
+    monthSelect.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        if (monthSelect.disabled) return;
+
+        const currentYear = new Date().getFullYear();
+        // Month options are ordered ascending: [01, 02, ..., maxMonth]
+        // Scrolling UP (deltaY < 0) means going UP in months (+1 month index).
+        // Scrolling DOWN (deltaY > 0) means going DOWN in months (-1 month index).
+        const deltaDir = event.deltaY > 0 ? -1 : 1;
+        const currentMonthIdx = monthSelect.selectedIndex;
+        const maxMonthIdx = monthSelect.options.length - 1;
+
+        if (deltaDir === 1) {
+          // Scrolling UP: increase month
+          if (currentMonthIdx < maxMonthIdx) {
+            monthSelect.selectedIndex = currentMonthIdx + 1;
+            monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          } else {
+            // Month is at max month for the currently selected year.
+            // Increment year if year < currentYear
+            const selectedYear = Number(yearSelect.value);
+            if (selectedYear < currentYear) {
+              yearSelect.value = String(selectedYear + 1);
+              renderMonthOptions(false);
+              monthSelect.value = "1";
+              yearSelect.dispatchEvent(new Event("change", { bubbles: true }));
+              monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }
+        } else if (deltaDir === -1) {
+          // Scrolling DOWN: decrease month
+          if (currentMonthIdx > 0) {
+            monthSelect.selectedIndex = currentMonthIdx - 1;
+            monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
+          } else {
+            // Month is at January (01).
+            // Decrement year if year > EARLIEST_YEAR
+            const selectedYear = Number(yearSelect.value);
+            if (selectedYear > EARLIEST_YEAR) {
+              yearSelect.value = String(selectedYear - 1);
+              renderMonthOptions(false);
+              monthSelect.value = String(monthSelect.options.length);
+              yearSelect.dispatchEvent(new Event("change", { bubbles: true }));
+              monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }
+        }
+      },
+      { passive: false }
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ timer */
