@@ -546,7 +546,7 @@ def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
 def test_batch_validation_distance_and_time_constraints() -> None:
     from datetime import datetime, timezone
 
-    from src.api.routes import _is_asset_valid_for_batch
+    from src.game.selector import is_asset_valid_for_batch
     from src.immich.client import AssetAnswer
     from src.storage.session import RoundAsset
 
@@ -563,7 +563,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
         longitude=2.29451,
         capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
     )
-    assert _is_asset_valid_for_batch(same_loc, [sel_asset], location_mode=True, date_mode=True) is False
+    assert is_asset_valid_for_batch(same_loc, [sel_asset], location_mode=True, date_mode=True) is False
 
     # Candidate at same time (< 60s) -> invalid
     same_time = AssetAnswer(
@@ -571,7 +571,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
         longitude=-74.0060,
         capture_datetime=datetime(2024, 5, 10, 14, 0, 30, tzinfo=timezone.utc),
     )
-    assert _is_asset_valid_for_batch(same_time, [sel_asset], location_mode=True, date_mode=True) is False
+    assert is_asset_valid_for_batch(same_time, [sel_asset], location_mode=True, date_mode=True) is False
 
     # Candidate far in distance (NY) and far in time (1 day) -> valid
     valid_cand = AssetAnswer(
@@ -579,7 +579,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
         longitude=-74.0060,
         capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
     )
-    assert _is_asset_valid_for_batch(valid_cand, [sel_asset], location_mode=True, date_mode=True) is True
+    assert is_asset_valid_for_batch(valid_cand, [sel_asset], location_mode=True, date_mode=True) is True
 
 
 def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> None:
@@ -616,7 +616,7 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
 def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_location_mode() -> None:
     from datetime import datetime, timezone
 
-    from src.api.routes import _is_asset_valid_for_batch
+    from src.game.selector import is_asset_valid_for_batch
     from src.immich.client import AssetAnswer
 
     no_coords = AssetAnswer(
@@ -624,16 +624,16 @@ def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_locatio
         longitude=None,
         capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
     )
-    assert _is_asset_valid_for_batch(no_coords, [], location_mode=True, date_mode=True) is False
-    assert _is_asset_valid_for_batch(no_coords, [], location_mode=False, date_mode=True) is True
+    assert is_asset_valid_for_batch(no_coords, [], location_mode=True, date_mode=True) is False
+    assert is_asset_valid_for_batch(no_coords, [], location_mode=False, date_mode=True) is True
 
     zero_coords = AssetAnswer(
         latitude=0.0,
         longitude=0.0,
         capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
     )
-    assert _is_asset_valid_for_batch(zero_coords, [], location_mode=True, date_mode=True) is False
-    assert _is_asset_valid_for_batch(zero_coords, [], location_mode=False, date_mode=True) is True
+    assert is_asset_valid_for_batch(zero_coords, [], location_mode=True, date_mode=True) is False
+    assert is_asset_valid_for_batch(zero_coords, [], location_mode=False, date_mode=True) is True
 
 
 def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
@@ -656,3 +656,26 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
 
     assert q_data['batch_pins'] is None
     assert len(q_data['batch_photos']) == 5
+
+
+def test_question_selection_skips_unreadable_assets(tmp_path: Path) -> None:
+    from src.immich.client import ImmichClientError
+
+    class UnreadableImmichClient(FakeImmichClient):
+        async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
+            if asset_id == 'broken-asset':
+                raise ImmichClientError("404 Asset media not found")
+            return b'fake-jpg', 'image/jpeg'
+
+    assets = [
+        make_asset('broken-asset', captured='2024-01-01T10:00:00Z'),
+        make_asset('good-asset', captured='2024-01-02T10:00:00Z'),
+    ]
+    immich = UnreadableImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    match_id = start_match(client)
+    q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    assert q_res.status_code == 200
+    assert q_res.json()['asset_id'] == 'good-asset'
+

@@ -49,19 +49,24 @@ The next round begins with the pass-device overlay for the first player again.
 
 ### 🔀 Album Shuffle
 
-In **Album Shuffle**, you get a batch of 5 photos and must match them to map pins or sort them in chronological order.
+In **Album Shuffle**, you get a batch of 5 photos per round and must match them to map pins, sort them in chronological order, or both.
 
 #### Your turn
 
 Each player sees 5 photo cards in a list.
 
-- **Location mode**: a map appears with pins labeled A, B, C, D, and E. Click a photo card to select it, then click the map pin where you think that photo was taken to assign it.
+- **Location mode**: a map appears with pins labeled A, B, C, D, and E. Click a photo card to select it, then click the map pin where you think that photo was taken to assign it. A pin marker badge showing `PinID-CardIndex` (e.g. `A-1`) appears on the photo card once assigned.
 - **Date mode**: sort the 5 images into chronological order (from oldest to newest) using the rank buttons next to each photo card.
+- **Date-only mode**: if location mode is disabled (`location_mode = False`), you can submit your answer directly based on date ordering without needing map pins.
 - Press **Submit** when you are finished. If a countdown is running, the turn auto-submits when time runs out.
 
 #### Reveal
 
-After everyone submits, the game calculates your score based on how accurate your location and date assignments were. See [SCORING.md](SCORING.md) for more details and [AWARDS.md](AWARDS.md) for badge information.
+After everyone submits, the game reveals the true location and date for each photo, calculating your score based on how accurate your location and date assignments were. See [SCORING.md](SCORING.md) for details and [AWARDS.md](AWARDS.md) for badge information.
+
+#### Summary
+
+When all rounds are complete, the **Match Summary** screen displays final scores, accuracy percentages, and winner announcements. A **World Journey Map** plots every played photo location, and a **Polaroid Memory Gallery** displays all match photos with a lightbox view for full-resolution inspection.
 
 ## Photo Variety & Quality
 

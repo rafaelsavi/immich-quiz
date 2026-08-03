@@ -90,7 +90,14 @@ body {
   margin-bottom: 0;
 }
 
-.audio-toggle-btn {
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.header-action-btn {
   width: 44px;
   height: 44px;
   padding: 0;
@@ -103,21 +110,33 @@ body {
   line-height: 1;
   font-size: 1.25rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
   flex-shrink: 0;
   cursor: pointer;
+  overflow: hidden;
 }
 
-.audio-toggle-btn span {
+.header-action-btn span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
 }
 
-.audio-toggle-btn:hover {
+.header-action-btn:hover {
   transform: scale(1.08);
   background: #f0ebe0;
+  border-color: var(--accent);
+}
+
+.flag-icon {
+  width: 24px;
+  height: 16px;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  display: block;
+  object-fit: cover;
+  pointer-events: none;
 }
 
 .media-error-card {

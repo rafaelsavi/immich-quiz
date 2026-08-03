@@ -384,6 +384,87 @@ export function showAlert(msg) {
   alert(translateError(msg));
 }
 
+export const FLAGS = {
+  EN: `<svg class="flag-icon" viewBox="0 0 60 40" width="24" height="16" aria-hidden="true">
+    <clipPath id="flag-en-clip"><rect width="60" height="40" rx="2"/></clipPath>
+    <g clip-path="url(#flag-en-clip)">
+      <rect width="60" height="40" fill="#012169"/>
+      <path d="M0,0 L60,40 M60,0 L0,40" stroke="#fff" stroke-width="8"/>
+      <path d="M0,0 L60,40 M60,0 L0,40" stroke="#C8102E" stroke-width="4"/>
+      <path d="M30,0 V40 M0,20 H60" stroke="#fff" stroke-width="12"/>
+      <path d="M30,0 V40 M0,20 H60" stroke="#C8102E" stroke-width="6"/>
+    </g>
+  </svg>`,
+  PT: `<svg class="flag-icon" viewBox="0 0 60 40" width="24" height="16" aria-hidden="true">
+    <clipPath id="flag-br-clip"><rect width="60" height="40" rx="2"/></clipPath>
+    <g clip-path="url(#flag-br-clip)">
+      <rect width="60" height="40" fill="#009739"/>
+      <polygon points="30,4 55,20 30,36 5,20" fill="#fedf00"/>
+      <circle cx="30" cy="20" r="8.5" fill="#002776"/>
+      <path d="M 21.5,21.5 A 13,13 0 0,1 38.5,21.5" stroke="#ffffff" stroke-width="1.6" fill="none"/>
+    </g>
+  </svg>`,
+};
+
+export const LANGUAGE_NAMES = {
+  EN: "English",
+  PT: "Português",
+};
+
+const STORAGE_KEY = "immich_quiz_language";
+
+export function getSavedLanguage() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && TRANSLATIONS[saved]) {
+      return saved;
+    }
+  } catch (e) {
+    // localStorage disabled or unavailable
+  }
+  return null;
+}
+
+export function updateLanguageButtonUi() {
+  const button = document.getElementById("language-toggle-btn");
+  if (!button) return;
+  const currentLang = state ? state.language || "EN" : "EN";
+  const flagSvg = FLAGS[currentLang] || FLAGS.EN;
+  const currentName = LANGUAGE_NAMES[currentLang] || currentLang;
+
+  const languages = Object.keys(TRANSLATIONS);
+  const nextIdx = (languages.indexOf(currentLang) + 1) % languages.length;
+  const nextLang = languages[nextIdx];
+  const nextName = LANGUAGE_NAMES[nextLang] || nextLang;
+
+  button.innerHTML = flagSvg;
+  const titleText = `${currentName} (Switch to ${nextName})`;
+  button.setAttribute("title", titleText);
+  button.setAttribute("aria-label", titleText);
+}
+
+export function setLanguage(lang) {
+  if (!TRANSLATIONS[lang]) return;
+  if (state) {
+    state.language = lang;
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, lang);
+  } catch (e) {}
+
+  applyLanguage();
+  updateLanguageButtonUi();
+}
+
+export function toggleLanguage() {
+  const currentLang = state ? state.language || "EN" : "EN";
+  const languages = Object.keys(TRANSLATIONS);
+  const nextIdx = (languages.indexOf(currentLang) + 1) % languages.length;
+  const nextLang = languages[nextIdx];
+  setLanguage(nextLang);
+  return nextLang;
+}
+
 /**
  * Apply translations to all [data-i18n] elements in the DOM.
  * Elements with a sort arrow child keep the arrow intact.
@@ -404,4 +485,5 @@ export function applyLanguage() {
       el.textContent = translation;
     }
   });
+  updateLanguageButtonUi();
 }

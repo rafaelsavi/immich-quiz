@@ -215,9 +215,18 @@ class ImmichClient:
 
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
         key = self._library_key(library_name)
-        preview = await self._request_raw('GET', f'/assets/{asset_id}/thumbnail?size=preview', key, accept='*/*')
-        content_type = preview.headers.get('content-type', 'image/jpeg')
-        return preview.content, content_type
+        last_exc: Exception | None = None
+        for size in ('preview', 'thumbnail'):
+            try:
+                res = await self._request_raw('GET', f'/assets/{asset_id}/thumbnail?size={size}', key, accept='*/*')
+                content_type = res.headers.get('content-type', 'image/jpeg')
+                return res.content, content_type
+            except ImmichClientError as exc:
+                last_exc = exc
+
+        if last_exc:
+            raise last_exc
+        raise ImmichClientError(f'Failed to retrieve thumbnail for asset {asset_id}')
 
     @staticmethod
     def _exif(asset: dict[str, Any]) -> dict[str, Any]:

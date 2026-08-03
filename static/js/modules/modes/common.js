@@ -77,3 +77,21 @@ export function renderGuessingModeSettings(containerEl) {
   cardsWrap.append(locCard, dateCard);
   containerEl.append(cardsWrap);
 }
+
+/**
+ * Standardized Mode Template Mounting Strategy.
+ * Clones the declarative <template id="tmpl-mode-${modeName}"> from index.html into host container.
+ * @param {string} modeName
+ * @param {HTMLElement} hostContainer
+ * @returns {HTMLElement} The mounted container instance
+ */
+export function mountModeTemplate(modeName, hostContainer) {
+  const host = document.getElementById("mode-active-host") || hostContainer;
+  const template = document.getElementById(`tmpl-mode-${modeName}`);
+  if (!template) {
+    throw new Error(`Mode template tmpl-mode-${modeName} not found in DOM`);
+  }
+  host.replaceChildren(template.content.cloneNode(true));
+  return host.firstElementChild;
+}
+

@@ -1,5 +1,10 @@
 import { state, el } from "./modules/state.js";
-import { t, translateError, showAlert, applyLanguage } from "./modules/i18n.js";
+import { t, translateError, showAlert, applyLanguage, toggleLanguage, getSavedLanguage, updateLanguageButtonUi } from "./modules/i18n.js";
+import { renderPolaroidGallery } from "./modules/summary.js";
+import { setupView } from "./modules/views/setup_view.js";
+import { gameView } from "./modules/views/game_view.js";
+import { revealView } from "./modules/views/reveal_view.js";
+import { summaryView } from "./modules/views/summary_view.js";
 import {
   playSubmitTone,
   playTick,
@@ -35,7 +40,8 @@ import {
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
 import { pinpointMode } from "./modules/modes/pinpoint.js";
-import { albumShuffleMode, openPhotoLightbox } from "./modules/modes/album_shuffle.js";
+import { albumShuffleMode } from "./modules/modes/album_shuffle/index.js";
+import { openPhotoLightbox } from "./modules/components/lightbox.js";
 
 const GAME_MODES = {
   pinpoint: pinpointMode,
@@ -49,6 +55,42 @@ function getActiveMode() {
 
 const EARLIEST_YEAR = 1950;
 const DEFAULT_MAP_WIDTH_PCT = 67;
+
+function setTextContent(element, value) {
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+function addClass(element, className) {
+  if (element) {
+    element.classList.add(className);
+  }
+}
+
+function removeClass(element, className) {
+  if (element) {
+    element.classList.remove(className);
+  }
+}
+
+function toggleClass(element, className, force) {
+  if (element) {
+    element.classList.toggle(className, force);
+  }
+}
+
+function setDisabled(element, disabled) {
+  if (element) {
+    element.disabled = disabled;
+  }
+}
+
+function setElementSrc(element, value) {
+  if (element) {
+    element.src = value;
+  }
+}
 
 /* -------------------------------------------------------- setup + lookups */
 
@@ -90,25 +132,30 @@ async function initAlbums(libraryName) {
 function initDateDropdowns() {
   const currentYear = new Date().getFullYear();
 
-  el.dateGuessYear.replaceChildren();
-  for (let year = currentYear; year >= EARLIEST_YEAR; year -= 1) {
-    const option = document.createElement("option");
-    option.value = String(year);
-    option.textContent = String(year);
-    el.dateGuessYear.appendChild(option);
+  if (el.dateGuessYear) {
+    el.dateGuessYear.replaceChildren();
+    for (let year = currentYear; year >= EARLIEST_YEAR; year -= 1) {
+      const option = document.createElement("option");
+      option.value = String(year);
+      option.textContent = String(year);
+      el.dateGuessYear.appendChild(option);
+    }
+
+    el.dateGuessYear.value = String(currentYear);
+    renderMonthOptions();
+
+    bindDateWheelScroll(el.dateGuessYear, el.dateGuessMonth);
   }
 
-  el.dateGuessYear.value = String(currentYear);
-  renderMonthOptions();
-
-  bindDateWheelScroll(el.dateGuessYear, el.dateGuessMonth);
   bindSelectWheelScroll(el.roundCount, false);
   bindSelectWheelScroll(el.roundLength, false);
   bindSelectWheelScroll(el.library, false);
   bindSelectWheelScroll(el.album, false);
 }
+window.initDateDropdowns = initDateDropdowns;
 
 function renderMonthOptions(keepSelection = true) {
+  if (!el.dateGuessYear || !el.dateGuessMonth) return;
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -139,7 +186,10 @@ function applyUiConfig(config) {
   const heightPx = Number.isFinite(heightPxRaw) ? Math.min(1600, Math.max(200, heightPxRaw)) : 420;
   document.documentElement.style.setProperty("--quiz-image-max-height", `${heightPx}px`);
 
-  if (config.language && (config.language === "PT" || config.language === "EN")) {
+  const savedLang = getSavedLanguage();
+  if (savedLang) {
+    state.language = savedLang;
+  } else if (config.language && (config.language === "PT" || config.language === "EN")) {
     state.language = config.language;
   }
   if (config.score_max_points) {
@@ -164,6 +214,7 @@ function applyGuessLayout(locationMode, dateMode) {
 }
 
 function resetDateGuess() {
+  if (!el.dateGuessYear || !el.dateGuessMonth) return;
   const now = new Date();
   el.dateGuessYear.value = String(now.getFullYear());
   renderMonthOptions(false);
@@ -290,19 +341,23 @@ function clearTimer() {
 
 function resetTimerBar() {
   clearTimer();
-  el.timerFill.style.width = "100%";
-  el.timerFill.classList.remove("is-warning", "is-critical");
-  el.timerTrack.classList.add("is-idle");
-  el.timerLabel.textContent = "";
-  el.timerRemaining.textContent = "";
-  el.timeoutNotice.classList.add("hidden");
-  el.timeoutNotice.textContent = "";
+  if (el.timerFill) {
+    el.timerFill.style.width = "100%";
+    el.timerFill.classList.remove("is-warning", "is-critical");
+  }
+  addClass(el.timerTrack, "is-idle");
+  setTextContent(el.timerLabel, "");
+  setTextContent(el.timerRemaining, "");
+  addClass(el.timeoutNotice, "hidden");
+  setTextContent(el.timeoutNotice, "");
 
   // Feature 6: remove timer pulse
-  const timerRow = el.timerTrack.closest(".timer-row");
-  if (timerRow) timerRow.classList.remove("is-pulsing");
-  el.timerRemaining.classList.remove("is-critical-text");
-  if (el.mediaFrame) el.mediaFrame.classList.remove("timer-tension");
+  const timerRow = el.timerTrack ? el.timerTrack.closest(".timer-row") : null;
+  if (timerRow) {
+    timerRow.classList.remove("is-pulsing");
+  }
+  removeClass(el.timerRemaining, "is-critical-text");
+  removeClass(el.mediaFrame, "timer-tension");
 
   // Feature 7: reset all fullscreen timer overlays
   document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
@@ -320,7 +375,7 @@ function startTimer(roundLength) {
   state.timedOut = false;
 
   if (roundLength === "unlimited") {
-    el.timerLabel.textContent = t("game.timer_unlimited");
+    setTextContent(el.timerLabel, t("game.timer_unlimited"));
     return;
   }
 
@@ -333,9 +388,9 @@ function startTimer(roundLength) {
   let remaining = total;
   state.timerTotalSeconds = total;
   state.timerRemainingSeconds = remaining;
-  el.timerTrack.classList.remove("is-idle");
-  el.timerLabel.textContent = t("game.timer_time_left");
-  el.timerRemaining.textContent = `${remaining}s`;
+  removeClass(el.timerTrack, "is-idle");
+  setTextContent(el.timerLabel, t("game.timer_time_left"));
+  setTextContent(el.timerRemaining, `${remaining}s`);
 
 
   state.timerRef = setInterval(() => {
@@ -346,17 +401,20 @@ function startTimer(roundLength) {
     const isCritical = ratio <= 0.2 || clamped <= 5;
     const isWarning = ratio <= 0.5 && ratio > 0.2 && clamped > 5;
 
-    el.timerRemaining.textContent = `${clamped}s`;
-    el.timerFill.style.width = `${ratio * 100}%`;
-    el.timerFill.classList.toggle("is-warning", isWarning);
-    el.timerFill.classList.toggle("is-critical", isCritical);
+    setTextContent(el.timerRemaining, `${clamped}s`);
+    if (el.timerFill) {
+      el.timerFill.style.width = `${ratio * 100}%`;
+      el.timerFill.classList.toggle("is-warning", isWarning);
+      el.timerFill.classList.toggle("is-critical", isCritical);
+    }
 
     // Feature 6: pulsing timer warning
-    const timerRow = el.timerTrack.closest(".timer-row");
-    if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
-    el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
-    if (el.mediaFrame) el.mediaFrame.classList.toggle("timer-tension", clamped <= 5 && clamped > 0);
-
+    const timerRow = el.timerTrack ? el.timerTrack.closest(".timer-row") : null;
+    if (timerRow) {
+      timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
+    }
+    toggleClass(el.timerRemaining, "is-critical-text", clamped <= 5 && clamped > 0);
+    toggleClass(el.mediaFrame, "timer-tension", clamped <= 5 && clamped > 0);
     // Feature 7: sync fullscreen timer overlays
     syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
 
@@ -377,16 +435,16 @@ function handleTimeout() {
     return;
   }
   state.timedOut = true;
-  el.timerLabel.textContent = t("game.timer_time_up_label");
-  el.timerRemaining.textContent = "0s";
-  el.dateGuessYear.disabled = true;
-  el.dateGuessMonth.disabled = true;
+  setTextContent(el.timerLabel, t("game.timer_time_up_label"));
+  setTextContent(el.timerRemaining, "0s");
+  setDisabled(el.dateGuessYear, true);
+  setDisabled(el.dateGuessMonth, true);
 
-  el.timeoutNotice.textContent = t("game.timer_time_up_notice");
-  el.timeoutNotice.classList.remove("hidden");
+  setTextContent(el.timeoutNotice, t("game.timer_time_up_notice"));
+  removeClass(el.timeoutNotice, "hidden");
 
   // Nothing is submitted until the player acknowledges the timeout.
-  el.submitAnswer.textContent = t("game.continue_btn");
+  setTextContent(el.submitAnswer, t("game.continue_btn"));
   updateSubmitState();
 }
 
@@ -406,9 +464,13 @@ function clearRevealAnimation() {
 function showCard(cardEl) {
   clearRevealAnimation();
   [el.setupCard, el.gameCard, el.summaryCard].forEach((c) => {
-    c.classList.add("hidden");
+    if (c) {
+      c.classList.add("hidden");
+    }
   });
-  cardEl.classList.remove("hidden");
+  if (cardEl) {
+    cardEl.classList.remove("hidden");
+  }
 }
 
 async function startMatch(event) {
@@ -469,7 +531,9 @@ async function startMatch(event) {
   state.roundHistory = [];
 
   // Standings stay secret while a match is in progress.
-  el.leaderboardCard.classList.add("hidden");
+  if (el.leaderboardCard) {
+    el.leaderboardCard.classList.add("hidden");
+  }
   showCard(el.gameCard);
 
   await loadQuestion();
@@ -480,12 +544,16 @@ async function loadQuestion() {
   state.guessedLatLng = null;
   state.timedOut = false;
   state.currentQuestion = null;
-  el.guessingUi.classList.remove("hidden");
-  el.revealUi.classList.add("hidden");
+  removeClass(el.guessingUi, "hidden");
+  addClass(el.revealUi, "hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
-  el.submitAnswer.textContent = t("game.submit_btn");
-  el.dateGuessYear.disabled = false;
-  el.dateGuessMonth.disabled = false;
+  setTextContent(el.submitAnswer, t("game.submit_btn"));
+  if (el.dateGuessYear) {
+    el.dateGuessYear.disabled = false;
+  }
+  if (el.dateGuessMonth) {
+    el.dateGuessMonth.disabled = false;
+  }
   updateSubmitState();
 
   if (state.guessMarker) {
@@ -499,20 +567,20 @@ async function loadQuestion() {
 
   // Clear the image immediately so the previous round's photo never shows
   // through the pass-device overlay while the API call is in flight.
-  el.quizImage.classList.add("hidden");
-  el.quizImage.removeAttribute("src");
-  if (el.mediaErrorCard) {
-    el.mediaErrorCard.classList.add("hidden");
+  addClass(el.quizImage, "hidden");
+  if (el.quizImage) {
+    el.quizImage.removeAttribute("src");
   }
-  el.mediaPlaceholder.classList.remove("hidden");
+  addClass(el.mediaErrorCard, "hidden");
+  removeClass(el.mediaPlaceholder, "hidden");
 
-  el.quizImage.onerror = () => {
-    el.quizImage.classList.add("hidden");
-    el.mediaPlaceholder.classList.add("hidden");
-    if (el.mediaErrorCard) {
-      el.mediaErrorCard.classList.remove("hidden");
-    }
-  };
+  if (el.quizImage) {
+    el.quizImage.onerror = () => {
+      addClass(el.quizImage, "hidden");
+      addClass(el.mediaPlaceholder, "hidden");
+      removeClass(el.mediaErrorCard, "hidden");
+    };
+  }
 
   const data = await api("/api/question", {
     method: "POST",
@@ -563,20 +631,32 @@ async function loadQuestion() {
   updateSubmitState();
 
   if (data.total_players > 1) {
-    el.overlayTitle.textContent = t(
-      "game.pass_device_title",
-      data.player_name,
-      data.player_number,
-      data.total_players
-    );
-    el.overlaySubtitle.textContent = t("game.pass_device_subtitle", data.player_round_number, data.total_rounds_per_player);
-    el.passOverlay.classList.remove("hidden");
+    if (el.overlayTitle) {
+      el.overlayTitle.textContent = t(
+        "game.pass_device_title",
+        data.player_name,
+        data.player_number,
+        data.total_players
+      );
+    }
+    if (el.overlaySubtitle) {
+      el.overlaySubtitle.textContent = t("game.pass_device_subtitle", data.player_round_number, data.total_rounds_per_player);
+    }
+    if (el.passOverlay) {
+      el.passOverlay.classList.remove("hidden");
+    }
   } else {
-    el.passOverlay.classList.add("hidden");
+    if (el.passOverlay) {
+      el.passOverlay.classList.add("hidden");
+    }
     if (data.game_mode === "pinpoint") {
-      el.quizImage.src = data.media_url;
-      el.quizImage.classList.remove("hidden");
-      el.mediaPlaceholder.classList.add("hidden");
+      if (el.quizImage) {
+        el.quizImage.src = data.media_url;
+        el.quizImage.classList.remove("hidden");
+      }
+      if (el.mediaPlaceholder) {
+        el.mediaPlaceholder.classList.add("hidden");
+      }
       if (data.location_mode) {
         ensureGuessMap();
       }
@@ -676,8 +756,12 @@ async function showRoundReveal(roundNumber) {
   }
 
   showCard(el.gameCard);
-  el.guessingUi.classList.add("hidden");
-  el.revealUi.classList.remove("hidden");
+  if (el.guessingUi) {
+    el.guessingUi.classList.add("hidden");
+  }
+  if (el.revealUi) {
+    el.revealUi.classList.remove("hidden");
+  }
 
   const activeMode = getActiveMode();
   if (activeMode && typeof activeMode.renderReveal === "function") {
@@ -689,7 +773,9 @@ async function showRoundReveal(roundNumber) {
     renderRevealMap(reveal);
   }
 
-  el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
+  if (el.nextRound) {
+    el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
+  }
 
   const targetScrollEl = reveal.location_mode ? el.revealMapShell : el.nextRound;
   if (targetScrollEl) {
@@ -902,8 +988,12 @@ function renderRevealSummary(reveal) {
 }
 
 function renderRevealMap(reveal) {
-  el.revealMapShell.classList.toggle("hidden", !reveal.location_mode);
-  el.revealMapHead.classList.toggle("hidden", !reveal.location_mode);
+  if (el.revealMapShell) {
+    el.revealMapShell.classList.toggle("hidden", !reveal.location_mode);
+  }
+  if (el.revealMapHead) {
+    el.revealMapHead.classList.toggle("hidden", !reveal.location_mode);
+  }
   if (!reveal.location_mode) {
     clearRevealAnimation();
     return;
@@ -1036,13 +1126,15 @@ async function showMatchSummary() {
   if (summary.date_mode) {
     modes.push(t("summary.mode_date"));
   }
-  el.summaryMeta.textContent = t(
-    "summary.meta",
-    summary.rounds_played,
-    modes.join(" + "),
-    summary.library_name,
-    summary.album_name
-  );
+  if (el.summaryMeta) {
+    el.summaryMeta.textContent = t(
+      "summary.meta",
+      summary.rounds_played,
+      modes.join(" + "),
+      summary.library_name,
+      summary.album_name
+    );
+  }
 
   // Feature 4: Fun Performance Awards
   renderAwards(summary);
@@ -1058,9 +1150,13 @@ async function showMatchSummary() {
 
   const headRow = document.createElement("tr");
   columns.forEach((label) => headRow.appendChild(buildCell(label, true)));
-  el.summaryTableHead.replaceChildren(headRow);
+  if (el.summaryTableHead) {
+    el.summaryTableHead.replaceChildren(headRow);
+  }
 
-  el.summaryTableBody.replaceChildren();
+  if (el.summaryTableBody) {
+    el.summaryTableBody.replaceChildren();
+  }
   summary.players.forEach((player) => {
     const row = document.createElement("tr");
     row.classList.toggle("is-winner", player.is_winner);
@@ -1087,7 +1183,9 @@ async function showMatchSummary() {
     row.appendChild(buildCell(`${player.total_score}/${player.max_possible_score}`));
     row.appendChild(buildCell(String(player.accuracy_pct)));
 
-    el.summaryTableBody.appendChild(row);
+    if (el.summaryTableBody) {
+      el.summaryTableBody.appendChild(row);
+    }
   });
 
   state.lastSummary = summary;
@@ -1096,100 +1194,15 @@ async function showMatchSummary() {
   renderJourneyMap(state.roundHistory, summary.location_mode);
 
   // Render Polaroid Memory Cards
-  renderPolaroidGallery(state.roundHistory);
+  renderPolaroidGallery(el.polaroidGallery, state.roundHistory);
 
-  el.leaderboardCard.classList.remove("hidden");
+  if (el.leaderboardCard) {
+    el.leaderboardCard.classList.remove("hidden");
+  }
   await loadLeaderboard();
 }
 
-function renderPolaroidGallery(roundHistory) {
-  if (!el.polaroidGallery) return;
-  el.polaroidGallery.replaceChildren();
 
-  const defaultLibrary = state.lastSummary
-    ? state.lastSummary.library_name
-    : state.currentQuestion
-    ? state.currentQuestion.library_name
-    : "";
-
-  (roundHistory || []).forEach((round) => {
-    if (round.batch_reveal && Array.isArray(round.batch_reveal) && round.batch_reveal.length > 0) {
-      round.batch_reveal.forEach((item) => {
-        const card = document.createElement("div");
-        card.className = "polaroid-card";
-
-        const imgWrap = document.createElement("div");
-        imgWrap.className = "polaroid-img-wrap";
-
-        const lib = round.library_name || defaultLibrary;
-        const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(lib)}`;
-        const img = document.createElement("img");
-        img.className = "polaroid-img";
-        img.src = imgUrl;
-        img.alt = `Round ${round.round_number} - Pin ${item.true_pin_id}`;
-        img.style.cursor = "pointer";
-        img.addEventListener("click", () => openPhotoLightbox(imgUrl));
-        imgWrap.appendChild(img);
-
-        const caption = document.createElement("div");
-        caption.className = "polaroid-caption";
-
-        const badge = document.createElement("span");
-        badge.className = "polaroid-round-badge";
-        badge.textContent = item.true_pin_id
-          ? `${t("summary.journey_round", round.round_number)} - ${item.true_pin_id}`
-          : t("summary.journey_round", round.round_number);
-
-        const loc = document.createElement("span");
-        loc.className = "polaroid-location";
-        loc.textContent = formatPlace(item) || t("fmt.unknown_place");
-
-        const date = document.createElement("span");
-        date.className = "polaroid-date";
-        date.textContent = formatMonth(item.actual_year, item.actual_month);
-
-        caption.append(badge, loc, date);
-        card.append(imgWrap, caption);
-        el.polaroidGallery.appendChild(card);
-      });
-    } else {
-      const card = document.createElement("div");
-      card.className = "polaroid-card";
-
-      const imgWrap = document.createElement("div");
-      imgWrap.className = "polaroid-img-wrap";
-
-      if (round.media_url) {
-        const img = document.createElement("img");
-        img.className = "polaroid-img";
-        img.src = round.media_url;
-        img.alt = `Round ${round.round_number}`;
-        img.style.cursor = "pointer";
-        img.addEventListener("click", () => openPhotoLightbox(round.media_url));
-        imgWrap.appendChild(img);
-      }
-
-      const caption = document.createElement("div");
-      caption.className = "polaroid-caption";
-
-      const badge = document.createElement("span");
-      badge.className = "polaroid-round-badge";
-      badge.textContent = t("summary.journey_round", round.round_number);
-
-      const loc = document.createElement("span");
-      loc.className = "polaroid-location";
-      loc.textContent = round.location_string || t("fmt.unknown_place");
-
-      const date = document.createElement("span");
-      date.className = "polaroid-date";
-      date.textContent = formatMonth(round.actual_year, round.actual_month);
-
-      caption.append(badge, loc, date);
-      card.append(imgWrap, caption);
-      el.polaroidGallery.appendChild(card);
-    }
-  });
-}
 
 async function shareMatchSummary() {
   if (!state.lastSummary) return;
@@ -1247,10 +1260,14 @@ function renderPodium(summary) {
     ? t("summary.tie", summary.winners.join(" & "))
     : t("summary.winner", summary.winners[0]);
 
-  el.summaryWinner.replaceChildren();
+  if (el.summaryWinner) {
+    el.summaryWinner.replaceChildren();
+  }
   const title = document.createElement("div");
   title.textContent = titleText;
-  el.summaryWinner.appendChild(title);
+  if (el.summaryWinner) {
+    el.summaryWinner.appendChild(title);
+  }
 
   // Do not render podium steps in single-player mode
   if (!isMultiplayer) {
@@ -1288,7 +1305,9 @@ function renderPodium(summary) {
     podium.appendChild(step);
   });
 
-  el.summaryWinner.appendChild(podium);
+  if (el.summaryWinner) {
+    el.summaryWinner.appendChild(podium);
+  }
 }
 
 /* ── Feature 4: Awards ── */
@@ -1416,7 +1435,9 @@ function renderAwards(summary) {
   });
 
   // Insert awards between summaryWinner and the table
-  el.summaryWinner.after(row);
+  if (el.summaryWinner) {
+    el.summaryWinner.after(row);
+  }
 }
 
 /* ── Feature 7: Fullscreen timer sync ── */
@@ -1445,7 +1466,9 @@ function returnToSetup() {
   state.playerStats = {};
   resetTimerBar();
   showCard(el.setupCard);
-  el.leaderboardCard.classList.remove("hidden");
+  if (el.leaderboardCard) {
+    el.leaderboardCard.classList.remove("hidden");
+  }
 }
 
 function handleAbandonGame(action) {
@@ -1504,7 +1527,9 @@ el.album.addEventListener("change", () => {
   loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
 });
 
-el.dateGuessYear.addEventListener("change", () => renderMonthOptions(true));
+if (el.dateGuessYear) {
+  el.dateGuessYear.addEventListener("change", () => renderMonthOptions(true));
+}
 
 if (el.mediaSkipBtn) {
   el.mediaSkipBtn.addEventListener("click", () => {
@@ -1512,31 +1537,45 @@ if (el.mediaSkipBtn) {
   });
 }
 
-el.readyBtn.addEventListener("click", () => {
-  if (!state.currentQuestion) {
-    return;
-  }
-  el.passOverlay.classList.add("hidden");
-  if (state.currentQuestion.game_mode === "pinpoint") {
-    el.quizImage.src = state.currentQuestion.media_url;
-    el.quizImage.classList.remove("hidden");
-    el.mediaPlaceholder.classList.add("hidden");
-    if (state.currentQuestion.location_mode) {
-      ensureGuessMap();
+if (el.readyBtn) {
+  el.readyBtn.addEventListener("click", () => {
+    if (!state.currentQuestion) {
+      return;
     }
-  }
-  startTimer(state.currentQuestion.round_length);
-});
+    if (el.passOverlay) {
+      el.passOverlay.classList.add("hidden");
+    }
+    if (state.currentQuestion.game_mode === "pinpoint") {
+      if (el.quizImage) {
+        el.quizImage.src = state.currentQuestion.media_url;
+        el.quizImage.classList.remove("hidden");
+      }
+      if (el.mediaPlaceholder) {
+        el.mediaPlaceholder.classList.add("hidden");
+      }
+      if (state.currentQuestion.location_mode) {
+        ensureGuessMap();
+      }
+    }
+    startTimer(state.currentQuestion.round_length);
+  });
+}
 
-el.submitAnswer.addEventListener("click", () => {
-  submitAnswer(state.timedOut).catch((err) => showAlert(err.message));
-});
+if (el.submitAnswer) {
+  el.submitAnswer.addEventListener("click", () => {
+    submitAnswer(state.timedOut).catch((err) => showAlert(err.message));
+  });
+}
 
 window.handleNextRoundClick = () => handleNextRound().catch((err) => showAlert(err.message));
 
-el.nextRound.addEventListener("click", window.handleNextRoundClick);
+if (el.nextRound) {
+  el.nextRound.addEventListener("click", window.handleNextRoundClick);
+}
 
-el.newMatch.addEventListener("click", returnToSetup);
+if (el.newMatch) {
+  el.newMatch.addEventListener("click", returnToSetup);
+}
 
 if (el.shareSummaryBtn) {
   el.shareSummaryBtn.addEventListener("click", () => {
@@ -1544,14 +1583,28 @@ if (el.shareSummaryBtn) {
   });
 }
 
-el.gameRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
-el.gameExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
-el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
-el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
+if (el.gameRestartBtn) {
+  el.gameRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
+}
+if (el.gameExitBtn) {
+  el.gameExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
+}
+if (el.revealRestartBtn) {
+  el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
+}
+if (el.revealExitBtn) {
+  el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
+}
 
-el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
-el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
-el.revealMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.revealMapShell));
+if (el.quizImageFullscreen) {
+  el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
+}
+if (el.guessMapFullscreen) {
+  el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
+}
+if (el.revealMapFullscreen) {
+  el.revealMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.revealMapShell));
+}
 if (el.journeyMapFullscreen) {
   el.journeyMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.journeyMapShell));
 }
@@ -1583,11 +1636,145 @@ if (settingsContainer) {
   });
 }
 
-el.refreshLeaderboard.addEventListener("click", () => {
-  loadLeaderboard().catch((err) => showAlert(err.message));
-});
+if (el.refreshLeaderboard) {
+  el.refreshLeaderboard.addEventListener("click", () => {
+    loadLeaderboard().catch((err) => showAlert(err.message));
+  });
+}
 
-el.leaderboardHead.addEventListener("click", handleSortClick);
+if (el.leaderboardHead) {
+  el.leaderboardHead.addEventListener("click", handleSortClick);
+}
+
+function updateActiveScreenLanguage() {
+  // 1. Re-apply data-i18n translations across all static/DOM elements
+  applyLanguage();
+
+  // 2. Refresh setup screen settings if setup card is visible
+  if (el.setupCard && !el.setupCard.classList.contains("hidden")) {
+    const settingsContainer = document.getElementById("game-settings-container");
+    if (settingsContainer) {
+      const mode = getActiveMode();
+      mode.renderSettings(settingsContainer);
+      applyLanguage();
+    }
+  }
+
+  // 3. Refresh active game question screen if game card is visible and in guessing UI
+  if (el.gameCard && !el.gameCard.classList.contains("hidden") && el.guessingUi && !el.guessingUi.classList.contains("hidden")) {
+    const q = state.currentQuestion;
+    if (q) {
+      if (el.roundMeta) {
+        const metaText = el.roundMeta.querySelector(".round-meta-text");
+        if (metaText) {
+          metaText.textContent = t(
+            "game.round_meta",
+            q.player_round_number,
+            q.total_rounds_per_player,
+            q.player_number,
+            q.total_players,
+            q.player_name
+          );
+        }
+        const helpBtn = el.roundMeta.querySelector(".shuffle-help-btn");
+        if (helpBtn) {
+          helpBtn.textContent = t("game.help_btn");
+        }
+      }
+
+      if (el.passOverlay && !el.passOverlay.classList.contains("hidden")) {
+        if (el.overlayTitle) {
+          el.overlayTitle.textContent = t(
+            "game.pass_device_title",
+            q.player_name,
+            q.player_number,
+            q.total_players
+          );
+        }
+        if (el.overlaySubtitle) {
+          el.overlaySubtitle.textContent = t(
+            "game.pass_device_subtitle",
+            q.player_round_number,
+            q.total_rounds_per_player
+          );
+        }
+      }
+
+      if (state.timedOut) {
+        if (el.timerLabel) {
+          el.timerLabel.textContent = t("game.timer_time_up_label");
+        }
+        if (el.timeoutNotice) {
+          el.timeoutNotice.textContent = t("game.timer_time_up_notice");
+        }
+        if (el.submitAnswer) {
+          el.submitAnswer.textContent = t("game.continue_btn");
+        }
+      } else if (q.round_length === "unlimited") {
+        if (el.timerLabel) {
+          el.timerLabel.textContent = t("game.timer_unlimited");
+        }
+        if (el.submitAnswer) {
+          el.submitAnswer.textContent = t("game.submit_btn");
+        }
+      } else if (state.timerTotalSeconds > 0) {
+        if (el.timerLabel) {
+          el.timerLabel.textContent = t("game.timer_time_left");
+        }
+        if (el.submitAnswer) {
+          el.submitAnswer.textContent = t("game.submit_btn");
+        }
+      }
+
+      if (state.timerTotalSeconds > 0 && !state.timedOut) {
+        const ratio = state.timerRemainingSeconds / state.timerTotalSeconds;
+        const isCritical = ratio <= 0.2 || state.timerRemainingSeconds <= 5;
+        const isWarning = ratio <= 0.5 && ratio > 0.2 && state.timerRemainingSeconds > 5;
+        syncFullscreenTimers(state.timerRemainingSeconds, ratio, isWarning, isCritical);
+      }
+
+      const shuffleHelpModal = document.getElementById("album-shuffle-help-modal");
+      if (shuffleHelpModal && !shuffleHelpModal.classList.contains("hidden")) {
+        const activeMode = getActiveMode();
+        if (activeMode && typeof activeMode.openHelp === "function") {
+          activeMode.openHelp(q);
+        }
+      }
+    }
+  }
+
+  // 4. Refresh round reveal screen if reveal UI is visible
+  if (el.gameCard && !el.gameCard.classList.contains("hidden") && el.revealUi && !el.revealUi.classList.contains("hidden")) {
+    const q = state.currentQuestion;
+    if (q && el.roundMeta) {
+      el.roundMeta.textContent = t("reveal.title", q.player_round_number, q.total_rounds_per_player);
+    }
+    el.nextRound.textContent = state.matchFinished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
+  }
+
+  // 5. Refresh match summary screen if summary card is visible
+  if (el.summaryCard && !el.summaryCard.classList.contains("hidden") && el.summaryMeta && state.lastMatchConfig) {
+    const cfg = state.lastMatchConfig;
+    const modes = [cfg.location_mode && t("summary.mode_location"), cfg.date_mode && t("summary.mode_date")]
+      .filter(Boolean)
+      .join(" + ");
+    el.summaryMeta.textContent = t(
+      "summary.meta",
+      cfg.round_count,
+      modes,
+      cfg.library_name || "-",
+      cfg.album_name || "-"
+    );
+  }
+}
+
+if (el.languageToggleBtn) {
+  el.languageToggleBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleLanguage();
+    updateActiveScreenLanguage();
+  });
+}
 
 if (el.audioToggleBtn) {
   el.audioToggleBtn.addEventListener("click", (e) => {
@@ -1600,14 +1787,14 @@ updateAudioUi();
 /* Enter or Space key triggers the primary action of whatever screen is showing. */
 
 function activeActionButton() {
-  if (!el.passOverlay.classList.contains("hidden")) {
+  if (el.passOverlay && !el.passOverlay.classList.contains("hidden")) {
     return el.readyBtn;
   }
-  if (!el.gameCard.classList.contains("hidden")) {
-    if (!el.guessingUi.classList.contains("hidden")) {
+  if (el.gameCard && !el.gameCard.classList.contains("hidden")) {
+    if (el.guessingUi && !el.guessingUi.classList.contains("hidden")) {
       return el.submitAnswer;
     }
-    if (!el.revealUi.classList.contains("hidden")) {
+    if (el.revealUi && !el.revealUi.classList.contains("hidden")) {
       return el.nextRound;
     }
   }

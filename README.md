@@ -32,7 +32,7 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 | Tag                  | Description                       | Command                                             |
 |----------------------|-----------------------------------|-----------------------------------------------------|
 | `:latest`            | Latest build from `main` branch   | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
-| `:v0.1.2` / `:0.1.2` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v0.1.2` |
+| `:v1.0.0` / `:1.0.0` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v1.0.0` |
 | `:<sha>`             | Exact commit hash build           | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
 ### Starting the server

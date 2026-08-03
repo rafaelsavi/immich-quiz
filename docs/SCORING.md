@@ -47,7 +47,11 @@ In **Album Shuffle** mode, the score of a round is computed over the entire batc
 
 #### Date Score
 
-The chronological order of the photos is evaluated using the Kendall-Tau inversion count $K$ on the sequence of guessed indices. That means, individual positions are not evaluated, but the relative order of the photos is.
+The chronological order of the photos is evaluated using the Kendall-Tau inversion count $K$ on the sequence of guessed indices.
+
+- Maximum inversions $K_{max} = \frac{N(N-1)}{2}$ (for $N=5$, $K_{max} = 10$).
+- Date Score = $\text{round}\left(\text{SCORE\_MAX\_POINTS} \times \left(1 - \frac{K}{K_{max}}\right)\right)$.
+- **Timeouts**: If a turn times out or no answers are selected, $0$ points are awarded.
 
 ## Common values for scoring exponential function
 

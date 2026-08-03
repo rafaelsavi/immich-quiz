@@ -41,7 +41,7 @@
     {
       "label": "Lint & Format Code (Ruff)",
       "type": "shell",
-      "command": "uv run ruff check --fix . && uv run ruff format .",
+      "command": "uv run ruff check --fix . ; uv run ruff format .",
       "problemMatcher": []
     },
     {
