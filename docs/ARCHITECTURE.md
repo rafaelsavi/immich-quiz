@@ -67,8 +67,13 @@ POST /api/game/setup
 
 POST /api/question
   └── routes.py looks up MatchState by match_id
-  └── If round has no photo yet: calls ImmichClient.search_random_assets
-      to pick one eligible asset (shared by all players in this round)
+  └── Draws candidate asset(s) using _select_round_asset (Pinpoint) or
+      _select_batch_round_assets (Album Shuffle)
+  └── Evaluates candidate assets with _is_asset_valid_for_batch against
+      previously played match assets (and batch items):
+      - Location distance >= 0.1 km (100m) using haversine_km (when location_mode is active)
+      - Time separation >= 60 seconds using capture_datetime (when date_mode is active)
+      - Graceful fallback if pool is constrained
   └── Creates QuestionState with full RoundAsset (lat/lon/date) stored server-side
   └── Returns sanitized QuestionResponse — no coordinates, no capture date
 

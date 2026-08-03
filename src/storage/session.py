@@ -3,10 +3,11 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 from uuid import uuid4
 
 from src.immich.client import AssetAnswer
-from src.models import GameMode, GameSetupRequest
+from src.models import GameSetupRequest
 
 
 class QuestionAlreadyAnsweredError(RuntimeError):
@@ -44,9 +45,8 @@ class QuestionState:
     date_diff_months: int | None = None
     timed_out: bool = False
     batch_assets: list[RoundAsset] | None = None
-    batch_pins: list[dict[str, object]] | None = None
-    album_shuffle_guesses: list[dict[str, object]] | None = None
-
+    batch_pins: list[dict[str, Any]] | None = None
+    album_shuffle_guesses: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -195,7 +195,7 @@ class SessionStore:
         diff_days: int | None = None,
         diff_months: int | None = None,
         timed_out: bool = False,
-        album_shuffle_guesses: list[dict[str, object]] | None = None,
+        album_shuffle_guesses: list[dict[str, Any]] | None = None,
     ) -> MatchState:
         state = self.get_match(match_id)
         question = state.questions.get(question_id)
@@ -217,7 +217,6 @@ class SessionStore:
         question.timed_out = timed_out
         question.album_shuffle_guesses = album_shuffle_guesses
 
-
         if state.active_question_id == question_id:
             state.active_question_id = None
 
@@ -236,11 +235,8 @@ class SessionStore:
         """Prune inactive matches older than ttl_seconds (default 2 hours)."""
         now = time.time()
         expired = [
-            match_id
-            for match_id, state in self._matches.items()
-            if (now - state.last_activity_at) > ttl_seconds
+            match_id for match_id, state in self._matches.items() if (now - state.last_activity_at) > ttl_seconds
         ]
         for match_id in expired:
             del self._matches[match_id]
         return len(expired)
-

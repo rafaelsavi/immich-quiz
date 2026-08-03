@@ -120,9 +120,8 @@ class AnswerRequest(BaseModel):
 
     @model_validator(mode='after')
     def validate_month_pair(self) -> AnswerRequest:
-        if self.album_shuffle_answers is None:
-            if (self.guessed_year is None) != (self.guessed_month is None):
-                raise ValueError('guessed_year and guessed_month must be provided together')
+        if self.album_shuffle_answers is None and (self.guessed_year is None) != (self.guessed_month is None):
+            raise ValueError('guessed_year and guessed_month must be provided together')
         return self
 
 
@@ -137,7 +136,6 @@ class AnswerResponse(BaseModel):
     round_complete: bool
     waiting_for: list[str]
     match_finished: bool
-
 
 
 class PlayerRoundResult(BaseModel):
@@ -173,6 +171,8 @@ class BatchRevealItem(BaseModel):
     actual_date: date | None
     actual_year: int | None
     actual_month: int | None
+    actual_city: str | None = None
+    actual_country: str | None = None
 
 
 class RoundResultResponse(BaseModel):
@@ -181,7 +181,7 @@ class RoundResultResponse(BaseModel):
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
-    library_name: str = ""
+    library_name: str = ''
     actual_latitude: float | None
     actual_longitude: float | None
     actual_date: date | None
@@ -217,7 +217,6 @@ class MatchSummaryResponse(BaseModel):
     finished: bool
     winners: list[str]
     players: list[MatchSummaryPlayer]
-
 
 
 class LeaderboardEntry(BaseModel):

@@ -33,7 +33,7 @@ Before your turn, a screen appears that hides the photo. Hand the device to the 
 A single photo is shown to the active player.
 
 - **Location mode**: a map appears. Drag and drop a pin where you think the photo was taken. You can zoom or open the map in fullscreen. Place the pin anywhere on the globe.
-- **Date mode**: a month/year picker appears. Choose the month and year you think the photo was taken.
+- **Date mode**: a month/year picker appears. Choose the month and year you think the photo was taken. You can also scroll your mouse wheel over the month and year boxes to quickly adjust dates.
 - Press **Submit** when you are done. If a countdown is running, the turn auto-submits when time runs out.
 
 #### Reveal
@@ -49,19 +49,26 @@ The next round begins with the pass-device overlay for the first player again.
 
 ### 🔀 Album Shuffle
 
-In **Album Shuffle**, you get a batch of 5 photos and must match them using map pins or sort them by date.
+In **Album Shuffle**, you get a batch of 5 photos and must match them to map pins or sort them in chronological order.
 
 #### Your turn
 
-Each player sees 5 images in a list.
+Each player sees 5 photo cards in a list.
 
-- **Location mode**: a map appears with pins A, B, C, D, and E. Select a photo from the list, then click the pin on the map where you think that photo was taken.
-- **Date mode**: sort the 5 images into chronological order by clicking their arrows.
+- **Location mode**: a map appears with pins labeled A, B, C, D, and E. Click a photo card to select it, then click the map pin where you think that photo was taken to assign it.
+- **Date mode**: sort the 5 images into chronological order (from oldest to newest) using the rank buttons next to each photo card.
 - Press **Submit** when you are finished. If a countdown is running, the turn auto-submits when time runs out.
 
 #### Reveal
 
-After everyone submits, the game calculates your score based on how accurate your location and date guesses were. See [SCORING.md](SCORING.md) for more details and [AWARDS.md](AWARDS.md) for badge information.
+After everyone submits, the game calculates your score based on how accurate your location and date assignments were. See [SCORING.md](SCORING.md) for more details and [AWARDS.md](AWARDS.md) for badge information.
+
+## Photo Variety & Quality
+
+To ensure every match is engaging and fair:
+
+- Photos without valid location data (or Null Island `0,0` coordinates) are automatically filtered out when location guessing is enabled.
+- Photo locations are chosen to be at least 100 metres apart from each other, and photo capture times are chosen at least 1 minute apart, giving you distinct photos to guess every round.
 
 ## Leaderboard
 

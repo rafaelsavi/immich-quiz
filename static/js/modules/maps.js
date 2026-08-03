@@ -1,6 +1,6 @@
 import { state, el } from "./state.js";
 import { t, showAlert } from "./i18n.js";
-import { playerInitial, playerColor, ACTUAL_COLOR } from "./formatters.js";
+import { playerInitial, playerColor, ACTUAL_COLOR, formatPlace } from "./formatters.js";
 import { playPinDropSound } from "./audio.js";
 
 export function createBaseTileLayers() {
@@ -43,10 +43,11 @@ export function updateSubmitState() {
   }
 
   if (state.currentQuestion && state.currentQuestion.game_mode === "album_shuffle") {
+    const needsPin = Boolean(state.currentQuestion.location_mode);
     const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
     const totalPhotos = (state.currentQuestion.batch_photos || []).length;
     const assignedCount = Object.values(pinAssignments).filter(Boolean).length;
-    const missingPin = totalPhotos > 0 && assignedCount < totalPhotos;
+    const missingPin = needsPin && totalPhotos > 0 && assignedCount < totalPhotos;
     el.submitAnswer.disabled = !state.currentQuestion || missingPin;
     if (missingPin) {
       el.submitAnswer.title = t("game.pin_required");
@@ -67,12 +68,16 @@ export function updateSubmitState() {
 }
 
 export function createPinIcon(label, color) {
+  const isLong = String(label).length > 2;
+  const fontSize = isLong ? (String(label).length > 3 ? "0.7rem" : "0.75rem") : "0.85rem";
+  const size = isLong ? 32 : 28;
+  const anchor = size / 2;
   return L.divIcon({
     className: "player-pin",
-    html: `<span style="background:${color}"><b>${label}</b></span>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -26],
+    html: `<span style="background:${color};width:${size}px;height:${size}px;font-size:${fontSize};"><b>${label}</b></span>`,
+    iconSize: [size, size],
+    iconAnchor: [anchor, size],
+    popupAnchor: [0, -size + 2],
   });
 }
 
@@ -159,14 +164,55 @@ export function ensureJourneyMap() {
   requestAnimationFrame(() => state.journeyMap.invalidateSize());
 }
 
-export function renderJourneyMap(roundHistory) {
-  const validRounds = (roundHistory || []).filter(
-    (r) => r.actual_latitude !== null && r.actual_longitude !== null
-  );
-
+export function renderJourneyMap(roundHistory, locationMode = true) {
   if (!el.journeyMapShell || !el.journeyMapHead) return;
 
-  if (validRounds.length === 0) {
+  if (!locationMode) {
+    el.journeyMapShell.classList.add("hidden");
+    el.journeyMapHead.classList.add("hidden");
+    return;
+  }
+
+  const allPins = [];
+  (roundHistory || []).forEach((r) => {
+    if (r.batch_reveal && Array.isArray(r.batch_reveal) && r.batch_reveal.length > 0) {
+      r.batch_reveal.forEach((item) => {
+        if (
+          item.actual_latitude !== null &&
+          item.actual_latitude !== undefined &&
+          item.actual_longitude !== null &&
+          item.actual_longitude !== undefined &&
+          !(Math.abs(item.actual_latitude) < 1e-6 && Math.abs(item.actual_longitude) < 1e-6)
+        ) {
+          const locStr = formatPlace(item);
+          const dateStr = item.actual_date
+            ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+            : "";
+          allPins.push({
+            label: `${r.round_number}-${item.true_pin_id}`,
+            lat: item.actual_latitude,
+            lon: item.actual_longitude,
+            popupText: `<b>${t("summary.journey_round", r.round_number)} - Pin ${item.true_pin_id}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
+          });
+        }
+      });
+    } else if (
+      r.actual_latitude !== null &&
+      r.actual_latitude !== undefined &&
+      r.actual_longitude !== null &&
+      r.actual_longitude !== undefined &&
+      !(Math.abs(r.actual_latitude) < 1e-6 && Math.abs(r.actual_longitude) < 1e-6)
+    ) {
+      allPins.push({
+        label: String(r.round_number),
+        lat: r.actual_latitude,
+        lon: r.actual_longitude,
+        popupText: `<b>${t("summary.journey_round", r.round_number)}</b><br>${r.location_string || ""}`,
+      });
+    }
+  });
+
+  if (allPins.length === 0) {
     el.journeyMapShell.classList.add("hidden");
     el.journeyMapHead.classList.add("hidden");
     return;
@@ -180,18 +226,33 @@ export function renderJourneyMap(roundHistory) {
   state.journeyLayers.forEach((layer) => state.journeyMap.removeLayer(layer));
   state.journeyLayers = [];
 
+  // Group near-duplicate coordinates to apply a small visual offset if pins share exact locations
+  const coordCounts = {};
+  const processedPins = allPins.map((pin) => {
+    const key = `${pin.lat.toFixed(4)},${pin.lon.toFixed(4)}`;
+    coordCounts[key] = (coordCounts[key] || 0) + 1;
+    const occurrence = coordCounts[key];
+    let displayLat = pin.lat;
+    let displayLon = pin.lon;
+    if (occurrence > 1) {
+      const angle = (occurrence - 1) * ((2 * Math.PI) / 5);
+      const radius = 0.00025 * Math.sqrt(occurrence);
+      displayLat = pin.lat + radius * Math.cos(angle);
+      displayLon = pin.lon + radius * Math.sin(angle);
+    }
+    return { ...pin, displayLat, displayLon };
+  });
+
   const points = [];
-  validRounds.forEach((round) => {
-    const latLng = L.latLng(round.actual_latitude, round.actual_longitude);
-    points.push(latLng);
+  processedPins.forEach((pin) => {
+    const latLng = L.latLng(pin.displayLat, pin.displayLon);
+    points.push(L.latLng(pin.lat, pin.lon));
 
     const marker = L.marker(latLng, {
-      icon: createPinIcon(String(round.round_number), ACTUAL_COLOR),
+      icon: createPinIcon(pin.label, ACTUAL_COLOR),
     })
       .addTo(state.journeyMap)
-      .bindPopup(
-        `<b>${t("summary.journey_round", round.round_number)}</b><br>${round.location_string || ""}`
-      );
+      .bindPopup(pin.popupText);
     state.journeyLayers.push(marker);
   });
 

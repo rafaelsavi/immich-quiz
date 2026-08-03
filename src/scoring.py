@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from calendar import monthrange
-from datetime import date, timedelta
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
 
@@ -63,19 +63,64 @@ def date_diff_parts(guessed_year: int, guessed_month: int, actual: date) -> tupl
         return 0, 0, 0
 
     if actual > last_day:
-        delta_months = (actual.year * 12 + actual.month) - (guessed_year * 12 + guessed_month)
-        years_part, months_part = divmod(delta_months, 12)
-        prev_month_end = date(actual.year, actual.month, 1) - timedelta(days=1)
-        days_part = (actual - prev_month_end).days
+        ref = last_day
+        years_part = 0
+        while True:
+            try:
+                next_ref = date(ref.year + 1, ref.month, ref.day)
+            except ValueError:
+                next_ref = date(ref.year + 1, ref.month, ref.day - 1)
+            if next_ref <= actual:
+                years_part += 1
+                ref = next_ref
+            else:
+                break
+
+        months_part = 0
+        while True:
+            y = ref.year + (1 if ref.month == 12 else 0)
+            m = 1 if ref.month == 12 else ref.month + 1
+            max_d = monthrange(y, m)[1]
+            d = min(ref.day, max_d)
+            next_ref = date(y, m, d)
+            if next_ref <= actual:
+                months_part += 1
+                ref = next_ref
+            else:
+                break
+
+        days_part = (actual - ref).days
         return years_part, months_part, days_part
 
-    delta_months = (guessed_year * 12 + guessed_month) - (actual.year * 12 + actual.month)
-    years_part, months_part = divmod(delta_months, 12)
-    if actual.month == 12:
-        next_month_start = date(actual.year + 1, 1, 1)
-    else:
-        next_month_start = date(actual.year, actual.month + 1, 1)
-    days_part = (next_month_start - actual).days
+    ref = actual
+    target = first_day
+
+    years_part = 0
+    while True:
+        try:
+            next_ref = date(ref.year + 1, ref.month, ref.day)
+        except ValueError:
+            next_ref = date(ref.year + 1, ref.month, ref.day - 1)
+        if next_ref <= target:
+            years_part += 1
+            ref = next_ref
+        else:
+            break
+
+    months_part = 0
+    while True:
+        y = ref.year + (1 if ref.month == 12 else 0)
+        m = 1 if ref.month == 12 else ref.month + 1
+        max_d = monthrange(y, m)[1]
+        d = min(ref.day, max_d)
+        next_ref = date(y, m, d)
+        if next_ref <= target:
+            months_part += 1
+            ref = next_ref
+        else:
+            break
+
+    days_part = (target - ref).days
     return years_part, months_part, days_part
 
 
@@ -101,16 +146,24 @@ def accuracy_pct(total_score: int, max_score: int) -> float:
     return float(value.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP))
 
 
-def kendall_tau_inversion_score(guessed_order: list[int], max_points: int = 100) -> int:
-    """Calculates chronological ordering score based on Kendall-Tau inversion count distance.
+def kendall_tau_inversion_score(
+    guessed_order: list[int],
+    max_points: int = 100,
+    total_items: int | None = None,
+) -> int:
+    """Calculate chronological ordering score based on Kendall-Tau inversion count distance.
 
     guessed_order is a list of true rank indices (0..N-1) representing the player's guessed sequence.
     Example: [0, 1, 2, 3] is perfect (0 inversions -> max_points).
     [3, 2, 1, 0] is completely reversed (max inversions -> 0 points).
     """
     n = len(guessed_order)
-    if n <= 1:
-        return max_points
+    expected_n = total_items if total_items is not None else n
+
+    if n < expected_n or expected_n <= 1:
+        if expected_n <= 1 and n == expected_n:
+            return max_points
+        return 0
 
     max_inversions = n * (n - 1) // 2
     inversions = 0
@@ -128,4 +181,3 @@ def batch_strict_location_score(correct_matches: int, total_photos: int, max_poi
     if total_photos <= 0:
         return 0
     return max(0, round((correct_matches / total_photos) * max_points))
-

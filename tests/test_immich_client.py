@@ -29,7 +29,6 @@ def test_immich_client_url_normalization() -> None:
     assert client3._server_url == 'https://example.test/api'
 
 
-
 def asset(**overrides) -> dict:
     base = {
         'id': 'asset-1',
@@ -58,6 +57,20 @@ def test_missing_coordinates_rejected_in_location_mode() -> None:
 def test_zero_coordinates_rejected_in_location_mode() -> None:
     zeroed = asset(exifInfo={'latitude': 0, 'longitude': 0, 'dateTimeOriginal': '2024-01-14T10:11:12Z'})
     assert ImmichClient.is_eligible_asset(zeroed, True, False) is False
+
+    ans = ImmichClient.extract_answer(zeroed)
+    assert ans.latitude is None
+    assert ans.longitude is None
+
+
+def test_greenwich_and_equator_coordinates_accepted() -> None:
+    greenwich = asset(exifInfo={'latitude': 51.4778, 'longitude': 0.0, 'dateTimeOriginal': '2024-01-14T10:11:12Z'})
+    equator = asset(exifInfo={'latitude': 0.0, 'longitude': 37.9062, 'dateTimeOriginal': '2024-01-14T10:11:12Z'})
+    assert ImmichClient.is_eligible_asset(greenwich, True, False) is True
+    assert ImmichClient.is_eligible_asset(equator, True, False) is True
+    ans_g = ImmichClient.extract_answer(greenwich)
+    assert ans_g.latitude == 51.4778
+    assert ans_g.longitude == 0.0
 
 
 def test_unparseable_date_rejected_in_date_mode() -> None:

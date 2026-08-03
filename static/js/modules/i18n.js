@@ -59,8 +59,21 @@ export const TRANSLATIONS = {
     "game.timer_time_up_notice": "Time's up! Your answers are frozen. Press Continue when you are ready.",
     "game.continue_btn": "Continue",
     "game.pin_required": "Place a pin on the map first",
+    "game.help_btn": "Help",
     "game.shuffle_info_banner": (count) =>
       `⏳ Arrange photos from <strong>newest (#1)</strong> down to <strong>oldest (#${count})</strong>`,
+    "game.shuffle_help_intro": "Use this guide whenever you want a quick reminder of the round rules.",
+    "game.shuffle_help_location_title": "Location guessing",
+    "game.shuffle_help_location_item1": "Choose a photo card first.",
+    "game.shuffle_help_location_item2": "Then click the map pin where you think that photo was taken.",
+    "game.shuffle_help_location_item3": "The selected photo card and the highlighted pin both stand out so you can track your choices.",
+    "game.shuffle_help_location_item4": "You can change a pin assignment anytime by picking a different pin.",
+    "game.shuffle_help_date_title": "Date guessing",
+    "game.shuffle_help_date_item1": "Arrange the photo cards from newest to oldest.",
+    "game.shuffle_help_date_item2": "Use the ▲ and ▼ buttons to move a card up or down in the timeline.",
+    "game.shuffle_help_date_item3": "The banner shows the target order as newest (#1) down to oldest (#5).",
+    "game.shuffle_help_fallback": "Choose the mode you want to play and use the controls on screen to complete the round.",
+    "game.shuffle_help_footer": "When you are finished, press Submit to lock in your answers.",
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Round ${roundNum} of ${totalRounds}\nPlayer ${playerNum}: ${playerName}`,
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>
@@ -218,8 +231,21 @@ export const TRANSLATIONS = {
     "game.timer_time_up_notice": "Tempo esgotado! Suas respostas foram congeladas. Pressione Continuar quando estiver pronto.",
     "game.continue_btn": "Continuar",
     "game.pin_required": "Coloque um pino no mapa primeiro",
+    "game.help_btn": "Ajuda",
     "game.shuffle_info_banner": (count) =>
       `⏳ Organize as fotos da <strong>mais recente (#1)</strong> até a <strong>mais antiga (#${count})</strong>`,
+    "game.shuffle_help_intro": "Use este guia sempre que quiser um lembrete rápido das regras da rodada.",
+    "game.shuffle_help_location_title": "Adivinhação de localização",
+    "game.shuffle_help_location_item1": "Primeiro, escolha uma foto da lista.",
+    "game.shuffle_help_location_item2": "Depois, clique no pino do mapa onde acha que essa foto foi tirada.",
+    "game.shuffle_help_location_item3": "A foto selecionada e o pino destacado ficam em evidência para você acompanhar suas escolhas.",
+    "game.shuffle_help_location_item4": "Você pode mudar a atribuição a qualquer momento escolhendo outro pino.",
+    "game.shuffle_help_date_title": "Adivinhação de data",
+    "game.shuffle_help_date_item1": "Organize as fotos da mais recente para a mais antiga.",
+    "game.shuffle_help_date_item2": "Use os botões ▲ e ▼ para mover uma foto para cima ou para baixo na linha do tempo.",
+    "game.shuffle_help_date_item3": "O banner mostra a ordem esperada da mais recente (#1) até a mais antiga (#5).",
+    "game.shuffle_help_fallback": "Escolha o modo que deseja jogar e use os controles na tela para completar a rodada.",
+    "game.shuffle_help_footer": "Quando terminar, pressione Enviar para confirmar suas respostas.",
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Rodada ${roundNum} de ${totalRounds}\nJogador ${playerNum}: ${playerName}`,
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>

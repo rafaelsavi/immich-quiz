@@ -21,9 +21,13 @@ class ImmichClientError(RuntimeError):
 class AssetAnswer:
     latitude: float | None
     longitude: float | None
-    capture_date: date | None
+    capture_datetime: datetime | None = None
     city: str | None = None
     country: str | None = None
+
+    @property
+    def capture_date(self) -> date | None:
+        return self.capture_datetime.date() if self.capture_datetime is not None else None
 
 
 class ImmichClient:
@@ -85,7 +89,10 @@ class ImmichClient:
         items.sort(key=lambda item: (item['name'].lower(), item['id']))
         logger.info(
             'list_albums(%s): %d raw album(s) from Immich, %d returned (include_shared=%s)',
-            library_name, raw_count, len(items), include_shared_albums,
+            library_name,
+            raw_count,
+            len(items),
+            include_shared_albums,
         )
         return items
 
@@ -236,7 +243,7 @@ class ImmichClient:
         if location_mode:
             if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
                 return False
-            if latitude == 0 or longitude == 0:
+            if abs(latitude) < 1e-6 and abs(longitude) < 1e-6:
                 return False
 
         capture_date: date | None = None
@@ -261,11 +268,17 @@ class ImmichClient:
         exif = ImmichClient._exif(asset)
         latitude = exif.get('latitude') if isinstance(exif.get('latitude'), (int, float)) else None
         longitude = exif.get('longitude') if isinstance(exif.get('longitude'), (int, float)) else None
-        capture_date = ImmichClient._parse_capture_date(exif.get('dateTimeOriginal') or asset.get('fileCreatedAt'))
+        if latitude is not None and longitude is not None and abs(latitude) < 1e-6 and abs(longitude) < 1e-6:
+            latitude = None
+            longitude = None
+
+        date_value = exif.get('dateTimeOriginal') or asset.get('fileCreatedAt')
+        capture_datetime = ImmichClient._parse_capture_datetime(date_value)
+
         return AssetAnswer(
             latitude=latitude,
             longitude=longitude,
-            capture_date=capture_date,
+            capture_datetime=capture_datetime,
             # Immich already reverse-geocodes assets, so reuse its labels.
             city=ImmichClient._clean_text(exif.get('city')),
             country=ImmichClient._clean_text(exif.get('country')),
@@ -279,14 +292,19 @@ class ImmichClient:
         return cleaned or None
 
     @staticmethod
-    def _parse_capture_date(value: Any) -> date | None:
+    def _parse_capture_datetime(value: Any) -> datetime | None:
         if not value or not isinstance(value, str):
             return None
         try:
             normalized = value.replace('Z', '+00:00')
-            return datetime.fromisoformat(normalized).date()
+            return datetime.fromisoformat(normalized)
         except ValueError:
             return None
+
+    @staticmethod
+    def _parse_capture_date(value: Any) -> date | None:
+        dt = ImmichClient._parse_capture_datetime(value)
+        return dt.date() if dt is not None else None
 
     def _library_key(self, library_name: str) -> str:
         key = self._library_keys.get(library_name)
@@ -344,7 +362,7 @@ class ImmichClient:
                 if u_id:
                     return str(u_id).strip()
 
-        logger.warning(f"Album {album.get('id')} does not have an owner")
+        logger.warning(f'Album {album.get("id")} does not have an owner')
         return ''
 
     async def _current_user_id(self, api_key: str) -> str:

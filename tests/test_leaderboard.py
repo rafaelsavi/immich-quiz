@@ -99,7 +99,7 @@ def test_leaderboard_invalid_header_is_backed_up_and_recreated(tmp_path: Path) -
     csv_path = tmp_path / 'leaderboard.csv'
     csv_path.write_text('bad,header,value\n1,2,3\n', encoding='utf-8')
 
-    store = LeaderboardStore(csv_path)
+    LeaderboardStore(csv_path)
 
     assert csv_path.exists()
     assert csv_path.read_text(encoding='utf-8').splitlines()[0] == ','.join(CSV_HEADER)

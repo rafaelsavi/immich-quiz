@@ -32,7 +32,6 @@ class AppSettings:
     language: str = 'EN'
 
 
-
 def _parse_language(value: str) -> str:
     normalized = value.strip().upper()
     if normalized not in {'EN', 'PT'}:
@@ -107,7 +106,7 @@ def load_settings() -> AppSettings:
         server_url = f'{server_url}/api'
 
     app_title = os.getenv('APP_TITLE', 'Immich Quiz').strip() or 'Immich Quiz'
-    app_tagline = os.getenv('APP_TAGLINE', '').strip() 
+    app_tagline = os.getenv('APP_TAGLINE', '').strip()
 
     raw_libraries = os.getenv('IMMICH_LIBRARIES', '').strip()
     if not raw_libraries:

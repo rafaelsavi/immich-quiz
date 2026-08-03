@@ -111,7 +111,6 @@ def test_server_url_adds_api_if_missing(monkeypatch: pytest.MonkeyPatch, raw_url
     assert settings.immich_server_url == expected_url
 
 
-
 def test_date_bounds_parse_when_valid(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
@@ -225,4 +224,3 @@ def test_language_setting_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> No
 
     with pytest.raises(ConfigError, match='LANGUAGE'):
         load_settings()
-

@@ -10,8 +10,100 @@ let shuffleMap = null;
 let revealShuffleMap = null;
 let shuffleMarkers = {}; // pinId -> Leaflet marker
 
+function createShuffleHelpModal() {
+  let modal = document.getElementById("album-shuffle-help-modal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "album-shuffle-help-modal";
+  modal.className = "shuffle-help-modal hidden";
+  modal.innerHTML = `
+    <div class="shuffle-help-dialog" role="dialog" aria-modal="true" aria-labelledby="shuffle-help-title">
+      <div class="shuffle-help-header">
+        <h3 id="shuffle-help-title">Album Shuffle Help</h3>
+        <button type="button" class="shuffle-help-close" aria-label="Close help">×</button>
+      </div>
+      <div class="shuffle-help-body"></div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const closeBtn = modal.querySelector(".shuffle-help-close");
+  closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
+
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) {
+      modal.classList.add("hidden");
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      modal.classList.add("hidden");
+    }
+  });
+
+  return modal;
+}
+
+function openShuffleHelpModal(questionData) {
+  const modal = createShuffleHelpModal();
+  const body = modal.querySelector(".shuffle-help-body");
+  const locationMode = questionData?.location_mode !== false;
+  const dateMode = questionData?.date_mode !== false;
+
+  const sections = [];
+  if (locationMode) {
+    sections.push(`
+      <div class="shuffle-help-section">
+        <h4>${t("game.shuffle_help_location_title")}</h4>
+        <ul>
+          <li>${t("game.shuffle_help_location_item1")}</li>
+          <li>${t("game.shuffle_help_location_item2")}</li>
+          <li>${t("game.shuffle_help_location_item3")}</li>
+          <li>${t("game.shuffle_help_location_item4")}</li>
+        </ul>
+      </div>
+    `);
+  }
+
+  if (dateMode) {
+    sections.push(`
+      <div class="shuffle-help-section">
+        <h4>${t("game.shuffle_help_date_title")}</h4>
+        <ul>
+          <li>${t("game.shuffle_help_date_item1")}</li>
+          <li>${t("game.shuffle_help_date_item2")}</li>
+          <li>${t("game.shuffle_help_date_item3")}</li>
+        </ul>
+      </div>
+    `);
+  }
+
+  if (sections.length === 0) {
+    sections.push(`
+      <div class="shuffle-help-section">
+        <p>${t("game.shuffle_help_fallback")}</p>
+      </div>
+    `);
+  }
+
+  body.innerHTML = `
+    <p class="shuffle-help-intro">${t("game.shuffle_help_intro")}</p>
+    ${sections.join("")}
+    <p class="shuffle-help-footnote">${t("game.shuffle_help_footer")}</p>
+  `;
+
+  modal.classList.remove("hidden");
+}
+
 export const albumShuffleMode = {
   name: "album_shuffle",
+
+  openHelp(questionData) {
+    openShuffleHelpModal(questionData);
+  },
 
   renderSettings(containerEl) {
     renderGuessingModeSettings(containerEl);
@@ -81,10 +173,18 @@ export const albumShuffleMode = {
     cardsCol.className = "shuffle-photo-column";
     cardsCol.id = "shuffle-cards-list";
 
+    if (!questionData.location_mode) {
+      mapCol.style.display = "none";
+      boardEl.classList.add("no-map");
+      cardsCol.classList.add("no-map");
+    }
+
     boardEl.append(mapCol, cardsCol);
     uiContainer.appendChild(boardEl);
 
-    renderShuffleMap(mapShell, questionData.batch_pins, questionData);
+    if (questionData.location_mode) {
+      renderShuffleMap(mapShell, questionData.batch_pins, questionData);
+    }
     renderPhotoCardsList(cardsCol, questionData);
   },
 
@@ -284,25 +384,29 @@ export const albumShuffleMode = {
       launchGoldConfetti();
     }
 
-    // --- SECTION 2: MAP LAYOUT (WITH FULLSCREEN & MAP IMAGERY LAYER CONTROLS) ---
-    const mapHead = document.createElement("div");
-    mapHead.className = "field-head";
-    mapHead.style.marginTop = "0.25rem";
-    mapHead.innerHTML = `<label>${t("reveal.map_label")}</label>`;
+    // --- SECTION 2: MAP LAYOUT (ONLY IF LOCATION MODE IS ACTIVE) ---
+    let mapHead = null;
+    let mapShell = null;
+    if (revealData.location_mode) {
+      mapHead = document.createElement("div");
+      mapHead.className = "field-head";
+      mapHead.style.marginTop = "0.25rem";
+      mapHead.innerHTML = `<label>${t("reveal.map_label")}</label>`;
 
-    const mapShell = document.createElement("div");
-    mapShell.className = "map-shell";
-    mapShell.id = "reveal-shuffle-map-shell";
-    mapShell.style.height = "450px";
+      mapShell = document.createElement("div");
+      mapShell.className = "map-shell";
+      mapShell.id = "reveal-shuffle-map-shell";
+      mapShell.style.height = "450px";
 
-    const mapFsBtn = document.createElement("button");
-    mapFsBtn.type = "button";
-    mapFsBtn.className = "map-fullscreen-btn";
-    mapFsBtn.setAttribute("aria-pressed", "false");
-    mapFsBtn.title = "Toggle fullscreen map";
-    mapFsBtn.textContent = t("game.fullscreen_btn");
-    mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
-    mapShell.appendChild(mapFsBtn);
+      const mapFsBtn = document.createElement("button");
+      mapFsBtn.type = "button";
+      mapFsBtn.className = "map-fullscreen-btn";
+      mapFsBtn.setAttribute("aria-pressed", "false");
+      mapFsBtn.title = "Toggle fullscreen map";
+      mapFsBtn.textContent = t("game.fullscreen_btn");
+      mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
+      mapShell.appendChild(mapFsBtn);
+    }
 
     // --- SECTION 3: PHOTO BREAKDOWN TABLE ---
     const breakdownHead = document.createElement("div");
@@ -451,25 +555,18 @@ export const albumShuffleMode = {
 
     tableScroll.style.marginTop = "1.5rem";
 
-    // Append everything to revealUi: Map -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
-    revealUi.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
-
-    // Render Leaflet Map with tile imagery layers & controls
-    renderBatchRevealMap(mapShell, batchReveal);
+    // Append everything to revealUi: Map (if active) -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
+    if (revealData.location_mode && mapHead && mapShell) {
+      revealUi.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+      renderBatchRevealMap(mapShell, batchReveal);
+    } else {
+      revealUi.append(breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+    }
   },
 };
 
 function renderPhotoCardsList(containerEl, questionData) {
   containerEl.replaceChildren();
-
-  // Informational Banner informing user of chronological sequence
-  if (questionData.date_mode) {
-    const totalCount = (questionData.batch_photos || []).length || 5;
-    const infoBanner = document.createElement("div");
-    infoBanner.className = "shuffle-info-banner";
-    infoBanner.innerHTML = `<span>${t("game.shuffle_info_banner", totalCount)}</span>`;
-    containerEl.appendChild(infoBanner);
-  }
 
   const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
   const selectedPhotoId = state.albumShuffleState ? state.albumShuffleState.selectedPhotoId : null;
@@ -528,12 +625,15 @@ function renderPhotoCardsList(containerEl, questionData) {
     const pinBadgeWrap = document.createElement("div");
     pinBadgeWrap.className = "shuffle-card-details";
 
-    const assignedPin = pinAssignments[photoId];
-    const pinBadge = document.createElement("div");
-    pinBadge.className = `shuffle-assigned-pin-badge ${assignedPin ? "assigned" : "unassigned"}`;
-    pinBadge.textContent = assignedPin ? `📍 ${assignedPin}` : "📍";
-
-    pinBadgeWrap.appendChild(pinBadge);
+    if (questionData.location_mode) {
+      const assignedPin = pinAssignments[photoId];
+      const pinBadge = document.createElement("div");
+      pinBadge.className = `shuffle-assigned-pin-badge ${assignedPin ? "assigned" : "unassigned"}`;
+      pinBadge.textContent = assignedPin ? `📍 ${assignedPin}` : "📍";
+      pinBadgeWrap.appendChild(pinBadge);
+    } else {
+      pinBadgeWrap.style.display = "none";
+    }
 
     // Compact Arrow Buttons
     const rankControls = document.createElement("div");
@@ -582,15 +682,42 @@ function renderPhotoCardsList(containerEl, questionData) {
     containerEl.appendChild(card);
   });
 
+  if (questionData.location_mode && questionData.batch_pins) {
+    updateShuffleMapMarkers(questionData.batch_pins);
+  }
+
   updateSubmitState();
 }
 
-function updateShuffleMapMarkers(pins) {
+function getPinMarkerDetails(pinId) {
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+  const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
+  const assignedPhotoId = Object.keys(pinAssignments).find(
+    (photoId) => pinAssignments[photoId] === pinId
+  );
+
+  if (assignedPhotoId) {
+    const cardIndex = orderedIds.indexOf(assignedPhotoId);
+    if (cardIndex !== -1) {
+      return {
+        isTaken: true,
+        badgeText: `${pinId}-${cardIndex + 1}`,
+        bgColor: "#f59f00",
+      };
+    }
+  }
+
+  return {
+    isTaken: false,
+    badgeText: pinId,
+    bgColor: "#0f7c7f",
+  };
+}
+
+function updateShuffleMapMarkers(pins) {
+  if (!pins) return;
   pins.forEach((pin) => {
-    const isTaken = Object.values(pinAssignments).includes(pin.pin_id);
-    const bgColor = isTaken ? "#f59f00" : "#0f7c7f";
-    const badgeText = isTaken ? `${pin.pin_id} ✓` : pin.pin_id;
+    const { badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
     const el = document.getElementById(`pin-marker-${pin.pin_id}`);
     if (el) {
       el.style.background = bgColor;
@@ -616,18 +743,33 @@ function renderShuffleMap(containerEl, pins, questionData) {
   const bounds = L.latLngBounds();
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
 
-  pins.forEach((pin) => {
-    const lat = pin.latitude;
-    const lon = pin.longitude;
-    bounds.extend([lat, lon]);
+  // Group near-duplicate coordinates to apply a small visual offset if pins share exact locations
+  const coordCounts = {};
+  const processedPins = pins.map((pin) => {
+    const key = `${pin.latitude.toFixed(4)},${pin.longitude.toFixed(4)}`;
+    coordCounts[key] = (coordCounts[key] || 0) + 1;
+    const occurrence = coordCounts[key];
+    let displayLat = pin.latitude;
+    let displayLon = pin.longitude;
+    if (occurrence > 1) {
+      const angle = (occurrence - 1) * ((2 * Math.PI) / 5);
+      const radius = 0.00025 * Math.sqrt(occurrence);
+      displayLat = pin.latitude + radius * Math.cos(angle);
+      displayLon = pin.longitude + radius * Math.sin(angle);
+    }
+    return { ...pin, displayLat, displayLon };
+  });
 
-    const isTaken = Object.values(pinAssignments).includes(pin.pin_id);
-    const bgColor = isTaken ? "#f59f00" : "#0f7c7f";
-    const badgeText = isTaken ? `${pin.pin_id} ✓` : pin.pin_id;
+  processedPins.forEach((pin) => {
+    const lat = pin.displayLat;
+    const lon = pin.displayLon;
+    bounds.extend([pin.latitude, pin.longitude]);
+
+    const { badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
 
     const icon = L.divIcon({
       className: "custom-pin-icon",
-      html: `<div id="pin-marker-${pin.pin_id}" style="background:${bgColor};color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:0.9rem;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);transition:all 0.25s ease;">${badgeText}</div>`,
+      html: `<div id="pin-marker-${pin.pin_id}" style="background:${bgColor};color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:0.85rem;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);transition:all 0.25s ease;">${badgeText}</div>`,
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
@@ -685,6 +827,26 @@ function renderBatchRevealMap(containerEl, batchItems) {
     revealShuffleMap = null;
   }
 
+  const validItems = (batchItems || []).filter(
+    (item) =>
+      item.actual_latitude !== null &&
+      item.actual_latitude !== undefined &&
+      item.actual_longitude !== null &&
+      item.actual_longitude !== undefined &&
+      !(Math.abs(item.actual_latitude) < 1e-6 && Math.abs(item.actual_longitude) < 1e-6)
+  );
+
+  if (validItems.length === 0) {
+    if (containerEl) containerEl.style.display = "none";
+    const prev = containerEl ? containerEl.previousElementSibling : null;
+    if (prev && prev.classList.contains("field-head")) {
+      prev.style.display = "none";
+    }
+    return;
+  }
+
+  containerEl.style.display = "block";
+
   const base = createBaseTileLayers();
   const map = L.map(containerEl, { layers: [base.streets] }).setView([20, 0], 2);
   addLayerControl(map, base);
@@ -692,9 +854,9 @@ function renderBatchRevealMap(containerEl, batchItems) {
   revealShuffleMap = map;
   const bounds = L.latLngBounds();
 
-  batchItems.forEach((item) => {
-    const lat = item.actual_latitude || 0.0;
-    const lon = item.actual_longitude || 0.0;
+  validItems.forEach((item) => {
+    const lat = item.actual_latitude;
+    const lon = item.actual_longitude;
     bounds.extend([lat, lon]);
 
     const icon = L.divIcon({
@@ -710,14 +872,14 @@ function renderBatchRevealMap(containerEl, batchItems) {
       .addTo(map);
   });
 
-  if (batchItems.length > 0) {
+  if (validItems.length > 0) {
     map.fitBounds(bounds, { padding: [50, 50] });
   }
 
   setTimeout(() => map.invalidateSize(), 150);
 }
 
-function openPhotoLightbox(src) {
+export function openPhotoLightbox(src) {
   let lightbox = document.getElementById("photo-lightbox");
   if (!lightbox) {
     lightbox = document.createElement("div");

@@ -35,7 +35,7 @@ import {
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
 import { pinpointMode } from "./modules/modes/pinpoint.js";
-import { albumShuffleMode } from "./modules/modes/album_shuffle.js";
+import { albumShuffleMode, openPhotoLightbox } from "./modules/modes/album_shuffle.js";
 
 const GAME_MODES = {
   pinpoint: pinpointMode,
@@ -528,14 +528,35 @@ async function loadQuestion() {
     state.playedAssetIds.push(data.asset_id);
   }
 
-  el.roundMeta.textContent = t(
-    "game.round_meta",
-    data.player_round_number,
-    data.total_rounds_per_player,
-    data.player_number,
-    data.total_players,
-    data.player_name
-  );
+  const roundMeta = el.roundMeta;
+  if (roundMeta) {
+    roundMeta.replaceChildren();
+    const roundMetaText = document.createElement("span");
+    roundMetaText.className = "round-meta-text";
+    roundMetaText.textContent = t(
+      "game.round_meta",
+      data.player_round_number,
+      data.total_rounds_per_player,
+      data.player_number,
+      data.total_players,
+      data.player_name
+    );
+    roundMeta.appendChild(roundMetaText);
+
+    if (state.gameMode === "album_shuffle") {
+      const helpBtn = document.createElement("button");
+      helpBtn.type = "button";
+      helpBtn.className = "shuffle-help-btn";
+      helpBtn.textContent = t("game.help_btn");
+      helpBtn.addEventListener("click", () => {
+        const activeMode = getActiveMode();
+        if (activeMode && typeof activeMode.openHelp === "function") {
+          activeMode.openHelp(state.currentQuestion);
+        }
+      });
+      roundMeta.appendChild(helpBtn);
+    }
+  }
 
   const activeMode = getActiveMode();
   activeMode.renderQuestion(el.guessingUi, data);
@@ -644,6 +665,9 @@ async function showRoundReveal(roundNumber) {
     actual_country: reveal.actual_country,
     location_string: formatPlace(reveal),
     results: reveal.results,
+    batch_reveal: reveal.batch_reveal || null,
+    location_mode: reveal.location_mode,
+    library_name: reveal.library_name || (state.currentQuestion ? state.currentQuestion.library_name : ""),
   };
   if (existingIdx >= 0) {
     state.roundHistory[existingIdx] = entry;
@@ -1069,7 +1093,7 @@ async function showMatchSummary() {
   state.lastSummary = summary;
 
   // Render World Journey Map
-  renderJourneyMap(state.roundHistory);
+  renderJourneyMap(state.roundHistory, summary.location_mode);
 
   // Render Polaroid Memory Cards
   renderPolaroidGallery(state.roundHistory);
@@ -1082,39 +1106,88 @@ function renderPolaroidGallery(roundHistory) {
   if (!el.polaroidGallery) return;
   el.polaroidGallery.replaceChildren();
 
+  const defaultLibrary = state.lastSummary
+    ? state.lastSummary.library_name
+    : state.currentQuestion
+    ? state.currentQuestion.library_name
+    : "";
+
   (roundHistory || []).forEach((round) => {
-    const card = document.createElement("div");
-    card.className = "polaroid-card";
+    if (round.batch_reveal && Array.isArray(round.batch_reveal) && round.batch_reveal.length > 0) {
+      round.batch_reveal.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "polaroid-card";
 
-    const imgWrap = document.createElement("div");
-    imgWrap.className = "polaroid-img-wrap";
+        const imgWrap = document.createElement("div");
+        imgWrap.className = "polaroid-img-wrap";
 
-    if (round.media_url) {
-      const img = document.createElement("img");
-      img.className = "polaroid-img";
-      img.src = round.media_url;
-      img.alt = `Round ${round.round_number}`;
-      imgWrap.appendChild(img);
+        const lib = round.library_name || defaultLibrary;
+        const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(lib)}`;
+        const img = document.createElement("img");
+        img.className = "polaroid-img";
+        img.src = imgUrl;
+        img.alt = `Round ${round.round_number} - Pin ${item.true_pin_id}`;
+        img.style.cursor = "pointer";
+        img.addEventListener("click", () => openPhotoLightbox(imgUrl));
+        imgWrap.appendChild(img);
+
+        const caption = document.createElement("div");
+        caption.className = "polaroid-caption";
+
+        const badge = document.createElement("span");
+        badge.className = "polaroid-round-badge";
+        badge.textContent = item.true_pin_id
+          ? `${t("summary.journey_round", round.round_number)} - ${item.true_pin_id}`
+          : t("summary.journey_round", round.round_number);
+
+        const loc = document.createElement("span");
+        loc.className = "polaroid-location";
+        loc.textContent = formatPlace(item) || t("fmt.unknown_place");
+
+        const date = document.createElement("span");
+        date.className = "polaroid-date";
+        date.textContent = formatMonth(item.actual_year, item.actual_month);
+
+        caption.append(badge, loc, date);
+        card.append(imgWrap, caption);
+        el.polaroidGallery.appendChild(card);
+      });
+    } else {
+      const card = document.createElement("div");
+      card.className = "polaroid-card";
+
+      const imgWrap = document.createElement("div");
+      imgWrap.className = "polaroid-img-wrap";
+
+      if (round.media_url) {
+        const img = document.createElement("img");
+        img.className = "polaroid-img";
+        img.src = round.media_url;
+        img.alt = `Round ${round.round_number}`;
+        img.style.cursor = "pointer";
+        img.addEventListener("click", () => openPhotoLightbox(round.media_url));
+        imgWrap.appendChild(img);
+      }
+
+      const caption = document.createElement("div");
+      caption.className = "polaroid-caption";
+
+      const badge = document.createElement("span");
+      badge.className = "polaroid-round-badge";
+      badge.textContent = t("summary.journey_round", round.round_number);
+
+      const loc = document.createElement("span");
+      loc.className = "polaroid-location";
+      loc.textContent = round.location_string || t("fmt.unknown_place");
+
+      const date = document.createElement("span");
+      date.className = "polaroid-date";
+      date.textContent = formatMonth(round.actual_year, round.actual_month);
+
+      caption.append(badge, loc, date);
+      card.append(imgWrap, caption);
+      el.polaroidGallery.appendChild(card);
     }
-
-    const caption = document.createElement("div");
-    caption.className = "polaroid-caption";
-
-    const badge = document.createElement("span");
-    badge.className = "polaroid-round-badge";
-    badge.textContent = t("summary.journey_round", round.round_number);
-
-    const loc = document.createElement("span");
-    loc.className = "polaroid-location";
-    loc.textContent = round.location_string || t("fmt.unknown_place");
-
-    const date = document.createElement("span");
-    date.className = "polaroid-date";
-    date.textContent = formatMonth(round.actual_year, round.actual_month);
-
-    caption.append(badge, loc, date);
-    card.append(imgWrap, caption);
-    el.polaroidGallery.appendChild(card);
   });
 }
 

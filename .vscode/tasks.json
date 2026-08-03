@@ -39,27 +39,9 @@
       "problemMatcher": "$gcc"
     },
     {
-      "label": "Lint (Ruff)",
+      "label": "Lint & Format Code (Ruff)",
       "type": "shell",
-      "command": "uv",
-      "args": [
-        "run",
-        "ruff",
-        "check",
-        "."
-      ],
-      "problemMatcher": []
-    },
-    {
-      "label": "Format Code (Ruff)",
-      "type": "shell",
-      "command": "uv",
-      "args": [
-        "run",
-        "ruff",
-        "format",
-        "."
-      ],
+      "command": "uv run ruff check --fix . && uv run ruff format .",
       "problemMatcher": []
     },
     {

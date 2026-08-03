@@ -210,8 +210,8 @@ def test_month_guess_scores_days_from_the_month_boundary(client: TestClient) -> 
     assert entry['date_diff_days'] == 45
     assert entry['date_diff_months'] == 2
     assert entry['date_diff_years_part'] == 0
-    assert entry['date_diff_months_part'] == 2
-    assert entry['date_diff_days_part'] == 14
+    assert entry['date_diff_months_part'] == 1
+    assert entry['date_diff_days_part'] == 15
     assert entry['date_score'] == 91
 
 
@@ -506,63 +506,153 @@ def test_audio_playground_endpoint(client: TestClient) -> None:
     assert 'playTick()' in res.text
     assert 'playBuzzer()' in res.text
     assert 'playChime()' in res.text
+
+
 def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i+1:02d}T10:00:00Z') for i in range(15)]
+    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(30)]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
-    payload = setup_payload(game_mode='album_shuffle', round_count=2, players=['Player 1'])
+    payload = setup_payload(game_mode='album_shuffle', round_count=5, players=['Player 1'])
     setup_res = client.post('/api/game/setup', json=payload)
     assert setup_res.status_code == 200
     match_id = setup_res.json()['match_id']
 
-    # Round 1 Question
-    q1_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
-    assert q1_res.status_code == 200
-    q1_data = q1_res.json()
-    assert q1_data['game_mode'] == 'album_shuffle'
+    played: list[str] = []
+    for r in range(1, 6):
+        q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': played})
+        assert q_res.status_code == 200
+        q_data = q_res.json()
+        assert q_data['game_mode'] == 'album_shuffle'
 
-    # Round 1 Answer
-    a1_res = client.post(
+        a_res = client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': q_data['question_id'],
+                'album_shuffle_answers': [
+                    {'photo_id': p['photo_id'], 'assigned_pin_id': 'A', 'assigned_timeline_index': idx}
+                    for idx, p in enumerate(q_data['batch_photos'])
+                ],
+            },
+        )
+        assert a_res.status_code == 200
+        a_data = a_res.json()
+        assert a_data['round_number'] == r
+        assert a_data['match_finished'] is (r == 5)
+        played.extend([p['photo_id'] for p in q_data['batch_photos']])
+
+
+def test_batch_validation_distance_and_time_constraints() -> None:
+    from datetime import datetime, timezone
+
+    from src.api.routes import _is_asset_valid_for_batch
+    from src.immich.client import AssetAnswer
+    from src.storage.session import RoundAsset
+
+    sel_ans = AssetAnswer(
+        latitude=48.8584,
+        longitude=2.2945,
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+    )
+    sel_asset = RoundAsset(asset_id='asset-1', answer=sel_ans)
+
+    # Candidate at same location (< 100m) -> invalid
+    same_loc = AssetAnswer(
+        latitude=48.85841,
+        longitude=2.29451,
+        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
+    )
+    assert _is_asset_valid_for_batch(same_loc, [sel_asset], location_mode=True, date_mode=True) is False
+
+    # Candidate at same time (< 60s) -> invalid
+    same_time = AssetAnswer(
+        latitude=40.7128,
+        longitude=-74.0060,
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 30, tzinfo=timezone.utc),
+    )
+    assert _is_asset_valid_for_batch(same_time, [sel_asset], location_mode=True, date_mode=True) is False
+
+    # Candidate far in distance (NY) and far in time (1 day) -> valid
+    valid_cand = AssetAnswer(
+        latitude=40.7128,
+        longitude=-74.0060,
+        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
+    )
+    assert _is_asset_valid_for_batch(valid_cand, [sel_asset], location_mode=True, date_mode=True) is True
+
+
+def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> None:
+    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(game_mode='album_shuffle', round_count=5, players=['Player 1'])
+    setup_res = client.post('/api/game/setup', json=payload)
+    match_id = setup_res.json()['match_id']
+
+    q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    q_data = q_res.json()
+
+    a_res = client.post(
         '/api/answer',
         json={
             'match_id': match_id,
-            'question_id': q1_data['question_id'],
-            'album_shuffle_answers': [
-                {'photo_id': p['photo_id'], 'assigned_pin_id': 'A', 'assigned_timeline_index': idx}
-                for idx, p in enumerate(q1_data['batch_photos'])
-            ],
+            'question_id': q_data['question_id'],
+            'album_shuffle_answers': [],
+            'timed_out': True,
         },
     )
-    assert a1_res.status_code == 200
-    a1_data = a1_res.json()
-    assert a1_data['round_number'] == 1
-    assert a1_data['match_finished'] is False
+    assert a_res.status_code == 200
 
-    # Round 2 Question
-    q2_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
-    assert q2_res.status_code == 200
-    q2_data = q2_res.json()
+    result = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
+    entry = result['results'][0]
+    assert entry['timed_out'] is True
+    assert entry['location_score'] == 0
+    assert entry['date_score'] == 0
+    assert entry['round_score'] == 0
 
-    # Round 2 Answer
-    a2_res = client.post(
-        '/api/answer',
-        json={
-            'match_id': match_id,
-            'question_id': q2_data['question_id'],
-            'album_shuffle_answers': [
-                {'photo_id': p['photo_id'], 'assigned_pin_id': 'A', 'assigned_timeline_index': idx}
-                for idx, p in enumerate(q2_data['batch_photos'])
-            ],
-        },
+
+def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_location_mode() -> None:
+    from datetime import datetime, timezone
+
+    from src.api.routes import _is_asset_valid_for_batch
+    from src.immich.client import AssetAnswer
+
+    no_coords = AssetAnswer(
+        latitude=None,
+        longitude=None,
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
     )
-    assert a2_res.status_code == 200
-    a2_data = a2_res.json()
-    assert a2_data['round_number'] == 2
-    assert a2_data['match_finished'] is True
+    assert _is_asset_valid_for_batch(no_coords, [], location_mode=True, date_mode=True) is False
+    assert _is_asset_valid_for_batch(no_coords, [], location_mode=False, date_mode=True) is True
+
+    zero_coords = AssetAnswer(
+        latitude=0.0,
+        longitude=0.0,
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+    )
+    assert _is_asset_valid_for_batch(zero_coords, [], location_mode=True, date_mode=True) is False
+    assert _is_asset_valid_for_batch(zero_coords, [], location_mode=False, date_mode=True) is True
 
 
+def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
+    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
 
+    payload = setup_payload(
+        game_mode='album_shuffle',
+        location_mode=False,
+        date_mode=True,
+        round_count=5,
+        players=['Player 1'],
+    )
+    setup_res = client.post('/api/game/setup', json=payload)
+    match_id = setup_res.json()['match_id']
 
+    q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    q_data = q_res.json()
 
-
+    assert q_data['batch_pins'] is None
+    assert len(q_data['batch_photos']) == 5
