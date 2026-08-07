@@ -124,7 +124,7 @@ async def select_round_asset(
         if aid not in state.asset_pool:
             continue
         ans = state.asset_pool[aid]
-        if is_asset_valid_for_batch(ans, played_assets, state.setup.location_mode, state.setup.date_mode):
+        if is_asset_valid_for_batch(ans, played_assets, state.setup.location_mode, state.setup.date_mode):  # noqa: SIM102
             if await _verify_and_get_asset(aid, state, immich):
                 return RoundAsset(asset_id=aid, answer=ans)
 
