@@ -121,7 +121,15 @@ export const albumShuffleMode = {
 
   mount(hostEl, matchConfig) {
     this.hostEl = hostEl;
-    let uiContainer = document.getElementById("album-shuffle-ui");
+    const host = document.getElementById("mode-active-host") || hostEl;
+    if (host) {
+      host.replaceChildren();
+      const tmpl = document.getElementById("tmpl-mode-album-shuffle");
+      if (tmpl) {
+        host.appendChild(tmpl.content.cloneNode(true));
+      }
+    }
+    const uiContainer = document.getElementById("album-shuffle-ui");
     if (uiContainer) {
       uiContainer.classList.remove("hidden");
     }
@@ -138,11 +146,11 @@ export const albumShuffleMode = {
     }
     shuffleMarkers = {};
     state.albumShuffleState = null;
-    let uiContainer = document.getElementById("album-shuffle-ui");
-    if (uiContainer) {
-      uiContainer.classList.add("hidden");
+    const host = document.getElementById("mode-active-host");
+    if (host) {
+      host.replaceChildren();
     }
-    let shuffleReveal = document.getElementById("album-shuffle-reveal-ui");
+    const shuffleReveal = document.getElementById("album-shuffle-reveal-ui");
     if (shuffleReveal) {
       shuffleReveal.classList.add("hidden");
       shuffleReveal.replaceChildren();

@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { el, state } from "../state.js";
-import { ensureGuessMap, ensureRevealMap, createPinIcon } from "../maps.js";
+import { ensureGuessMap, ensureRevealMap, createPinIcon, toggleMapFullscreen } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import {
   ACTUAL_COLOR,
@@ -486,6 +486,14 @@ export const pinpointMode = {
 
   mount(hostEl, matchConfig) {
     this.hostEl = hostEl;
+    const host = document.getElementById("mode-active-host") || hostEl;
+    if (host) {
+      host.replaceChildren();
+      const tmpl = document.getElementById("tmpl-mode-pinpoint");
+      if (tmpl) {
+        host.appendChild(tmpl.content.cloneNode(true));
+      }
+    }
     const pinpointUi = document.getElementById("pinpoint-ui");
     if (pinpointUi) {
       pinpointUi.classList.remove("hidden");
@@ -493,8 +501,7 @@ export const pinpointMode = {
 
     initDateDropdowns();
 
-    if (el.mediaSkipBtn && !el.mediaSkipBtn.dataset.skipBound) {
-      el.mediaSkipBtn.dataset.skipBound = "true";
+    if (el.mediaSkipBtn) {
       el.mediaSkipBtn.addEventListener("click", () => {
         state.timedOut = true;
         if (el.submitAnswer) {
@@ -502,9 +509,27 @@ export const pinpointMode = {
         }
       });
     }
+    if (el.quizImageFullscreen) {
+      el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
+    }
+    if (el.guessMapFullscreen) {
+      el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
+    }
+  },
+
+  setTimerTension(isTension) {
+    if (el.mediaFrame) el.mediaFrame.classList.toggle("timer-tension", isTension);
+  },
+
+  setDisabled(disabled) {
+    if (el.dateGuessYear) el.dateGuessYear.disabled = disabled;
+    if (el.dateGuessMonth) el.dateGuessMonth.disabled = disabled;
   },
 
   unmount() {
+    if (el.mediaFrame) {
+      el.mediaFrame.classList.remove("timer-tension");
+    }
     if (state.guessMap) {
       state.guessMap.remove();
       state.guessMap = null;
@@ -513,9 +538,9 @@ export const pinpointMode = {
       state.guessMarker.remove();
       state.guessMarker = null;
     }
-    const pinpointUi = document.getElementById("pinpoint-ui");
-    if (pinpointUi) {
-      pinpointUi.classList.add("hidden");
+    const host = document.getElementById("mode-active-host");
+    if (host) {
+      host.replaceChildren();
     }
   },
 
@@ -550,6 +575,14 @@ export const pinpointMode = {
     if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
 
     resetDateGuess();
+
+    if (state.guessMarker) {
+      state.guessMarker.remove();
+      state.guessMarker = null;
+    }
+    if (state.guessMap) {
+      state.guessMap.setView([20, 0], 2);
+    }
 
     if (questionData.location_mode) {
       ensureGuessMap();

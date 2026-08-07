@@ -188,3 +188,46 @@ def test_js_files_have_valid_syntax() -> None:
             syntax_errors.append(f'{rel_file}: {res.stderr.strip()}')
 
     assert not syntax_errors, f'JavaScript syntax errors found:\n{chr(10).join(syntax_errors)}'
+
+
+def test_app_js_does_not_reference_template_owned_el_properties() -> None:
+    index_content = INDEX_HTML.read_text(encoding='utf-8')
+    template_blocks = re.findall(r'<template[^>]*>(.*?)</template>', index_content, flags=re.DOTALL)
+    template_ids: set[str] = set()
+    for block in template_blocks:
+        template_ids.update(re.findall(r'id=["\']([^"\']+)["\']', block))
+
+    state_js = JS_DIR / 'modules' / 'state.js'
+    state_content = state_js.read_text(encoding='utf-8')
+
+    el_match = re.search(r'export const el = \{(.*?)\n\};', state_content, flags=re.DOTALL)
+    assert el_match, f'Could not find export const el in {state_js}'
+    el_body = el_match.group(1)
+
+    template_owned_props: set[str] = set()
+    for line in el_body.splitlines():
+        line_str = line.strip()
+        if not line_str or line_str.startswith('//') or line_str.startswith('/*'):
+            continue
+
+        prop_match = re.search(r'(?:get\s+)?([a-zA-Z0-9_$]+)\s*\(?\)?\s*[:{]', line_str)
+        if not prop_match:
+            continue
+        prop_name = prop_match.group(1)
+
+        target_ids = re.findall(r'getElementById\(\s*["\']([^"\']+)["\']\s*\)', line_str)
+        query_ids = re.findall(r'querySelector(?:All)?\(\s*["\']#([a-zA-Z0-9_-]+)', line_str)
+        for tid in target_ids + query_ids:
+            if tid in template_ids:
+                template_owned_props.add(prop_name)
+
+    app_js = JS_DIR / 'app.js'
+    app_content = app_js.read_text(encoding='utf-8')
+
+    violations: list[str] = []
+    for prop_name in template_owned_props:
+        pattern = rf'\bel\.{prop_name}\b'
+        if re.search(pattern, app_content):
+            violations.append(f'app.js directly references template-owned el.{prop_name}')
+
+    assert not violations, f'Direct references to template-owned el properties in app.js: {violations}'

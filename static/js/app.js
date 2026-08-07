@@ -169,7 +169,7 @@ function resetTimerBar() {
   const timerRow = el.timerTrack.closest(".timer-row");
   if (timerRow) timerRow.classList.remove("is-pulsing");
   el.timerRemaining.classList.remove("is-critical-text");
-  if (el.mediaFrame) el.mediaFrame.classList.remove("timer-tension");
+  getActiveMode()?.setTimerTension?.(false);
 
   // Feature 7: reset all fullscreen timer overlays
   document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
@@ -222,7 +222,7 @@ function startTimer(roundLength) {
     const timerRow = el.timerTrack.closest(".timer-row");
     if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
     el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
-    if (el.mediaFrame) el.mediaFrame.classList.toggle("timer-tension", clamped <= 5 && clamped > 0);
+    getActiveMode()?.setTimerTension?.(clamped <= 5 && clamped > 0);
 
     // Feature 7: sync fullscreen timer overlays
     syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
@@ -246,8 +246,7 @@ function handleTimeout() {
   state.timedOut = true;
   el.timerLabel.textContent = t("game.timer_time_up_label");
   el.timerRemaining.textContent = "0s";
-  el.dateGuessYear.disabled = true;
-  el.dateGuessMonth.disabled = true;
+  getActiveMode()?.setDisabled?.(true);
 
   el.timeoutNotice.textContent = t("game.timer_time_up_notice");
   el.timeoutNotice.classList.remove("hidden");
@@ -355,17 +354,8 @@ async function loadQuestion() {
   el.revealUi.classList.add("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
   el.submitAnswer.textContent = t("game.submit_btn");
-  if (el.dateGuessYear) el.dateGuessYear.disabled = false;
-  if (el.dateGuessMonth) el.dateGuessMonth.disabled = false;
+  getActiveMode()?.setDisabled?.(false);
   updateSubmitState();
-
-  if (state.guessMarker) {
-    state.guessMarker.remove();
-    state.guessMarker = null;
-  }
-  if (state.guessMap) {
-    state.guessMap.setView([20, 0], 2);
-  }
 
   const data = await api("/api/question", {
     method: "POST",
@@ -1084,8 +1074,7 @@ el.gameExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
 el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 
-el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
-el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
+
 el.revealMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.revealMapShell));
 if (el.journeyMapFullscreen) {
   el.journeyMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.journeyMapShell));

@@ -62,19 +62,45 @@ export const el = {
   overlayTitle: document.getElementById("overlay-title"),
   overlaySubtitle: document.getElementById("overlay-subtitle"),
   readyBtn: document.getElementById("ready-btn"),
-  mediaFrame: document.getElementById("media-frame"),
-  quizImage: document.getElementById("quiz-image"),
-  quizImageFullscreen: document.getElementById("quiz-image-fullscreen"),
-  mediaPlaceholder: document.getElementById("media-placeholder"),
-  mediaErrorCard: document.getElementById("media-error-card"),
-  mediaErrorMsg: document.getElementById("media-error-msg"),
-  mediaSkipBtn: document.getElementById("media-skip-btn"),
-  mapGuessWrap: document.getElementById("map-guess-wrap"),
-  guessMapShell: document.getElementById("guess-map-shell"),
-  guessMapFullscreen: document.getElementById("guess-map-fullscreen"),
-  dateGuessWrap: document.getElementById("date-guess-wrap"),
-  dateGuessYear: document.getElementById("date-guess-year"),
-  dateGuessMonth: document.getElementById("date-guess-month"),
+  get mediaFrame() {
+    return document.getElementById("media-frame");
+  },
+  get quizImage() {
+    return document.getElementById("quiz-image");
+  },
+  get quizImageFullscreen() {
+    return document.getElementById("quiz-image-fullscreen");
+  },
+  get mediaPlaceholder() {
+    return document.getElementById("media-placeholder");
+  },
+  get mediaErrorCard() {
+    return document.getElementById("media-error-card");
+  },
+  get mediaErrorMsg() {
+    return document.getElementById("media-error-msg");
+  },
+  get mediaSkipBtn() {
+    return document.getElementById("media-skip-btn");
+  },
+  get mapGuessWrap() {
+    return document.getElementById("map-guess-wrap");
+  },
+  get guessMapShell() {
+    return document.getElementById("guess-map-shell");
+  },
+  get guessMapFullscreen() {
+    return document.getElementById("guess-map-fullscreen");
+  },
+  get dateGuessWrap() {
+    return document.getElementById("date-guess-wrap");
+  },
+  get dateGuessYear() {
+    return document.getElementById("date-guess-year");
+  },
+  get dateGuessMonth() {
+    return document.getElementById("date-guess-month");
+  },
   submitAnswer: document.getElementById("submit-answer"),
   timerLabel: document.getElementById("timer-label"),
   timerRemaining: document.getElementById("timer-remaining"),

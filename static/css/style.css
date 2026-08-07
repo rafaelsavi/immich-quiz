@@ -273,7 +273,8 @@ button:disabled {
 
 #game-card,
 #summary-card,
-#leaderboard-card {
+#leaderboard-card,
+#mode-active-host {
   display: grid;
   gap: 0.85rem;
 }
