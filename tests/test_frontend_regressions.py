@@ -205,18 +205,28 @@ def test_app_js_does_not_reference_template_owned_el_properties() -> None:
     el_body = el_match.group(1)
 
     template_owned_props: set[str] = set()
-    for line in el_body.splitlines():
-        line_str = line.strip()
-        if not line_str or line_str.startswith('//') or line_str.startswith('/*'):
-            continue
 
-        prop_match = re.search(r'(?:get\s+)?([a-zA-Z0-9_$]+)\s*\(?\)?\s*[:{]', line_str)
-        if not prop_match:
-            continue
-        prop_name = prop_match.group(1)
+    # Eager shape: prop_name: document.getElementById('id')
+    eager_matches = re.finditer(
+        r'(\w+)\s*:\s*document\.(?:getElementById|querySelector)\(\s*["\']#?([^"\']+)["\']\s*\)',
+        el_body,
+    )
+    for m in eager_matches:
+        prop_name, tid = m.group(1), m.group(2)
+        if tid in template_ids:
+            template_owned_props.add(prop_name)
 
-        target_ids = re.findall(r'getElementById\(\s*["\']([^"\']+)["\']\s*\)', line_str)
-        query_ids = re.findall(r'querySelector(?:All)?\(\s*["\']#([a-zA-Z0-9_-]+)', line_str)
+    # Getter shape: get prop_name() { ... getElementById('id') ... }
+    getter_matches = re.finditer(
+        r'get\s+(\w+)\s*\(\)\s*\{(.*?)(?=get\s+\w+\s*\(\)|$|\n\s*\w+\s*:)',
+        el_body,
+        flags=re.DOTALL,
+    )
+    for m in getter_matches:
+        prop_name = m.group(1)
+        getter_body = m.group(2)
+        target_ids = re.findall(r'getElementById\(\s*["\']([^"\']+)["\']\s*\)', getter_body)
+        query_ids = re.findall(r'querySelector(?:All)?\(\s*["\']#([a-zA-Z0-9_-]+)', getter_body)
         for tid in target_ids + query_ids:
             if tid in template_ids:
                 template_owned_props.add(prop_name)
@@ -225,7 +235,7 @@ def test_app_js_does_not_reference_template_owned_el_properties() -> None:
     app_content = app_js.read_text(encoding='utf-8')
 
     violations: list[str] = []
-    for prop_name in template_owned_props:
+    for prop_name in sorted(template_owned_props):
         pattern = rf'\bel\.{prop_name}\b'
         if re.search(pattern, app_content):
             violations.append(f'app.js directly references template-owned el.{prop_name}')
