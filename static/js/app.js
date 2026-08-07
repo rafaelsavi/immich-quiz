@@ -11,24 +11,9 @@ import {
   updateAudioUi,
 } from "./modules/audio.js";
 import { api } from "./modules/api.js";
-import {
-  ACTUAL_COLOR,
-  playerColor,
-  playerInitial,
-  formatMonth,
-  formatPlace,
-  formatDistance,
-  formatMonthError,
-  buildCell,
-  playerBadge,
-  playerNameCell,
-} from "./modules/formatters.js";
-import { launchGoldConfetti, createPerfectBadge, launchStarBurst, spawnFloatingScorePop, animateScoreRollup } from "./modules/effects.js";
+import { formatPlace, formatMonth, buildCell, playerNameCell } from "./modules/formatters.js";
 import {
   updateSubmitState,
-  createPinIcon,
-  ensureGuessMap,
-  ensureRevealMap,
   renderJourneyMap,
   toggleMapFullscreen,
   syncFullscreenButtons,
@@ -85,48 +70,13 @@ async function initAlbums(libraryName) {
   });
 }
 
-/* ------------------------------------------------- year / month dropdowns */
+/* ------------------------------------------------- select wheel scroll */
 
-function initDateDropdowns() {
-  const currentYear = new Date().getFullYear();
-
-  el.dateGuessYear.replaceChildren();
-  for (let year = currentYear; year >= EARLIEST_YEAR; year -= 1) {
-    const option = document.createElement("option");
-    option.value = String(year);
-    option.textContent = String(year);
-    el.dateGuessYear.appendChild(option);
-  }
-
-  el.dateGuessYear.value = String(currentYear);
-  renderMonthOptions();
-
-  bindDateWheelScroll(el.dateGuessYear, el.dateGuessMonth);
+function initWheelScrolls() {
   bindSelectWheelScroll(el.roundCount, false);
   bindSelectWheelScroll(el.roundLength, false);
   bindSelectWheelScroll(el.library, false);
   bindSelectWheelScroll(el.album, false);
-}
-
-function renderMonthOptions(keepSelection = true) {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  const selectedYear = Number(el.dateGuessYear.value);
-  const maxMonth = selectedYear >= currentYear ? currentMonth : 12;
-  const previous = Number(el.dateGuessMonth.value);
-
-  el.dateGuessMonth.replaceChildren();
-  for (let month = 1; month <= maxMonth; month += 1) {
-    const option = document.createElement("option");
-    option.value = String(month);
-    option.textContent = String(month).padStart(2, "0");
-    el.dateGuessMonth.appendChild(option);
-  }
-
-  // Default to (and clamp at) the newest selectable month.
-  const keep = keepSelection && previous >= 1 && previous <= maxMonth;
-  el.dateGuessMonth.value = String(keep ? previous : maxMonth);
 }
 
 async function initUiConfig() {
@@ -163,12 +113,6 @@ function applyGuessLayout(locationMode, dateMode) {
   );
 }
 
-function resetDateGuess() {
-  const now = new Date();
-  el.dateGuessYear.value = String(now.getFullYear());
-  renderMonthOptions(false);
-}
-
 function stepSelectOption(selectEl, direction) {
   if (!selectEl || selectEl.disabled || selectEl.options.length === 0) {
     return;
@@ -200,83 +144,6 @@ function bindSelectWheelScroll(selectEl, invertScroll = false) {
     },
     { passive: false }
   );
-}
-
-function bindDateWheelScroll(yearSelect, monthSelect) {
-  if (!yearSelect || !monthSelect) return;
-
-  if (!yearSelect.dataset.wheelBound) {
-    yearSelect.dataset.wheelBound = "true";
-    yearSelect.addEventListener(
-      "wheel",
-      (event) => {
-        event.preventDefault();
-        if (yearSelect.disabled) return;
-        // Year options are ordered descending: [2026, 2025, 2024, ...]
-        // Scrolling UP (deltaY < 0) means going UP in years (smaller option index, -1).
-        // Scrolling DOWN (deltaY > 0) means going DOWN in years (larger option index, +1).
-        const direction = event.deltaY > 0 ? 1 : -1;
-        stepSelectOption(yearSelect, direction);
-      },
-      { passive: false }
-    );
-  }
-
-  if (!monthSelect.dataset.wheelBound) {
-    monthSelect.dataset.wheelBound = "true";
-    monthSelect.addEventListener(
-      "wheel",
-      (event) => {
-        event.preventDefault();
-        if (monthSelect.disabled) return;
-
-        const currentYear = new Date().getFullYear();
-        // Month options are ordered ascending: [01, 02, ..., maxMonth]
-        // Scrolling UP (deltaY < 0) means going UP in months (+1 month index).
-        // Scrolling DOWN (deltaY > 0) means going DOWN in months (-1 month index).
-        const deltaDir = event.deltaY > 0 ? -1 : 1;
-        const currentMonthIdx = monthSelect.selectedIndex;
-        const maxMonthIdx = monthSelect.options.length - 1;
-
-        if (deltaDir === 1) {
-          // Scrolling UP: increase month
-          if (currentMonthIdx < maxMonthIdx) {
-            monthSelect.selectedIndex = currentMonthIdx + 1;
-            monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
-          } else {
-            // Month is at max month for the currently selected year.
-            // Increment year if year < currentYear
-            const selectedYear = Number(yearSelect.value);
-            if (selectedYear < currentYear) {
-              yearSelect.value = String(selectedYear + 1);
-              renderMonthOptions(false);
-              monthSelect.value = "1";
-              yearSelect.dispatchEvent(new Event("change", { bubbles: true }));
-              monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
-            }
-          }
-        } else if (deltaDir === -1) {
-          // Scrolling DOWN: decrease month
-          if (currentMonthIdx > 0) {
-            monthSelect.selectedIndex = currentMonthIdx - 1;
-            monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
-          } else {
-            // Month is at January (01).
-            // Decrement year if year > EARLIEST_YEAR
-            const selectedYear = Number(yearSelect.value);
-            if (selectedYear > EARLIEST_YEAR) {
-              yearSelect.value = String(selectedYear - 1);
-              renderMonthOptions(false);
-              monthSelect.value = String(monthSelect.options.length);
-              yearSelect.dispatchEvent(new Event("change", { bubbles: true }));
-              monthSelect.dispatchEvent(new Event("change", { bubbles: true }));
-            }
-          }
-        }
-      },
-      { passive: false }
-    );
-  }
 }
 
 /* ------------------------------------------------------------------ timer */
@@ -455,6 +322,8 @@ async function startMatch(event) {
 
   state.lastMatchConfig = payload;
 
+  getActiveMode().unmount();
+
   const response = await api("/api/game/setup", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -472,6 +341,8 @@ async function startMatch(event) {
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
 
+  activeMode.mount(el.guessingUi, payload);
+
   await loadQuestion();
 }
 
@@ -484,8 +355,8 @@ async function loadQuestion() {
   el.revealUi.classList.add("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
   el.submitAnswer.textContent = t("game.submit_btn");
-  el.dateGuessYear.disabled = false;
-  el.dateGuessMonth.disabled = false;
+  if (el.dateGuessYear) el.dateGuessYear.disabled = false;
+  if (el.dateGuessMonth) el.dateGuessMonth.disabled = false;
   updateSubmitState();
 
   if (state.guessMarker) {
@@ -495,24 +366,6 @@ async function loadQuestion() {
   if (state.guessMap) {
     state.guessMap.setView([20, 0], 2);
   }
-  resetDateGuess();
-
-  // Clear the image immediately so the previous round's photo never shows
-  // through the pass-device overlay while the API call is in flight.
-  el.quizImage.classList.add("hidden");
-  el.quizImage.removeAttribute("src");
-  if (el.mediaErrorCard) {
-    el.mediaErrorCard.classList.add("hidden");
-  }
-  el.mediaPlaceholder.classList.remove("hidden");
-
-  el.quizImage.onerror = () => {
-    el.quizImage.classList.add("hidden");
-    el.mediaPlaceholder.classList.add("hidden");
-    if (el.mediaErrorCard) {
-      el.mediaErrorCard.classList.remove("hidden");
-    }
-  };
 
   const data = await api("/api/question", {
     method: "POST",
@@ -550,16 +403,14 @@ async function loadQuestion() {
       helpBtn.textContent = t("game.help_btn");
       helpBtn.addEventListener("click", () => {
         const activeMode = getActiveMode();
-        if (activeMode && typeof activeMode.openHelp === "function") {
-          activeMode.openHelp(state.currentQuestion);
-        }
+        activeMode.openHelp(state.currentQuestion);
       });
       roundMeta.appendChild(helpBtn);
     }
   }
 
   const activeMode = getActiveMode();
-  activeMode.renderQuestion(el.guessingUi, data);
+  activeMode.renderQuestion(data);
   updateSubmitState();
 
   if (data.total_players > 1) {
@@ -573,14 +424,7 @@ async function loadQuestion() {
     el.passOverlay.classList.remove("hidden");
   } else {
     el.passOverlay.classList.add("hidden");
-    if (data.game_mode === "pinpoint") {
-      el.quizImage.src = data.media_url;
-      el.quizImage.classList.remove("hidden");
-      el.mediaPlaceholder.classList.add("hidden");
-      if (data.location_mode) {
-        ensureGuessMap();
-      }
-    }
+    activeMode.onReady(data);
     startTimer(data.round_length);
   }
 }
@@ -626,10 +470,6 @@ async function submitAnswer(fromTimeout = false) {
 
     clearTimer();
     state.matchFinished = result.match_finished;
-
-    // Release the lock before the next screen loads, otherwise the submit gate
-    // and the map click handler stay frozen for the following player.
-    state.submitting = false;
 
     if (result.round_complete) {
       await showRoundReveal(result.round_number);
@@ -680,14 +520,7 @@ async function showRoundReveal(roundNumber) {
   el.revealUi.classList.remove("hidden");
 
   const activeMode = getActiveMode();
-  if (activeMode && typeof activeMode.renderReveal === "function") {
-    if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
-    activeMode.renderReveal(el.revealUi, reveal);
-  } else {
-    if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
-    renderRevealSummary(reveal);
-    renderRevealMap(reveal);
-  }
+  activeMode.renderReveal(el.revealUi, reveal);
 
   el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
 
@@ -695,309 +528,6 @@ async function showRoundReveal(roundNumber) {
   if (targetScrollEl) {
     targetScrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
   }
-}
-
-
-
-function renderRevealSummary(reveal) {
-  el.roundMeta.textContent = t("reveal.title", reveal.round_number, reveal.total_rounds);
-
-  el.revealActual.replaceChildren();
-  const heading = document.createElement("div");
-  heading.textContent = t("reveal.correct_answer");
-  el.revealActual.appendChild(heading);
-
-  if (reveal.date_mode) {
-    const dateLine = document.createElement("span");
-    dateLine.textContent = `${t("reveal.actual_date")} ${formatMonth(reveal.actual_year, reveal.actual_month)}`;
-    el.revealActual.appendChild(dateLine);
-  }
-  if (reveal.location_mode) {
-    const locLine = document.createElement("span");
-    locLine.textContent = `${t("reveal.actual_location")} ${formatPlace(reveal)}`;
-    el.revealActual.appendChild(locLine);
-  }
-
-  el.revealLegend.replaceChildren();
-  if (reveal.location_mode) {
-    const actualItem = document.createElement("span");
-    actualItem.className = "legend-item";
-    const actualBadge = document.createElement("span");
-    actualBadge.className = "legend-badge";
-    actualBadge.style.background = ACTUAL_COLOR;
-    actualBadge.textContent = "\u2605";
-    actualItem.append(actualBadge, document.createTextNode(t("reveal.actual_location_legend")));
-    el.revealLegend.appendChild(actualItem);
-
-    reveal.results.forEach((result) => {
-      const item = document.createElement("span");
-      item.className = "legend-item";
-      item.append(
-        playerBadge(result.player_name),
-        document.createTextNode(`${playerInitial(result.player_name)} = ${result.player_name}`)
-      );
-      el.revealLegend.appendChild(item);
-    });
-  }
-
-  const groups = [];
-  if (reveal.location_mode) {
-    groups.push({ label: t("reveal.col_location"), columns: [t("reveal.col_points"), t("reveal.col_distance_error")] });
-  }
-  if (reveal.date_mode) {
-    groups.push({ label: t("reveal.col_date"), columns: [t("reveal.col_points"), t("reveal.col_guessed"), t("reveal.col_date_error")] });
-  }
-  groups.push({ label: t("reveal.col_score"), columns: [t("reveal.col_round"), t("reveal.col_total")] });
-
-  const groupRow = document.createElement("tr");
-  const playerHead = buildCell(t("reveal.col_player"), true);
-  playerHead.rowSpan = 2;
-  groupRow.appendChild(playerHead);
-  groups.forEach((group) => {
-    const cell = buildCell(group.label, true);
-    cell.colSpan = group.columns.length;
-    cell.className = "group-head group-start";
-    groupRow.appendChild(cell);
-  });
-
-  const columnRow = document.createElement("tr");
-  groups.forEach((group) => {
-    group.columns.forEach((label, index) => {
-      const cell = buildCell(label, true);
-      if (index === 0) {
-        cell.className = "group-start";
-      }
-      columnRow.appendChild(cell);
-    });
-  });
-  el.revealTableHead.replaceChildren(groupRow, columnRow);
-
-  const maxPoints = reveal.score_max_points || state.scoreMaxPoints || 100;
-  const maxRoundPoints = (reveal.location_mode ? maxPoints : 0) + (reveal.date_mode ? maxPoints : 0);
-  let hasAnyPerfectInRound = false;
-
-  const ordered = [...reveal.results].sort((a, b) => b.round_score - a.round_score);
-  el.revealTableBody.replaceChildren();
-
-  ordered.forEach((result, rIdx) => {
-    const isPerfectLocation = reveal.location_mode && (result.location_score === maxPoints || result.distance_km === 0);
-    const isPerfectDate = reveal.date_mode && (result.date_score === maxPoints || result.date_diff_days === 0);
-    const isPerfectRound = maxRoundPoints > 0 && result.round_score === maxRoundPoints;
-    const isPerfectPlayer = isPerfectLocation || isPerfectDate || isPerfectRound;
-
-    if (isPerfectPlayer) {
-      hasAnyPerfectInRound = true;
-    }
-
-    // Feature 1: track perfect count for any perfect guess or round
-    if (isPerfectPlayer) {
-      state.perfectCounts[result.player_name] = (state.perfectCounts[result.player_name] || 0) + 1;
-    }
-
-    // Feature 4: accumulate player stats for awards
-    if (!state.playerStats[result.player_name]) {
-      state.playerStats[result.player_name] = {
-        totalDistanceKm: 0, distanceCount: 0,
-        totalDateDiffDays: 0, dateCount: 0,
-        perfectLocationCount: 0, perfectDateCount: 0,
-        perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0, totalDurationSec: 0,
-      };
-    }
-    const ps = state.playerStats[result.player_name];
-    if (result.distance_km !== null && result.distance_km !== undefined) {
-      ps.totalDistanceKm += result.distance_km;
-      ps.distanceCount += 1;
-    }
-    if (result.date_diff_days !== null && result.date_diff_days !== undefined) {
-      ps.totalDateDiffDays += result.date_diff_days;
-      ps.dateCount += 1;
-    }
-    if (isPerfectLocation) ps.perfectLocationCount += 1;
-    if (isPerfectDate) ps.perfectDateCount += 1;
-    if (isPerfectPlayer) ps.perfectRounds += 1;
-    if (result.timed_out) ps.timedOutCount += 1;
-
-    const row = document.createElement("tr");
-    if (isPerfectPlayer) {
-      row.className = "is-perfect-row";
-    }
-
-    // Build player name cell with perfect count badge
-    const nameCell = playerNameCell(result.player_name, result.timed_out);
-    const count = state.perfectCounts[result.player_name] || 0;
-    if (count > 0) {
-      const countBadge = document.createElement("span");
-      countBadge.className = "perfect-count-badge";
-      countBadge.textContent = t("fmt.perfect_count", count);
-      nameCell.appendChild(countBadge);
-    }
-    row.appendChild(buildCell(nameCell));
-
-    const valueGroups = [];
-    if (reveal.location_mode) {
-      valueGroups.push({
-        isPerfect: isPerfectLocation,
-        items: [
-          result.location_score === null ? "-" : String(result.location_score),
-          result.guessed_latitude === null ? t("fmt.no_guess") : formatDistance(result.distance_km),
-        ],
-      });
-    }
-    if (reveal.date_mode) {
-      valueGroups.push({
-        isPerfect: isPerfectDate,
-        items: [
-          result.date_score === null ? "-" : String(result.date_score),
-          formatMonth(result.guessed_year, result.guessed_month),
-          formatMonthError(result),
-        ],
-      });
-    }
-
-    const isTotalScoreGroup = true;
-    valueGroups.push({
-      isPerfect: isPerfectRound,
-      isScoreGroup: isTotalScoreGroup,
-      roundScoreNum: result.round_score,
-      items: [String(result.round_score), String(result.total_score)],
-    });
-
-    valueGroups.forEach((group) => {
-      group.items.forEach((value, index) => {
-        const cell = buildCell(value);
-        if (index === 0) {
-          cell.classList.add("group-start");
-          if (group.isPerfect) {
-            cell.classList.add("is-perfect-cell");
-            cell.appendChild(createPerfectBadge());
-          }
-        }
-        if (group.isScoreGroup && index === 0) {
-          // Only animate the points gained in this round (round_score), NOT the total score.
-          animateScoreRollup(cell, group.roundScoreNum, maxRoundPoints);
-        }
-        row.appendChild(cell);
-      });
-    });
-
-    el.revealTableBody.appendChild(row);
-
-    // Floating Score Pops per player row
-    setTimeout(() => {
-      if (isPerfectLocation) {
-        spawnFloatingScorePop(row, `🎯 BULLSEYE! +${result.location_score}`, "bullseye");
-      } else if (isPerfectDate) {
-        spawnFloatingScorePop(row, `⏳ TIME TRAVELER! +${result.date_score}`, "perfect");
-      } else if (result.round_score > 0) {
-        spawnFloatingScorePop(row, `+${result.round_score} pts`, "good");
-      }
-    }, rIdx * 250);
-  });
-
-  if (hasAnyPerfectInRound) {
-    playChime();
-    launchStarBurst();
-    launchGoldConfetti();
-  }
-}
-
-function renderRevealMap(reveal) {
-  el.revealMapShell.classList.toggle("hidden", !reveal.location_mode);
-  el.revealMapHead.classList.toggle("hidden", !reveal.location_mode);
-  if (!reveal.location_mode) {
-    clearRevealAnimation();
-    return;
-  }
-
-  ensureRevealMap();
-  clearRevealAnimation();
-
-  state.revealLayers.forEach((layer) => state.revealMap.removeLayer(layer));
-  state.revealLayers = [];
-
-  if (reveal.actual_latitude === null || reveal.actual_longitude === null) {
-    return;
-  }
-
-  // 1. Plot the actual (correct) pinpoint star marker immediately
-  const actual = L.latLng(reveal.actual_latitude, reveal.actual_longitude);
-  const actualMarker = L.marker(actual, {
-    icon: createPinIcon("\u2605", ACTUAL_COLOR),
-    zIndexOffset: 1000,
-  })
-    .addTo(state.revealMap)
-    .bindPopup(t("reveal.popup_actual"));
-  state.revealLayers.push(actualMarker);
-
-  const points = [actual];
-  const playerGuesses = [];
-
-  reveal.results.forEach((result) => {
-    if (result.guessed_latitude === null || result.guessed_longitude === null) {
-      return;
-    }
-    const guessed = L.latLng(result.guessed_latitude, result.guessed_longitude);
-    points.push(guessed);
-    playerGuesses.push({ result, guessed });
-  });
-
-  if (points.length > 1) {
-    state.revealMap.fitBounds(L.latLngBounds(points).pad(0.3));
-  } else {
-    state.revealMap.setView(actual, 4);
-  }
-
-  if (playerGuesses.length === 0) {
-    return;
-  }
-
-  // 2. Expand ALL lines simultaneously from actual location to player guess points!
-  const lineDuration = 800; // ms for line expansion
-
-  state.revealAnimationTimeoutId = window.setTimeout(() => {
-    state.revealAnimationTimeoutId = null;
-    // Create all polylines anchored at actual location
-    const lineEntries = playerGuesses.map(({ result, guessed }) => {
-      const color = playerColor(result.player_name);
-      const line = L.polyline([actual, actual], {
-        color,
-        weight: 3,
-        dashArray: "8, 8",
-        opacity: 0.85,
-      }).addTo(state.revealMap);
-      state.revealLayers.push(line);
-      return { result, guessed, color, line };
-    });
-
-    const startTime = performance.now();
-
-    function animateAllLines(now) {
-      const elapsed = now - startTime;
-      const progress = Math.min(1, elapsed / lineDuration);
-
-      lineEntries.forEach(({ guessed, line }) => {
-        const curLat = actual.lat + (guessed.lat - actual.lat) * progress;
-        const curLng = actual.lng + (guessed.lng - actual.lng) * progress;
-        line.setLatLngs([actual, [curLat, curLng]]);
-      });
-
-      if (progress < 1) {
-        state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
-      } else {
-        state.revealAnimationFrameId = null;
-        // All lines reached their guess points! Pop in all player markers together!
-        lineEntries.forEach(({ result, guessed, color }) => {
-          const icon = createPopPinIcon(playerInitial(result.player_name), color);
-          const marker = L.marker(guessed, { icon })
-            .addTo(state.revealMap)
-            .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(result.distance_km)));
-          state.revealLayers.push(marker);
-        });
-      }
-    }
-
-    state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
-  }, 350);
 }
 
 function createPopPinIcon(label, color) {
@@ -1011,12 +541,23 @@ function createPopPinIcon(label, color) {
 }
 
 async function handleNextRound() {
-  if (state.matchFinished) {
-    await showMatchSummary();
+  if (state.submitting) {
     return;
   }
-  showCard(el.gameCard);
-  await loadQuestion();
+  state.submitting = true;
+  updateSubmitState();
+
+  try {
+    if (state.matchFinished) {
+      await showMatchSummary();
+      return;
+    }
+    showCard(el.gameCard);
+    await loadQuestion();
+  } finally {
+    state.submitting = false;
+    updateSubmitState();
+  }
 }
 
 /* ------------------------------------------------------- match conclusion */
@@ -1437,6 +978,7 @@ function syncFullscreenTimers(seconds, ratio, isWarning, isCritical) {
 }
 
 function returnToSetup() {
+  getActiveMode().unmount();
   state.matchId = null;
   state.currentQuestion = null;
   state.matchFinished = false;
@@ -1454,6 +996,7 @@ function handleAbandonGame(action) {
     return;
   }
   clearTimer();
+  getActiveMode().unmount();
   if (action === "restart") {
     restartSameGame().catch((err) => showAlert(err.message));
   } else {
@@ -1467,6 +1010,9 @@ async function restartSameGame() {
     returnToSetup();
     return;
   }
+
+  const activeMode = getActiveMode();
+  activeMode.unmount();
 
   state.matchId = null;
   state.currentQuestion = null;
@@ -1485,6 +1031,9 @@ async function restartSameGame() {
   state.players = response.players;
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
+
+  activeMode.mount(el.guessingUi, config);
+
   await loadQuestion();
 }
 
@@ -1504,27 +1053,13 @@ el.album.addEventListener("change", () => {
   loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
 });
 
-el.dateGuessYear.addEventListener("change", () => renderMonthOptions(true));
-
-if (el.mediaSkipBtn) {
-  el.mediaSkipBtn.addEventListener("click", () => {
-    submitAnswer(true).catch((err) => showAlert(err.message));
-  });
-}
-
 el.readyBtn.addEventListener("click", () => {
   if (!state.currentQuestion) {
     return;
   }
   el.passOverlay.classList.add("hidden");
-  if (state.currentQuestion.game_mode === "pinpoint") {
-    el.quizImage.src = state.currentQuestion.media_url;
-    el.quizImage.classList.remove("hidden");
-    el.mediaPlaceholder.classList.add("hidden");
-    if (state.currentQuestion.location_mode) {
-      ensureGuessMap();
-    }
-  }
+  const activeMode = getActiveMode();
+  activeMode.onReady(state.currentQuestion);
   startTimer(state.currentQuestion.round_length);
 });
 
@@ -1600,6 +1135,9 @@ updateAudioUi();
 /* Enter or Space key triggers the primary action of whatever screen is showing. */
 
 function activeActionButton() {
+  if (state.submitting) {
+    return null;
+  }
   if (!el.passOverlay.classList.contains("hidden")) {
     return el.readyBtn;
   }
@@ -1608,7 +1146,10 @@ function activeActionButton() {
       return el.submitAnswer;
     }
     if (!el.revealUi.classList.contains("hidden")) {
-      return el.nextRound;
+      const activeNextBtn = document.querySelector(
+        "#reveal-ui button#next-round:not(.hidden), #album-shuffle-reveal-ui button.next-round-btn:not(.hidden)"
+      );
+      return activeNextBtn || el.nextRound;
     }
   }
   return null;
@@ -1671,7 +1212,7 @@ function initModeButtons() {
 
 
 (async function bootstrap() {
-  initDateDropdowns();
+  initWheelScrolls();
   initModeButtons();
   syncFullscreenButtons();
   updateAudioUi();

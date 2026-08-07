@@ -3,18 +3,20 @@ from collections import Counter
 from pathlib import Path
 
 # Elements created at runtime by JS.
-DYNAMIC_IDS = frozenset({
-    'album-shuffle-help-modal',
-    'card-goal-date',
-    'card-goal-location',
-    'goal-date',
-    'goal-location',
-    'photo-lightbox',
-    'photo-lightbox-img',
-    'reveal-shuffle-map-shell',
-    'shuffle-cards-list',
-    'shuffle-map-shell',
-})
+DYNAMIC_IDS = frozenset(
+    {
+        'album-shuffle-help-modal',
+        'card-goal-date',
+        'card-goal-location',
+        'goal-date',
+        'goal-location',
+        'photo-lightbox',
+        'photo-lightbox-img',
+        'reveal-shuffle-map-shell',
+        'shuffle-cards-list',
+        'shuffle-map-shell',
+    }
+)
 
 STATIC_DIR = Path(__file__).parent.parent / 'static'
 INDEX_HTML = STATIC_DIR / 'index.html'
@@ -105,6 +107,20 @@ def _get_exported_names(js_file: Path) -> set[str]:
     return exports
 
 
+def _case_sensitive_exists(path: Path) -> bool:
+    if not path.exists():
+        return False
+    curr = path
+    while curr != curr.parent:
+        parent = curr.parent
+        if parent.exists():
+            entries = {entry.name for entry in parent.iterdir()}
+            if curr.name not in entries:
+                return False
+        curr = parent
+    return True
+
+
 def test_every_es_import_resolves() -> None:
     js_files = list(JS_DIR.rglob('*.js'))
     import_errors: list[str] = []
@@ -126,7 +142,7 @@ def test_every_es_import_resolves() -> None:
             target_file = (js_file.parent / import_path_str).resolve()
             rel_source = js_file.relative_to(STATIC_DIR)
 
-            if not target_file.exists():
+            if not _case_sensitive_exists(target_file):
                 import_errors.append(f"{rel_source} imports non-existent file '{import_path_str}'")
                 continue
 
@@ -154,3 +170,21 @@ def test_element_ids_are_unique() -> None:
     duplicates = {id_name: count for id_name, count in counts.items() if count > 1}
 
     assert not duplicates, f'Duplicate element IDs found in index.html: {duplicates}'
+
+
+def test_js_files_have_valid_syntax() -> None:
+    import shutil
+    import subprocess
+
+    node_bin = shutil.which('node')
+    if not node_bin:
+        return
+
+    syntax_errors: list[str] = []
+    for js_file in JS_DIR.rglob('*.js'):
+        res = subprocess.run([node_bin, '--check', str(js_file)], capture_output=True, text=True)
+        if res.returncode != 0:
+            rel_file = js_file.relative_to(STATIC_DIR)
+            syntax_errors.append(f'{rel_file}: {res.stderr.strip()}')
+
+    assert not syntax_errors, f'JavaScript syntax errors found:\n{chr(10).join(syntax_errors)}'

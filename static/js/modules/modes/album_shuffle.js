@@ -119,17 +119,47 @@ export const albumShuffleMode = {
     };
   },
 
-  renderQuestion(guessingUi, questionData) {
-    const pinpointUi = document.getElementById("pinpoint-ui");
-    if (pinpointUi) pinpointUi.classList.add("hidden");
+  mount(hostEl, matchConfig) {
+    this.hostEl = hostEl;
+    let uiContainer = document.getElementById("album-shuffle-ui");
+    if (uiContainer) {
+      uiContainer.classList.remove("hidden");
+    }
+  },
 
+  unmount() {
+    if (shuffleMap) {
+      shuffleMap.remove();
+      shuffleMap = null;
+    }
+    if (revealShuffleMap) {
+      revealShuffleMap.remove();
+      revealShuffleMap = null;
+    }
+    shuffleMarkers = {};
+    state.albumShuffleState = null;
+    let uiContainer = document.getElementById("album-shuffle-ui");
+    if (uiContainer) {
+      uiContainer.classList.add("hidden");
+    }
+    let shuffleReveal = document.getElementById("album-shuffle-reveal-ui");
+    if (shuffleReveal) {
+      shuffleReveal.classList.add("hidden");
+      shuffleReveal.replaceChildren();
+    }
+  },
+
+  onReady(questionData) {},
+
+  renderQuestion(questionData) {
     if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
     let uiContainer = document.getElementById("album-shuffle-ui");
     if (!uiContainer) {
       uiContainer = document.createElement("div");
       uiContainer.id = "album-shuffle-ui";
-      guessingUi.appendChild(uiContainer);
+      const host = this.hostEl || el.guessingUi;
+      if (host) host.appendChild(uiContainer);
     }
     uiContainer.classList.remove("hidden");
     uiContainer.replaceChildren();
@@ -209,7 +239,17 @@ export const albumShuffleMode = {
   },
 
   renderReveal(revealUi, revealData) {
-    revealUi.replaceChildren();
+    const pinpointReveal = document.getElementById("pinpoint-reveal-ui");
+    if (pinpointReveal) pinpointReveal.classList.add("hidden");
+
+    let targetContainer = document.getElementById("album-shuffle-reveal-ui");
+    if (!targetContainer) {
+      targetContainer = document.createElement("div");
+      targetContainer.id = "album-shuffle-reveal-ui";
+      revealUi.appendChild(targetContainer);
+    }
+    targetContainer.classList.remove("hidden");
+    targetContainer.replaceChildren();
     revealUi.classList.remove("hidden");
 
     // Standardize Round Meta header banner (matching Pinpoint mode)
@@ -521,8 +561,7 @@ export const albumShuffleMode = {
 
     // --- SECTION 4: NEXT ROUND BUTTON & ACTIONS ---
     const nextBtn = document.createElement("button");
-    nextBtn.id = "next-round";
-    nextBtn.className = "btn-primary";
+    nextBtn.className = "next-round-btn btn-primary";
     nextBtn.style.marginTop = "1.5rem";
     nextBtn.textContent = revealData.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
 
@@ -555,12 +594,12 @@ export const albumShuffleMode = {
 
     tableScroll.style.marginTop = "1.5rem";
 
-    // Append everything to revealUi: Map (if active) -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
+    // Append everything to targetContainer: Map (if active) -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
     if (revealData.location_mode && mapHead && mapShell) {
-      revealUi.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
       renderBatchRevealMap(mapShell, batchReveal);
     } else {
-      revealUi.append(breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+      targetContainer.append(breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
     }
   },
 };

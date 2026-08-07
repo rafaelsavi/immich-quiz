@@ -194,29 +194,32 @@
       </div>
 
       <div id="reveal-ui" class="hidden">
-        <div id="reveal-actual" class="reveal-actual"></div>
-        <div id="reveal-legend" class="reveal-legend"></div>
-        <div class="field-head" id="reveal-map-head">
-          <label data-i18n="reveal.map_label">Round Map</label>
+        <div id="pinpoint-reveal-ui">
+          <div id="reveal-actual" class="reveal-actual"></div>
+          <div id="reveal-legend" class="reveal-legend"></div>
+          <div class="field-head" id="reveal-map-head">
+            <label data-i18n="reveal.map_label">Round Map</label>
+          </div>
+          <div id="reveal-map-shell" class="map-shell">
+            <div id="reveal-map"></div>
+            <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+              title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
+              Fullscreen
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table id="reveal-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button id="next-round" class="btn-primary" data-i18n="reveal.next_round_btn">Next Round</button>
+          <div class="game-actions">
+            <button type="button" id="reveal-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
+            <button type="button" id="reveal-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
+          </div>
         </div>
-        <div id="reveal-map-shell" class="map-shell">
-          <div id="reveal-map"></div>
-          <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-            title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
-            Fullscreen
-          </button>
-        </div>
-        <div class="table-scroll">
-          <table id="reveal-table">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <button id="next-round" class="btn-primary" data-i18n="reveal.next_round_btn">Next Round</button>
-        <div class="game-actions">
-          <button type="button" id="reveal-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
-          <button type="button" id="reveal-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
-        </div>
+        <div id="album-shuffle-reveal-ui" class="hidden"></div>
       </div>
     </section>
 

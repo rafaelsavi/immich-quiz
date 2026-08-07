@@ -1,6 +1,23 @@
 import { t } from "../i18n.js";
 
 /**
+ * Standard GameMode Interface specification.
+ * Both pinpointMode and albumShuffleMode must implement all of the following:
+ * 
+ * @typedef {Object} GameMode
+ * @property {string} name - Unique mode identifier ("pinpoint", "album_shuffle")
+ * @property {function(HTMLElement): void} renderSettings - Render mode settings cards into setup container
+ * @property {function(): Object} getModePayload - Get mode setup payload properties
+ * @property {function(HTMLElement, Object): void} mount - Lifecycle hook: called once when a match starts
+ * @property {function(): void} unmount - Lifecycle hook: called once when match finishes, resets, or is abandoned
+ * @property {function(Object): void} renderQuestion - Render round guessing UI (host captured via mount)
+ * @property {function(Object, boolean): Object} buildAnswerPayload - Build payload for answer submission
+ * @property {function(HTMLElement, Object): void} renderReveal - Render round reveal view
+ * @property {function(Object): void} openHelp - Open mode help modal
+ * @property {function(Object): void} onReady - Triggered on player ready / single-player round start
+ */
+
+/**
  * Renders multi-selection card buttons for Guessing mode (Location & Date).
  * Used across game modes (Pinpoint, Album Shuffle).
  * @param {HTMLElement} containerEl 

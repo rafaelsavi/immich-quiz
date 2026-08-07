@@ -29,16 +29,21 @@ export function addLayerControl(map, baseLayers) {
 }
 
 export function updateSubmitState() {
+  const nextRoundBtns = document.querySelectorAll("#next-round, button.next-round-btn");
   if (state.submitting) {
-    el.submitAnswer.disabled = true;
+    if (el.submitAnswer) el.submitAnswer.disabled = true;
+    nextRoundBtns.forEach((btn) => (btn.disabled = true));
     return;
   }
+  nextRoundBtns.forEach((btn) => (btn.disabled = false));
 
   // After a timeout the answers are frozen, but the player still has to
   // acknowledge the reveal before the screen moves on.
   if (state.timedOut) {
-    el.submitAnswer.disabled = false;
-    el.submitAnswer.removeAttribute("title");
+    if (el.submitAnswer) {
+      el.submitAnswer.disabled = false;
+      el.submitAnswer.removeAttribute("title");
+    }
     return;
   }
 
@@ -48,22 +53,26 @@ export function updateSubmitState() {
     const totalPhotos = (state.currentQuestion.batch_photos || []).length;
     const assignedCount = Object.values(pinAssignments).filter(Boolean).length;
     const missingPin = needsPin && totalPhotos > 0 && assignedCount < totalPhotos;
-    el.submitAnswer.disabled = !state.currentQuestion || missingPin;
-    if (missingPin) {
-      el.submitAnswer.title = t("game.pin_required");
-    } else {
-      el.submitAnswer.removeAttribute("title");
+    if (el.submitAnswer) {
+      el.submitAnswer.disabled = !state.currentQuestion || missingPin;
+      if (missingPin) {
+        el.submitAnswer.title = t("game.pin_required");
+      } else {
+        el.submitAnswer.removeAttribute("title");
+      }
     }
     return;
   }
 
   const needsPin = Boolean(state.currentQuestion && state.currentQuestion.location_mode);
   const missingPin = needsPin && !state.guessedLatLng;
-  el.submitAnswer.disabled = !state.currentQuestion || missingPin;
-  if (missingPin) {
-    el.submitAnswer.title = t("game.pin_required");
-  } else {
-    el.submitAnswer.removeAttribute("title");
+  if (el.submitAnswer) {
+    el.submitAnswer.disabled = !state.currentQuestion || missingPin;
+    if (missingPin) {
+      el.submitAnswer.title = t("game.pin_required");
+    } else {
+      el.submitAnswer.removeAttribute("title");
+    }
   }
 }
 
@@ -78,6 +87,16 @@ export function createPinIcon(label, color) {
     iconSize: [size, size],
     iconAnchor: [anchor, size],
     popupAnchor: [0, -size + 2],
+  });
+}
+
+export function createPopPinIcon(label, color) {
+  return L.divIcon({
+    className: "player-pin player-pin-pop",
+    html: `<span style="background:${color};"><b>${label}</b></span>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -26],
   });
 }
 
@@ -108,13 +127,16 @@ export function spawnPinPulseEffect(map, latlng, color) {
 }
 
 export function ensureGuessMap() {
+  const container = document.getElementById("guess-map");
+  if (!container) return;
+
   if (state.guessMap) {
     state.guessMap.invalidateSize();
     return;
   }
 
   const base = createBaseTileLayers();
-  state.guessMap = L.map("guess-map", { worldCopyJump: true, layers: [base.streets] }).setView([20, 0], 2);
+  state.guessMap = L.map(container, { worldCopyJump: true, layers: [base.streets] }).setView([20, 0], 2);
   addLayerControl(state.guessMap, base);
 
   state.guessMap.on("click", (event) => {
@@ -143,25 +165,37 @@ export function ensureGuessMap() {
 
   // The container was hidden while Leaflet measured it, so re-measure once
   // the browser has painted the visible layout.
-  requestAnimationFrame(() => state.guessMap.invalidateSize());
+  requestAnimationFrame(() => {
+    if (state.guessMap) state.guessMap.invalidateSize();
+  });
 }
 
 export function ensureRevealMap() {
+  const container = document.getElementById("reveal-map");
+  if (!container) return;
+
   if (!state.revealMap) {
     const base = createBaseTileLayers();
-    state.revealMap = L.map("reveal-map", { layers: [base.streets] }).setView([20, 0], 2);
+    state.revealMap = L.map(container, { layers: [base.streets] }).setView([20, 0], 2);
     addLayerControl(state.revealMap, base);
   }
-  requestAnimationFrame(() => state.revealMap.invalidateSize());
+  requestAnimationFrame(() => {
+    if (state.revealMap) state.revealMap.invalidateSize();
+  });
 }
 
 export function ensureJourneyMap() {
+  const container = document.getElementById("journey-map");
+  if (!container) return;
+
   if (!state.journeyMap) {
     const base = createBaseTileLayers();
-    state.journeyMap = L.map("journey-map", { layers: [base.streets] }).setView([20, 0], 2);
+    state.journeyMap = L.map(container, { layers: [base.streets] }).setView([20, 0], 2);
     addLayerControl(state.journeyMap, base);
   }
-  requestAnimationFrame(() => state.journeyMap.invalidateSize());
+  requestAnimationFrame(() => {
+    if (state.journeyMap) state.journeyMap.invalidateSize();
+  });
 }
 
 export function renderJourneyMap(roundHistory, locationMode = true) {
