@@ -26,10 +26,16 @@
         <h1>{{APP_HEADING}}</h1>
         <p>{{APP_TAGLINE}}</p>
       </div>
-      <button type="button" id="audio-toggle-btn" class="audio-toggle-btn" title="Toggle Sound Effects"
-        aria-label="Toggle Sound Effects">
-        <span id="audio-icon">🔊</span>
-      </button>
+      <div class="header-controls">
+        <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
+          aria-label="Switch Language">
+          <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#012169"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6"/><path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16"/><path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10"/></svg></span>
+        </button>
+        <button type="button" id="audio-toggle-btn" class="header-icon-btn audio-toggle-btn" title="Toggle Sound Effects"
+          aria-label="Toggle Sound Effects">
+          <span id="audio-icon">🔊</span>
+        </button>
+      </div>
     </header>
 
     <section id="setup-card" class="card">

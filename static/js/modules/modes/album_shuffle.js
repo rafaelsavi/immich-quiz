@@ -20,7 +20,7 @@ function createShuffleHelpModal() {
   modal.innerHTML = `
     <div class="shuffle-help-dialog" role="dialog" aria-modal="true" aria-labelledby="shuffle-help-title">
       <div class="shuffle-help-header">
-        <h3 id="shuffle-help-title">Album Shuffle Help</h3>
+        <h3 id="shuffle-help-title" data-i18n="game.shuffle_help_title">Album Shuffle Help</h3>
         <button type="button" class="shuffle-help-close" aria-label="Close help">×</button>
       </div>
       <div class="shuffle-help-body"></div>
@@ -49,6 +49,12 @@ function createShuffleHelpModal() {
 
 function openShuffleHelpModal(questionData) {
   const modal = createShuffleHelpModal();
+
+  // Always update the title to the current language (modal is created lazily and
+  // applyLanguage() may not have run since it was first inserted into the DOM).
+  const titleEl = modal.querySelector("#shuffle-help-title");
+  if (titleEl) titleEl.textContent = t("game.shuffle_help_title");
+
   const body = modal.querySelector(".shuffle-help-body");
   const locationMode = questionData?.location_mode !== false;
   const dateMode = questionData?.date_mode !== false;
@@ -103,6 +109,14 @@ export const albumShuffleMode = {
 
   openHelp(questionData) {
     openShuffleHelpModal(questionData);
+  },
+
+  refreshHelpModal(questionData) {
+    // If the help modal is currently visible, re-populate its body in the new language.
+    const modal = document.getElementById("album-shuffle-help-modal");
+    if (modal && !modal.classList.contains("hidden")) {
+      openShuffleHelpModal(questionData);
+    }
   },
 
   renderSettings(containerEl) {
@@ -246,7 +260,7 @@ export const albumShuffleMode = {
     };
   },
 
-  renderReveal(revealUi, revealData) {
+  renderReveal(revealUi, revealData, skipEffects = false) {
     const pinpointReveal = document.getElementById("pinpoint-reveal-ui");
     if (pinpointReveal) pinpointReveal.classList.add("hidden");
 
@@ -257,7 +271,11 @@ export const albumShuffleMode = {
       revealUi.appendChild(targetContainer);
     }
     targetContainer.classList.remove("hidden");
-    targetContainer.replaceChildren();
+    if (!skipEffects) {
+      targetContainer.replaceChildren();
+    } else {
+      targetContainer.replaceChildren();
+    }
     revealUi.classList.remove("hidden");
 
     // Standardize Round Meta header banner (matching Pinpoint mode)
@@ -413,24 +431,20 @@ export const albumShuffleMode = {
 
       tbody.appendChild(row);
 
-      setTimeout(() => {
-        if (isPerfectLocation && isPerfectDate) {
-          spawnFloatingScorePop(row, `🎯 PERFECT ROUND! +${pRes.round_score}`, "bullseye");
-        } else if (isPerfectLocation) {
-          spawnFloatingScorePop(row, `🎯 ALL PINS CORRECT! +${pRes.location_score}`, "bullseye");
-        } else if (isPerfectDate) {
-          spawnFloatingScorePop(row, `⏳ PERFECT ORDER! +${pRes.date_score}`, "perfect");
-        } else if ((pRes.round_score ?? 0) > 0) {
-          spawnFloatingScorePop(row, `+${pRes.round_score} pts`, "good");
-        }
-      }, rIdx * 250);
+      if (!skipEffects) {
+        setTimeout(() => {
+          if (isPerfectLocation && isPerfectDate) {
+            spawnFloatingScorePop(row, `🎯 PERFECT ROUND! +${pRes.round_score}`, "bullseye");
+          } else if (isPerfectLocation) {
+            spawnFloatingScorePop(row, `🎯 ALL PINS CORRECT! +${pRes.location_score}`, "bullseye");
+          } else if (isPerfectDate) {
+            spawnFloatingScorePop(row, `⏳ PERFECT ORDER! +${pRes.date_score}`, "perfect");
+          } else if ((pRes.round_score ?? 0) > 0) {
+            spawnFloatingScorePop(row, `+${pRes.round_score} pts`, "good");
+          }
+        }, rIdx * 250);
+      }
     });
-
-    if (hasAnyPerfectInRound) {
-      playChime();
-      launchStarBurst();
-      launchGoldConfetti();
-    }
 
     // --- SECTION 2: MAP LAYOUT (ONLY IF LOCATION MODE IS ACTIVE) ---
     let mapHead = null;
@@ -603,12 +617,20 @@ export const albumShuffleMode = {
     tableScroll.style.marginTop = "1.5rem";
 
     // Append everything to targetContainer: Map (if active) -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
-    if (revealData.location_mode && mapHead && mapShell) {
+    if (revealData.location_mode && mapHead && mapShell && !skipEffects) {
       targetContainer.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
       renderBatchRevealMap(mapShell, batchReveal);
+    } else if (revealData.location_mode && mapHead && mapShell && skipEffects) {
+      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+      // Do not re-initialize the map on a text-only refresh
     } else {
       targetContainer.append(breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
     }
+  },
+
+  refreshRevealText(revealUi, revealData) {
+    // Re-render all reveal text without re-initializing the map or running animations.
+    this.renderReveal(revealUi, revealData, true);
   },
 };
 

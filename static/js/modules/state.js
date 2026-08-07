@@ -1,11 +1,21 @@
+function getInitialLanguagePreference() {
+  try {
+    const stored = localStorage.getItem("immich_quiz_language");
+    if (stored === "PT" || stored === "EN") return stored;
+  } catch (_) {}
+  return "EN";
+}
+
 export const state = {
   matchId: null,
   gameMode: "pinpoint",
   players: [],
-  language: "EN",
+  language: getInitialLanguagePreference(),
   audioEnabled: true,
   scoreMaxPoints: 100,
   lastMatchConfig: null,
+  lastReveal: null,
+  lastSummary: null,
   playedAssetIds: [],
   currentQuestion: null,
   guessedLatLng: null,
@@ -37,6 +47,8 @@ export const state = {
 };
 
 export const el = {
+  langToggleBtn: document.getElementById("lang-toggle-btn"),
+  langIcon: document.getElementById("lang-icon"),
   audioToggleBtn: document.getElementById("audio-toggle-btn"),
   audioIcon: document.getElementById("audio-icon"),
   setupCard: document.getElementById("setup-card"),

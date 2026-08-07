@@ -1,5 +1,13 @@
 import { state, el } from "./modules/state.js";
-import { t, translateError, showAlert, applyLanguage } from "./modules/i18n.js";
+import {
+  t,
+  translateError,
+  showAlert,
+  applyLanguage,
+  getInitialLanguagePreference,
+  updateLanguageUi,
+  toggleLanguage,
+} from "./modules/i18n.js";
 import {
   playSubmitTone,
   playTick,
@@ -89,12 +97,17 @@ function applyUiConfig(config) {
   const heightPx = Number.isFinite(heightPxRaw) ? Math.min(1600, Math.max(200, heightPxRaw)) : 420;
   document.documentElement.style.setProperty("--quiz-image-max-height", `${heightPx}px`);
 
-  if (config.language && (config.language === "PT" || config.language === "EN")) {
+  const savedLang = getInitialLanguagePreference();
+  if (savedLang) {
+    state.language = savedLang;
+  } else if (config.language && (config.language === "PT" || config.language === "EN")) {
     state.language = config.language;
   }
   if (config.score_max_points) {
     state.scoreMaxPoints = Number(config.score_max_points);
   }
+  updateLanguageUi();
+  updateAudioUi();
   applyLanguage();
 }
 
@@ -341,8 +354,39 @@ async function startMatch(event) {
   showCard(el.gameCard);
 
   activeMode.mount(el.guessingUi, payload);
+  applyLanguage();
 
   await loadQuestion();
+}
+
+function updateRoundMeta() {
+  const roundMeta = el.roundMeta;
+  if (!roundMeta || !state.currentQuestion) return;
+  const data = state.currentQuestion;
+  roundMeta.replaceChildren();
+  const roundMetaText = document.createElement("span");
+  roundMetaText.className = "round-meta-text";
+  roundMetaText.textContent = t(
+    "game.round_meta",
+    data.player_round_number,
+    data.total_rounds_per_player,
+    data.player_number,
+    data.total_players,
+    data.player_name
+  );
+  roundMeta.appendChild(roundMetaText);
+
+  if (state.gameMode === "album_shuffle") {
+    const helpBtn = document.createElement("button");
+    helpBtn.type = "button";
+    helpBtn.className = "shuffle-help-btn";
+    helpBtn.textContent = t("game.help_btn");
+    helpBtn.addEventListener("click", () => {
+      const activeMode = getActiveMode();
+      activeMode.openHelp?.(state.currentQuestion);
+    });
+    roundMeta.appendChild(helpBtn);
+  }
 }
 
 async function loadQuestion() {
@@ -371,33 +415,7 @@ async function loadQuestion() {
     state.playedAssetIds.push(data.asset_id);
   }
 
-  const roundMeta = el.roundMeta;
-  if (roundMeta) {
-    roundMeta.replaceChildren();
-    const roundMetaText = document.createElement("span");
-    roundMetaText.className = "round-meta-text";
-    roundMetaText.textContent = t(
-      "game.round_meta",
-      data.player_round_number,
-      data.total_rounds_per_player,
-      data.player_number,
-      data.total_players,
-      data.player_name
-    );
-    roundMeta.appendChild(roundMetaText);
-
-    if (state.gameMode === "album_shuffle") {
-      const helpBtn = document.createElement("button");
-      helpBtn.type = "button";
-      helpBtn.className = "shuffle-help-btn";
-      helpBtn.textContent = t("game.help_btn");
-      helpBtn.addEventListener("click", () => {
-        const activeMode = getActiveMode();
-        activeMode.openHelp(state.currentQuestion);
-      });
-      roundMeta.appendChild(helpBtn);
-    }
-  }
+  updateRoundMeta();
 
   const activeMode = getActiveMode();
   activeMode.renderQuestion(data);
@@ -505,6 +523,7 @@ async function showRoundReveal(roundNumber) {
     state.roundHistory.push(entry);
   }
 
+  state.lastReveal = reveal;
   showCard(el.gameCard);
   el.guessingUi.classList.add("hidden");
   el.revealUi.classList.remove("hidden");
@@ -552,12 +571,8 @@ async function handleNextRound() {
 
 /* ------------------------------------------------------- match conclusion */
 
-async function showMatchSummary() {
-  const summary = await api(`/api/match/${encodeURIComponent(state.matchId)}/summary`);
-  showCard(el.summaryCard);
-  playVictoryFanfare();
-
-  // Feature 3: Winner Podium
+function renderSummaryContent(summary) {
+  if (!summary) return;
   renderPodium(summary);
 
   const modes = [];
@@ -575,7 +590,6 @@ async function showMatchSummary() {
     summary.album_name
   );
 
-  // Feature 4: Fun Performance Awards
   renderAwards(summary);
 
   const columns = [t("summary.col_rank"), t("summary.col_player")];
@@ -598,7 +612,6 @@ async function showMatchSummary() {
 
     row.appendChild(buildCell(String(player.rank)));
 
-    // Feature 1: show perfect count in summary table
     const nameCell = playerNameCell(player.player_name);
     const count = state.perfectCounts[player.player_name] || 0;
     if (count > 0) {
@@ -620,8 +633,15 @@ async function showMatchSummary() {
 
     el.summaryTableBody.appendChild(row);
   });
+}
 
+async function showMatchSummary() {
+  const summary = await api(`/api/match/${encodeURIComponent(state.matchId)}/summary`);
   state.lastSummary = summary;
+  showCard(el.summaryCard);
+  playVictoryFanfare();
+
+  renderSummaryContent(summary);
 
   // Render World Journey Map
   renderJourneyMap(state.roundHistory, summary.location_mode);
@@ -1023,6 +1043,7 @@ async function restartSameGame() {
   showCard(el.gameCard);
 
   activeMode.mount(el.guessingUi, config);
+  applyLanguage();
 
   await loadQuestion();
 }
@@ -1113,12 +1134,104 @@ el.refreshLeaderboard.addEventListener("click", () => {
 
 el.leaderboardHead.addEventListener("click", handleSortClick);
 
+function refreshActiveScreenLanguage() {
+  updateLanguageUi();
+  updateAudioUi();
+  applyLanguage();
+
+  if (!el.setupCard.classList.contains("hidden")) {
+    const settingsContainer = document.getElementById("game-settings-container");
+    if (settingsContainer) {
+      const mode = getActiveMode();
+      mode.renderSettings(settingsContainer);
+      applyLanguage();
+    }
+  }
+
+  // Only update the round-meta banner when guessing (on the reveal screen it shows
+  // reveal.title which refreshRevealText will handle).
+  if (state.currentQuestion && el.guessingUi && !el.guessingUi.classList.contains("hidden")) {
+    updateRoundMeta();
+  }
+
+  // Refresh the Album Shuffle help modal body if it is currently open.
+  if (state.currentQuestion) {
+    const activeMode = getActiveMode();
+    activeMode.refreshHelpModal?.(state.currentQuestion);
+  }
+
+  if (!el.passOverlay.classList.contains("hidden") && state.currentQuestion) {
+    const data = state.currentQuestion;
+    if (el.overlayTitle) {
+      el.overlayTitle.textContent = t(
+        "game.pass_device_title",
+        data.player_name,
+        data.player_number,
+        data.total_players
+      );
+    }
+    if (el.overlaySubtitle) {
+      el.overlaySubtitle.textContent = t(
+        "game.pass_device_subtitle",
+        data.player_round_number,
+        data.total_rounds_per_player
+      );
+    }
+    if (el.readyBtn) {
+      el.readyBtn.textContent = t("game.ready_btn");
+    }
+  }
+
+  if (!el.guessingUi.classList.contains("hidden") && state.currentQuestion) {
+    // Update only dynamic text nodes — never touch image/map/date selects.
+    if (state.timedOut) {
+      el.timerLabel.textContent = t("game.timer_time_up_label");
+      el.timeoutNotice.textContent = t("game.timer_time_up_notice");
+      el.submitAnswer.textContent = t("game.continue_btn");
+    } else {
+      if (state.currentQuestion.round_length === "unlimited") {
+        el.timerLabel.textContent = t("game.timer_unlimited");
+      } else if (!el.timerTrack.classList.contains("is-idle")) {
+        el.timerLabel.textContent = t("game.timer_time_left");
+      }
+      el.submitAnswer.textContent = t("game.submit_btn");
+    }
+  }
+
+  if (!el.revealUi.classList.contains("hidden") && state.lastReveal) {
+    // Refresh all text in the reveal (table headers, actual date/location, buttons)
+    // without re-initializing the map or triggering animations.
+    const activeMode = getActiveMode();
+    activeMode.refreshRevealText(el.revealUi, state.lastReveal);
+    el.nextRound.textContent = state.lastReveal.match_finished
+      ? t("reveal.see_results_btn")
+      : t("reveal.next_round_btn");
+  }
+
+  if (!el.summaryCard.classList.contains("hidden") && state.lastSummary) {
+    renderSummaryContent(state.lastSummary);
+  }
+
+  loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+}
+
+document.addEventListener("click", (e) => {
+  const langBtn = e.target.closest("#lang-toggle-btn");
+  if (langBtn) {
+    e.preventDefault();
+    toggleLanguage(() => {
+      refreshActiveScreenLanguage();
+    });
+  }
+});
+
 if (el.audioToggleBtn) {
   el.audioToggleBtn.addEventListener("click", (e) => {
     e.preventDefault();
     toggleAudio();
   });
 }
+updateLanguageUi();
 updateAudioUi();
 
 /* Enter or Space key triggers the primary action of whatever screen is showing. */
@@ -1201,10 +1314,10 @@ function initModeButtons() {
 
 
 (async function bootstrap() {
+  refreshActiveScreenLanguage();
   initWheelScrolls();
   initModeButtons();
   syncFullscreenButtons();
-  updateAudioUi();
 
   const startupErrors = [];
   const rememberStartupError = (scope, err) => {

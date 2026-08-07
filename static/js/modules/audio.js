@@ -1,4 +1,5 @@
 import { state, el } from "./state.js";
+import { t } from "./i18n.js";
 
 let audioCtx = null;
 
@@ -243,9 +244,8 @@ export function updateAudioUi() {
     el.audioIcon.textContent = state.audioEnabled ? "🔊" : "🔇";
   }
   if (el.audioToggleBtn) {
-    el.audioToggleBtn.setAttribute(
-      "title",
-      state.audioEnabled ? "Sound Effects: Enabled" : "Sound Effects: Muted"
-    );
+    const titleText = state.audioEnabled ? t("audio.enabled") : t("audio.muted");
+    el.audioToggleBtn.setAttribute("title", titleText);
+    el.audioToggleBtn.setAttribute("aria-label", titleText);
   }
 }

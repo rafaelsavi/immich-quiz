@@ -175,7 +175,7 @@ function createPopPinIcon(label, color) {
   });
 }
 
-function renderRevealSummary(reveal) {
+function renderRevealSummary(reveal, skipEffects = false) {
   el.roundMeta.textContent = t("reveal.title", reveal.round_number, reveal.total_rounds);
 
   el.revealActual.replaceChildren();
@@ -354,18 +354,20 @@ function renderRevealSummary(reveal) {
 
     el.revealTableBody.appendChild(row);
 
-    setTimeout(() => {
-      if (isPerfectLocation) {
-        spawnFloatingScorePop(row, `🎯 BULLSEYE! +${result.location_score}`, "bullseye");
-      } else if (isPerfectDate) {
-        spawnFloatingScorePop(row, `⏳ TIME TRAVELER! +${result.date_score}`, "perfect");
-      } else if (result.round_score > 0) {
-        spawnFloatingScorePop(row, `+${result.round_score} pts`, "good");
-      }
-    }, rIdx * 250);
+    if (!skipEffects) {
+      setTimeout(() => {
+        if (isPerfectLocation) {
+          spawnFloatingScorePop(row, `🎯 BULLSEYE! +${result.location_score}`, "bullseye");
+        } else if (isPerfectDate) {
+          spawnFloatingScorePop(row, `⏳ TIME TRAVELER! +${result.date_score}`, "perfect");
+        } else if (result.round_score > 0) {
+          spawnFloatingScorePop(row, `+${result.round_score} pts`, "good");
+        }
+      }, rIdx * 250);
+    }
   });
 
-  if (hasAnyPerfectInRound) {
+  if (!skipEffects && hasAnyPerfectInRound) {
     playChime();
     launchStarBurst();
     launchGoldConfetti();
@@ -621,6 +623,11 @@ export const pinpointMode = {
     if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
     renderRevealSummary(revealData);
     renderRevealMap(revealData);
+  },
+
+  refreshRevealText(revealUi, revealData) {
+    // Re-render text-only parts of the reveal without touching the map or triggering effects.
+    renderRevealSummary(revealData, true);
   },
 
   openHelp(questionData) {},

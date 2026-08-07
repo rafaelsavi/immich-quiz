@@ -1,4 +1,4 @@
-import { state } from "./state.js";
+import { state, el } from "./state.js";
 
 export const TRANSLATIONS = {
   EN: {
@@ -172,6 +172,12 @@ export const TRANSLATIONS = {
     "summary.share_btn": "Share Match",
     "summary.share_copied": "Match summary copied to clipboard!",
     "summary.journey_round": (n) => `Round ${n}`,
+    "audio.enabled": "Sound Effects: Enabled",
+    "audio.muted": "Sound Effects: Muted",
+    "audio.toggle_title": "Toggle Sound Effects",
+    "lang.title": "Language: English",
+    "lang.toggle_title": "Switch Language",
+    "game.shuffle_help_title": "Album Shuffle Help",
   },
   PT: {
     "setup.heading": "Configuração do Jogo",
@@ -344,6 +350,12 @@ export const TRANSLATIONS = {
     "summary.share_btn": "Compartilhar Partida",
     "summary.share_copied": "Resumo da partida copiado para a área de transferência!",
     "summary.journey_round": (n) => `Rodada ${n}`,
+    "audio.enabled": "Efeitos de Som: Ativados",
+    "audio.muted": "Efeitos de Som: Mudos",
+    "audio.toggle_title": "Alternar Efeitos de Som",
+    "lang.title": "Idioma: Português",
+    "lang.toggle_title": "Mudar Idioma",
+    "game.shuffle_help_title": "Ajuda do Álbum Embaralhado",
   },
 };
 
@@ -384,24 +396,88 @@ export function showAlert(msg) {
   alert(translateError(msg));
 }
 
+export function getInitialLanguagePreference() {
+  try {
+    const stored = localStorage.getItem("immich_quiz_language");
+    if (stored === "PT" || stored === "EN") return stored;
+  } catch (_) {}
+  return null;
+}
+
+export const FLAGS = {
+  EN: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#012169"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6"/><path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16"/><path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10"/></svg>`,
+  PT: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#009B3A"/><polygon points="30,10 52,30 30,50 8,30" fill="#FEDF00"/><circle cx="30" cy="30" r="12" fill="#002776"/><path d="M18,31 C23,26.5 37,26.5 42,31 C37,28 23,28 18,31 Z" fill="#FFFFFF"/></svg>`,
+};
+
+export function updateLanguageUi() {
+  const lang = state ? state.language || "EN" : "EN";
+  const iconEl = (el && el.langIcon) || document.getElementById("lang-icon");
+  const btnEl = (el && el.langToggleBtn) || document.getElementById("lang-toggle-btn");
+  if (iconEl) {
+    iconEl.innerHTML = FLAGS[lang] || FLAGS.EN;
+  }
+  if (btnEl) {
+    btnEl.setAttribute("title", t("lang.title"));
+    btnEl.setAttribute("aria-label", t("lang.toggle_title"));
+  }
+}
+
+export function toggleLanguage(onLanguageChanged) {
+  if (!state) return;
+  state.language = state.language === "PT" ? "EN" : "PT";
+  try {
+    localStorage.setItem("immich_quiz_language", state.language);
+  } catch (_) {}
+  updateLanguageUi();
+  applyLanguage();
+  if (typeof onLanguageChanged === "function") {
+    onLanguageChanged();
+  }
+}
+
 /**
- * Apply translations to all [data-i18n] elements in the DOM.
+ * Apply translations to all [data-i18n], [data-i18n-title], and [data-i18n-placeholder] elements in the DOM.
  * Elements with a sort arrow child keep the arrow intact.
+ * Dynamic function-valued keys (expecting parameters) are skipped to avoid overwriting runtime state.
  */
 export function applyLanguage() {
-  document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = el.getAttribute("data-i18n");
-    const translation = t(key);
-    // Leaderboard headers contain a nested .sort-arrow span — preserve it.
-    const arrow = el.querySelector(".sort-arrow");
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    const key = element.getAttribute("data-i18n");
+    const lang = state ? state.language || "EN" : "EN";
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.EN;
+    const rawEntry = key in dict ? dict[key] : TRANSLATIONS.EN[key];
+
+    // Skip dynamic entries whose translation value is a function needing arguments
+    if (typeof rawEntry === "function") {
+      return;
+    }
+
+    const translation = rawEntry !== undefined ? rawEntry : key;
+    if (typeof translation !== "string") {
+      return;
+    }
+
+    const arrow = element.querySelector(".sort-arrow");
     if (arrow) {
       const arrowClone = arrow.cloneNode(true);
-      el.textContent = translation;
-      el.appendChild(arrowClone);
-    } else if (el.hasAttribute("placeholder")) {
-      el.setAttribute("placeholder", translation);
+      element.textContent = translation;
+      element.appendChild(arrowClone);
+    } else if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+      element.setAttribute("placeholder", translation);
+    } else if (translation.includes("<") && translation.includes(">")) {
+      element.innerHTML = translation;
     } else {
-      el.textContent = translation;
+      element.textContent = translation;
     }
+  });
+
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-title");
+    element.setAttribute("title", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-placeholder");
+    element.setAttribute("placeholder", t(key));
   });
 }
