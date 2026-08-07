@@ -2,6 +2,12 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "Install Dev Dependencies",
+      "type": "shell",
+      "command": "uv sync --dev",
+      "problemMatcher": []
+    },
+    {
       "label": "Run App",
       "type": "shell",
       "command": "uv",
@@ -41,7 +47,7 @@
     {
       "label": "Lint & Format Code (Ruff)",
       "type": "shell",
-      "command": "uv run ruff check --fix . && uv run ruff format .",
+      "command": "uv run ruff check --fix --unsafe-fixes . ; uv run ruff format .",
       "problemMatcher": []
     },
     {
