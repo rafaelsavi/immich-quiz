@@ -78,7 +78,7 @@ async def _verify_and_get_asset(
     immich: ImmichClient,
 ) -> bool:
     """Verify that an asset's thumbnail can be served by Immich.
-    
+
     If Immich returns an error (e.g. 404 Asset media not found), remove the
     asset from state.asset_pool and return False.
     """
@@ -176,12 +176,11 @@ async def select_batch_round_assets(
         ans = state.asset_pool[aid]
         if is_asset_valid_for_batch(
             ans, played_assets + selected_assets, state.setup.location_mode, state.setup.date_mode
-        ):
-            if await _verify_and_get_asset(aid, state, immich):
-                selected_ids.append(aid)
-                selected_assets.append(RoundAsset(asset_id=aid, answer=ans))
-                if len(selected_assets) == count:
-                    break
+        ) and await _verify_and_get_asset(aid, state, immich):
+            selected_ids.append(aid)
+            selected_assets.append(RoundAsset(asset_id=aid, answer=ans))
+            if len(selected_assets) == count:
+                break
 
     # Fallback pass: if pool is constrained, fill remaining slots from available candidates
     if len(selected_assets) < count:
@@ -201,7 +200,6 @@ async def select_batch_round_assets(
 
     if not selected_assets:
         return None
-
 
     assets = selected_assets
 

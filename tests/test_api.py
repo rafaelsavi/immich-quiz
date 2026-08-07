@@ -664,7 +664,7 @@ def test_question_selection_skips_unreadable_assets(tmp_path: Path) -> None:
     class UnreadableImmichClient(FakeImmichClient):
         async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
             if asset_id == 'broken-asset':
-                raise ImmichClientError("404 Asset media not found")
+                raise ImmichClientError('404 Asset media not found')
             return b'fake-jpg', 'image/jpeg'
 
     assets = [
@@ -678,4 +678,3 @@ def test_question_selection_skips_unreadable_assets(tmp_path: Path) -> None:
     q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
     assert q_res.status_code == 200
     assert q_res.json()['asset_id'] == 'good-asset'
-
