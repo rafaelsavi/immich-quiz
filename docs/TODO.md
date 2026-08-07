@@ -14,3 +14,6 @@ This document tracks planned features, technical improvements, and potential gam
 ### 📊 Analytics & Leaderboards
 
 - [ ] Add player lifetime stats page split by game mode or how you decide. Lets discuss about it. Should store for example average distance error, historical date accuracy, win rates...
+
+### Fixes
+- Fix shared album config
