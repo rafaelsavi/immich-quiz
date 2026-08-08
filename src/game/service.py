@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import HTTPException
 
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.immich.client import ImmichClient, ImmichClientError
+
+logger = logging.getLogger(__name__)
 from src.models import (
     AnswerRequest,
     AnswerResponse,
@@ -126,7 +129,31 @@ class GameService:
 
         active = store.active_question(payload.match_id)
         if active is not None:
-            return engine.build_question_response(state, active)
+            active_failed = False
+            if active.asset_id in payload.played_asset_ids:
+                active_failed = True
+            elif active.batch_assets and any(ba.asset_id in payload.played_asset_ids for ba in active.batch_assets):
+                active_failed = True
+
+            if active_failed:
+                logger.info(
+                    "Active question %s asset was reported invalid/failed by client; invalidating active question and re-selecting for round %d.",
+                    active.question_id,
+                    state.current_round_index,
+                )
+                state.active_question_id = None
+                state.round_assets.pop(state.current_round_index, None)
+                state.batch_round_assets.pop(state.current_round_index, None)
+                state.batch_round_pins.pop(state.current_round_index, None)
+                if active.batch_assets:
+                    for ba in active.batch_assets:
+                        if ba.asset_id in payload.played_asset_ids:
+                            state.played_asset_ids.add(ba.asset_id)
+                else:
+                    state.played_asset_ids.add(active.asset_id)
+                active = None
+            else:
+                return engine.build_question_response(state, active)
 
         question_state = await engine.select_question(
             state,

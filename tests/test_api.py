@@ -719,6 +719,31 @@ def test_question_reselects_asset_when_cached_asset_marked_played(tmp_path: Path
     assert asset2 != asset1
 
 
+def test_all_players_in_same_round_receive_same_photo_even_with_played_asset_ids(tmp_path: Path) -> None:
+    assets = [
+        make_asset('asset-1', captured='2024-01-01T10:00:00Z'),
+        make_asset('asset-2', captured='2024-01-02T10:00:00Z'),
+    ]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    match_id = start_match(client, players=['Alice', 'Bob'])
+
+    # Alice fetches question (Round 0) -> gets asset-1
+    q_alice = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    assert q_alice['asset_id'] == 'asset-1'
+    assert q_alice['player_name'] == 'Alice'
+
+    # Alice submits answer for Round 0
+    answer_question(client, match_id, q_alice['question_id'])
+
+    # Bob fetches question for Round 0, passing played_asset_ids=['asset-1'] (since Alice played asset-1)
+    q_bob = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': ['asset-1']}).json()
+    assert q_bob['player_name'] == 'Bob'
+    # Bob MUST receive asset-1 for Round 0
+    assert q_bob['asset_id'] == 'asset-1'
+
+
 def test_album_shuffle_reselects_batch_when_asset_marked_played(tmp_path: Path) -> None:
     assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(15)]
     immich = FakeImmichClient(assets)
