@@ -139,7 +139,8 @@ class GameService:
 
             if active_failed:
                 logger.info(
-                    'Active question %s asset was reported invalid/failed by client; invalidating active question and re-selecting for round %d.',
+                    'Active question %s asset was reported invalid/failed by client; '
+                    'invalidating active question and re-selecting for round %d.',
                     active.question_id,
                     state.current_round_index,
                 )
