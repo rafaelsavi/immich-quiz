@@ -562,14 +562,18 @@ let activeBreakdownViewMode = "photo";
 const PIN_COLORS = {
   A: "#059669", 1: "#059669",
   B: "#d97706", 2: "#d97706",
-  C: "#7c3aed", 3: "#7c3aed",
+  C: "#883aed", 3: "#883aed",
   D: "#db2777", 4: "#db2777",
   E: "#2563eb", 5: "#2563eb",
 };
 
 export function getPinColor(pinId) {
   if (!pinId) return "#0f7c7f";
-  return PIN_COLORS[pinId] || PIN_COLORS[String(pinId).toUpperCase()] || "#0f7c7f";
+  const rawColor = PIN_COLORS[pinId] || PIN_COLORS[String(pinId).toUpperCase()] || "#0f7c7f";
+  if (typeof rawColor === "string" && rawColor.startsWith("#") && rawColor.length === 9) {
+    return rawColor.slice(0, 7);
+  }
+  return rawColor;
 }
 
 function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData, libraryName) {
@@ -717,16 +721,20 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
     if (assignedPin && pinColor) {
       card.style.borderColor = pinColor;
-      card.style.backgroundColor = `${pinColor}24`;
       if (isSelected) {
-        card.style.boxShadow = `0 0 0 3.5px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.35)`;
+        card.style.backgroundColor = `${pinColor}38`;
+        card.style.boxShadow = `0 0 0 3.5px rgba(100, 116, 139, 0.35), 0 8px 20px rgba(0, 0, 0, 0.14)`;
+        card.style.transform = "translateY(-2px) scale(1.015)";
       } else {
+        card.style.backgroundColor = `${pinColor}24`;
         card.style.boxShadow = `0 2px 6px ${pinColor}33`;
+        card.style.transform = "";
       }
     } else {
       card.style.borderColor = "";
       card.style.backgroundColor = "";
       card.style.boxShadow = "";
+      card.style.transform = "";
     }
 
     card.addEventListener("click", () => {
@@ -773,12 +781,18 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
     if (questionData.location_mode) {
       const pinBadge = document.createElement("div");
-      if (assignedPin) {
+      if (assignedPin && pinColor) {
         pinBadge.className = "shuffle-assigned-pin-badge assigned";
         pinBadge.textContent = `📍 ${assignedPin}`;
+        pinBadge.style.backgroundColor = pinColor;
+        pinBadge.style.color = "#ffffff";
+        pinBadge.style.borderColor = pinColor;
       } else {
         pinBadge.className = "shuffle-assigned-pin-badge unassigned";
         pinBadge.textContent = "📍 -";
+        pinBadge.style.backgroundColor = "";
+        pinBadge.style.color = "";
+        pinBadge.style.borderColor = "";
       }
       pinBadgeWrap.appendChild(pinBadge);
     } else {
