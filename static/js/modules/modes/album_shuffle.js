@@ -658,11 +658,10 @@ export const albumShuffleMode = {
 };
 
 const PIN_COLORS = {
-  A: "#2563eb",
+  A: "#059669",
   B: "#f59e0b",
   C: "#7c3aed",
-  D: "#059669",
-  E: "#db2777",
+  D: "#db2777",
 };
 
 export function getPinColor(pinId) {

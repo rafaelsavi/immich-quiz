@@ -419,7 +419,7 @@ function renderRevealMap(reveal) {
     return;
   }
 
-  const lineDuration = 800;
+  const lineDuration = 1300;
 
   state.revealAnimationTimeoutId = window.setTimeout(() => {
     state.revealAnimationTimeoutId = null;
@@ -613,5 +613,5 @@ export const pinpointMode = {
     renderRevealSummary(revealData, true);
   },
 
-  openHelp(questionData) {},
+  openHelp(questionData) { },
 };
