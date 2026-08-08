@@ -47,7 +47,7 @@ In **Album Shuffle** mode, the score of a round is computed over the entire batc
 
 #### Date Score
 
-The chronological order of the photos is evaluated using the Kendall-Tau inversion count $K$ on the sequence of guessed indices. That means, individual positions are not evaluated, but the relative order of the photos is.
+- Each photo placed in its exact sequence position (timeline index matching true chronological order rank) earns $round($`SCORE_MAX_POINTS`$)/N$ points. If all photos are placed in their exact sequence position, `SCORE_MAX_POINTS` is awarded to the date guess.
 
 ## Common values for scoring exponential function
 

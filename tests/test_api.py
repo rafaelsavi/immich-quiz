@@ -626,14 +626,19 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
     q_data = q_res.json()
     batch_photos = q_data['batch_photos']
 
+    asset_date_map = {a.asset_id: a.answer.capture_datetime for a in assets}
+    sorted_photos = sorted(batch_photos, key=lambda p: asset_date_map[p['photo_id']], reverse=True)
+    photo_rank_map = {p['photo_id']: r for r, p in enumerate(sorted_photos)}
+
     # Submit correct chronological order for photos with timed_out=True
-    answers = []
-    for idx, p in enumerate(batch_photos):
-        answers.append({
+    answers = [
+        {
             'photo_id': p['photo_id'],
             'assigned_pin_id': None,
-            'assigned_timeline_index': idx,
-        })
+            'assigned_timeline_index': photo_rank_map[p['photo_id']],
+        }
+        for p in batch_photos
+    ]
 
     a_res = client.post(
         '/api/answer',
@@ -649,7 +654,39 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
     result = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
     entry = result['results'][0]
     assert entry['timed_out'] is True
-    assert entry['date_score'] > 0
+    assert entry['date_score'] == 100
+
+
+def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> None:
+    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(game_mode='album_shuffle', round_count=1, players=['Player 1'])
+    setup_res = client.post('/api/game/setup', json=payload)
+    match_id = setup_res.json()['match_id']
+
+    q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    q_data = q_res.json()
+    batch_photos = q_data['batch_photos']
+
+    asset_date_map = {a.asset_id: a.answer.capture_datetime for a in assets}
+    sorted_photos = sorted(batch_photos, key=lambda p: asset_date_map[p['photo_id']], reverse=True)
+    true_rank_map = {p['photo_id']: r for r, p in enumerate(sorted_photos)}
+
+    # Submit exact sequence placement (all photos in correct slots) -> 100 points
+    answers_perfect = [
+        {'photo_id': p['photo_id'], 'assigned_pin_id': None, 'assigned_timeline_index': true_rank_map[p['photo_id']]}
+        for p in batch_photos
+    ]
+    a_res = client.post(
+        '/api/answer',
+        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle_answers': answers_perfect},
+    )
+    assert a_res.status_code == 200
+    res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
+    assert res['results'][0]['date_score'] == 100
+
 
 
 

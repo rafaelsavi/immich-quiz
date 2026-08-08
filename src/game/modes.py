@@ -22,6 +22,7 @@ from src.models import (
     QuestionResponse,
 )
 from src.scoring import (
+    batch_strict_date_score,
     batch_strict_location_score,
     date_diff_days,
     date_diff_months,
@@ -392,20 +393,19 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 sorted_by_date = sorted(batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=True)
                 true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
 
-                sorted_answers = sorted(
-                    answers,
-                    key=lambda ans: ans.assigned_timeline_index if ans.assigned_timeline_index is not None else 999,
-                )
-                guessed_ranks = [
-                    true_rank_map[ans.photo_id]
-                    for ans in sorted_answers
-                    if ans.photo_id in true_rank_map and ans.assigned_timeline_index is not None
-                ]
+                correct_ranks = 0
+                for ans in answers:
+                    if (
+                        ans.photo_id in true_rank_map
+                        and ans.assigned_timeline_index is not None
+                        and ans.assigned_timeline_index == true_rank_map[ans.photo_id]
+                    ):
+                        correct_ranks += 1
 
-                date_points = kendall_tau_inversion_score(
-                    guessed_ranks,
+                date_points = batch_strict_date_score(
+                    correct_ranks,
+                    total_photos=len(batch_assets),
                     max_points=settings.score_max_points,
-                    total_items=len(batch_assets),
                 )
         else:
             date_points = 0

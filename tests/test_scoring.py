@@ -4,6 +4,7 @@ import pytest
 
 from src.scoring import (
     accuracy_pct,
+    batch_strict_date_score,
     batch_strict_location_score,
     date_diff_days,
     date_diff_months,
@@ -119,3 +120,10 @@ def test_batch_strict_location_score() -> None:
     assert batch_strict_location_score(5, 5, max_points=100) == 100
     assert batch_strict_location_score(0, 5, max_points=100) == 0
     assert batch_strict_location_score(3, 5, max_points=100) == 60
+
+
+def test_batch_strict_date_score() -> None:
+    assert batch_strict_date_score(3, 3, max_points=100) == 100
+    assert batch_strict_date_score(0, 3, max_points=100) == 0
+    assert batch_strict_date_score(1, 3, max_points=100) == 33
+

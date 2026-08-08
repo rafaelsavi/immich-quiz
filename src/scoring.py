@@ -181,3 +181,11 @@ def batch_strict_location_score(correct_matches: int, total_photos: int, max_poi
     if total_photos <= 0:
         return 0
     return max(0, round((correct_matches / total_photos) * max_points))
+
+
+def batch_strict_date_score(correct_matches: int, total_photos: int, max_points: int = 100) -> int:
+    """Strict date score: each correctly sequence-placed photo earns max_points / total_photos."""
+    if total_photos <= 0:
+        return 0
+    return max(0, round((correct_matches / total_photos) * max_points))
+
