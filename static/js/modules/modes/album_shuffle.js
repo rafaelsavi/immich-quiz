@@ -653,7 +653,7 @@ export const albumShuffleMode = {
   },
 };
 
-function renderPhotoCardsList(containerEl, questionData) {
+function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
   containerEl.replaceChildren();
 
   const isDisabled = Boolean(state.timedOut || state.submitting || state.albumShuffleDisabled);
@@ -664,6 +664,8 @@ function renderPhotoCardsList(containerEl, questionData) {
   (questionData.batch_photos || []).forEach((p) => {
     photosMap[p.photo_id] = p;
   });
+
+  let elementToFocus = null;
 
   orderedIds.forEach((photoId, index) => {
     const photo = photosMap[photoId];
@@ -747,7 +749,7 @@ function renderPhotoCardsList(containerEl, questionData) {
         const temp = orderedIds[index - 1];
         orderedIds[index - 1] = orderedIds[index];
         orderedIds[index] = temp;
-        renderPhotoCardsList(containerEl, questionData);
+        renderPhotoCardsList(containerEl, questionData, { focusPhotoId: photoId, focusDirection: "up" });
       }
     });
 
@@ -764,12 +766,21 @@ function renderPhotoCardsList(containerEl, questionData) {
         const temp = orderedIds[index + 1];
         orderedIds[index + 1] = orderedIds[index];
         orderedIds[index] = temp;
-        renderPhotoCardsList(containerEl, questionData);
+        renderPhotoCardsList(containerEl, questionData, { focusPhotoId: photoId, focusDirection: "down" });
       }
     });
 
-    rankControls.append(upBtn, downBtn);
+    if (focusOptions && focusOptions.focusPhotoId === photoId) {
+      if (focusOptions.focusDirection === "up") {
+        elementToFocus = !upBtn.disabled ? upBtn : downBtn;
+      } else if (focusOptions.focusDirection === "down") {
+        elementToFocus = !downBtn.disabled ? downBtn : upBtn;
+      } else {
+        elementToFocus = card;
+      }
+    }
 
+    rankControls.append(upBtn, downBtn);
     card.append(rankBadge, thumbWrap, pinBadgeWrap, rankControls);
     containerEl.appendChild(card);
   });
@@ -779,6 +790,10 @@ function renderPhotoCardsList(containerEl, questionData) {
   }
 
   updateSubmitState();
+
+  if (elementToFocus) {
+    elementToFocus.focus();
+  }
 }
 
 function getPinMarkerDetails(pinId) {
