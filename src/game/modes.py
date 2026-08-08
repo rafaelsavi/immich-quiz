@@ -9,8 +9,6 @@ from fastapi import HTTPException
 
 from src.game.selector import select_batch_round_assets, select_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
-
-logger = logging.getLogger(__name__)
 from src.models import (
     AlbumShuffleAnswerItem,
     AnswerRequest,
@@ -37,6 +35,8 @@ from src.storage.session import (
     QuestionState,
     SessionStore,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def split_month_delta(delta_months: int | None) -> tuple[int | None, int | None]:

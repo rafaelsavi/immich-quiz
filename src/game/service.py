@@ -7,8 +7,6 @@ from fastapi import HTTPException
 
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.immich.client import ImmichClient, ImmichClientError
-
-logger = logging.getLogger(__name__)
 from src.models import (
     AnswerRequest,
     AnswerResponse,
@@ -27,6 +25,8 @@ from src.models import (
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.session import SessionStore
+
+logger = logging.getLogger(__name__)
 
 
 class GameService:
