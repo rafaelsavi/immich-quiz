@@ -292,7 +292,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 res = await select_batch_round_assets(
                     state,
                     immich,
-                    5,
+                    3,
                     set(payload_played_asset_ids),
                     settings.fetch_photos_date_lower_bound,
                     settings.fetch_photos_date_upper_bound,

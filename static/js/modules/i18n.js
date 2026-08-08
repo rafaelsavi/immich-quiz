@@ -60,6 +60,8 @@ export const TRANSLATIONS = {
     "game.continue_btn": "Continue",
     "game.pin_required": "Place a pin on the map first",
     "game.help_btn": "Help",
+    "game.shuffle_newest": "Newest",
+    "game.shuffle_oldest": "Oldest",
     "game.shuffle_info_banner": (count) =>
       `⏳ Arrange photos from <strong>newest (#1)</strong> down to <strong>oldest (#${count})</strong>`,
     "game.shuffle_help_intro": "Use this guide whenever you want a quick reminder of the round rules.",
@@ -238,6 +240,8 @@ export const TRANSLATIONS = {
     "game.continue_btn": "Continuar",
     "game.pin_required": "Coloque um pino no mapa primeiro",
     "game.help_btn": "Ajuda",
+    "game.shuffle_newest": "Mais recente",
+    "game.shuffle_oldest": "Mais antiga",
     "game.shuffle_info_banner": (count) =>
       `⏳ Organize as fotos da <strong>mais recente (#1)</strong> até a <strong>mais antiga (#${count})</strong>`,
     "game.shuffle_help_intro": "Use este guia sempre que quiser um lembrete rápido das regras da rodada.",
@@ -400,7 +404,7 @@ export function getInitialLanguagePreference() {
   try {
     const stored = localStorage.getItem("immich_quiz_language");
     if (stored === "PT" || stored === "EN") return stored;
-  } catch (_) {}
+  } catch (_) { }
   return null;
 }
 
@@ -427,7 +431,7 @@ export function toggleLanguage(onLanguageChanged) {
   state.language = state.language === "PT" ? "EN" : "PT";
   try {
     localStorage.setItem("immich_quiz_language", state.language);
-  } catch (_) {}
+  } catch (_) { }
   updateLanguageUi();
   applyLanguage();
   if (typeof onLanguageChanged === "function") {

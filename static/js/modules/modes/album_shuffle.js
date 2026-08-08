@@ -188,7 +188,7 @@ export const albumShuffleMode = {
     }
   },
 
-  onReady(questionData) {},
+  onReady(questionData) { },
 
   renderQuestion(questionData) {
     state.albumShuffleDisabled = false;
@@ -653,6 +653,18 @@ export const albumShuffleMode = {
   },
 };
 
+const PIN_COLORS = {
+  A: "#2563eb",
+  B: "#f59e0b",
+  C: "#7c3aed",
+  D: "#059669",
+  E: "#db2777",
+};
+
+export function getPinColor(pinId) {
+  return PIN_COLORS[pinId] || "#0f7c7f";
+}
+
 function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
   containerEl.replaceChildren();
 
@@ -666,6 +678,13 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
   });
 
   let elementToFocus = null;
+
+  if (questionData.date_mode && orderedIds.length > 0) {
+    const topHeader = document.createElement("div");
+    topHeader.className = "shuffle-timeline-header newest";
+    topHeader.innerHTML = `<span>⬆️ <span data-i18n="game.shuffle_newest">${t("game.shuffle_newest")}</span></span>`;
+    containerEl.appendChild(topHeader);
+  }
 
   orderedIds.forEach((photoId, index) => {
     const photo = photosMap[photoId];
@@ -686,11 +705,6 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
         highlightMapMarker(assignedPin || null);
       }
     });
-
-    // Rank Badge
-    const rankBadge = document.createElement("div");
-    rankBadge.className = "shuffle-rank-badge";
-    rankBadge.textContent = `#${index + 1}`;
 
     // Thumbnail
     const thumbWrap = document.createElement("div");
@@ -713,27 +727,37 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
     thumbWrap.append(img, fsBtn);
 
-    // Assigned Pin Badge Indicator
+    // Right Action Panel: Pin Badge + Rank Controls stacked vertically
+    const rightActions = document.createElement("div");
+    rightActions.className = "shuffle-card-actions";
+
     const pinBadgeWrap = document.createElement("div");
     pinBadgeWrap.className = "shuffle-card-details";
 
     if (questionData.location_mode) {
       const assignedPin = pinAssignments[photoId];
       const pinBadge = document.createElement("div");
-      pinBadge.className = `shuffle-assigned-pin-badge ${assignedPin ? "assigned" : "unassigned"}`;
-      pinBadge.textContent = assignedPin ? `📍 ${assignedPin}` : "📍";
+      if (assignedPin) {
+        const color = getPinColor(assignedPin);
+        pinBadge.className = "shuffle-assigned-pin-badge assigned";
+        pinBadge.style.backgroundColor = color;
+        pinBadge.style.borderColor = color;
+        pinBadge.style.color = "#ffffff";
+        pinBadge.textContent = `📍 ${assignedPin}`;
+      } else {
+        pinBadge.className = "shuffle-assigned-pin-badge unassigned";
+        pinBadge.textContent = "📍 -";
+      }
       pinBadgeWrap.appendChild(pinBadge);
     } else {
       pinBadgeWrap.style.display = "none";
     }
 
-    // Compact Arrow Buttons
     const rankControls = document.createElement("div");
     rankControls.className = "shuffle-rank-controls";
 
     if (!questionData.date_mode) {
       rankControls.style.display = "none";
-      rankBadge.style.display = "none";
     }
 
     const upBtn = document.createElement("button");
@@ -781,9 +805,17 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     }
 
     rankControls.append(upBtn, downBtn);
-    card.append(rankBadge, thumbWrap, pinBadgeWrap, rankControls);
+    rightActions.append(pinBadgeWrap, rankControls);
+    card.append(thumbWrap, rightActions);
     containerEl.appendChild(card);
   });
+
+  if (questionData.date_mode && orderedIds.length > 0) {
+    const bottomFooter = document.createElement("div");
+    bottomFooter.className = "shuffle-timeline-header oldest";
+    bottomFooter.innerHTML = `<span>⬇️ <span data-i18n="game.shuffle_oldest">${t("game.shuffle_oldest")}</span></span>`;
+    containerEl.appendChild(bottomFooter);
+  }
 
   if (questionData.location_mode && questionData.batch_pins) {
     updateShuffleMapMarkers(questionData.batch_pins);
@@ -808,8 +840,8 @@ function getPinMarkerDetails(pinId) {
     if (cardIndex !== -1) {
       return {
         isTaken: true,
-        badgeText: `${pinId}-${cardIndex + 1}`,
-        bgColor: "#f59f00",
+        badgeText: `${pinId}`,
+        bgColor: getPinColor(pinId),
       };
     }
   }
@@ -817,7 +849,7 @@ function getPinMarkerDetails(pinId) {
   return {
     isTaken: false,
     badgeText: pinId,
-    bgColor: "#0f7c7f",
+    bgColor: "#94a3b8",
   };
 }
 
@@ -914,9 +946,10 @@ function highlightMapMarker(pinId) {
     const el = document.getElementById(`pin-marker-${pid}`);
     if (el) {
       if (pinId && pid === pinId) {
+        const pinColor = getPinColor(pid);
         el.style.transform = "scale(1.3)";
-        el.style.boxShadow = "0 0 0 4px rgba(245, 159, 0, 0.6), 0 4px 12px rgba(0,0,0,0.4)";
-        el.style.borderColor = "#f59f00";
+        el.style.boxShadow = `0 0 0 4px ${pinColor}80, 0 4px 12px rgba(0,0,0,0.4)`;
+        el.style.borderColor = pinColor;
       } else {
         el.style.transform = "scale(1)";
         el.style.boxShadow = "0 3px 8px rgba(0,0,0,0.35)";
