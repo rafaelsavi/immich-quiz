@@ -82,11 +82,17 @@ export function formatMonthError(result) {
   }
 
   if (years === 0) {
+    if (days === 0) {
+      return `${months} ${t("fmt.mon")}`;
+    }
     const dayWord = days === 1 ? t("fmt.day") : t("fmt.days");
     return `${months} ${t("fmt.mon")} ${days} ${dayWord}`;
   }
 
   const yearWord = years === 1 ? t("fmt.year") : t("fmt.years");
+  if (months === 0) {
+    return `${years} ${yearWord}`;
+  }
   return `${years} ${yearWord} ${months} ${t("fmt.mon")}`;
 }
 
