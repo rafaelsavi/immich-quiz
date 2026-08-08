@@ -671,7 +671,7 @@ export function getPinColor(pinId) {
 function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
   containerEl.replaceChildren();
 
-  const isDisabled = Boolean(state.timedOut || state.submitting || state.albumShuffleDisabled);
+  const isDisabled = Boolean(state.timedOut || state.albumShuffleDisabled);
   const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
   const selectedPhotoId = state.albumShuffleState ? state.albumShuffleState.selectedPhotoId : null;
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
@@ -715,7 +715,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     }
 
     card.addEventListener("click", () => {
-      if (isDisabled) return;
+      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
       if (state.albumShuffleState) {
         state.albumShuffleState.selectedPhotoId = photoId;
         renderPhotoCardsList(containerEl, questionData);
@@ -785,7 +785,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     upBtn.disabled = index === 0 || isDisabled;
     upBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (isDisabled) return;
+      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
       if (index > 0) {
         const temp = orderedIds[index - 1];
         orderedIds[index - 1] = orderedIds[index];
@@ -802,7 +802,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     downBtn.disabled = index === orderedIds.length - 1 || isDisabled;
     downBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (isDisabled) return;
+      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
       if (index < orderedIds.length - 1) {
         const temp = orderedIds[index + 1];
         orderedIds[index + 1] = orderedIds[index];
