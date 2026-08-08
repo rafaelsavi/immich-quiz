@@ -25,10 +25,11 @@ import {
   renderJourneyMap,
   toggleMapFullscreen,
   syncFullscreenButtons,
+  refitMap,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
 import { pinpointMode } from "./modules/modes/pinpoint.js";
-import { albumShuffleMode, openPhotoLightbox } from "./modules/modes/album_shuffle.js";
+import { albumShuffleMode, openPhotoLightbox, getShuffleMaps } from "./modules/modes/album_shuffle.js";
 
 const GAME_MODES = {
   pinpoint: pinpointMode,
@@ -1176,10 +1177,18 @@ if (el.journeyMapFullscreen) {
 document.addEventListener("fullscreenchange", () => {
   syncFullscreenButtons();
 
-  // Leaflet needs to re-measure after the container resizes.
-  [state.guessMap, state.revealMap, state.journeyMap].forEach((map) => {
+  // Leaflet needs to re-measure and refit after the container resizes.
+  [state.guessMap, state.revealMap, state.journeyMap, ...getShuffleMaps()].forEach((map) => {
     if (map) {
-      setTimeout(() => map.invalidateSize(), 120);
+      setTimeout(() => refitMap(map), 120);
+    }
+  });
+});
+
+window.addEventListener("resize", () => {
+  [state.guessMap, state.revealMap, state.journeyMap, ...getShuffleMaps()].forEach((map) => {
+    if (map) {
+      refitMap(map);
     }
   });
 });

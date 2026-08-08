@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { state, el } from "../state.js";
-import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen } from "../maps.js";
+import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import { playerBadge, playerNameCell, buildCell } from "../formatters.js";
 import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
@@ -904,11 +904,9 @@ function renderShuffleMap(containerEl, pins, questionData) {
     });
   });
 
-  if (pins.length > 0) {
-    map.fitBounds(bounds, { padding: [50, 50] });
+  if (pins.length > 0 && bounds.isValid()) {
+    fitMapToBounds(map, bounds, { padding: [50, 50], maxZoom: 15 });
   }
-
-  setTimeout(() => map.invalidateSize(), 150);
 }
 
 function highlightMapMarker(pinId) {
@@ -980,11 +978,13 @@ function renderBatchRevealMap(containerEl, batchItems) {
       .addTo(map);
   });
 
-  if (validItems.length > 0) {
-    map.fitBounds(bounds, { padding: [50, 50] });
+  if (validItems.length > 0 && bounds.isValid()) {
+    fitMapToBounds(map, bounds, { padding: [50, 50], maxZoom: 15 });
   }
+}
 
-  setTimeout(() => map.invalidateSize(), 150);
+export function getShuffleMaps() {
+  return [shuffleMap, revealShuffleMap].filter(Boolean);
 }
 
 export function openPhotoLightbox(src) {

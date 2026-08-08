@@ -291,11 +291,52 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
   });
 
   if (points.length > 0) {
-    const bounds = L.latLngBounds(points);
-    state.journeyMap.fitBounds(bounds, { padding: [40, 40] });
+    fitMapToBounds(state.journeyMap, points, { padding: [50, 50], maxZoom: 15 });
+  }
+}
+
+export function refitMap(map) {
+  if (map && map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
+    map.invalidateSize();
+    const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
+    const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
+    map.fitBounds(map._lastFitBounds, { padding, maxZoom });
+  }
+}
+
+export function fitMapToBounds(map, pointsOrBounds, options = {}) {
+  if (!map || !pointsOrBounds) return;
+
+  let bounds;
+  if (Array.isArray(pointsOrBounds)) {
+    if (pointsOrBounds.length === 0) return;
+    bounds = L.latLngBounds(pointsOrBounds);
+  } else if (
+    pointsOrBounds instanceof L.LatLngBounds ||
+    (typeof pointsOrBounds.isValid === "function" && pointsOrBounds.isValid())
+  ) {
+    bounds = pointsOrBounds;
+  } else {
+    return;
   }
 
-  requestAnimationFrame(() => state.journeyMap.invalidateSize());
+  if (!bounds || typeof bounds.isValid !== "function" || !bounds.isValid()) return;
+
+  map._lastFitBounds = bounds;
+  map._lastFitOptions = options;
+
+  const padding = options.padding || [50, 50];
+  const maxZoom = options.maxZoom !== undefined ? options.maxZoom : 15;
+
+  const doFit = () => {
+    if (!map) return;
+    map.invalidateSize();
+    map.fitBounds(bounds, { padding, maxZoom });
+  };
+
+  doFit();
+  requestAnimationFrame(() => doFit());
+  setTimeout(() => doFit(), 250);
 }
 
 export function toggleMapFullscreen(shell) {

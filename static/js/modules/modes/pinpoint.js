@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { el, state } from "../state.js";
-import { ensureGuessMap, ensureRevealMap, createPinIcon, toggleMapFullscreen } from "../maps.js";
+import { ensureGuessMap, ensureRevealMap, createPinIcon, toggleMapFullscreen, fitMapToBounds } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import {
   ACTUAL_COLOR,
@@ -413,11 +413,7 @@ function renderRevealMap(reveal) {
     playerGuesses.push({ result, guessed });
   });
 
-  if (points.length > 1) {
-    state.revealMap.fitBounds(L.latLngBounds(points).pad(0.3));
-  } else {
-    state.revealMap.setView(actual, 4);
-  }
+  fitMapToBounds(state.revealMap, points, { padding: [50, 50], maxZoom: 15 });
 
   if (playerGuesses.length === 0) {
     return;
