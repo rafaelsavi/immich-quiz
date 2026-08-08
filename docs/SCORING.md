@@ -39,7 +39,7 @@ faces the actual capture date:
 
 ## Album Shuffle Game
 
-In **Album Shuffle** mode, the score of a round is computed over the entire batch of $N=5$ photos.
+In **Album Shuffle** mode, the score of a round is computed over the entire batch of $N=3$ photos.
 
 ### Location Score
 

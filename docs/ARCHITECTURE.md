@@ -21,7 +21,15 @@ immich-quiz/
 │   │                    vars at startup; raises ConfigError on bad input.
 │   ├── models.py        Pydantic request/response models for all endpoints.
 │   ├── scoring.py       Pure scoring functions: haversine_km, location_score,
-│   │                    date_diff_days, date_score, accuracy_pct.
+│   │                    date_diff_days, date_score, timeline_inversion_score,
+│   │                    batch_location_match_score, accuracy_pct.
+│   ├── game/            Modular game mode system and session orchestration.
+│   │   ├── modes.py     GameMode abstract base, PinpointGameMode,
+│   │   │                AlbumShuffleGameMode, and GameModeRegistry.
+│   │   ├── selector.py  Candidate asset selection, spatial (≥100m) & temporal (≥60s)
+│   │   │                diversity filters.
+│   │   └── service.py   GameService managing match state, question drawing,
+│   │                    and answer scoring.
 │   ├── api/
 │   │   └── routes.py    All API endpoints. Depends on SessionStore,
 │   │                    ImmichClient, and LeaderboardStore via FastAPI DI.
@@ -29,23 +37,24 @@ immich-quiz/
 │   │   └── client.py    ImmichClient adapter. Wraps httpx AsyncClient.
 │   │                    Provides: validate_access, list_albums, search_assets,
 │   │                    search_random_assets, get_asset_bytes.
-│   │                    One shared AsyncClient per app instance (connection
-│   │                    pooling). All Immich calls are made here; no other
-│   │                    module calls Immich directly.
 │   └── storage/
-│       ├── session.py   In-memory state. SessionStore holds MatchState objects
-│       │                keyed by match_id. MatchState owns the round list,
-│       │                player rotation, and QuestionState per turn.
-│       │                QuestionState holds the answer data (RoundAsset) and
-│       │                the player's submitted guess + computed scores.
-│       └── leaderboard.py LeaderboardStore appends and reads rows from a CSV
-│                            file using the exact required schema.
+│       ├── session.py   In-memory state. SessionStore holds MatchState objects.
+│       └── leaderboard.py LeaderboardStore appends and reads rows from CSV.
 └── static/              Vanilla HTML/CSS/JS frontend.
     ├── index.html       Main quiz application HTML.
     ├── audio-playground.html Interactive Web Audio testing playground page.
     ├── js/app.js        Main application controller & UI router.
     ├── js/audio-playground.js Playground controller & visualizer logic.
-    └── js/modules/      ES modules (api, state, leaderboard, map, quiz, audio, setup, i18n, formatters).
+    └── js/modules/      Modular ES modules:
+        ├── modes/       Game mode UI controllers (pinpoint.js, album_shuffle.js, common.js).
+        ├── api.js       API HTTP request client.
+        ├── audio.js     Zero-dependency Web Audio sound synthesizer engine.
+        ├── effects.js   Canvas confetti, animations, and visual transitions.
+        ├── formatters.js Distance/date formatters and string helpers.
+        ├── i18n.js      Multi-language translation engine (EN/PT) with live switcher.
+        ├── leaderboard.js Leaderboard UI rendering and filtering.
+        ├── maps.js      Leaflet map wrapper, marker placement, and auto-zoom.
+        └── state.js     Centralized reactive application state store.
 ```
 
 ---
@@ -66,16 +75,12 @@ POST /api/game/setup
   └── Returns match_id and total turns
 
 POST /api/question
-  └── routes.py looks up MatchState by match_id
-  └── Draws candidate asset(s) using _select_round_asset (Pinpoint) or
-      _select_batch_round_assets (Album Shuffle)
-  └── Evaluates candidate assets with _is_asset_valid_for_batch against
-      previously played match assets (and batch items):
-      - Location distance >= 0.1 km (100m) using haversine_km (when location_mode is active)
-      - Time separation >= 60 seconds using capture_datetime (when date_mode is active)
-      - Graceful fallback if pool is constrained
+  └── routes.py dispatches through GameModeRegistry to active GameMode
+  └── Draws candidate asset(s) using selector.py with diversity constraints:
+      - Location distance >= 0.1 km (100m) using haversine_km
+      - Time separation >= 60 seconds using capture_datetime
   └── Creates QuestionState with full RoundAsset (lat/lon/date) stored server-side
-  └── Returns sanitized QuestionResponse — no coordinates, no capture date
+  └── Returns sanitized QuestionResponse (no coordinates, no capture dates)
 
 GET /api/media/{asset_id}
   └── routes.py verifies asset_id was issued in a live match (rejects any other)
@@ -84,7 +89,7 @@ GET /api/media/{asset_id}
 
 POST /api/answer
   └── routes.py looks up QuestionState
-  └── Calls scoring.py: location_score, date_diff_days, date_score
+  └── Dispatches to active GameMode score_answer method
   └── Stores guess + scores in QuestionState
   └── Returns acknowledgement only (no answer data)
 
@@ -92,6 +97,19 @@ POST /api/round/result
   └── routes.py checks all players in round have answered (409 if not)
   └── Returns actual coordinates, actual date, actual location, all guesses, per-player scores
 ```
+
+---
+
+## Game Mode Extensibility Architecture
+
+Game modes implement the `GameMode` abstract interface in `src/game/modes.py`:
+
+- `name`: Unique mode identifier (`"pinpoint"`, `"album_shuffle"`).
+- `prepare_question(...)`: Generates single or batch question payloads.
+- `score_answer(...)`: Evaluates player answers using mode-specific scoring algorithms.
+- `evaluate_awards(...)`: Determines eligibility for performance badges (**Sniper**, **Time Traveler**, **Speed Demon**).
+
+New game modes can be added by implementing `GameMode` and registering them with `@GameModeRegistry.register`.
 
 ---
 

@@ -16,7 +16,7 @@ When you open the app, you start on the setup screen. Fill in your game options:
 | **Game Mode**    | Choose **Pinpoint** (single photo per turn) or **Album Shuffle** (batch matching & timeline).  |
 | **Guess Mode**   | Choose **Location**, **Date**, or **Both**.                                                     |
 
-Press **Start** when you're ready. The game checks that the selected library or album has enough eligible photos for your settings before it begins.
+Press **Start** when you're ready. The game checks that the selected library or album has enough eligible photos for your settings before it begins. You can also switch the UI language between **English** and **Portuguese** at any time using the header language toggle button.
 
 ## Game Modes
 
@@ -49,14 +49,14 @@ The next round begins with the pass-device overlay for the first player again.
 
 ### 🔀 Album Shuffle
 
-In **Album Shuffle**, you get a batch of 5 photos and must match them to map pins or sort them in chronological order.
+In **Album Shuffle**, you get a batch of 3 photos and must match them to map pins or sort them in chronological order.
 
 #### Your turn
 
-Each player sees 5 photo cards in a list.
+Each player sees 3 photo cards in a list.
 
-- **Location mode**: a map appears with pins labeled A, B, C, D, and E. Click a photo card to select it, then click the map pin where you think that photo was taken to assign it.
-- **Date mode**: sort the 5 images into chronological order (from oldest to newest) using the rank buttons next to each photo card.
+- **Location mode**: a map appears with pins labeled A, B, and C. Click a photo card to select it, then click the map pin where you think that photo was taken to assign it.
+- **Date mode**: sort the 3 images into chronological order (from oldest to newest) using the rank buttons next to each photo card. Photos automatically auto-sort in real time as timeline ranks are assigned.
 - Press **Submit** when you are finished. If a countdown is running, the turn auto-submits when time runs out.
 
 #### Reveal

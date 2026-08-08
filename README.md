@@ -4,7 +4,7 @@
 [![GHCR Container](https://img.shields.io/badge/docker-ghcr.io%2Frafaelsavi%2Fimmich--quiz-blue?logo=docker)](https://github.com/rafaelsavi/immich-quiz/pkgs/container/immich-quiz)
 [![CI](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml)
 
-Immich Quiz is a local-first, pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when each photo was taken, scored on map distance and date accuracy.
+Immich Quiz is a pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when photos were taken in **Pinpoint** mode, or matching photo batches to map pins and timeline dates in **Album Shuffle** mode.
 
 ![Immich Quiz Home Screen](docs/assets/home.webp)
 
@@ -13,9 +13,9 @@ Immich Quiz is a local-first, pass-and-play trivia game that generates rounds fr
 ## Playing the Game
 
 - Start the app in your browser after launching the server.
-- Add player names, choose rounds, guess mode, and a library.
-- Take turns guessing each photo's location, date, or both.
-- Review the leaderboard when the game ends.
+- Select players, choose a game mode (**Pinpoint** or **Album Shuffle**), rounds, round length, guess mode, and library.
+- Take turns guessing photo locations, capture dates, or both.
+- Review end-of-match performance awards and the leaderboard when the game ends.
 
 See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough. For scoring details, see [docs/SCORING.md](docs/SCORING.md).
 
@@ -32,7 +32,7 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 | Tag                  | Description                       | Command                                             |
 |----------------------|-----------------------------------|-----------------------------------------------------|
 | `:latest`            | Latest build from `main` branch   | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
-| `:v0.1.2` / `:0.1.2` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v0.1.2` |
+| `:v1.0.0` / `:1.0.0` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v1.0.0` |
 | `:<sha>`             | Exact commit hash build           | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
 ### Starting the server
