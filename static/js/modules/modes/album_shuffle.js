@@ -232,8 +232,10 @@ export const albumShuffleMode = {
     mapFsBtn.type = "button";
     mapFsBtn.className = "map-fullscreen-btn";
     mapFsBtn.setAttribute("aria-pressed", "false");
-    mapFsBtn.title = "Toggle fullscreen map";
+    mapFsBtn.title = t("game.fullscreen_map_title");
     mapFsBtn.textContent = t("game.fullscreen_btn");
+    mapFsBtn.setAttribute("data-i18n", "game.fullscreen_btn");
+    mapFsBtn.setAttribute("data-i18n-title", "game.fullscreen_map_title");
     mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
 
     mapShell.appendChild(mapFsBtn);
@@ -483,8 +485,10 @@ export const albumShuffleMode = {
       mapFsBtn.type = "button";
       mapFsBtn.className = "map-fullscreen-btn";
       mapFsBtn.setAttribute("aria-pressed", "false");
-      mapFsBtn.title = "Toggle fullscreen map";
+      mapFsBtn.title = t("game.fullscreen_map_title");
       mapFsBtn.textContent = t("game.fullscreen_btn");
+      mapFsBtn.setAttribute("data-i18n", "game.fullscreen_btn");
+      mapFsBtn.setAttribute("data-i18n-title", "game.fullscreen_map_title");
       mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
       mapShell.appendChild(mapFsBtn);
     }
@@ -719,7 +723,8 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     fsBtn.type = "button";
     fsBtn.className = "shuffle-card-fullscreen-btn";
     fsBtn.textContent = "🔍";
-    fsBtn.title = "View fullscreen photo";
+    fsBtn.title = t("game.view_fullscreen_photo");
+    fsBtn.setAttribute("data-i18n-title", "game.view_fullscreen_photo");
     fsBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       openPhotoLightbox(photo.media_url);
@@ -1028,8 +1033,8 @@ export function openPhotoLightbox(src) {
     lightbox.className = "photo-lightbox-overlay";
     lightbox.innerHTML = `
       <div class="photo-lightbox-content">
-        <button type="button" class="photo-lightbox-close">&times;</button>
-        <img id="photo-lightbox-img" src="" alt="Fullscreen photo" />
+        <button type="button" class="photo-lightbox-close" title="${t("game.close_btn")}" data-i18n-title="game.close_btn">&times;</button>
+        <img id="photo-lightbox-img" src="" alt="${t("game.fullscreen_photo_alt")}" data-i18n-alt="game.fullscreen_photo_alt" />
       </div>
     `;
     document.body.appendChild(lightbox);

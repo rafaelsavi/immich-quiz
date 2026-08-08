@@ -168,6 +168,12 @@ export const TRANSLATIONS = {
     // Map theme layers
     "map.layer_streets": "Streets",
     "map.layer_satellite": "Satellite",
+    "map.layer_control_title": "Layers",
+    "game.fullscreen_map_title": "Toggle fullscreen map",
+    "game.fullscreen_image_title": "Toggle fullscreen image",
+    "game.view_fullscreen_photo": "View fullscreen photo",
+    "game.close_btn": "Close",
+    "game.fullscreen_photo_alt": "Fullscreen photo",
     // Summary Journey & Memory Cards
     "summary.journey_map_heading": "World Journey Map",
     "summary.polaroids_heading": "Match Memory Cards",
@@ -348,6 +354,12 @@ export const TRANSLATIONS = {
     // Map theme layers
     "map.layer_streets": "Ruas",
     "map.layer_satellite": "Satélite",
+    "map.layer_control_title": "Camadas",
+    "game.fullscreen_map_title": "Alternar mapa em tela cheia",
+    "game.fullscreen_image_title": "Alternar imagem em tela cheia",
+    "game.view_fullscreen_photo": "Ver foto em tela cheia",
+    "game.close_btn": "Fechar",
+    "game.fullscreen_photo_alt": "Foto em tela cheia",
     // Summary Journey & Memory Cards
     "summary.journey_map_heading": "Mapa da Jornada Mundial",
     "summary.polaroids_heading": "Cartões de Memória da Partida",
@@ -478,6 +490,16 @@ export function applyLanguage() {
   document.querySelectorAll("[data-i18n-title]").forEach((element) => {
     const key = element.getAttribute("data-i18n-title");
     element.setAttribute("title", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-aria-label");
+    element.setAttribute("aria-label", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-alt");
+    element.setAttribute("alt", t(key));
   });
 
   document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {

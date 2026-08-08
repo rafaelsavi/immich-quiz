@@ -20,12 +20,38 @@ export function createBaseTileLayers() {
 }
 
 export function addLayerControl(map, baseLayers) {
-  L.control
+  if (!map) return null;
+
+  if (map._layerControl) {
+    try {
+      map.removeControl(map._layerControl);
+    } catch (_) {}
+    map._layerControl = null;
+  }
+
+  const base = baseLayers || map._baseLayers;
+  if (!base) return null;
+  map._baseLayers = base;
+
+  const control = L.control
     .layers({
-      [t("map.layer_streets")]: baseLayers.streets,
-      [t("map.layer_satellite")]: baseLayers.satellite,
+      [t("map.layer_streets")]: base.streets,
+      [t("map.layer_satellite")]: base.satellite,
     })
     .addTo(map);
+
+  map._layerControl = control;
+
+  if (control._container) {
+    const toggleBtn = control._container.querySelector(".leaflet-control-layers-toggle");
+    if (toggleBtn) {
+      const titleText = t("map.layer_control_title");
+      toggleBtn.title = titleText;
+      toggleBtn.setAttribute("aria-label", titleText);
+    }
+  }
+
+  return control;
 }
 
 export function updateSubmitState() {
@@ -345,16 +371,20 @@ export function toggleMapFullscreen(shell) {
   Promise.resolve(request).catch((err) => showAlert(t("game.fullscreen_error", err.message)));
 }
 
+export function updateMapLayerControls(extraMaps = []) {
+  const maps = [state.guessMap, state.revealMap, state.journeyMap, ...extraMaps].filter(Boolean);
+  maps.forEach((map) => {
+    addLayerControl(map);
+  });
+}
+
 export function syncFullscreenButtons() {
-  [
-    [el.mediaFrame, el.quizImageFullscreen],
-    [el.guessMapShell, el.guessMapFullscreen],
-    [el.revealMapShell, el.revealMapFullscreen],
-    [el.journeyMapShell, el.journeyMapFullscreen],
-  ].forEach(([shell, button]) => {
-    if (!shell || !button) return;
-    const isActive = document.fullscreenElement === shell;
-    button.textContent = isActive ? t("game.fullscreen_exit_btn") : t("game.fullscreen_btn");
+  document.querySelectorAll(".map-fullscreen-btn").forEach((button) => {
+    const shell = button.closest(".map-shell, .media-frame");
+    const isActive = Boolean(shell && document.fullscreenElement === shell);
+    const textKey = isActive ? "game.fullscreen_exit_btn" : "game.fullscreen_btn";
+    button.textContent = t(textKey);
+    button.setAttribute("data-i18n", textKey);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
   });
 }

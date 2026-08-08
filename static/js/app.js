@@ -25,6 +25,7 @@ import {
   renderJourneyMap,
   toggleMapFullscreen,
   syncFullscreenButtons,
+  updateMapLayerControls,
   refitMap,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
@@ -1219,6 +1220,8 @@ function refreshActiveScreenLanguage() {
   updateLanguageUi();
   updateAudioUi();
   applyLanguage();
+  syncFullscreenButtons();
+  updateMapLayerControls(getShuffleMaps());
 
   if (!el.setupCard.classList.contains("hidden")) {
     const settingsContainer = document.getElementById("game-settings-container");
