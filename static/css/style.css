@@ -151,21 +151,7 @@ body {
   background: #f0ebe0;
 }
 
-.media-error-card {
-  padding: 2rem 1rem;
-  text-align: center;
-}
 
-.media-error-card p {
-  margin-top: 0;
-  color: #c0392b;
-  font-weight: 700;
-}
-
-.media-error-card button {
-  width: auto;
-  margin-top: 0.5rem;
-}
 
 
 .card {

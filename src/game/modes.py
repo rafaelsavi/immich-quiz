@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from datetime import date
 from typing import Any, cast
@@ -8,6 +9,8 @@ from fastapi import HTTPException
 
 from src.game.selector import select_batch_round_assets, select_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
+
+logger = logging.getLogger(__name__)
 from src.models import (
     AlbumShuffleAnswerItem,
     AnswerRequest,
@@ -126,6 +129,14 @@ class PinpointEngine(BaseGameModeEngine):
     ) -> QuestionState:
         round_index = state.current_round_index
         selection = state.round_assets.get(round_index)
+        if selection is not None and selection.asset_id in payload_played_asset_ids:
+            logger.info(
+                "Cached asset %s for round %d was reported invalid/failed by client; re-selecting new photo.",
+                selection.asset_id,
+                round_index,
+            )
+            state.round_assets.pop(round_index, None)
+            selection = None
         if selection is None:
             try:
                 selection = await select_round_asset(
@@ -283,6 +294,18 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         round_index = state.current_round_index
         batch_selection = state.batch_round_assets.get(round_index)
         batch_pins = state.batch_round_pins.get(round_index)
+
+        if batch_selection is not None and any(ba.asset_id in payload_played_asset_ids for ba in batch_selection):
+            failed_ids = [ba.asset_id for ba in batch_selection if ba.asset_id in payload_played_asset_ids]
+            logger.info(
+                "Cached batch assets %s for round %d contained invalid/failed photo(s); re-selecting new batch.",
+                failed_ids,
+                round_index,
+            )
+            state.batch_round_assets.pop(round_index, None)
+            state.batch_round_pins.pop(round_index, None)
+            batch_selection = None
+            batch_pins = None
 
         if batch_selection is None or batch_pins is None:
             try:

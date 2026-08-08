@@ -696,3 +696,50 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
 
     assert q_data['batch_pins'] is None
     assert len(q_data['batch_photos']) == 5
+
+
+def test_question_reselects_asset_when_cached_asset_marked_played(tmp_path: Path) -> None:
+    assets = [
+        make_asset('asset-1', captured='2024-01-01T10:00:00Z'),
+        make_asset('asset-2', captured='2024-01-02T10:00:00Z'),
+    ]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    match_id = start_match(client, players=['Alice'])
+
+    # First fetch gets an asset
+    q1 = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    asset1 = q1['asset_id']
+
+    # Submitting same match_id & round_index with asset1 marked as played forces re-selection
+    q2 = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': [asset1]}).json()
+    asset2 = q2['asset_id']
+
+    assert asset2 != asset1
+
+
+def test_album_shuffle_reselects_batch_when_asset_marked_played(tmp_path: Path) -> None:
+    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(15)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(
+        game_mode='album_shuffle',
+        location_mode=False,
+        date_mode=True,
+        round_count=1,
+        players=['Player 1'],
+    )
+    setup_res = client.post('/api/game/setup', json=payload)
+    match_id = setup_res.json()['match_id']
+
+    q1 = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    failed_photo_id = q1['batch_photos'][0]['photo_id']
+
+    # Retry same round with failed_photo_id in played_asset_ids
+    q2 = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': [failed_photo_id]}).json()
+    new_photo_ids = [p['photo_id'] for p in q2['batch_photos']]
+
+    assert failed_photo_id not in new_photo_ids
+

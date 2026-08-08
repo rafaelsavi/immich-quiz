@@ -503,14 +503,6 @@ export const pinpointMode = {
 
     initDateDropdowns();
 
-    if (el.mediaSkipBtn) {
-      el.mediaSkipBtn.addEventListener("click", () => {
-        state.timedOut = true;
-        if (el.submitAnswer) {
-          el.submitAnswer.click();
-        }
-      });
-    }
     if (el.quizImageFullscreen) {
       el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
     }
@@ -563,17 +555,12 @@ export const pinpointMode = {
       document.documentElement.style.setProperty("--round-guess-layout-columns", "minmax(0, 67fr) minmax(0, 33fr)");
     }
 
-    // Reset photo frame state & error card immediately
+    // Reset photo frame state
     if (el.quizImage) {
       el.quizImage.classList.add("hidden");
       el.quizImage.removeAttribute("src");
-      el.quizImage.onerror = () => {
-        el.quizImage.classList.add("hidden");
-        if (el.mediaPlaceholder) el.mediaPlaceholder.classList.add("hidden");
-        if (el.mediaErrorCard) el.mediaErrorCard.classList.remove("hidden");
-      };
+      el.quizImage.onerror = null;
     }
-    if (el.mediaErrorCard) el.mediaErrorCard.classList.add("hidden");
     if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
 
     resetDateGuess();

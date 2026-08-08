@@ -86,15 +86,6 @@ export const el = {
   get mediaPlaceholder() {
     return document.getElementById("media-placeholder");
   },
-  get mediaErrorCard() {
-    return document.getElementById("media-error-card");
-  },
-  get mediaErrorMsg() {
-    return document.getElementById("media-error-msg");
-  },
-  get mediaSkipBtn() {
-    return document.getElementById("media-skip-btn");
-  },
   get mapGuessWrap() {
     return document.getElementById("map-guess-wrap");
   },

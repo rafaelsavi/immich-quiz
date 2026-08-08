@@ -389,6 +389,70 @@ function updateRoundMeta() {
   }
 }
 
+function checkMediaLoadable(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve(true);
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+async function fetchAndVerifyQuestion() {
+  while (true) {
+    let data;
+    try {
+      data = await api("/api/question", {
+        method: "POST",
+        body: JSON.stringify({
+          match_id: state.matchId,
+          played_asset_ids: state.playedAssetIds,
+        }),
+      });
+    } catch (err) {
+      if (
+        err.message &&
+        (err.message.includes("No eligible assets") || err.message.includes("404"))
+      ) {
+        return null;
+      }
+      throw err;
+    }
+
+    const photosToTest = [];
+    if (data.batch_photos && data.batch_photos.length > 0) {
+      for (const p of data.batch_photos) {
+        photosToTest.push({ id: p.photo_id, url: p.media_url });
+      }
+    } else if (data.media_url) {
+      photosToTest.push({ id: data.asset_id, url: data.media_url });
+    }
+
+    const results = await Promise.all(
+      photosToTest.map(async (photo) => ({
+        id: photo.id,
+        ok: await checkMediaLoadable(photo.url),
+      }))
+    );
+
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length === 0) {
+      return data;
+    }
+
+    console.warn(
+      `[Media Verification] Failed to load ${failed.length} photo(s) [${failed.map((f) => f.id).join(", ")}]. Requesting replacement photo from server...`
+    );
+
+    for (const f of failed) {
+      if (f.id && !state.playedAssetIds.includes(f.id)) {
+        state.playedAssetIds.push(f.id);
+      }
+    }
+  }
+}
+
 async function loadQuestion() {
   resetTimerBar();
   state.guessedLatLng = null;
@@ -401,18 +465,26 @@ async function loadQuestion() {
   getActiveMode()?.setDisabled?.(false);
   updateSubmitState();
 
-  const data = await api("/api/question", {
-    method: "POST",
-    body: JSON.stringify({
-      match_id: state.matchId,
-      played_asset_ids: state.playedAssetIds,
-    }),
-  });
+  const data = await fetchAndVerifyQuestion();
+
+  if (!data) {
+    state.timedOut = true;
+    showAlert("No eligible photos available. Round accepted.");
+    await submitAnswer(true);
+    return;
+  }
 
   state.currentQuestion = data;
   state.gameMode = data.game_mode || "pinpoint";
   if (data.asset_id && !state.playedAssetIds.includes(data.asset_id)) {
     state.playedAssetIds.push(data.asset_id);
+  }
+  if (data.batch_photos) {
+    for (const p of data.batch_photos) {
+      if (p.photo_id && !state.playedAssetIds.includes(p.photo_id)) {
+        state.playedAssetIds.push(p.photo_id);
+      }
+    }
   }
 
   updateRoundMeta();
