@@ -383,7 +383,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         )
 
         if state.setup.date_mode:
-            if payload.timed_out or not answers:
+            if not answers:
                 date_points = 0
             else:
                 sorted_by_date = sorted(batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=True)

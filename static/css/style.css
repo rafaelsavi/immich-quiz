@@ -1720,6 +1720,21 @@ td.is-perfect-cell {
   border-color: #cbd5e1;
 }
 
+#album-shuffle-ui.shuffle-disabled .shuffle-photo-column,
+#album-shuffle-ui.shuffle-disabled .shuffle-map-column {
+  opacity: 0.8;
+}
+
+#album-shuffle-ui.shuffle-disabled .shuffle-card-row,
+.shuffle-card-row.disabled {
+  cursor: not-allowed;
+}
+
+#album-shuffle-ui.shuffle-disabled .custom-pin-icon {
+  cursor: not-allowed;
+  filter: opacity(0.8);
+}
+
 .shuffle-info-banner {
   background: #f0fdfa;
   border: 1px solid #99f6e4;

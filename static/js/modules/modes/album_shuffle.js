@@ -119,6 +119,22 @@ export const albumShuffleMode = {
     }
   },
 
+  setDisabled(disabled) {
+    state.albumShuffleDisabled = Boolean(disabled);
+    const uiContainer = document.getElementById("album-shuffle-ui");
+    if (uiContainer) {
+      if (disabled) {
+        uiContainer.classList.add("shuffle-disabled");
+      } else {
+        uiContainer.classList.remove("shuffle-disabled");
+      }
+    }
+    const cardsCol = document.getElementById("shuffle-cards-list");
+    if (cardsCol && state.currentQuestion) {
+      renderPhotoCardsList(cardsCol, state.currentQuestion);
+    }
+  },
+
   renderSettings(containerEl) {
     renderGuessingModeSettings(containerEl);
   },
@@ -150,6 +166,7 @@ export const albumShuffleMode = {
   },
 
   unmount() {
+    state.albumShuffleDisabled = false;
     if (shuffleMap) {
       shuffleMap.remove();
       shuffleMap = null;
@@ -174,6 +191,7 @@ export const albumShuffleMode = {
   onReady(questionData) {},
 
   renderQuestion(questionData) {
+    state.albumShuffleDisabled = false;
     if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
     let uiContainer = document.getElementById("album-shuffle-ui");
@@ -184,6 +202,7 @@ export const albumShuffleMode = {
       if (host) host.appendChild(uiContainer);
     }
     uiContainer.classList.remove("hidden");
+    uiContainer.classList.remove("shuffle-disabled");
     uiContainer.replaceChildren();
 
     // Initialize photo order & pin assignments
@@ -637,6 +656,7 @@ export const albumShuffleMode = {
 function renderPhotoCardsList(containerEl, questionData) {
   containerEl.replaceChildren();
 
+  const isDisabled = Boolean(state.timedOut || state.submitting || state.albumShuffleDisabled);
   const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
   const selectedPhotoId = state.albumShuffleState ? state.albumShuffleState.selectedPhotoId : null;
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
@@ -650,9 +670,10 @@ function renderPhotoCardsList(containerEl, questionData) {
     if (!photo) return;
 
     const card = document.createElement("div");
-    card.className = `shuffle-card-row ${selectedPhotoId === photoId ? "selected" : ""}`;
+    card.className = `shuffle-card-row ${selectedPhotoId === photoId ? "selected" : ""} ${isDisabled ? "disabled" : ""}`;
 
     card.addEventListener("click", () => {
+      if (isDisabled) return;
       if (state.albumShuffleState) {
         state.albumShuffleState.selectedPhotoId = photoId;
         renderPhotoCardsList(containerEl, questionData);
@@ -718,9 +739,10 @@ function renderPhotoCardsList(containerEl, questionData) {
     upBtn.className = "shuffle-rank-btn";
     upBtn.textContent = "▲";
     upBtn.title = "Move Up (Newer)";
-    upBtn.disabled = index === 0;
+    upBtn.disabled = index === 0 || isDisabled;
     upBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (isDisabled) return;
       if (index > 0) {
         const temp = orderedIds[index - 1];
         orderedIds[index - 1] = orderedIds[index];
@@ -734,9 +756,10 @@ function renderPhotoCardsList(containerEl, questionData) {
     downBtn.className = "shuffle-rank-btn";
     downBtn.textContent = "▼";
     downBtn.title = "Move Down (Older)";
-    downBtn.disabled = index === orderedIds.length - 1;
+    downBtn.disabled = index === orderedIds.length - 1 || isDisabled;
     downBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      if (isDisabled) return;
       if (index < orderedIds.length - 1) {
         const temp = orderedIds[index + 1];
         orderedIds[index + 1] = orderedIds[index];
@@ -847,6 +870,7 @@ function renderShuffleMap(containerEl, pins, questionData) {
     shuffleMarkers[pin.pin_id] = marker;
 
     marker.on("click", () => {
+      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
       const selectedId = state.albumShuffleState ? state.albumShuffleState.selectedPhotoId : null;
       if (selectedId) {
         Object.keys(pinAssignments).forEach((pid) => {

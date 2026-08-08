@@ -613,6 +613,46 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
     assert entry['round_score'] == 0
 
 
+def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) -> None:
+    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(game_mode='album_shuffle', round_count=5, players=['Player 1'])
+    setup_res = client.post('/api/game/setup', json=payload)
+    match_id = setup_res.json()['match_id']
+
+    q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    q_data = q_res.json()
+    batch_photos = q_data['batch_photos']
+
+    # Submit correct chronological order for photos with timed_out=True
+    answers = []
+    for idx, p in enumerate(batch_photos):
+        answers.append({
+            'photo_id': p['photo_id'],
+            'assigned_pin_id': None,
+            'assigned_timeline_index': idx,
+        })
+
+    a_res = client.post(
+        '/api/answer',
+        json={
+            'match_id': match_id,
+            'question_id': q_data['question_id'],
+            'album_shuffle_answers': answers,
+            'timed_out': True,
+        },
+    )
+    assert a_res.status_code == 200
+
+    result = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
+    entry = result['results'][0]
+    assert entry['timed_out'] is True
+    assert entry['date_score'] > 0
+
+
+
 def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_location_mode() -> None:
     from datetime import datetime, timezone
 
