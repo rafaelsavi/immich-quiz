@@ -693,8 +693,26 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     const photo = photosMap[photoId];
     if (!photo) return;
 
+    const assignedPin = questionData.location_mode ? pinAssignments[photoId] : null;
+    const pinColor = assignedPin ? getPinColor(assignedPin) : null;
+    const isSelected = selectedPhotoId === photoId;
+
     const card = document.createElement("div");
-    card.className = `shuffle-card-row ${selectedPhotoId === photoId ? "selected" : ""} ${isDisabled ? "disabled" : ""}`;
+    card.className = `shuffle-card-row ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""} ${assignedPin ? "assigned" : ""}`;
+
+    if (assignedPin && pinColor) {
+      card.style.borderColor = pinColor;
+      card.style.backgroundColor = `${pinColor}24`;
+      if (isSelected) {
+        card.style.boxShadow = `0 0 0 3.5px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.35)`;
+      } else {
+        card.style.boxShadow = `0 2px 6px ${pinColor}33`;
+      }
+    } else {
+      card.style.borderColor = "";
+      card.style.backgroundColor = "";
+      card.style.boxShadow = "";
+    }
 
     card.addEventListener("click", () => {
       if (isDisabled) return;
@@ -739,14 +757,9 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     pinBadgeWrap.className = "shuffle-card-details";
 
     if (questionData.location_mode) {
-      const assignedPin = pinAssignments[photoId];
       const pinBadge = document.createElement("div");
       if (assignedPin) {
-        const color = getPinColor(assignedPin);
         pinBadge.className = "shuffle-assigned-pin-badge assigned";
-        pinBadge.style.backgroundColor = color;
-        pinBadge.style.borderColor = color;
-        pinBadge.style.color = "#ffffff";
         pinBadge.textContent = `📍 ${assignedPin}`;
       } else {
         pinBadge.className = "shuffle-assigned-pin-badge unassigned";
@@ -839,21 +852,10 @@ function getPinMarkerDetails(pinId) {
     (photoId) => pinAssignments[photoId] === pinId
   );
 
-  if (assignedPhotoId) {
-    const cardIndex = orderedIds.indexOf(assignedPhotoId);
-    if (cardIndex !== -1) {
-      return {
-        isTaken: true,
-        badgeText: `${pinId}`,
-        bgColor: getPinColor(pinId),
-      };
-    }
-  }
-
   return {
-    isTaken: false,
+    isTaken: Boolean(assignedPhotoId && orderedIds.includes(assignedPhotoId)),
     badgeText: pinId,
-    bgColor: "#94a3b8",
+    bgColor: getPinColor(pinId),
   };
 }
 
@@ -1002,9 +1004,10 @@ function renderBatchRevealMap(containerEl, batchItems) {
     const lon = item.actual_longitude;
     bounds.extend([lat, lon]);
 
+    const pinColor = getPinColor(item.true_pin_id);
     const icon = L.divIcon({
       className: "custom-pin-icon",
-      html: `<div style="background:#0f7c7f;color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);">${item.true_pin_id}</div>`,
+      html: `<div style="background:${pinColor};color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);">${item.true_pin_id}</div>`,
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });

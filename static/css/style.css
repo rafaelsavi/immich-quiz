@@ -1769,9 +1769,9 @@ td.is-perfect-cell {
 }
 
 .shuffle-card-row.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(15, 124, 127, 0.25);
-  background: #f0fdfa;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3.5px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.35);
+  background: #eff6ff;
 }
 
 
@@ -1858,8 +1858,9 @@ td.is-perfect-cell {
 }
 
 .shuffle-assigned-pin-badge.assigned {
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: var(--card, #ffffff);
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
 }
 
 .shuffle-assigned-pin-badge.unassigned {
