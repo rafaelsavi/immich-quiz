@@ -493,116 +493,16 @@ export const albumShuffleMode = {
       mapShell.appendChild(mapFsBtn);
     }
 
-    // --- SECTION 3: PHOTO BREAKDOWN TABLE ---
+    // --- SECTION 3: PHOTO BREAKDOWN VIEW ---
     const breakdownHead = document.createElement("div");
     breakdownHead.className = "field-head";
     breakdownHead.style.marginTop = "1.5rem";
     breakdownHead.innerHTML = `<label>${t("reveal.photo_breakdown_title")}</label>`;
 
-    const breakdownScroll = document.createElement("div");
-    breakdownScroll.className = "table-scroll";
-    const bdTable = document.createElement("table");
-    bdTable.className = "shuffle-breakdown-table";
+    const breakdownContainer = document.createElement("div");
+    breakdownContainer.className = "shuffle-breakdown-container";
 
-    const bdThead = document.createElement("thead");
-    const bdTr = document.createElement("tr");
-    const bdCols = [t("reveal.col_photo"), t("reveal.col_true_values"), t("reveal.col_player")];
-    if (revealData.location_mode) bdCols.push(t("reveal.col_pin_guess"));
-    if (revealData.date_mode) bdCols.push(t("reveal.col_rank_guess"));
-
-    bdCols.forEach((colText) => {
-      const th = document.createElement("th");
-      th.textContent = colText;
-      bdTr.appendChild(th);
-    });
-    bdThead.appendChild(bdTr);
-
-    const bdTbody = document.createElement("tbody");
-
-    sortedTrueBatch.forEach((item, trueRankIdx) => {
-      const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(libraryName)}`;
-      const dateStr = item.actual_date
-        ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-        : "Unknown date";
-
-      playerResults.forEach((pRes, pIdx) => {
-        const tr = document.createElement("tr");
-
-        // Photo Column (only on first player row for this photo, with rowSpan)
-        if (pIdx === 0) {
-          const photoTd = document.createElement("td");
-          photoTd.rowSpan = playerResults.length;
-          photoTd.style.verticalAlign = "middle";
-
-          const photoWrap = document.createElement("div");
-          photoWrap.className = "shuffle-photo-cell";
-
-          const rankBadge = document.createElement("div");
-          rankBadge.className = "shuffle-rank-badge";
-          rankBadge.textContent = `#${trueRankIdx + 1}`;
-
-          const thumbWrap = document.createElement("div");
-          thumbWrap.className = "shuffle-card-thumb-wrap";
-          const img = document.createElement("img");
-          img.className = "shuffle-card-thumb-lg";
-          img.src = imgUrl;
-          img.alt = `Photo ${trueRankIdx + 1}`;
-          img.addEventListener("click", () => openPhotoLightbox(imgUrl));
-          thumbWrap.appendChild(img);
-
-          photoWrap.append(rankBadge, thumbWrap);
-          photoTd.appendChild(photoWrap);
-          tr.appendChild(photoTd);
-
-          // True Values Column (rowSpan)
-          const trueTd = document.createElement("td");
-          trueTd.rowSpan = playerResults.length;
-          trueTd.style.verticalAlign = "middle";
-          trueTd.innerHTML = `
-            <div style="font-size:0.85rem; font-weight:600; color:var(--text-main);">
-              ${revealData.date_mode ? `<div>📅 Date: ${dateStr}</div>` : ""}
-              ${revealData.location_mode ? `<div>📍 Pin: <strong>${item.true_pin_id}</strong></div>` : ""}
-            </div>
-          `;
-          tr.appendChild(trueTd);
-        }
-
-        // Player Column
-        const pTd = document.createElement("td");
-        pTd.style.verticalAlign = "middle";
-        pTd.appendChild(playerNameCell(pRes.player_name, pRes.timed_out));
-        tr.appendChild(pTd);
-
-        const pGuesses = pRes.album_shuffle_guesses || [];
-        const pGuess = pGuesses.find((g) => g.photo_id === item.photo_id);
-        const isPinCorrect = pGuess && String(pGuess.assigned_pin_id) === String(item.true_pin_id);
-        const pSubmittedRank = pGuess ? pGuess.assigned_timeline_index : null;
-        const isRankCorrect = pSubmittedRank === trueRankIdx;
-
-        // Pin Guess Column
-        if (revealData.location_mode) {
-          const pinTd = document.createElement("td");
-          pinTd.style.verticalAlign = "middle";
-          const pinBadgeText = pGuess && pGuess.assigned_pin_id ? `${pGuess.assigned_pin_id}` : "None";
-          pinTd.innerHTML = `<span class="shuffle-badge-reveal ${isPinCorrect ? "correct" : "incorrect"}">${pinBadgeText} ${isPinCorrect ? "✓" : "✗"}</span>`;
-          tr.appendChild(pinTd);
-        }
-
-        // Rank Guess Column
-        if (revealData.date_mode) {
-          const rankTd = document.createElement("td");
-          rankTd.style.verticalAlign = "middle";
-          const rankBadgeText = pSubmittedRank !== null && pSubmittedRank !== undefined ? `#${pSubmittedRank + 1}` : "None";
-          rankTd.innerHTML = `<span class="shuffle-badge-reveal ${isRankCorrect ? "correct" : "incorrect"}">${rankBadgeText} ${isRankCorrect ? "✓" : "✗"}</span>`;
-          tr.appendChild(rankTd);
-        }
-
-        bdTbody.appendChild(tr);
-      });
-    });
-
-    bdTable.append(bdThead, bdTbody);
-    breakdownScroll.appendChild(bdTable);
+    renderPhotoCardsView(breakdownContainer, sortedTrueBatch, playerResults, revealData, libraryName);
 
     // --- SECTION 4: NEXT ROUND BUTTON & ACTIONS ---
     const nextBtn = document.createElement("button");
@@ -641,13 +541,13 @@ export const albumShuffleMode = {
 
     // Append everything to targetContainer: Map (if active) -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
     if (revealData.location_mode && mapHead && mapShell && !skipEffects) {
-      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
       renderBatchRevealMap(mapShell, batchReveal);
     } else if (revealData.location_mode && mapHead && mapShell && skipEffects) {
-      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
       // Do not re-initialize the map on a text-only refresh
     } else {
-      targetContainer.append(breakdownHead, breakdownScroll, tableScroll, nextBtn, actionsDiv);
+      targetContainer.append(breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
     }
   },
 
@@ -657,15 +557,130 @@ export const albumShuffleMode = {
   },
 };
 
+let activeBreakdownViewMode = "photo";
+
 const PIN_COLORS = {
-  A: "#059669",
-  B: "#f59e0b",
-  C: "#7c3aed",
-  D: "#db2777",
+  A: "#059669", 1: "#059669",
+  B: "#d97706", 2: "#d97706",
+  C: "#7c3aed", 3: "#7c3aed",
+  D: "#db2777", 4: "#db2777",
+  E: "#2563eb", 5: "#2563eb",
 };
 
 export function getPinColor(pinId) {
-  return PIN_COLORS[pinId] || "#0f7c7f";
+  if (!pinId) return "#0f7c7f";
+  return PIN_COLORS[pinId] || PIN_COLORS[String(pinId).toUpperCase()] || "#0f7c7f";
+}
+
+function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData, libraryName) {
+  container.replaceChildren();
+  const grid = document.createElement("div");
+  grid.className = "shuffle-breakdown-grid";
+
+  sortedTrueBatch.forEach((item, trueRankIdx) => {
+    const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(libraryName)}`;
+    const dateStr = item.actual_date
+      ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+      : "Unknown date";
+
+    const card = document.createElement("div");
+    card.className = "shuffle-photo-card";
+
+    const top = document.createElement("div");
+    top.className = "shuffle-card-top";
+
+    const thumbWrap = document.createElement("div");
+    thumbWrap.className = "shuffle-card-thumb-wrap";
+    const img = document.createElement("img");
+    img.className = "shuffle-card-thumb-lg";
+    img.src = imgUrl;
+    img.alt = `Photo ${trueRankIdx + 1}`;
+    img.addEventListener("click", () => openPhotoLightbox(imgUrl));
+    thumbWrap.appendChild(img);
+
+    const meta = document.createElement("div");
+    meta.className = "shuffle-card-meta";
+
+    const rankTag = document.createElement("div");
+    rankTag.className = "shuffle-card-rank-tag";
+    rankTag.textContent = `#${trueRankIdx + 1}`;
+
+    const banner = document.createElement("div");
+    banner.className = "true-val-banner";
+
+    if (revealData.date_mode) {
+      const datePill = document.createElement("span");
+      datePill.className = "true-val-pill";
+      datePill.textContent = `📅 ${dateStr}`;
+      banner.appendChild(datePill);
+    }
+    if (revealData.location_mode) {
+      const pinPill = document.createElement("span");
+      pinPill.className = "true-val-pill";
+      pinPill.innerHTML = `📍 Pin: <strong>${item.true_pin_id}</strong>`;
+      banner.appendChild(pinPill);
+    }
+
+    meta.append(rankTag, banner);
+    top.append(meta, thumbWrap);
+    card.appendChild(top);
+
+    const guessesList = document.createElement("div");
+    guessesList.className = "shuffle-card-guesses";
+
+    playerResults.forEach((pRes) => {
+      const pRow = document.createElement("div");
+      pRow.className = "player-guess-row";
+
+      const pName = playerNameCell(pRes.player_name, pRes.timed_out);
+      pRow.appendChild(pName);
+
+      const chipsWrap = document.createElement("div");
+      chipsWrap.className = "player-guess-chips";
+
+      const pGuesses = pRes.album_shuffle_guesses || [];
+      const pGuess = pGuesses.find((g) => g.photo_id === item.photo_id);
+
+      if (revealData.location_mode) {
+        const isPinCorrect = pGuess && String(pGuess.assigned_pin_id) === String(item.true_pin_id);
+        const pinChip = document.createElement("span");
+        pinChip.className = `guess-chip ${isPinCorrect ? "correct" : "incorrect"}`;
+
+        const assignedPin = pGuess && pGuess.assigned_pin_id ? pGuess.assigned_pin_id : "None";
+
+        if (isPinCorrect) {
+          pinChip.innerHTML = `📍 Pin ${assignedPin} ✓`;
+        } else {
+          pinChip.innerHTML = `📍 ${assignedPin === "None" ? "None" : "Pin " + assignedPin} ✗`;
+        }
+        chipsWrap.appendChild(pinChip);
+      }
+
+      if (revealData.date_mode) {
+        const pSubmittedRank = pGuess ? pGuess.assigned_timeline_index : null;
+        const isRankCorrect = pSubmittedRank === trueRankIdx;
+        const rankChip = document.createElement("span");
+        rankChip.className = `guess-chip ${isRankCorrect ? "correct" : "incorrect"}`;
+
+        const rankText = pSubmittedRank !== null && pSubmittedRank !== undefined ? `#${pSubmittedRank + 1}` : "None";
+
+        if (isRankCorrect) {
+          rankChip.textContent = `${rankText} ✓`;
+        } else {
+          rankChip.textContent = `${rankText} ✗`;
+        }
+        chipsWrap.appendChild(rankChip);
+      }
+
+      pRow.appendChild(chipsWrap);
+      guessesList.appendChild(pRow);
+    });
+
+    card.appendChild(guessesList);
+    grid.appendChild(card);
+  });
+
+  container.appendChild(grid);
 }
 
 function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {

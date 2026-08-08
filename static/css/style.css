@@ -2042,3 +2042,264 @@ td.is-perfect-cell {
     width: 130px;
   }
 }
+
+/* --- ALBUM SHUFFLE BREAKDOWN REDESIGN --- */
+.shuffle-breakdown-head-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.breakdown-view-toggle {
+  display: inline-flex;
+  background: var(--bg-surface-secondary, #f1f5f9);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.breakdown-view-toggle .toggle-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.breakdown-view-toggle .toggle-btn:hover {
+  color: var(--text-main, #0f172a);
+}
+
+.breakdown-view-toggle .toggle-btn.active {
+  background: var(--card, #ffffff);
+  color: var(--accent, #0f7c7f);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.shuffle-breakdown-container {
+  margin-top: 0.5rem;
+}
+
+.shuffle-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.shuffle-photo-card,
+.shuffle-player-card {
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.shuffle-photo-card:hover,
+.shuffle-player-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.shuffle-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  margin-bottom: 0.75rem;
+}
+
+.shuffle-card-top .shuffle-card-thumb-wrap {
+  width: 90px;
+  height: 90px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--border, #cbd5e1);
+  order: -1;
+}
+
+.shuffle-card-top .shuffle-card-thumb-lg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.shuffle-card-top .shuffle-card-thumb-lg:hover {
+  transform: scale(1.05);
+}
+
+.shuffle-card-meta {
+  flex: 1 1 170px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  order: 1;
+}
+
+@media (max-width: 480px) {
+  .shuffle-card-top {
+    align-items: stretch;
+  }
+
+  .shuffle-card-top .shuffle-card-thumb-wrap {
+    order: 2;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 3 / 2;
+    max-height: 220px;
+  }
+
+  .shuffle-card-meta {
+    order: 1;
+    width: 100%;
+  }
+}
+
+.shuffle-card-rank-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  background: var(--accent, #0f7c7f);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 12px;
+  width: fit-content;
+}
+
+.true-val-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-main, #1e293b);
+  font-weight: 600;
+}
+
+.true-val-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-surface-secondary, #f8fafc);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.shuffle-card-guesses {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.player-guess-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg-surface-secondary, #f8fafc);
+  border-radius: 8px;
+  font-size: 0.82rem;
+}
+
+.player-guess-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.guess-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.guess-chip.correct {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.guess-chip.incorrect {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.shuffle-player-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  margin-bottom: 0.75rem;
+}
+
+.shuffle-player-acc-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  background: var(--bg-surface-secondary, #f1f5f9);
+  color: var(--text-main, #334155);
+  border-radius: 12px;
+  border: 1px solid var(--border, #cbd5e1);
+}
+
+.player-card-photos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.player-photo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: var(--bg-surface-secondary, #f8fafc);
+  border-radius: 8px;
+  border: 1px solid var(--border, #e2e8f0);
+}
+
+.shuffle-card-thumb-sm {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.player-photo-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+}
