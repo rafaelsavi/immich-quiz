@@ -188,4 +188,3 @@ def batch_strict_date_score(correct_matches: int, total_photos: int, max_points:
     if total_photos <= 0:
         return 0
     return max(0, round((correct_matches / total_photos) * max_points))
-

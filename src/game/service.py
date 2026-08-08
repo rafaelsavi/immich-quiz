@@ -130,14 +130,16 @@ class GameService:
         active = store.active_question(payload.match_id)
         if active is not None:
             active_failed = False
-            if active.asset_id in payload.played_asset_ids:
-                active_failed = True
-            elif active.batch_assets and any(ba.asset_id in payload.played_asset_ids for ba in active.batch_assets):
+            if (
+                active.asset_id in payload.played_asset_ids
+                or active.batch_assets
+                and any(ba.asset_id in payload.played_asset_ids for ba in active.batch_assets)
+            ):
                 active_failed = True
 
             if active_failed:
                 logger.info(
-                    "Active question %s asset was reported invalid/failed by client; invalidating active question and re-selecting for round %d.",
+                    'Active question %s asset was reported invalid/failed by client; invalidating active question and re-selecting for round %d.',
                     active.question_id,
                     state.current_round_index,
                 )

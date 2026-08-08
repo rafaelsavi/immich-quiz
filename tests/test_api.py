@@ -688,8 +688,6 @@ def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> No
     assert res['results'][0]['date_score'] == 100
 
 
-
-
 def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_location_mode() -> None:
     from datetime import datetime, timezone
 
@@ -804,4 +802,3 @@ def test_album_shuffle_reselects_batch_when_asset_marked_played(tmp_path: Path) 
     new_photo_ids = [p['photo_id'] for p in q2['batch_photos']]
 
     assert failed_photo_id not in new_photo_ids
-

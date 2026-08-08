@@ -126,4 +126,3 @@ def test_batch_strict_date_score() -> None:
     assert batch_strict_date_score(3, 3, max_points=100) == 100
     assert batch_strict_date_score(0, 3, max_points=100) == 0
     assert batch_strict_date_score(1, 3, max_points=100) == 33
-

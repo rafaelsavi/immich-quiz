@@ -29,7 +29,6 @@ from src.scoring import (
     date_diff_parts,
     date_score,
     haversine_km,
-    kendall_tau_inversion_score,
     location_score,
 )
 from src.storage.session import (
