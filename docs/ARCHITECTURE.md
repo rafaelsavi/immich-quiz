@@ -43,6 +43,11 @@ immich-quiz/
 └── static/              Vanilla HTML/CSS/JS frontend.
     ├── index.html       Main quiz application HTML.
     ├── audio-playground.html Interactive Web Audio testing playground page.
+    ├── css/             Modular CSS stylesheets:
+    │   ├── style.css    Master entrypoint (@importing base, components, modes).
+    │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css).
+    │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application controller & UI router.
     ├── js/audio-playground.js Playground controller & visualizer logic.
     └── js/modules/      Modular ES modules:

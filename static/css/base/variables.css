@@ -1,0 +1,25 @@
+:root {
+  --bg: #f4efe4;
+  --ink: #1f2a44;
+  --accent: #0f7c7f;
+  --accent-2: #f25f5c;
+  --card: #fffdf8;
+  --shadow: 0 14px 30px rgba(23, 32, 58, 0.14);
+  --round-guess-layout-columns: minmax(0, 67fr) minmax(0, 33fr);
+  --quiz-image-max-height: 440px;
+  --quiz-map-height: 420px;
+}
+
+@media (min-width: 1200px) {
+  :root {
+    --quiz-image-max-height: 540px;
+    --quiz-map-height: 480px;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --quiz-image-max-height: 320px;
+    --quiz-map-height: 350px;
+  }
+}
