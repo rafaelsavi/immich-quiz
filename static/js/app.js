@@ -676,7 +676,13 @@ function renderSummaryContent(summary) {
   columns.push(t("summary.col_total"), t("summary.col_accuracy"));
 
   const headRow = document.createElement("tr");
-  columns.forEach((label) => headRow.appendChild(buildCell(label, true)));
+  columns.forEach((label) => {
+    const cell = buildCell(label, true);
+    if (label === t("summary.col_accuracy")) {
+      cell.className = "col-accuracy hide-on-mobile";
+    }
+    headRow.appendChild(cell);
+  });
   el.summaryTableHead.replaceChildren(headRow);
 
   el.summaryTableBody.replaceChildren();
@@ -703,7 +709,10 @@ function renderSummaryContent(summary) {
       row.appendChild(buildCell(String(player.date_score ?? 0)));
     }
     row.appendChild(buildCell(`${player.total_score}/${player.max_possible_score}`));
-    row.appendChild(buildCell(String(player.accuracy_pct)));
+    
+    const accCell = buildCell(`${player.accuracy_pct}%`);
+    accCell.className = "col-accuracy hide-on-mobile";
+    row.appendChild(accCell);
 
     el.summaryTableBody.appendChild(row);
   });

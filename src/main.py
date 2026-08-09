@@ -82,7 +82,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        if request.url.path.startswith('/static/js/'):
+        if request.url.path.startswith('/static/'):
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         return response
 

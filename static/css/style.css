@@ -2204,13 +2204,9 @@ td.is-perfect-cell {
   }
 
   .player-guess-row {
-    flex-wrap: wrap;
-    gap: 0.4rem;
-  }
-
-  .player-guess-chips {
-    width: 100%;
-    justify-content: flex-start;
+    padding: 0.25rem 0.45rem;
+    font-size: 0.78rem;
+    gap: 0.35rem;
   }
 }
 
@@ -2344,4 +2340,87 @@ td.is-perfect-cell {
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.8rem;
+}
+
+/* --- RESPONSIVE TABLE OPTIMIZATIONS FOR MOBILE (OPTION A) --- */
+.subtext-mobile-only,
+.hide-on-desktop,
+th.hide-on-desktop,
+td.hide-on-desktop {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  #reveal-table .group-start-mobile {
+    border-left: 2px solid #cfd6e6 !important;
+  }
+
+  .hide-on-desktop,
+  th.hide-on-desktop,
+  td.hide-on-desktop {
+    display: table-cell !important;
+  }
+
+  /* Hide designated sub-columns on mobile */
+  .hide-on-mobile,
+  .col-accuracy,
+  th.col-accuracy,
+  td.col-accuracy,
+  th.hide-on-mobile,
+  td.hide-on-mobile {
+    display: none !important;
+  }
+
+  /* Hide top 2-row group header row on mobile for clean 1-row header */
+  #reveal-table tr.group-head-row {
+    display: none !important;
+  }
+
+  /* Mobile text replacement for primary sub-headers */
+  #reveal-table th[data-mobile-label]::before {
+    content: attr(data-mobile-label);
+  }
+  #reveal-table th[data-mobile-label] .desktop-head-label {
+    display: none !important;
+  }
+
+  /* Display score error subtext on mobile as a new line */
+  .subtext-mobile-only {
+    display: block !important;
+    font-size: 0.73rem;
+    font-weight: 500;
+    opacity: 0.85;
+    margin-top: 0.15rem;
+    color: var(--text-muted, #64748b);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  #reveal-table th,
+  #reveal-table td,
+  #leaderboard-table th,
+  #leaderboard-table td {
+    padding: 0.45rem 0.4rem;
+    font-size: 0.82rem;
+  }
+
+  .player-guess-row {
+    padding: 0.25rem 0.45rem;
+    font-size: 0.78rem;
+    gap: 0.35rem;
+  }
+
+  .guess-chip {
+    padding: 0.15rem 0.38rem;
+    font-size: 0.72rem;
+  }
+
+  .perfect-badge .perfect-badge-text {
+    display: none !important;
+  }
+
+  .perfect-badge {
+    padding: 0.1rem 0.3rem;
+    margin-left: 0.25rem;
+  }
 }

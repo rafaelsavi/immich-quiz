@@ -358,14 +358,33 @@ export const albumShuffleMode = {
     // Build Table Headers
     const groups = [];
     if (revealData.location_mode) {
-      groups.push({ label: t("reveal.col_location"), columns: [t("reveal.col_points"), t("reveal.col_pins_correct")] });
+      groups.push({
+        label: t("reveal.col_location"),
+        columns: [
+          { label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
+          { label: t("reveal.col_pins_correct"), class: "hide-on-mobile" },
+        ],
+      });
     }
     if (revealData.date_mode) {
-      groups.push({ label: t("reveal.col_date"), columns: [t("reveal.col_points"), t("reveal.col_order_correct")] });
+      groups.push({
+        label: t("reveal.col_date"),
+        columns: [
+          { label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
+          { label: t("reveal.col_order_correct"), class: "hide-on-mobile" },
+        ],
+      });
     }
-    groups.push({ label: t("reveal.col_score"), columns: [t("reveal.col_round"), t("reveal.col_total")] });
+    groups.push({
+      label: t("reveal.col_score"),
+      columns: [
+        { label: t("reveal.col_round"), class: "hide-on-mobile" },
+        { label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
+      ],
+    });
 
     const groupRow = document.createElement("tr");
+    groupRow.className = "group-head-row";
     const playerHead = buildCell(t("reveal.col_player"), true);
     playerHead.rowSpan = 2;
     groupRow.appendChild(playerHead);
@@ -377,10 +396,27 @@ export const albumShuffleMode = {
     });
 
     const columnRow = document.createElement("tr");
+    columnRow.className = "column-head-row";
+    const playerSubHead = buildCell(t("reveal.col_player"), true);
+    playerSubHead.className = "player-subhead hide-on-desktop";
+    columnRow.appendChild(playerSubHead);
+
     groups.forEach((group) => {
-      group.columns.forEach((label, index) => {
-        const cell = buildCell(label, true);
-        if (index === 0) cell.className = "group-start";
+      group.columns.forEach((col, index) => {
+        const cell = buildCell("", true);
+        const labelSpan = document.createElement("span");
+        labelSpan.className = "desktop-head-label";
+        labelSpan.textContent = col.label;
+        cell.appendChild(labelSpan);
+
+        if (col.mobileLabel) {
+          cell.setAttribute("data-mobile-label", col.mobileLabel);
+        }
+
+        const classes = [];
+        if (index === 0) classes.push("group-start");
+        if (col.class) classes.push(col.class);
+        if (classes.length > 0) cell.className = classes.join(" ");
         columnRow.appendChild(cell);
       });
     });
@@ -412,8 +448,14 @@ export const albumShuffleMode = {
         valueGroups.push({
           isPerfect: isPerfectLocation,
           items: [
-            pRes.location_score === null || pRes.location_score === undefined ? "-" : String(pRes.location_score),
-            `${acc.correctPins} / ${totalPhotos}`,
+            {
+              value: pRes.location_score === null || pRes.location_score === undefined ? "-" : String(pRes.location_score),
+              class: "",
+            },
+            {
+              value: `${acc.correctPins} / ${totalPhotos}`,
+              class: "hide-on-mobile",
+            },
           ],
         });
       }
@@ -421,8 +463,14 @@ export const albumShuffleMode = {
         valueGroups.push({
           isPerfect: isPerfectDate,
           items: [
-            pRes.date_score === null || pRes.date_score === undefined ? "-" : String(pRes.date_score),
-            `${acc.correctRanks} / ${totalPhotos}`,
+            {
+              value: pRes.date_score === null || pRes.date_score === undefined ? "-" : String(pRes.date_score),
+              class: "",
+            },
+            {
+              value: `${acc.correctRanks} / ${totalPhotos}`,
+              class: "hide-on-mobile",
+            },
           ],
         });
       }
@@ -430,12 +478,24 @@ export const albumShuffleMode = {
         isPerfect: isPerfectRound,
         isScoreGroup: true,
         roundScoreNum: pRes.round_score ?? 0,
-        items: [String(pRes.round_score ?? 0), String(pRes.total_score ?? 0)],
+        items: [
+          { value: String(pRes.round_score ?? 0), class: "hide-on-mobile" },
+          { value: String(pRes.total_score ?? 0), class: "group-start-mobile" },
+        ],
       });
 
       valueGroups.forEach((group) => {
-        group.items.forEach((value, index) => {
-          const cell = buildCell(value);
+        group.items.forEach((itemObj, index) => {
+          const cell = buildCell(itemObj.value);
+          if (itemObj.class) {
+            cell.classList.add(...itemObj.class.split(" ").filter(Boolean));
+          }
+          if (itemObj.subtext) {
+            const subSpan = document.createElement("span");
+            subSpan.className = "subtext-mobile-only";
+            subSpan.textContent = `(${itemObj.subtext})`;
+            cell.appendChild(subSpan);
+          }
           if (index === 0) {
             cell.classList.add("group-start");
             if (group.isPerfect) {

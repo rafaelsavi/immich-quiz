@@ -137,7 +137,13 @@ export function launchGoldConfetti() {
 export function createPerfectBadge() {
   const badge = document.createElement("span");
   badge.className = "perfect-badge";
-  badge.textContent = `\u2605 ${t("reveal.perfect_badge")}`;
+  const star = document.createElement("span");
+  star.className = "perfect-badge-star";
+  star.textContent = "\u2605";
+  const text = document.createElement("span");
+  text.className = "perfect-badge-text";
+  text.textContent = ` ${t("reveal.perfect_badge")}`;
+  badge.append(star, text);
   return badge;
 }
 

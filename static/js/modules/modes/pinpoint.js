@@ -218,14 +218,34 @@ function renderRevealSummary(reveal, skipEffects = false) {
 
   const groups = [];
   if (reveal.location_mode) {
-    groups.push({ label: t("reveal.col_location"), columns: [t("reveal.col_points"), t("reveal.col_distance_error")] });
+    groups.push({
+      label: t("reveal.col_location"),
+      columns: [
+        { label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
+        { label: t("reveal.col_distance_error"), class: "hide-on-mobile" },
+      ],
+    });
   }
   if (reveal.date_mode) {
-    groups.push({ label: t("reveal.col_date"), columns: [t("reveal.col_points"), t("reveal.col_guessed"), t("reveal.col_date_error")] });
+    groups.push({
+      label: t("reveal.col_date"),
+      columns: [
+        { label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
+        { label: t("reveal.col_guessed"), class: "hide-on-mobile" },
+        { label: t("reveal.col_date_error"), class: "hide-on-mobile" },
+      ],
+    });
   }
-  groups.push({ label: t("reveal.col_score"), columns: [t("reveal.col_round"), t("reveal.col_total")] });
+  groups.push({
+    label: t("reveal.col_score"),
+    columns: [
+      { label: t("reveal.col_round"), class: "hide-on-mobile" },
+      { label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
+    ],
+  });
 
   const groupRow = document.createElement("tr");
+  groupRow.className = "group-head-row";
   const playerHead = buildCell(t("reveal.col_player"), true);
   playerHead.rowSpan = 2;
   groupRow.appendChild(playerHead);
@@ -237,12 +257,27 @@ function renderRevealSummary(reveal, skipEffects = false) {
   });
 
   const columnRow = document.createElement("tr");
+  columnRow.className = "column-head-row";
+  const playerSubHead = buildCell(t("reveal.col_player"), true);
+  playerSubHead.className = "player-subhead hide-on-desktop";
+  columnRow.appendChild(playerSubHead);
+
   groups.forEach((group) => {
-    group.columns.forEach((label, index) => {
-      const cell = buildCell(label, true);
-      if (index === 0) {
-        cell.className = "group-start";
+    group.columns.forEach((col, index) => {
+      const cell = buildCell("", true);
+      const labelSpan = document.createElement("span");
+      labelSpan.className = "desktop-head-label";
+      labelSpan.textContent = col.label;
+      cell.appendChild(labelSpan);
+
+      if (col.mobileLabel) {
+        cell.setAttribute("data-mobile-label", col.mobileLabel);
       }
+
+      const classes = [];
+      if (index === 0) classes.push("group-start");
+      if (col.class) classes.push(col.class);
+      if (classes.length > 0) cell.className = classes.join(" ");
       columnRow.appendChild(cell);
     });
   });
@@ -308,21 +343,41 @@ function renderRevealSummary(reveal, skipEffects = false) {
 
     const valueGroups = [];
     if (reveal.location_mode) {
+      const distStr = result.guessed_latitude === null ? t("fmt.no_guess") : formatDistance(result.distance_km);
       valueGroups.push({
         isPerfect: isPerfectLocation,
         items: [
-          result.location_score === null ? "-" : String(result.location_score),
-          result.guessed_latitude === null ? t("fmt.no_guess") : formatDistance(result.distance_km),
+          {
+            value: result.location_score === null ? "-" : String(result.location_score),
+            subtext: distStr !== t("fmt.no_guess") ? distStr : null,
+            class: "",
+          },
+          {
+            value: distStr,
+            class: "hide-on-mobile",
+          },
         ],
       });
     }
     if (reveal.date_mode) {
+      const dateErrStr = formatMonthError(result);
+      const guessedDateStr = formatMonth(result.guessed_year, result.guessed_month);
       valueGroups.push({
         isPerfect: isPerfectDate,
         items: [
-          result.date_score === null ? "-" : String(result.date_score),
-          formatMonth(result.guessed_year, result.guessed_month),
-          formatMonthError(result),
+          {
+            value: result.date_score === null ? "-" : String(result.date_score),
+            subtext: dateErrStr !== "-" ? dateErrStr : null,
+            class: "",
+          },
+          {
+            value: guessedDateStr,
+            class: "hide-on-mobile",
+          },
+          {
+            value: dateErrStr,
+            class: "hide-on-mobile",
+          },
         ],
       });
     }
@@ -332,12 +387,24 @@ function renderRevealSummary(reveal, skipEffects = false) {
       isPerfect: isPerfectRound,
       isScoreGroup: isTotalScoreGroup,
       roundScoreNum: result.round_score,
-      items: [String(result.round_score), String(result.total_score)],
+      items: [
+        { value: String(result.round_score), class: "hide-on-mobile" },
+        { value: String(result.total_score), class: "group-start-mobile" },
+      ],
     });
 
     valueGroups.forEach((group) => {
-      group.items.forEach((value, index) => {
-        const cell = buildCell(value);
+      group.items.forEach((itemObj, index) => {
+        const cell = buildCell(itemObj.value);
+        if (itemObj.class) {
+          cell.classList.add(...itemObj.class.split(" ").filter(Boolean));
+        }
+        if (itemObj.subtext) {
+          const subSpan = document.createElement("span");
+          subSpan.className = "subtext-mobile-only";
+          subSpan.textContent = `(${itemObj.subtext})`;
+          cell.appendChild(subSpan);
+        }
         if (index === 0) {
           cell.classList.add("group-start");
           if (group.isPerfect) {
