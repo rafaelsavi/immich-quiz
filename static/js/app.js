@@ -184,7 +184,6 @@ function resetTimerBar() {
   const timerRow = el.timerTrack.closest(".timer-row");
   if (timerRow) timerRow.classList.remove("is-pulsing");
   el.timerRemaining.classList.remove("is-critical-text");
-  getActiveMode()?.setTimerTension?.(false);
 
   // Feature 7: reset all fullscreen timer overlays
   document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
@@ -237,7 +236,6 @@ function startTimer(roundLength) {
     const timerRow = el.timerTrack.closest(".timer-row");
     if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
     el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
-    getActiveMode()?.setTimerTension?.(clamped <= 5 && clamped > 0);
 
     // Feature 7: sync fullscreen timer overlays
     syncFullscreenTimers(clamped, ratio, isWarning, isCritical);

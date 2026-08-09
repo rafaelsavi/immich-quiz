@@ -1383,21 +1383,7 @@ td.is-perfect-cell {
   }
 }
 
-/* ---------------------------------- Timer Tension Pulse */
-.media-frame.timer-tension {
-  box-shadow: 0 0 0 4px #ef4444, 0 0 20px rgba(239, 68, 68, 0.6) !important;
-  animation: tensionPulse 0.6s infinite alternate ease-in-out;
-}
 
-@keyframes tensionPulse {
-  0% {
-    box-shadow: 0 0 0 3px #ef4444, 0 0 12px rgba(239, 68, 68, 0.4);
-  }
-
-  100% {
-    box-shadow: 0 0 0 6px #dc2626, 0 0 28px rgba(220, 38, 38, 0.85);
-  }
-}
 
 .score-rollup {
   display: inline-block;

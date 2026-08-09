@@ -574,19 +574,12 @@ export const pinpointMode = {
     }
   },
 
-  setTimerTension(isTension) {
-    if (el.mediaFrame) el.mediaFrame.classList.toggle("timer-tension", isTension);
-  },
-
   setDisabled(disabled) {
     if (el.dateGuessYear) el.dateGuessYear.disabled = disabled;
     if (el.dateGuessMonth) el.dateGuessMonth.disabled = disabled;
   },
 
   unmount() {
-    if (el.mediaFrame) {
-      el.mediaFrame.classList.remove("timer-tension");
-    }
     if (state.guessMap) {
       state.guessMap.remove();
       state.guessMap = null;
