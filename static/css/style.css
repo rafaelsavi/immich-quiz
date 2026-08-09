@@ -21,6 +21,7 @@
   box-sizing: border-box;
 }
 
+html,
 body {
   margin: 0;
   font-family: "Space Grotesk", sans-serif;
@@ -29,6 +30,8 @@ body {
     radial-gradient(circle at 86% 5%, #d9f2f2, transparent 25%),
     linear-gradient(130deg, #f7f2e6, #f0ebe0);
   min-height: 100vh;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 
 .bg-shape {
@@ -63,6 +66,8 @@ body {
   display: grid;
   gap: 1rem;
   animation: slideIn 0.5s ease;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 @media (min-width: 1440px) {
@@ -1634,10 +1639,15 @@ td.is-perfect-cell {
   flex-direction: column;
   gap: 1rem;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 #shuffle-map-shell {
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   aspect-ratio: 1 / 1;
   max-height: min(340px, 42vh);
   min-height: 240px;
@@ -1694,6 +1704,9 @@ td.is-perfect-cell {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   max-height: none !important;
   overflow: visible !important;
   overflow-y: visible !important;
@@ -1772,7 +1785,7 @@ td.is-perfect-cell {
   border-color: #64748b;
   box-shadow: 0 0 0 3.5px rgba(100, 116, 139, 0.3), 0 8px 20px rgba(0, 0, 0, 0.12);
   background: #f8fafc;
-  transform: translateY(-2px) scale(1.015);
+  transform: translateY(-2px);
 }
 
 
@@ -1781,6 +1794,7 @@ td.is-perfect-cell {
   position: relative;
   flex: 1 1 auto;
   min-width: 0;
+  max-width: 100%;
   aspect-ratio: 3 / 2;
   border-radius: 8px;
   overflow: hidden;
@@ -2038,8 +2052,14 @@ td.is-perfect-cell {
   width: 130px;
 }
 
+.shuffle-card-row .shuffle-card-thumb-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
 @media (max-width: 639px) {
-  .shuffle-card-thumb-wrap {
+  .shuffle-breakdown-table .shuffle-card-thumb-wrap,
+  .shuffle-card-top .shuffle-card-thumb-wrap {
     width: 130px;
   }
 }
@@ -2093,6 +2113,13 @@ td.is-perfect-cell {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.25rem;
+}
+
+@media (max-width: 639px) {
+  .shuffle-breakdown-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
 }
 
 .shuffle-photo-card,
@@ -2174,6 +2201,16 @@ td.is-perfect-cell {
   .shuffle-card-meta {
     order: 1;
     width: 100%;
+  }
+
+  .player-guess-row {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .player-guess-chips {
+    width: 100%;
+    justify-content: flex-start;
   }
 }
 

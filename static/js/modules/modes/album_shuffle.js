@@ -724,7 +724,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
       if (isSelected) {
         card.style.backgroundColor = `${pinColor}38`;
         card.style.boxShadow = `0 0 0 3.5px rgba(100, 116, 139, 0.35), 0 8px 20px rgba(0, 0, 0, 0.14)`;
-        card.style.transform = "translateY(-2px) scale(1.015)";
+        card.style.transform = "translateY(-2px)";
       } else {
         card.style.backgroundColor = `${pinColor}24`;
         card.style.boxShadow = `0 2px 6px ${pinColor}33`;
