@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { state, el } from "../state.js";
-import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds } from "../maps.js";
+import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import { playerBadge, playerNameCell, buildCell } from "../formatters.js";
 import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
@@ -228,16 +228,7 @@ export const albumShuffleMode = {
     mapShell.id = "shuffle-map-shell";
 
     // Add Map Fullscreen Button
-    const mapFsBtn = document.createElement("button");
-    mapFsBtn.type = "button";
-    mapFsBtn.className = "map-fullscreen-btn";
-    mapFsBtn.setAttribute("aria-pressed", "false");
-    mapFsBtn.title = t("game.fullscreen_map_title");
-    mapFsBtn.textContent = t("game.fullscreen_btn");
-    mapFsBtn.setAttribute("data-i18n", "game.fullscreen_btn");
-    mapFsBtn.setAttribute("data-i18n-title", "game.fullscreen_map_title");
-    mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
-
+    const mapFsBtn = createMapFullscreenButton(mapShell);
     mapShell.appendChild(mapFsBtn);
     mapCol.appendChild(mapShell);
 
@@ -540,17 +531,6 @@ export const albumShuffleMode = {
       mapShell.className = "map-shell";
       mapShell.id = "reveal-shuffle-map-shell";
       mapShell.style.height = "450px";
-
-      const mapFsBtn = document.createElement("button");
-      mapFsBtn.type = "button";
-      mapFsBtn.className = "map-fullscreen-btn";
-      mapFsBtn.setAttribute("aria-pressed", "false");
-      mapFsBtn.title = t("game.fullscreen_map_title");
-      mapFsBtn.textContent = t("game.fullscreen_btn");
-      mapFsBtn.setAttribute("data-i18n", "game.fullscreen_btn");
-      mapFsBtn.setAttribute("data-i18n-title", "game.fullscreen_map_title");
-      mapFsBtn.addEventListener("click", () => toggleMapFullscreen(mapShell));
-      mapShell.appendChild(mapFsBtn);
     }
 
     // --- SECTION 3: PHOTO BREAKDOWN VIEW ---
@@ -600,12 +580,9 @@ export const albumShuffleMode = {
     tableScroll.style.marginTop = "1.5rem";
 
     // Append everything to targetContainer: Map (if active) -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
-    if (revealData.location_mode && mapHead && mapShell && !skipEffects) {
+    if (revealData.location_mode && mapHead && mapShell) {
       targetContainer.append(mapHead, mapShell, breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
       renderBatchRevealMap(mapShell, batchReveal);
-    } else if (revealData.location_mode && mapHead && mapShell && skipEffects) {
-      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
-      // Do not re-initialize the map on a text-only refresh
     } else {
       targetContainer.append(breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
     }
@@ -824,7 +801,12 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     const fsBtn = document.createElement("button");
     fsBtn.type = "button";
     fsBtn.className = "shuffle-card-fullscreen-btn";
-    fsBtn.textContent = "🔍";
+    fsBtn.innerHTML = `<svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 3 21 3 21 9"></polyline>
+      <polyline points="9 21 3 21 3 15"></polyline>
+      <line x1="21" y1="3" x2="14" y2="10"></line>
+      <line x1="3" y1="21" x2="10" y2="14"></line>
+    </svg>`;
     fsBtn.title = t("game.view_fullscreen_photo");
     fsBtn.setAttribute("data-i18n-title", "game.view_fullscreen_photo");
     fsBtn.addEventListener("click", (e) => {
@@ -972,8 +954,10 @@ function renderShuffleMap(containerEl, pins, questionData) {
 
   const mapShell = containerEl.id ? containerEl : document.getElementById("shuffle-map-shell");
   const base = createBaseTileLayers();
-  const map = L.map(mapShell, { layers: [base.streets] }).setView([20, 0], 2);
+  const map = L.map(mapShell, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
+  L.control.zoom({ position: "topright" }).addTo(map);
   addLayerControl(map, base);
+  if (mapShell) ensureMapFullscreenButton(mapShell, "game.fullscreen_map_title");
 
   shuffleMap = map;
   const bounds = L.latLngBounds();
@@ -1083,9 +1067,12 @@ function renderBatchRevealMap(containerEl, batchItems) {
 
   containerEl.style.display = "block";
 
+  const mapShell = containerEl.closest ? containerEl.closest(".map-shell") || containerEl : containerEl;
   const base = createBaseTileLayers();
-  const map = L.map(containerEl, { layers: [base.streets] }).setView([20, 0], 2);
+  const map = L.map(containerEl, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
+  L.control.zoom({ position: "topright" }).addTo(map);
   addLayerControl(map, base);
+  if (mapShell) ensureMapFullscreenButton(mapShell, "game.fullscreen_map_title");
 
   revealShuffleMap = map;
   const bounds = L.latLngBounds();

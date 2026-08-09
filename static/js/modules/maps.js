@@ -49,6 +49,22 @@ export function addLayerControl(map, baseLayers) {
       toggleBtn.title = titleText;
       toggleBtn.setAttribute("aria-label", titleText);
     }
+
+    const updateActiveLabels = () => {
+      const labels = control._container.querySelectorAll(".leaflet-control-layers-expanded label");
+      labels.forEach((label) => {
+        const input = label.querySelector("input");
+        if (input && input.checked) {
+          label.classList.add("active");
+        } else {
+          label.classList.remove("active");
+        }
+      });
+    };
+
+    control._container.addEventListener("change", updateActiveLabels);
+    control._container.addEventListener("click", updateActiveLabels);
+    setTimeout(updateActiveLabels, 0);
   }
 
   return control;
@@ -152,45 +168,78 @@ export function spawnPinPulseEffect(map, latlng, color) {
   requestAnimationFrame(animatePulse);
 }
 
+export function ensureMapFullscreenButton(shell, titleKey = "game.fullscreen_map_title") {
+  if (!shell) return null;
+  let btn = shell.querySelector(".map-fullscreen-btn");
+  if (!btn) {
+    btn = createMapFullscreenButton(shell, titleKey);
+    shell.appendChild(btn);
+  } else {
+    const hasIcon = btn.querySelector(".fs-icon");
+    if (!hasIcon) {
+      btn.innerHTML = `
+        <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <polyline points="9 21 3 21 3 15"></polyline>
+          <line x1="21" y1="3" x2="14" y2="10"></line>
+          <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
+      `;
+    } else {
+      const textSpan = btn.querySelector("[data-i18n]");
+      if (textSpan) textSpan.remove();
+    }
+  }
+  btn.classList.add("leaflet-control");
+  const tryMove = () => {
+    const rightCorner = shell.querySelector(".leaflet-top.leaflet-right");
+    if (rightCorner && btn.parentElement !== rightCorner) {
+      rightCorner.prepend(btn);
+    }
+  };
+  tryMove();
+  requestAnimationFrame(tryMove);
+  setTimeout(tryMove, 50);
+  return btn;
+}
+
 export function ensureGuessMap() {
   const container = document.getElementById("guess-map");
   if (!container) return;
 
-  if (state.guessMap) {
-    state.guessMap.invalidateSize();
-    return;
+  const shell = container.closest(".map-shell");
+
+  if (!state.guessMap) {
+    const base = createBaseTileLayers();
+    state.guessMap = L.map(container, { worldCopyJump: true, zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
+    L.control.zoom({ position: "topright" }).addTo(state.guessMap);
+    addLayerControl(state.guessMap, base);
+
+    state.guessMap.on("click", (event) => {
+      if (state.timedOut || state.submitting) {
+        return;
+      }
+      const lat = event.latlng.lat;
+      const lng = (((event.latlng.lng + 180) % 360) + 360) % 360 - 180;
+      const clickLatLng = L.latLng(lat, lng);
+      state.guessedLatLng = clickLatLng;
+      const player = state.currentQuestion ? state.currentQuestion.player_name : "";
+      const color = playerColor(player);
+      const icon = createPinIcon(playerInitial(player), color);
+      if (state.guessMarker) {
+        state.guessMarker.remove();
+      }
+      state.guessMarker = L.marker([lat, lng], { icon }).addTo(state.guessMap);
+
+      playPinDropSound();
+      spawnPinPulseEffect(state.guessMap, clickLatLng, color);
+
+      updateSubmitState();
+    });
   }
 
-  const base = createBaseTileLayers();
-  state.guessMap = L.map(container, { worldCopyJump: true, layers: [base.streets] }).setView([20, 0], 2);
-  addLayerControl(state.guessMap, base);
+  if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
 
-  state.guessMap.on("click", (event) => {
-    if (state.timedOut || state.submitting) {
-      return;
-    }
-    // Normalize longitude to [-180, 180] so clicks on repeated world copies
-    // always resolve to canonical coordinates, avoiding mismatched pin placement.
-    const lat = event.latlng.lat;
-    const lng = (((event.latlng.lng + 180) % 360) + 360) % 360 - 180;
-    const clickLatLng = L.latLng(lat, lng);
-    state.guessedLatLng = clickLatLng;
-    const player = state.currentQuestion ? state.currentQuestion.player_name : "";
-    const color = playerColor(player);
-    const icon = createPinIcon(playerInitial(player), color);
-    if (state.guessMarker) {
-      state.guessMarker.remove();
-    }
-    state.guessMarker = L.marker([lat, lng], { icon }).addTo(state.guessMap);
-
-    playPinDropSound();
-    spawnPinPulseEffect(state.guessMap, clickLatLng, color);
-
-    updateSubmitState();
-  });
-
-  // The container was hidden while Leaflet measured it, so re-measure once
-  // the browser has painted the visible layout.
   requestAnimationFrame(() => {
     if (state.guessMap) state.guessMap.invalidateSize();
   });
@@ -200,11 +249,17 @@ export function ensureRevealMap() {
   const container = document.getElementById("reveal-map");
   if (!container) return;
 
+  const shell = container.closest(".map-shell");
+
   if (!state.revealMap) {
     const base = createBaseTileLayers();
-    state.revealMap = L.map(container, { layers: [base.streets] }).setView([20, 0], 2);
+    state.revealMap = L.map(container, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
+    L.control.zoom({ position: "topright" }).addTo(state.revealMap);
     addLayerControl(state.revealMap, base);
   }
+
+  if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
+
   requestAnimationFrame(() => {
     if (state.revealMap) state.revealMap.invalidateSize();
   });
@@ -214,11 +269,17 @@ export function ensureJourneyMap() {
   const container = document.getElementById("journey-map");
   if (!container) return;
 
+  const shell = container.closest(".map-shell");
+
   if (!state.journeyMap) {
     const base = createBaseTileLayers();
-    state.journeyMap = L.map(container, { layers: [base.streets] }).setView([20, 0], 2);
+    state.journeyMap = L.map(container, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
+    L.control.zoom({ position: "topright" }).addTo(state.journeyMap);
     addLayerControl(state.journeyMap, base);
   }
+
+  if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
+
   requestAnimationFrame(() => {
     if (state.journeyMap) state.journeyMap.invalidateSize();
   });
@@ -378,13 +439,34 @@ export function updateMapLayerControls(extraMaps = []) {
   });
 }
 
+export function createMapFullscreenButton(shell, titleKey = "game.fullscreen_map_title") {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "map-fullscreen-btn leaflet-control";
+  btn.setAttribute("aria-pressed", "false");
+  btn.title = t(titleKey);
+  btn.setAttribute("data-i18n-title", titleKey);
+  btn.innerHTML = `
+    <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="15 3 21 3 21 9"></polyline>
+      <polyline points="9 21 3 21 3 15"></polyline>
+      <line x1="21" y1="3" x2="14" y2="10"></line>
+      <line x1="3" y1="21" x2="10" y2="14"></line>
+    </svg>
+  `;
+  btn.addEventListener("click", () => toggleMapFullscreen(shell));
+  return btn;
+}
+
 export function syncFullscreenButtons() {
   document.querySelectorAll(".map-fullscreen-btn").forEach((button) => {
     const shell = button.closest(".map-shell, .media-frame");
     const isActive = Boolean(shell && document.fullscreenElement === shell);
-    const textKey = isActive ? "game.fullscreen_exit_btn" : "game.fullscreen_btn";
-    button.textContent = t(textKey);
-    button.setAttribute("data-i18n", textKey);
+    const titleKey = isActive ? "game.fullscreen_exit_btn" : "game.fullscreen_btn";
+    button.title = t(titleKey);
+    button.setAttribute("data-i18n-title", titleKey);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    const textEl = button.querySelector("[data-i18n]");
+    if (textEl) textEl.remove();
   });
 }

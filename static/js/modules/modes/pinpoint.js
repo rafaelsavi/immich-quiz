@@ -580,6 +580,9 @@ export const pinpointMode = {
   },
 
   unmount() {
+    if (el.mediaFrame) {
+      el.mediaFrame.classList.add("hidden");
+    }
     if (state.guessMap) {
       state.guessMap.remove();
       state.guessMap = null;

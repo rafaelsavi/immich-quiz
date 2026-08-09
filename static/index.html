@@ -116,27 +116,32 @@
         </div>
       </div>
 
-      <template id="tmpl-mode-pinpoint">
-        <div id="media-frame" class="media-frame">
-          <p id="media-placeholder" class="media-placeholder" data-i18n="game.media_placeholder">Photo hidden until
-            you
-            press "I'm Ready".</p>
-          <img id="quiz-image" class="hidden" alt="Quiz media" />
-          <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-            title="Toggle fullscreen image" data-i18n="game.fullscreen_btn" data-i18n-title="game.fullscreen_image_title">
-            Fullscreen
-          </button>
-          <div class="fullscreen-timer" id="fs-timer-image">
-            <div class="fs-timer-head">
-              <span class="fs-timer-label"></span>
-              <span class="fs-timer-remaining"></span>
-            </div>
-            <div class="fs-timer-track">
-              <div class="fs-timer-fill"></div>
-            </div>
+      <div id="media-frame" class="media-frame hidden">
+        <p id="media-placeholder" class="media-placeholder" data-i18n="game.media_placeholder">Photo hidden until
+          you
+          press "I'm Ready".</p>
+        <img id="quiz-image" class="hidden" alt="Quiz media" />
+        <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+          title="Toggle fullscreen image" data-i18n-title="game.fullscreen_image_title">
+          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+        </button>
+        <div class="fullscreen-timer" id="fs-timer-image">
+          <div class="fs-timer-head">
+            <span class="fs-timer-label"></span>
+            <span class="fs-timer-remaining"></span>
+          </div>
+          <div class="fs-timer-track">
+            <div class="fs-timer-fill"></div>
           </div>
         </div>
+      </div>
 
+      <template id="tmpl-mode-pinpoint">
         <div id="pinpoint-ui">
           <div class="grid-2 round-guess-layout">
             <div id="map-guess-wrap" class="hidden">
@@ -146,8 +151,13 @@
               <div id="guess-map-shell" class="map-shell">
                 <div id="guess-map"></div>
                 <button type="button" id="guess-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-                  title="Toggle fullscreen map" data-i18n="game.fullscreen_btn" data-i18n-title="game.fullscreen_map_title">
-                  Fullscreen
+                  title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+                  <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
                 </button>
                 <div class="fullscreen-timer" id="fs-timer-guess-map">
                   <div class="fs-timer-head">
@@ -207,8 +217,13 @@
           <div id="reveal-map-shell" class="map-shell">
             <div id="reveal-map"></div>
             <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-              title="Toggle fullscreen map" data-i18n="game.fullscreen_btn" data-i18n-title="game.fullscreen_map_title">
-              Fullscreen
+              title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+              <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
             </button>
           </div>
           <div class="table-scroll">
@@ -244,8 +259,13 @@
       <div id="journey-map-shell" class="map-shell hidden">
         <div id="journey-map"></div>
         <button type="button" id="journey-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-          title="Toggle fullscreen map" data-i18n="game.fullscreen_btn" data-i18n-title="game.fullscreen_map_title">
-          Fullscreen
+          title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
         </button>
       </div>
       <div class="polaroids-section">
