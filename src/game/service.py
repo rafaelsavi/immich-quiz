@@ -80,7 +80,7 @@ class GameService:
         )
 
         required = (
-            5 * setup.round_count
+            3 * setup.round_count
             if getattr(setup, 'game_mode', GameMode.pinpoint) == GameMode.album_shuffle
             else setup.round_count
         )
