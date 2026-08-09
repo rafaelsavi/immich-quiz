@@ -258,11 +258,14 @@ class ImmichClient:
                 continue
 
             is_shared = bool(asset.get('isShared'))
-            if is_shared and include_shared_albums:
-                filtered.append(asset)
-            elif not is_shared and include_partner_assets:
-                filtered.append(asset)
-            elif (include_shared_albums or include_partner_assets) and 'isShared' not in asset:
+            if (
+                is_shared
+                and include_shared_albums
+                or not is_shared
+                and include_partner_assets
+                or (include_shared_albums or include_partner_assets)
+                and 'isShared' not in asset
+            ):
                 filtered.append(asset)
 
         return filtered

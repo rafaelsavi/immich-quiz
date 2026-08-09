@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from fastapi import HTTPException
 
@@ -85,11 +84,7 @@ class GameService:
             )
         )
 
-        required = (
-            3 * setup.round_count
-            if setup.game_mode == GameMode.album_shuffle
-            else setup.round_count
-        )
+        required = 3 * setup.round_count if setup.game_mode == GameMode.album_shuffle else setup.round_count
         return PreflightResponse(
             eligible_count=eligible_count,
             required=required,
