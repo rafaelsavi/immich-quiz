@@ -47,7 +47,8 @@ To run with Docker Compose use the provided [docker-compose.example.yml](docker-
 | `IMMICH_LIBRARIES`              | Yes      | —                      | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`    |
 | `APP_TITLE`                     | No       | `Immich Quiz`          | Browser tab title and main heading shown on the landing page                  |
 | `APP_TAGLINE`                   | No       |                        | Optional tagline shown below the main heading on the landing page             |
-| `INCLUDE_SHARED_ALBUMS`         | No       | `false`                | Set to `true` to include shared albums by default                             |
+| `INCLUDE_SHARED_ALBUMS`         | No       | `false`                | Set to `true` to show albums shared with you in the album picker              |
+| `INCLUDE_PARTNER_ASSETS`        | No       | `false`                | Set to `true` to include photos from Immich partner libraries in quiz rounds  |
 | `FETCH_PHOTOS_DATE_LOWER_BOUND` | No       | —                      | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
 | `FETCH_PHOTOS_DATE_UPPER_BOUND` | No       | —                      | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
 | `LEADERBOARD_CSV_PATH`          | No       | `data/leaderboard.csv` | Path to leaderboard CSV file (relative to working dir or absolute path)       |

@@ -84,14 +84,7 @@ def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
     assert body['quiz_image_max_height_px'] == 420
 
 
-def test_albums_can_include_shared_when_requested(client: TestClient, immich: FakeImmichClient) -> None:
-    response = client.get('/api/albums', params={'library_name': 'family', 'include_shared_albums': 'true'})
-
-    assert response.status_code == 200
-    assert immich.last_include_shared_albums is True
-
-
-def test_albums_default_can_be_enabled_by_settings(tmp_path: Path) -> None:
+def test_albums_respects_include_shared_albums_settings(tmp_path: Path) -> None:
     immich = FakeImmichClient()
     client = build_client(tmp_path, immich, include_shared_albums=True)
 
@@ -99,16 +92,6 @@ def test_albums_default_can_be_enabled_by_settings(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert immich.last_include_shared_albums is True
-
-
-def test_albums_query_param_overrides_settings_default(tmp_path: Path) -> None:
-    immich = FakeImmichClient()
-    client = build_client(tmp_path, immich, include_shared_albums=True)
-
-    response = client.get('/api/albums', params={'library_name': 'family', 'include_shared_albums': 'false'})
-
-    assert response.status_code == 200
-    assert immich.last_include_shared_albums is False
 
 
 def test_answer_response_hides_the_solution(client: TestClient) -> None:
@@ -392,7 +375,7 @@ def test_players_rotate_within_a_round(tmp_path: Path) -> None:
 
 
 def test_media_rejects_asset_outside_any_match(client: TestClient) -> None:
-    response = client.get('/api/media/asset-1?library=family')
+    response = client.get('/api/media/asset-1?library_name=family')
     assert response.status_code == 404
 
 
@@ -400,7 +383,7 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
     match_id = start_match(client)
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
 
-    response = client.get(f'/api/media/{question["asset_id"]}?library=family')
+    response = client.get(f'/api/media/{question["asset_id"]}?library_name=family')
     assert response.status_code == 200
     assert response.headers['content-type'].startswith('image/jpeg')
     assert response.content == b'fake-jpg'

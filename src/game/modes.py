@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from fastapi import HTTPException
 
+from src.config import AppSettings
 from src.game.selector import select_batch_round_assets, select_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
@@ -82,7 +83,7 @@ class BaseGameModeEngine(ABC):
         self,
         state: MatchState,
         payload_played_asset_ids: list[str],
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
     ) -> QuestionState:
@@ -102,7 +103,7 @@ class BaseGameModeEngine(ABC):
         state: MatchState,
         question_state: QuestionState,
         payload: AnswerRequest,
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
         pass
@@ -123,7 +124,7 @@ class PinpointEngine(BaseGameModeEngine):
         self,
         state: MatchState,
         payload_played_asset_ids: list[str],
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
     ) -> QuestionState:
@@ -137,6 +138,8 @@ class PinpointEngine(BaseGameModeEngine):
                     set(payload_played_asset_ids),
                     settings.fetch_photos_date_lower_bound,
                     settings.fetch_photos_date_upper_bound,
+                    include_shared_albums=settings.include_shared_albums,
+                    include_partner_assets=settings.include_partner_assets,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -167,7 +170,7 @@ class PinpointEngine(BaseGameModeEngine):
         state: MatchState,
         question_state: QuestionState,
         payload: AnswerRequest,
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
         location_points = 0
@@ -279,7 +282,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         self,
         state: MatchState,
         payload_played_asset_ids: list[str],
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
     ) -> QuestionState:
@@ -296,6 +299,8 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     set(payload_played_asset_ids),
                     settings.fetch_photos_date_lower_bound,
                     settings.fetch_photos_date_upper_bound,
+                    include_shared_albums=settings.include_shared_albums,
+                    include_partner_assets=settings.include_partner_assets,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -351,7 +356,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         state: MatchState,
         question_state: QuestionState,
         payload: AnswerRequest,
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
         location_points = 0

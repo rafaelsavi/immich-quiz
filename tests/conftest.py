@@ -62,7 +62,16 @@ class FakeImmichClient:
         self.last_include_shared_albums = include_shared_albums
         return [{'id': 'album-1', 'name': 'Holidays'}]
 
-    async def search_assets(self, library_name: str, album_id: str | None = None) -> list[dict[str, Any]]:
+    async def search_assets(
+        self,
+        library_name: str,
+        album_id: str | None = None,
+        *,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
+        size: int = 250,
+        page: int = 1,
+    ) -> list[dict[str, Any]]:
         self.search_calls += 1
         return self.assets
 
@@ -71,6 +80,8 @@ class FakeImmichClient:
         library_name: str,
         album_id: str | None = None,
         size: int = 250,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
     ) -> list[dict[str, Any]]:
         self.search_calls += 1
         return self.assets
@@ -88,6 +99,7 @@ def build_client(
     app_title: str = 'Immich Quiz',
     app_tagline: str = '',
     include_shared_albums: bool = False,
+    include_partner_assets: bool = False,
     fetch_photos_date_lower_bound: date | None = None,
     fetch_photos_date_upper_bound: date | None = None,
     score_max_points: int = 100,
@@ -102,6 +114,7 @@ def build_client(
         app_title=app_title,
         app_tagline=app_tagline,
         include_shared_albums=include_shared_albums,
+        include_partner_assets=include_partner_assets,
         fetch_photos_date_lower_bound=fetch_photos_date_lower_bound,
         fetch_photos_date_upper_bound=fetch_photos_date_upper_bound,
         app_host='127.0.0.1',

@@ -101,6 +101,8 @@ class ImmichClient:
         library_name: str,
         album_id: str | None = None,
         *,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
         size: int = 250,
         page: int = 1,
     ) -> list[dict[str, Any]]:
@@ -108,15 +110,29 @@ class ImmichClient:
         payload: dict[str, Any] = {'size': size, 'page': page, 'withExif': True}
         if album_id:
             payload['albumIds'] = [album_id]
+        if include_partner_assets:
+            payload['withPartners'] = True
+        if include_shared_albums and not album_id:
+            payload['isShared'] = True
 
         raw = await self._request_json('POST', '/search/metadata', key, json=payload)
-        return self._extract_asset_items(raw)
+        items = self._extract_asset_items(raw)
+        current_user_id = await self._current_user_id(key)
+        return self._filter_assets_by_owner(
+            items,
+            current_user_id=current_user_id,
+            album_id=album_id,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
 
     async def search_random_assets(
         self,
         library_name: str,
         album_id: str | None = None,
         size: int = 250,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
     ) -> list[dict[str, Any]]:
         """Draw a randomized candidate pool.
 
@@ -128,7 +144,12 @@ class ImmichClient:
         payload: dict[str, Any] = {'size': size, 'withExif': True}
         if album_id:
             payload['albumIds'] = [album_id]
+        if include_partner_assets:
+            payload['withPartners'] = True
+        if include_shared_albums and not album_id:
+            payload['isShared'] = True
 
+        raw_items: list[dict[str, Any]] = []
         try:
             unique_assets: dict[str, dict[str, Any]] = {}
             for _ in range(3):
@@ -139,17 +160,35 @@ class ImmichClient:
             if unique_assets:
                 items = list(unique_assets.values())
                 random.shuffle(items)
-                return items[:size]
+                raw_items = items[:size]
         except ImmichClientError:
             pass
 
-        return await self._search_assets_randomized_fallback(library_name, album_id, size)
+        if not raw_items:
+            raw_items = await self._search_assets_randomized_fallback(
+                library_name,
+                album_id,
+                size,
+                include_shared_albums=include_shared_albums,
+                include_partner_assets=include_partner_assets,
+            )
+
+        current_user_id = await self._current_user_id(key)
+        return self._filter_assets_by_owner(
+            raw_items,
+            current_user_id=current_user_id,
+            album_id=album_id,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
 
     async def _search_assets_randomized_fallback(
         self,
         library_name: str,
         album_id: str | None,
         size: int,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
     ) -> list[dict[str, Any]]:
         """Randomize metadata fallback by sampling multiple pages instead of page 1 only."""
         key = self._library_key(library_name)
@@ -157,6 +196,10 @@ class ImmichClient:
         first_page_payload: dict[str, Any] = {'size': size, 'page': 1, 'withExif': True}
         if album_id:
             first_page_payload['albumIds'] = [album_id]
+        if include_partner_assets:
+            first_page_payload['withPartners'] = True
+        if include_shared_albums and not album_id:
+            first_page_payload['isShared'] = True
 
         first_raw = await self._request_json('POST', '/search/metadata', key, json=first_page_payload)
         unique_assets: dict[str, dict[str, Any]] = {}
@@ -172,12 +215,57 @@ class ImmichClient:
                     page_payload: dict[str, Any] = {'size': size, 'page': page, 'withExif': True}
                     if album_id:
                         page_payload['albumIds'] = [album_id]
+                    if include_partner_assets:
+                        page_payload['withPartners'] = True
+                    if include_shared_albums and not album_id:
+                        page_payload['isShared'] = True
                     raw = await self._request_json('POST', '/search/metadata', key, json=page_payload)
                     self._merge_assets(unique_assets, self._extract_asset_items(raw))
 
         items = list(unique_assets.values())
         random.shuffle(items)
         return items[:size]
+
+    @staticmethod
+    def _asset_owner_id(asset: dict[str, Any]) -> str:
+        owner_id = asset.get('ownerId')
+        if owner_id:
+            return str(owner_id).strip()
+        owner = asset.get('owner')
+        if isinstance(owner, dict) and owner.get('id'):
+            return str(owner['id']).strip()
+        return ''
+
+    @staticmethod
+    def _filter_assets_by_owner(
+        items: list[dict[str, Any]],
+        current_user_id: str,
+        album_id: str | None,
+        include_shared_albums: bool,
+        include_partner_assets: bool,
+    ) -> list[dict[str, Any]]:
+        if album_id:
+            return items
+
+        if include_shared_albums and include_partner_assets:
+            return items
+
+        filtered: list[dict[str, Any]] = []
+        for asset in items:
+            owner_id = ImmichClient._asset_owner_id(asset)
+            if not owner_id or owner_id == current_user_id:
+                filtered.append(asset)
+                continue
+
+            is_shared = bool(asset.get('isShared'))
+            if is_shared and include_shared_albums:
+                filtered.append(asset)
+            elif not is_shared and include_partner_assets:
+                filtered.append(asset)
+            elif (include_shared_albums or include_partner_assets) and 'isShared' not in asset:
+                filtered.append(asset)
+
+        return filtered
 
     @staticmethod
     def _merge_assets(target: dict[str, dict[str, Any]], items: list[dict[str, Any]]) -> None:

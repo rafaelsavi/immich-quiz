@@ -13,9 +13,16 @@ async def load_asset_pool(
     immich: ImmichClient,
     min_capture_date: date | None,
     max_capture_date: date | None,
+    include_shared_albums: bool = False,
+    include_partner_assets: bool = False,
 ) -> None:
     """Populate the per-match candidate pool once instead of searching every round."""
-    raw_assets = await immich.search_random_assets(state.setup.library_name, state.setup.album_id)
+    raw_assets = await immich.search_random_assets(
+        state.setup.library_name,
+        state.setup.album_id,
+        include_shared_albums=include_shared_albums,
+        include_partner_assets=include_partner_assets,
+    )
     pool: dict[str, AssetAnswer] = {}
     for asset in raw_assets:
         if not ImmichClient.is_eligible_asset(
@@ -85,16 +92,32 @@ async def select_round_asset(
     client_excluded: set[str],
     min_capture_date: date | None,
     max_capture_date: date | None,
+    include_shared_albums: bool = False,
+    include_partner_assets: bool = False,
 ) -> RoundAsset | None:
     """Draw an unplayed asset, refreshing the pool once if it is exhausted."""
     excluded = state.played_asset_ids | client_excluded
 
     if not state.asset_pool:
-        await load_asset_pool(state, immich, min_capture_date, max_capture_date)
+        await load_asset_pool(
+            state,
+            immich,
+            min_capture_date,
+            max_capture_date,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
     candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
     if not candidates:
-        await load_asset_pool(state, immich, min_capture_date, max_capture_date)
+        await load_asset_pool(
+            state,
+            immich,
+            min_capture_date,
+            max_capture_date,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
     if not candidates:
@@ -127,15 +150,31 @@ async def select_batch_round_assets(
     client_excluded: set[str],
     min_capture_date: date | None,
     max_capture_date: date | None,
+    include_shared_albums: bool = False,
+    include_partner_assets: bool = False,
 ) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
     excluded = state.played_asset_ids | client_excluded
 
     if not state.asset_pool:
-        await load_asset_pool(state, immich, min_capture_date, max_capture_date)
+        await load_asset_pool(
+            state,
+            immich,
+            min_capture_date,
+            max_capture_date,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
     candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
     if len(candidates) < count:
-        await load_asset_pool(state, immich, min_capture_date, max_capture_date)
+        await load_asset_pool(
+            state,
+            immich,
+            min_capture_date,
+            max_capture_date,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
     if not candidates:

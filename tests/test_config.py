@@ -83,6 +83,7 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.app_title == 'Immich Quiz'
     assert settings.app_tagline == ''
     assert settings.include_shared_albums is False
+    assert settings.include_partner_assets is False
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
     assert settings.quiz_image_max_height_px == 420
@@ -158,6 +159,25 @@ def test_include_shared_albums_rejects_invalid(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setenv('INCLUDE_SHARED_ALBUMS', 'maybe')
 
     with pytest.raises(ConfigError, match='INCLUDE_SHARED_ALBUMS'):
+        load_settings()
+
+
+def test_include_partner_assets_accepts_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('INCLUDE_PARTNER_ASSETS', 'true')
+
+    settings = load_settings()
+
+    assert settings.include_partner_assets is True
+
+
+def test_include_partner_assets_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('INCLUDE_PARTNER_ASSETS', 'maybe')
+
+    with pytest.raises(ConfigError, match='INCLUDE_PARTNER_ASSETS'):
         load_settings()
 
 

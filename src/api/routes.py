@@ -71,13 +71,11 @@ async def libraries(request: Request, immich: ImmichClient = Depends(get_immich_
 async def albums(
     library_name: str,
     request: Request,
-    include_shared_albums: bool | None = Query(default=None),
     immich: ImmichClient = Depends(get_immich_client),
 ) -> dict[str, list[dict[str, str]]]:
     try:
-        configured_default = bool(getattr(request.app.state.settings, 'include_shared_albums', False))
-        effective_include_shared = configured_default if include_shared_albums is None else include_shared_albums
-        result = await immich.list_albums(library_name, include_shared_albums=effective_include_shared)
+        settings = request.app.state.settings
+        result = await immich.list_albums(library_name, include_shared_albums=settings.include_shared_albums)
         return {'albums': result}
     except ImmichClientError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -140,20 +138,15 @@ async def question(
 @router.get('/media/{asset_id}')
 async def media(
     asset_id: str,
-    library_name: str | None = Query(default=None),
-    library: str | None = Query(default=None),
+    library_name: str,
     store: SessionStore = Depends(get_session_store),
     immich: ImmichClient = Depends(get_immich_client),
 ) -> Response:
-    selected_library = library_name or library
-    if not selected_library:
-        raise HTTPException(status_code=400, detail='library_name or library query parameter is required')
-
     if not store.is_asset_registered(asset_id):
         raise HTTPException(status_code=404, detail='Unknown asset for any active match')
 
     try:
-        content, content_type = await immich.get_asset_bytes(selected_library, asset_id)
+        content, content_type = await immich.get_asset_bytes(library_name, asset_id)
     except ImmichClientError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

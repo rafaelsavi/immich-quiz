@@ -5,6 +5,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
@@ -51,11 +52,16 @@ class GameService:
     async def preflight(
         self,
         setup: PreflightRequest,
-        settings: Any,
+        settings: AppSettings,
         immich: ImmichClient,
     ) -> PreflightResponse:
         try:
-            raw_assets = await immich.search_random_assets(setup.library_name, setup.album_id)
+            raw_assets = await immich.search_random_assets(
+                setup.library_name,
+                setup.album_id,
+                include_shared_albums=settings.include_shared_albums,
+                include_partner_assets=settings.include_partner_assets,
+            )
         except ImmichClientError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -81,7 +87,7 @@ class GameService:
 
         required = (
             3 * setup.round_count
-            if getattr(setup, 'game_mode', GameMode.pinpoint) == GameMode.album_shuffle
+            if setup.game_mode == GameMode.album_shuffle
             else setup.round_count
         )
         return PreflightResponse(
@@ -110,7 +116,7 @@ class GameService:
     async def get_question(
         self,
         payload: QuestionRequest,
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
     ) -> QuestionResponse:
@@ -170,7 +176,7 @@ class GameService:
     async def submit_answer(
         self,
         payload: AnswerRequest,
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
         leaderboard_store: LeaderboardStore,
     ) -> AnswerResponse:
@@ -215,7 +221,7 @@ class GameService:
     async def get_round_result(
         self,
         payload: RoundResultRequest,
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
     ) -> RoundResultResponse:
         """Reveal a round only once every player in it has locked in an answer."""
@@ -261,7 +267,7 @@ class GameService:
     async def get_match_summary(
         self,
         match_id: str,
-        settings: Any,
+        settings: AppSettings,
         store: SessionStore,
     ) -> MatchSummaryResponse:
         try:

@@ -21,6 +21,7 @@ class AppSettings:
     app_title: str
     app_tagline: str
     include_shared_albums: bool
+    include_partner_assets: bool
     fetch_photos_date_lower_bound: date | None
     fetch_photos_date_upper_bound: date | None
     app_host: str
@@ -115,6 +116,7 @@ def load_settings() -> AppSettings:
     libraries = _parse_library_map(raw_libraries)
     csv_path = Path(os.getenv('LEADERBOARD_CSV_PATH', 'data/leaderboard.csv')).expanduser().resolve()
     include_shared_albums = _parse_bool(os.getenv('INCLUDE_SHARED_ALBUMS', 'false'), 'INCLUDE_SHARED_ALBUMS')
+    include_partner_assets = _parse_bool(os.getenv('INCLUDE_PARTNER_ASSETS', 'false'), 'INCLUDE_PARTNER_ASSETS')
     fetch_photos_date_lower_bound = _parse_optional_date(
         os.getenv('FETCH_PHOTOS_DATE_LOWER_BOUND', ''),
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
@@ -166,6 +168,7 @@ def load_settings() -> AppSettings:
         app_title=app_title,
         app_tagline=app_tagline,
         include_shared_albums=include_shared_albums,
+        include_partner_assets=include_partner_assets,
         fetch_photos_date_lower_bound=fetch_photos_date_lower_bound,
         fetch_photos_date_upper_bound=fetch_photos_date_upper_bound,
         app_host=host,
