@@ -209,7 +209,7 @@ export const albumShuffleMode = {
     const photos = questionData.batch_photos || [];
     state.albumShuffleState = {
       orderedPhotoIds: photos.map((p) => p.photo_id),
-      selectedPhotoId: photos[0]?.photo_id || null,
+      selectedPhotoId: questionData.location_mode ? (photos[0]?.photo_id || null) : null,
       pinAssignments: {}, // photoId -> pinId
     };
 
@@ -774,10 +774,11 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
     const assignedPin = questionData.location_mode ? pinAssignments[photoId] : null;
     const pinColor = assignedPin ? getPinColor(assignedPin) : null;
-    const isSelected = selectedPhotoId === photoId;
+    const isSelectable = Boolean(questionData.location_mode);
+    const isSelected = isSelectable && selectedPhotoId === photoId;
 
     const card = document.createElement("div");
-    card.className = `shuffle-card-row ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""} ${assignedPin ? "assigned" : ""}`;
+    card.className = `shuffle-card-row ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""} ${assignedPin ? "assigned" : ""} ${isSelectable ? "selectable" : "not-selectable"}`;
 
     if (assignedPin && pinColor) {
       card.style.borderColor = pinColor;
@@ -799,6 +800,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
     card.addEventListener("click", () => {
       if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+      if (!isSelectable) return;
       if (state.albumShuffleState) {
         state.albumShuffleState.selectedPhotoId = photoId;
         renderPhotoCardsList(containerEl, questionData);

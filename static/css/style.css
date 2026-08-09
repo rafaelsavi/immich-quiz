@@ -1736,8 +1736,16 @@ td.is-perfect-cell {
   cursor: pointer;
 }
 
+.shuffle-card-row.not-selectable {
+  cursor: default;
+}
+
 .shuffle-card-row:hover {
   border-color: #cbd5e1;
+}
+
+.shuffle-card-row.not-selectable:hover {
+  border-color: #e2e8f0;
 }
 
 #album-shuffle-ui.shuffle-disabled .shuffle-photo-column,
