@@ -354,8 +354,8 @@ button:disabled {
 #guess-map,
 #reveal-map,
 #journey-map,
-.map-shell > div[id*="map"],
-.map-shell > div.leaflet-container {
+.map-shell>div[id*="map"],
+.map-shell>div.leaflet-container {
   width: 100%;
   height: var(--quiz-map-height);
   border-radius: 12px;
@@ -1301,6 +1301,7 @@ td.is-perfect-cell {
     opacity: 0.3;
     transform: scale(0.95) translateY(-2px);
   }
+
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1354,7 +1355,7 @@ td.is-perfect-cell {
   user-select: none !important;
 }
 
-.leaflet-control-layers-expanded label > div {
+.leaflet-control-layers-expanded label>div {
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -1434,8 +1435,8 @@ td.is-perfect-cell {
 #journey-map,
 #guess-map,
 #reveal-map,
-.map-shell > div[id*="map"],
-.map-shell > div.leaflet-container {
+.map-shell>div[id*="map"],
+.map-shell>div.leaflet-container {
   width: 100%;
   height: var(--quiz-map-height);
   border-radius: 12px;
@@ -1992,7 +1993,7 @@ td.is-perfect-cell {
   gap: 0.6rem;
   padding: 0.4rem 0.5rem;
   border-radius: 12px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid #cbd5e1;
   background: var(--card);
   transition: all 0.2s ease;
   cursor: pointer;
@@ -2002,12 +2003,12 @@ td.is-perfect-cell {
   cursor: default;
 }
 
-.shuffle-card-row:hover {
-  border-color: #cbd5e1;
+.shuffle-card-row.selectable:hover {
+  transform: translateY(-1px);
 }
 
 .shuffle-card-row.not-selectable:hover {
-  border-color: #e2e8f0;
+  transform: none;
 }
 
 #album-shuffle-ui.shuffle-disabled .shuffle-photo-column,
@@ -2025,6 +2026,20 @@ td.is-perfect-cell {
   filter: opacity(0.8);
 }
 
+.shuffle-pin-marker {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.85rem;
+  position: relative;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  user-select: none;
+}
+
 .shuffle-info-banner {
   background: #f0fdfa;
   border: 1px solid #99f6e4;
@@ -2038,10 +2053,19 @@ td.is-perfect-cell {
 }
 
 .shuffle-card-row.selected {
-  border-color: #64748b;
-  box-shadow: 0 0 0 3.5px rgba(100, 116, 139, 0.3), 0 8px 20px rgba(0, 0, 0, 0.12);
-  background: #f8fafc;
-  transform: translateY(-2px);
+  border-width: 4px;
+  border-color: #555557;
+  box-shadow: 0 8px 24px -4px rgba(30, 41, 59, 0.28), 0 4px 12px rgba(0, 0, 0, 0.12);
+  background: rgba(51, 65, 85, 0.08);
+  transform: translateY(-3px);
+}
+
+.shuffle-card-row.assigned {
+  border-width: 1px;
+}
+
+.shuffle-card-row.assigned.selected {
+  border-width: 4px;
 }
 
 
@@ -2307,6 +2331,7 @@ td.is-perfect-cell {
 }
 
 @media (max-width: 639px) {
+
   .shuffle-breakdown-table .shuffle-card-thumb-wrap,
   .shuffle-card-top .shuffle-card-thumb-wrap {
     width: 130px;
@@ -2629,6 +2654,7 @@ td.hide-on-desktop {
   #reveal-table th[data-mobile-label]::before {
     content: attr(data-mobile-label);
   }
+
   #reveal-table th[data-mobile-label] .desktop-head-label {
     display: none !important;
   }

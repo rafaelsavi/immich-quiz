@@ -760,19 +760,22 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     if (assignedPin && pinColor) {
       card.style.borderColor = pinColor;
       if (isSelected) {
-        card.style.backgroundColor = `${pinColor}38`;
-        card.style.boxShadow = `0 0 0 3.5px rgba(100, 116, 139, 0.35), 0 8px 20px rgba(0, 0, 0, 0.14)`;
+        card.style.backgroundColor = `${pinColor}70`;
+        card.style.boxShadow = `0 0 18px 4px ${pinColor}88, 0 6px 20px rgba(0, 0, 0, 0.14)`;
         card.style.transform = "translateY(-2px)";
+        card.style.borderWidth = "4px";
       } else {
-        card.style.backgroundColor = `${pinColor}24`;
-        card.style.boxShadow = `0 2px 6px ${pinColor}33`;
+        card.style.backgroundColor = `${pinColor}30`;
+        card.style.boxShadow = "none";
         card.style.transform = "";
+        card.style.borderWidth = "2px";
       }
     } else {
       card.style.borderColor = "";
       card.style.backgroundColor = "";
       card.style.boxShadow = "";
       card.style.transform = "";
+      card.style.borderWidth = "";
     }
 
     card.addEventListener("click", () => {
@@ -935,11 +938,28 @@ function getPinMarkerDetails(pinId) {
 function updateShuffleMapMarkers(pins) {
   if (!pins) return;
   pins.forEach((pin) => {
-    const { badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
+    const { isTaken, badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
     const el = document.getElementById(`pin-marker-${pin.pin_id}`);
     if (el) {
-      el.style.background = bgColor;
       el.textContent = badgeText;
+
+      if (isTaken) {
+        el.classList.add("assigned");
+        el.classList.remove("unassigned");
+        el.style.background = bgColor;
+        el.style.color = "#ffffff";
+        el.style.borderColor = "#ffffff";
+        el.style.opacity = "1";
+        el.style.boxShadow = "0 3px 8px rgba(0,0,0,0.35)";
+      } else {
+        el.classList.add("unassigned");
+        el.classList.remove("assigned");
+        el.style.background = "#ffffff";
+        el.style.color = bgColor;
+        el.style.borderColor = bgColor;
+        el.style.opacity = "1";
+        el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+      }
     }
   });
 }
@@ -985,11 +1005,15 @@ function renderShuffleMap(containerEl, pins, questionData) {
     const lon = pin.displayLon;
     bounds.extend([pin.latitude, pin.longitude]);
 
-    const { badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
+    const { isTaken, badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
+    const isAssignedClass = isTaken ? "assigned" : "unassigned";
+    const styleStr = isTaken
+      ? `background:${bgColor};color:#ffffff;border:2px solid #ffffff;opacity:1;box-shadow:0 3px 8px rgba(0,0,0,0.35);`
+      : `background:#ffffff;color:${bgColor};border:2px solid ${bgColor};opacity:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);`;
 
     const icon = L.divIcon({
       className: "custom-pin-icon",
-      html: `<div id="pin-marker-${pin.pin_id}" style="background:${bgColor};color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:0.85rem;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);transition:all 0.25s ease;">${badgeText}</div>`,
+      html: `<div id="pin-marker-${pin.pin_id}" class="shuffle-pin-marker ${isAssignedClass}" style="${styleStr}">${badgeText}</div>`,
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
@@ -1026,15 +1050,46 @@ function highlightMapMarker(pinId) {
   Object.keys(shuffleMarkers).forEach((pid) => {
     const el = document.getElementById(`pin-marker-${pid}`);
     if (el) {
-      if (pinId && pid === pinId) {
-        const pinColor = getPinColor(pid);
-        el.style.transform = "scale(1.3)";
-        el.style.boxShadow = `0 0 0 4px ${pinColor}80, 0 4px 12px rgba(0,0,0,0.4)`;
-        el.style.borderColor = pinColor;
+      const pinColor = getPinColor(pid);
+      const isSelected = Boolean(pinId && pid === pinId);
+      const { isTaken } = getPinMarkerDetails(pid);
+
+      el.style.transform = "scale(1)";
+
+      if (isSelected) {
+        el.classList.add("selected");
+        el.style.opacity = "1";
+        el.style.boxShadow = `0 0 0 3px #ffffff, 0 0 0 6px ${pinColor}, 0 4px 14px rgba(0,0,0,0.5)`;
+        if (isTaken) {
+          el.style.background = pinColor;
+          el.style.color = "#ffffff";
+          el.style.borderColor = "#ffffff";
+        } else {
+          el.style.background = "#ffffff";
+          el.style.color = pinColor;
+          el.style.borderColor = pinColor;
+        }
+        if (el.parentElement) {
+          el.parentElement.style.zIndex = "1000";
+        }
       } else {
-        el.style.transform = "scale(1)";
-        el.style.boxShadow = "0 3px 8px rgba(0,0,0,0.35)";
-        el.style.borderColor = "#fff";
+        el.classList.remove("selected");
+        if (el.parentElement) {
+          el.parentElement.style.zIndex = "";
+        }
+        if (isTaken) {
+          el.style.background = pinColor;
+          el.style.color = "#ffffff";
+          el.style.borderColor = "#ffffff";
+          el.style.boxShadow = "0 3px 8px rgba(0,0,0,0.35)";
+          el.style.opacity = "1";
+        } else {
+          el.style.background = "#ffffff";
+          el.style.color = pinColor;
+          el.style.borderColor = pinColor;
+          el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+          el.style.opacity = "1";
+        }
       }
     }
   });
