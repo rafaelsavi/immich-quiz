@@ -2040,6 +2040,21 @@ td.is-perfect-cell {
   user-select: none;
 }
 
+/* Dashed polyline connecting a spiderfied pin to its true map location */
+.spider-line {
+  pointer-events: none;
+}
+
+.spider-line path {
+  stroke-opacity: 0.72;
+  stroke-linecap: round;
+}
+
+/* Small dot at the true geographic location of a spiderfied pin */
+.spider-anchor {
+  pointer-events: none;
+}
+
 .shuffle-info-banner {
   background: #f0fdfa;
   border: 1px solid #99f6e4;

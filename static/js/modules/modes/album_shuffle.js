@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { state, el } from "../state.js";
-import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton } from "../maps.js";
+import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import { playerBadge, playerNameCell, buildCell } from "../formatters.js";
 import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
@@ -9,6 +9,8 @@ import { playChime } from "../audio.js";
 let shuffleMap = null;
 let revealShuffleMap = null;
 let shuffleMarkers = {}; // pinId -> Leaflet marker
+let spiderLines = {};    // pinId -> L.polyline connector line
+let truePinCoords = {};  // pinId -> { lat, lng } original coordinates
 
 function createShuffleHelpModal() {
   let modal = document.getElementById("album-shuffle-help-modal");
@@ -176,6 +178,8 @@ export const albumShuffleMode = {
       revealShuffleMap = null;
     }
     shuffleMarkers = {};
+    spiderLines = {};
+    truePinCoords = {};
     state.albumShuffleState = null;
     const host = document.getElementById("mode-active-host");
     if (host) {
@@ -983,27 +987,14 @@ function renderShuffleMap(containerEl, pins, questionData) {
   const bounds = L.latLngBounds();
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
 
-  // Group near-duplicate coordinates to apply a small visual offset if pins share exact locations
-  const coordCounts = {};
-  const processedPins = pins.map((pin) => {
-    const key = `${pin.latitude.toFixed(4)},${pin.longitude.toFixed(4)}`;
-    coordCounts[key] = (coordCounts[key] || 0) + 1;
-    const occurrence = coordCounts[key];
-    let displayLat = pin.latitude;
-    let displayLon = pin.longitude;
-    if (occurrence > 1) {
-      const angle = (occurrence - 1) * ((2 * Math.PI) / 5);
-      const radius = 0.00025 * Math.sqrt(occurrence);
-      displayLat = pin.latitude + radius * Math.cos(angle);
-      displayLon = pin.longitude + radius * Math.sin(angle);
-    }
-    return { ...pin, displayLat, displayLon };
-  });
-
-  processedPins.forEach((pin) => {
-    const lat = pin.displayLat;
-    const lon = pin.displayLon;
-    bounds.extend([pin.latitude, pin.longitude]);
+  // Store true coordinates and place markers at their true positions.
+  // Visual separation of overlapping pins is handled dynamically by applySpiderfy().
+  truePinCoords = {};
+  pins.forEach((pin) => {
+    const lat = pin.latitude;
+    const lon = pin.longitude;
+    truePinCoords[pin.pin_id] = { lat, lng: lon };
+    bounds.extend([lat, lon]);
 
     const { isTaken, badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
     const isAssignedClass = isTaken ? "assigned" : "unassigned";
@@ -1041,10 +1032,14 @@ function renderShuffleMap(containerEl, pins, questionData) {
     });
   });
 
+  // Register zoom-aware spiderfy: runs once after initial fit and on every zoom change.
+  map.on("zoomend", () => applySpiderfy(map, truePinCoords, shuffleMarkers, spiderLines, getPinColor));
   if (pins.length > 0 && bounds.isValid()) {
     fitMapToBounds(map, bounds, { padding: [50, 50], maxZoom: 15 });
+    map.once("moveend", () => applySpiderfy(map, truePinCoords, shuffleMarkers, spiderLines, getPinColor));
   }
 }
+
 
 function highlightMapMarker(pinId) {
   Object.keys(shuffleMarkers).forEach((pid) => {
@@ -1132,10 +1127,17 @@ function renderBatchRevealMap(containerEl, batchItems) {
   revealShuffleMap = map;
   const bounds = L.latLngBounds();
 
+  // Local spiderfy state — scoped to this reveal instance.
+  const revealTrueCoords = {};
+  const revealMarkerByKey = {};
+  const revealSpiderLines = {};
+
   validItems.forEach((item) => {
+    const key = String(item.true_pin_id);
     const lat = item.actual_latitude;
     const lon = item.actual_longitude;
     bounds.extend([lat, lon]);
+    revealTrueCoords[key] = { lat, lng: lon };
 
     const pinColor = getPinColor(item.true_pin_id);
     const icon = L.divIcon({
@@ -1146,13 +1148,21 @@ function renderBatchRevealMap(containerEl, batchItems) {
     });
 
     const dateStr = item.actual_date ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
-    L.marker([lat, lon], { icon })
+    const marker = L.marker([lat, lon], { icon })
       .bindPopup(`<b>${item.true_pin_id}</b><br>${dateStr}`)
       .addTo(map);
+    revealMarkerByKey[key] = marker;
   });
 
+  // Register zoom-aware spiderfy.
+  map.on("zoomend", () =>
+    applySpiderfy(map, revealTrueCoords, revealMarkerByKey, revealSpiderLines, getPinColor)
+  );
   if (validItems.length > 0 && bounds.isValid()) {
     fitMapToBounds(map, bounds, { padding: [50, 50], maxZoom: 15 });
+    map.once("moveend", () =>
+      applySpiderfy(map, revealTrueCoords, revealMarkerByKey, revealSpiderLines, getPinColor)
+    );
   }
 }
 

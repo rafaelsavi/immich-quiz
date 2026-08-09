@@ -3,6 +3,9 @@ import { t, showAlert } from "./i18n.js";
 import { playerInitial, playerColor, ACTUAL_COLOR, formatPlace } from "./formatters.js";
 import { playPinDropSound } from "./audio.js";
 
+let journeySpiderLines = {}; // pinLabel -> L.polyline connector line
+let journeyTrueCoords = {};  // pinLabel -> { lat, lng } original coordinates
+
 export function createBaseTileLayers() {
   const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
@@ -285,6 +288,128 @@ export function ensureJourneyMap() {
   });
 }
 
+/**
+ * Zoom-aware pin spiderfy — shared utility for all maps.
+ *
+ * Converts each pin's true lat/lng to screen pixels at the current zoom level,
+ * groups pins whose centres are within `overlapThreshold` px of each other, then:
+ *  - Isolated pins  → snapped back to their true position; stale line removed.
+ *  - Grouped pins   → spread in a circle of `spiderRadius` px and connected to
+ *                     their true location by a thin polyline.
+ *
+ * @param {L.Map}     map             - Leaflet map instance
+ * @param {Object}    trueCoords      - { [key]: { lat, lng } }
+ * @param {Object}    markerByKey     - { [key]: L.Marker }
+ * @param {Object}    spiderLines     - { [key]: L.Polyline } — mutated in place
+ * @param {Function}  getColor        - (key) => CSS colour string for connector lines
+ * @param {number}    [overlapThreshold=18] - px distance below which pins are grouped
+ * @param {number}    [spiderRadius=30]     - spread radius in screen pixels
+ */
+export function applySpiderfy(
+  map, trueCoords, markerByKey, spiderLines, getColor,
+  overlapThreshold = 18, spiderRadius = 30,
+) {
+  if (!map) return;
+
+  const pinEntries = Object.entries(trueCoords);
+  if (pinEntries.length === 0) return;
+
+  // Convert every pin's true coordinate to screen pixels.
+  const pinPixels = pinEntries.map(([key, coord]) => ({
+    key,
+    point: map.latLngToLayerPoint([coord.lat, coord.lng]),
+    coord,
+  }));
+
+  // Single-pass greedy grouping by pixel proximity.
+  const assigned = new Set();
+  const groups = [];
+  for (let i = 0; i < pinPixels.length; i++) {
+    if (assigned.has(i)) continue;
+    const group = [i];
+    assigned.add(i);
+    for (let j = i + 1; j < pinPixels.length; j++) {
+      if (assigned.has(j)) continue;
+      const dx = pinPixels[i].point.x - pinPixels[j].point.x;
+      const dy = pinPixels[i].point.y - pinPixels[j].point.y;
+      if (Math.sqrt(dx * dx + dy * dy) < overlapThreshold) {
+        group.push(j);
+        assigned.add(j);
+      }
+    }
+    groups.push(group);
+  }
+
+  groups.forEach((group) => {
+    if (group.length === 1) {
+      // Isolated pin — restore true position and remove any stale connector.
+      const { key, coord } = pinPixels[group[0]];
+      const marker = markerByKey[key];
+      if (marker) marker.setLatLng([coord.lat, coord.lng]);
+      if (spiderLines[key]) {
+        if (spiderLines[key]._anchor) map.removeLayer(spiderLines[key]._anchor);
+        map.removeLayer(spiderLines[key]);
+        delete spiderLines[key];
+      }
+    } else {
+      // Overlapping group — spread each pin along the vector it already has
+      // relative to the group centroid in pixel space.
+      const centerX = group.reduce((s, i) => s + pinPixels[i].point.x, 0) / group.length;
+      const centerY = group.reduce((s, i) => s + pinPixels[i].point.y, 0) / group.length;
+
+      group.forEach((idx, groupIdx) => {
+        const { key, coord } = pinPixels[idx];
+        const marker = markerByKey[key];
+        if (!marker) return;
+
+        // Displacement of this pin's true position from the centroid.
+        const dx = pinPixels[idx].point.x - centerX;
+        const dy = pinPixels[idx].point.y - centerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        let spreadX, spreadY;
+        if (dist > 0.5) {
+          // Push along the existing radial vector, scaled to spiderRadius.
+          spreadX = centerX + (dx / dist) * spiderRadius;
+          spreadY = centerY + (dy / dist) * spiderRadius;
+        } else {
+          // All pins at identical true position — fall back to even circle.
+          const angle = (groupIdx / group.length) * 2 * Math.PI - Math.PI / 2;
+          spreadX = centerX + spiderRadius * Math.cos(angle);
+          spreadY = centerY + spiderRadius * Math.sin(angle);
+        }
+
+        const spreadLatLng = map.layerPointToLatLng([spreadX, spreadY]);
+
+        marker.setLatLng(spreadLatLng);
+
+        const trueLatLng = [coord.lat, coord.lng];
+        if (spiderLines[key]) {
+          spiderLines[key].setLatLngs([trueLatLng, spreadLatLng]);
+        } else {
+          spiderLines[key] = L.polyline([trueLatLng, spreadLatLng], {
+            color: getColor(key),
+            weight: 2,
+            opacity: 0.75,
+            className: "spider-line",
+          }).addTo(map);
+          spiderLines[key].bringToBack();
+          // Small dot anchoring the line to the true geographic location.
+          spiderLines[key]._anchor = L.circleMarker(trueLatLng, {
+            radius: 4,
+            color: "#ffffff",
+            fillColor: getColor(key),
+            fillOpacity: 1,
+            weight: 1.5,
+            className: "spider-anchor",
+          }).addTo(map);
+          spiderLines[key]._anchor.bringToBack();
+        }
+      });
+    }
+  });
+}
+
 export function renderJourneyMap(roundHistory, locationMode = true) {
   if (!el.journeyMapShell || !el.journeyMapHead) return;
 
@@ -343,42 +468,49 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
   el.journeyMapHead.classList.remove("hidden");
   ensureJourneyMap();
 
-  // Clear old layers
+  // Clear old layers and stale spider state.
   state.journeyLayers.forEach((layer) => state.journeyMap.removeLayer(layer));
   state.journeyLayers = [];
+  Object.values(journeySpiderLines).forEach((line) => state.journeyMap.removeLayer(line));
+  journeySpiderLines = {};
+  journeyTrueCoords = {};
 
-  // Group near-duplicate coordinates to apply a small visual offset if pins share exact locations
-  const coordCounts = {};
-  const processedPins = allPins.map((pin) => {
-    const key = `${pin.lat.toFixed(4)},${pin.lon.toFixed(4)}`;
-    coordCounts[key] = (coordCounts[key] || 0) + 1;
-    const occurrence = coordCounts[key];
-    let displayLat = pin.lat;
-    let displayLon = pin.lon;
-    if (occurrence > 1) {
-      const angle = (occurrence - 1) * ((2 * Math.PI) / 5);
-      const radius = 0.00025 * Math.sqrt(occurrence);
-      displayLat = pin.lat + radius * Math.cos(angle);
-      displayLon = pin.lon + radius * Math.sin(angle);
-    }
-    return { ...pin, displayLat, displayLon };
-  });
+  // Remove any previous zoomend listener before adding a new one.
+  state.journeyMap.off("zoomend");
 
+  // Store true coordinates and place markers at their true positions.
   const points = [];
-  processedPins.forEach((pin) => {
-    const latLng = L.latLng(pin.displayLat, pin.displayLon);
+  allPins.forEach((pin) => {
+    journeyTrueCoords[pin.label] = { lat: pin.lat, lng: pin.lon };
     points.push(L.latLng(pin.lat, pin.lon));
 
-    const marker = L.marker(latLng, {
+    const marker = L.marker([pin.lat, pin.lon], {
       icon: createPinIcon(pin.label, ACTUAL_COLOR),
+      _trueLabel: pin.label,   // stored so applyJourneySpiderfy can find this marker
     })
       .addTo(state.journeyMap)
       .bindPopup(pin.popupText);
     state.journeyLayers.push(marker);
   });
 
+  // Register zoom-aware spiderfy.
+  const buildJourneyMarkerByKey = () => {
+    const m = {};
+    state.journeyLayers.forEach((layer) => {
+      if (layer instanceof L.Marker && layer.options._trueLabel !== undefined) {
+        m[layer.options._trueLabel] = layer;
+      }
+    });
+    return m;
+  };
+  state.journeyMap.on("zoomend", () =>
+    applySpiderfy(state.journeyMap, journeyTrueCoords, buildJourneyMarkerByKey(), journeySpiderLines, () => ACTUAL_COLOR)
+  );
   if (points.length > 0) {
     fitMapToBounds(state.journeyMap, points, { padding: [50, 50], maxZoom: 15 });
+    state.journeyMap.once("moveend", () =>
+      applySpiderfy(state.journeyMap, journeyTrueCoords, buildJourneyMarkerByKey(), journeySpiderLines, () => ACTUAL_COLOR)
+    );
   }
 }
 
