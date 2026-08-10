@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 
+import tomllib
 from fastapi.testclient import TestClient
 
 from src.main import _render_index_html
@@ -18,7 +18,7 @@ def test_get_app_version_matches_pyproject() -> None:
         expected_version = data['project']['version']
 
     assert get_app_version() == expected_version
-    assert APP_VERSION == expected_version
+    assert expected_version == APP_VERSION
 
 
 def test_get_app_version_returns_empty_on_failure(monkeypatch: object) -> None:

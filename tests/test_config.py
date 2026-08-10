@@ -189,7 +189,6 @@ def test_custom_app_title(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.app_title == 'Quiz Night'
 
 
-
 def test_score_max_points_rejects_zero(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')

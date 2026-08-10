@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import importlib.metadata
 import logging
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 logger = logging.getLogger(__name__)
 
