@@ -15,6 +15,7 @@ from src.config import AppSettings, ConfigError, load_settings
 from src.immich.client import ImmichClient, ImmichClientError
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.session import SessionStore
+from src.version import APP_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -22,11 +23,14 @@ logger = logging.getLogger(__name__)
 def _render_index_html(static_path: Path, settings: AppSettings) -> str:
     lang_code = 'pt-BR' if settings.language == 'PT' else 'en'
     template = (static_path / 'index.html').read_text(encoding='utf-8')
+    version_badge = f'<span class="app-version-badge">v{APP_VERSION}</span>' if APP_VERSION else ''
     return (
         template.replace('{{APP_TITLE}}', settings.app_title)
         .replace('{{APP_HEADING}}', settings.app_title)
         .replace('{{APP_TAGLINE}}', settings.app_tagline)
         .replace('{{LANG_CODE}}', lang_code)
+        .replace('{{APP_VERSION_BADGE}}', version_badge)
+        .replace('{{APP_VERSION}}', APP_VERSION)
     )
 
 
@@ -67,7 +71,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             if close is not None:
                 await close()
 
-    app = FastAPI(title='Immich Quiz', version='0.1.0', lifespan=lifespan)
+    app = FastAPI(title='Immich Quiz', version=APP_VERSION, lifespan=lifespan)
     app.state.settings = settings
     app.state.session_store = SessionStore()
     app.state.immich_client = ImmichClient(settings.immich_server_url, settings.immich_libraries)
@@ -108,7 +112,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 try:
     app = create_app()
 except ConfigError as exc:
-    app = FastAPI(title='Immich Quiz', version='0.1.0')
+    app = FastAPI(title='Immich Quiz', version=APP_VERSION)
     config_error = str(exc)
 
     @app.get('/')

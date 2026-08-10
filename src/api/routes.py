@@ -19,6 +19,7 @@ from src.models import (
 )
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.session import SessionStore
+from src.version import APP_VERSION
 
 router = APIRouter(prefix='/api')
 
@@ -43,7 +44,7 @@ def get_game_service(request: Request) -> GameService:
 
 @router.get('/health')
 async def health() -> dict[str, str]:
-    return {'status': 'ok'}
+    return {'status': 'ok', 'version': APP_VERSION}
 
 
 @router.get('/ui-config')
@@ -52,6 +53,7 @@ async def ui_config(request: Request) -> dict[str, object]:
     return {
         'language': settings.language,
         'score_max_points': settings.score_max_points,
+        'version': APP_VERSION,
     }
 
 

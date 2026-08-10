@@ -35,6 +35,25 @@
   margin-bottom: 0;
 }
 
+.app-footer {
+  text-align: center;
+  padding: 0.8rem 0 0.4rem 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.app-version-badge {
+  display: inline-block;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: var(--ink);
+  opacity: 0.45;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
 .header-controls {
   display: flex;
   align-items: center;
