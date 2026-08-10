@@ -119,7 +119,6 @@ def build_client(
         fetch_photos_date_upper_bound=fetch_photos_date_upper_bound,
         app_host='127.0.0.1',
         app_port=8010,
-        quiz_image_max_height_px=420,
         score_max_points=score_max_points,
         location_score_decay_km=location_score_decay_km,
         date_score_decay_days=date_score_decay_days,

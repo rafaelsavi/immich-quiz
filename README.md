@@ -54,7 +54,6 @@ To run with Docker Compose use the provided [docker-compose.example.yml](docker-
 | `LEADERBOARD_CSV_PATH`          | No       | `data/leaderboard.csv` | Path to leaderboard CSV file (relative to working dir or absolute path)       |
 | `APP_HOST`                      | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
 | `APP_PORT`                      | No       | `8010`                 | Port the app listens on                                                       |
-| `QUIZ_IMAGE_MAX_HEIGHT_PX`      | No       | `420`                  | Max displayed quiz image height in px; valid range `200` to `1600`            |
 | `SCORE_MAX_POINTS`              | No       | `100`                  | Max points per enabled goal, per turn                                         |
 | `LOCATION_SCORE_DECAY_KM`       | No       | `500`                  | Location decay constant in km for `exp(-distance/decay)`                      |
 | `DATE_SCORE_DECAY_DAYS`         | No       | `500`                  | Date decay constant in days for `exp(-delta_days/decay)`                      |

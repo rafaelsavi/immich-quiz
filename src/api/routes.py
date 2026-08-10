@@ -50,7 +50,6 @@ async def health() -> dict[str, str]:
 async def ui_config(request: Request) -> dict[str, object]:
     settings = request.app.state.settings
     return {
-        'quiz_image_max_height_px': int(settings.quiz_image_max_height_px),
         'language': settings.language,
         'score_max_points': settings.score_max_points,
     }

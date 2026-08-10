@@ -95,10 +95,6 @@ async function initUiConfig() {
 }
 
 function applyUiConfig(config) {
-  const heightPxRaw = Number(config.quiz_image_max_height_px);
-  const heightPx = Number.isFinite(heightPxRaw) ? Math.min(1600, Math.max(200, heightPxRaw)) : 420;
-  document.documentElement.style.setProperty("--quiz-image-max-height", `${heightPx}px`);
-
   const savedLang = getInitialLanguagePreference();
   if (savedLang) {
     state.language = savedLang;

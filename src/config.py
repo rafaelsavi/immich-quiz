@@ -26,7 +26,6 @@ class AppSettings:
     fetch_photos_date_upper_bound: date | None
     app_host: str
     app_port: int
-    quiz_image_max_height_px: int
     score_max_points: int
     location_score_decay_km: float
     date_score_decay_days: float
@@ -139,12 +138,6 @@ def load_settings() -> AppSettings:
     except ValueError as exc:
         raise ConfigError('APP_PORT must be an integer') from exc
 
-    quiz_image_max_height_px = _parse_int_range(
-        os.getenv('QUIZ_IMAGE_MAX_HEIGHT_PX', '420'),
-        'QUIZ_IMAGE_MAX_HEIGHT_PX',
-        min_value=200,
-        max_value=1600,
-    )
     score_max_points = _parse_int_range(
         os.getenv('SCORE_MAX_POINTS', '100'),
         'SCORE_MAX_POINTS',
@@ -173,7 +166,6 @@ def load_settings() -> AppSettings:
         fetch_photos_date_upper_bound=fetch_photos_date_upper_bound,
         app_host=host,
         app_port=port,
-        quiz_image_max_height_px=quiz_image_max_height_px,
         score_max_points=score_max_points,
         location_score_decay_km=location_score_decay_km,
         date_score_decay_days=date_score_decay_days,

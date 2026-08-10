@@ -81,7 +81,8 @@ def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body['quiz_image_max_height_px'] == 420
+    assert body['language'] == 'EN'
+    assert body['score_max_points'] == 100
 
 
 def test_albums_respects_include_shared_albums_settings(tmp_path: Path) -> None:
