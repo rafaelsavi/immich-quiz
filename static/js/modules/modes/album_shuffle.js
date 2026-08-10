@@ -70,7 +70,6 @@ function openShuffleHelpModal(questionData) {
           <li>${t("game.shuffle_help_location_item1")}</li>
           <li>${t("game.shuffle_help_location_item2")}</li>
           <li>${t("game.shuffle_help_location_item3")}</li>
-          <li>${t("game.shuffle_help_location_item4")}</li>
         </ul>
       </div>
     `);
@@ -83,25 +82,12 @@ function openShuffleHelpModal(questionData) {
         <ul>
           <li>${t("game.shuffle_help_date_item1")}</li>
           <li>${t("game.shuffle_help_date_item2")}</li>
-          <li>${t("game.shuffle_help_date_item3")}</li>
         </ul>
       </div>
     `);
   }
 
-  if (sections.length === 0) {
-    sections.push(`
-      <div class="shuffle-help-section">
-        <p>${t("game.shuffle_help_fallback")}</p>
-      </div>
-    `);
-  }
-
-  body.innerHTML = `
-    <p class="shuffle-help-intro">${t("game.shuffle_help_intro")}</p>
-    ${sections.join("")}
-    <p class="shuffle-help-footnote">${t("game.shuffle_help_footer")}</p>
-  `;
+  body.innerHTML = sections.join("");
 
   modal.classList.remove("hidden");
 }
