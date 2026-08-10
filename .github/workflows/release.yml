@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
+      - 'rc/**'
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-rc*'
     paths-ignore:
       - 'docs/**'
       - '*.md'
@@ -44,4 +49,5 @@ jobs:
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           name: ${{ steps.get_version.outputs.tag }}
+          prerelease: ${{ contains(steps.get_version.outputs.version, 'rc') }}
           generate_release_notes: true

@@ -4,14 +4,17 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
+      - 'rc/**'
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-rc*'
     paths-ignore:
       - 'docs/**'
       - '*.md'
       - '.vscode/**'
       - '.githooks/**'
       - '.github/CODEOWNERS'
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
 
 permissions:
@@ -48,9 +51,10 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && !contains(steps.get_version.outputs.version, 'rc') }}
             type=raw,value=v${{ steps.get_version.outputs.version }}
             type=raw,value=${{ steps.get_version.outputs.version }}
+            type=raw,value=rc,enable=${{ contains(steps.get_version.outputs.version, 'rc') }}
             type=semver,pattern={{version}}
             type=sha
 
