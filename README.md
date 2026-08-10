@@ -37,7 +37,22 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 
 ### Starting the server
 
-To run with Docker Compose use the provided [docker-compose.example.yml](docker-compose.example.yml) and edit it to your needs. Mount `./data` volume to store the leaderboard CSV file and persist scores across container restarts. Pass environment variables to the container to configure the app.
+Create your `.env` configuration file from `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` to set your `IMMICH_SERVER_URL`, `IMMICH_LIBRARIES`, and optional settings.
+
+Start the container with Docker Compose using the provided [docker-compose.example.yml](docker-compose.example.yml):
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d
+```
+
+Docker Compose reads configuration directly from your `.env` file via `env_file`. Mount the `./data` volume to store the leaderboard CSV file and persist scores across container restarts.
 
 ### Environment Variables
 
