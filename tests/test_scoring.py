@@ -11,7 +11,6 @@ from src.scoring import (
     date_diff_parts,
     date_score,
     haversine_km,
-    kendall_tau_inversion_score,
     location_score,
     max_possible_score,
 )
@@ -103,17 +102,6 @@ def test_accuracy_rounding() -> None:
 def test_accuracy_uses_half_up_rounding() -> None:
     # 6.25 rounds to 6.3 with ROUND_HALF_UP; banker's rounding would give 6.2.
     assert accuracy_pct(1, 16) == 6.3
-
-
-def test_kendall_tau_inversion_score() -> None:
-    assert kendall_tau_inversion_score([0, 1, 2, 3, 4], max_points=100) == 100
-    assert kendall_tau_inversion_score([4, 3, 2, 1, 0], max_points=100) == 0
-    assert kendall_tau_inversion_score([0, 1, 3, 2, 4], max_points=100) == 90
-
-    # Incomplete or empty guesses when total_items is specified return 0
-    assert kendall_tau_inversion_score([], max_points=100, total_items=5) == 0
-    assert kendall_tau_inversion_score([0], max_points=100, total_items=5) == 0
-    assert kendall_tau_inversion_score([0, 1, 2], max_points=100, total_items=5) == 0
 
 
 def test_batch_strict_location_score() -> None:

@@ -146,36 +146,6 @@ def accuracy_pct(total_score: int, max_score: int) -> float:
     return float(value.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP))
 
 
-def kendall_tau_inversion_score(
-    guessed_order: list[int],
-    max_points: int = 100,
-    total_items: int | None = None,
-) -> int:
-    """Calculate chronological ordering score based on Kendall-Tau inversion count distance.
-
-    guessed_order is a list of true rank indices (0..N-1) representing the player's guessed sequence.
-    Example: [0, 1, 2, 3] is perfect (0 inversions -> max_points).
-    [3, 2, 1, 0] is completely reversed (max inversions -> 0 points).
-    """
-    n = len(guessed_order)
-    expected_n = total_items if total_items is not None else n
-
-    if n < expected_n or expected_n <= 1:
-        if expected_n <= 1 and n == expected_n:
-            return max_points
-        return 0
-
-    max_inversions = n * (n - 1) // 2
-    inversions = 0
-    for i in range(n):
-        for j in range(i + 1, n):
-            if guessed_order[i] > guessed_order[j]:
-                inversions += 1
-
-    pct_correct = 1.0 - (inversions / max_inversions)
-    return max(0, round(max_points * pct_correct))
-
-
 def batch_strict_location_score(correct_matches: int, total_photos: int, max_points: int = 100) -> int:
     """Strict location score: each correctly paired photo earns max_points / total_photos."""
     if total_photos <= 0:
