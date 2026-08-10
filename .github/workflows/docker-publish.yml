@@ -52,10 +52,10 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' && !contains(steps.get_version.outputs.version, 'rc') }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' && !contains(steps.get_version.outputs.version, 'rc') }}
             type=raw,value=v${{ steps.get_version.outputs.version }}
             type=raw,value=${{ steps.get_version.outputs.version }}
-            type=raw,value=rc,enable=${{ contains(steps.get_version.outputs.version, 'rc') }}
+            type=raw,value=rc,enable=${{ github.ref_name != 'main' || contains(steps.get_version.outputs.version, 'rc') }}
             type=semver,pattern={{version}}
             type=sha
 
