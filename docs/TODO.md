@@ -6,7 +6,8 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Future Feature Concepts
 
-- [ ] **Multiplayer WebSockets / Remote Play**: Extend pass-and-play local multiplayer to support multi-device real-time lobbies via WebSockets.
+- [ ] **Multiplayer WebSockets / Remote Play**: Extend pass-and-play local multiplayer to support multi-device real-time lobbies via WebSockets. Use this area to brainstorm ideas.
+
 - [ ] **Improve Audio Effects / Soundtrack**
 
 ---
