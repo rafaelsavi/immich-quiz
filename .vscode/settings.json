@@ -15,4 +15,5 @@
   "files.exclude": {
     ".git": true,
     "**/__pycache__": true,
+    ".*_cache": true
   }

@@ -458,9 +458,6 @@ async function loadQuestion() {
   state.guessedLatLng = null;
   state.timedOut = false;
   state.currentQuestion = null;
-  el.guessingUi.classList.remove("hidden");
-  el.revealUi.classList.add("hidden");
-  window.scrollTo({ top: 0, behavior: "smooth" });
   el.submitAnswer.textContent = t("game.submit_btn");
   getActiveMode()?.setDisabled?.(false);
   updateSubmitState();
@@ -491,6 +488,9 @@ async function loadQuestion() {
 
   const activeMode = getActiveMode();
   activeMode.renderQuestion(data);
+  el.guessingUi.classList.remove("hidden");
+  el.revealUi.classList.add("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
   updateSubmitState();
 
   if (data.total_players > 1) {
