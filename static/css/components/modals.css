@@ -74,10 +74,10 @@
 
 /* Reveal State Pill */
 .round-meta-reveal-tag {
-  background: linear-gradient(135deg, #f25f5c 0%, #e04845 100%);
+  background: linear-gradient(135deg, #d6801e 0%, #c05d11 100%);
   color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 2px 6px rgba(242, 95, 92, 0.3);
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
   text-transform: uppercase;
   font-size: 0.78rem;
   letter-spacing: 0.06em;

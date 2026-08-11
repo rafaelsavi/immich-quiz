@@ -27,6 +27,8 @@ This document lists planned features, design ideas, and technical debt items for
 
 - **Leaderboard availability**: By ditching scores in leaderboard and using only accuracy, game scores can be shared shown simultaneously independently of the round count.
 
+- **Player statistics**: TBD
+
 ---
 
 ## 🧹 Code Health & Maintenance
