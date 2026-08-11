@@ -634,7 +634,13 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
 
     const rankTag = document.createElement("div");
     rankTag.className = "shuffle-card-rank-tag";
-    rankTag.textContent = `#${trueRankIdx + 1}`;
+    if (trueRankIdx === 0) {
+      rankTag.innerHTML = `#1 (<span data-i18n="game.shuffle_oldest">${t("game.shuffle_oldest")}</span>)`;
+    } else if (trueRankIdx === sortedTrueBatch.length - 1 && sortedTrueBatch.length > 1) {
+      rankTag.innerHTML = `#${trueRankIdx + 1} (<span data-i18n="game.shuffle_newest">${t("game.shuffle_newest")}</span>)`;
+    } else {
+      rankTag.textContent = `#${trueRankIdx + 1}`;
+    }
 
     const banner = document.createElement("div");
     banner.className = "true-val-banner";
