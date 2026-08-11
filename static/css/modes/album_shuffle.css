@@ -183,13 +183,13 @@
   border: 1px solid #e2e8f0;
 }
 
-.shuffle-timeline-header.newest {
+.shuffle-timeline-header.oldest {
   color: #0284c7;
   background: #f0f9ff;
   border-color: #bae6fd;
 }
 
-.shuffle-timeline-header.oldest {
+.shuffle-timeline-header.newest {
   color: #475569;
   background: #f1f5f9;
   border-color: #cbd5e1;

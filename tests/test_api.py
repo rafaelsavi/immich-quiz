@@ -609,7 +609,7 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
     batch_photos = q_data['batch_photos']
 
     asset_date_map = {a['id']: a['fileCreatedAt'] for a in assets}
-    sorted_photos = sorted(batch_photos, key=lambda p: asset_date_map[p['photo_id']], reverse=True)
+    sorted_photos = sorted(batch_photos, key=lambda p: asset_date_map[p['photo_id']], reverse=False)
     photo_rank_map = {p['photo_id']: r for r, p in enumerate(sorted_photos)}
 
     # Submit correct chronological order for photos with timed_out=True
@@ -653,7 +653,7 @@ def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> No
     batch_photos = q_data['batch_photos']
 
     asset_date_map = {a['id']: a['fileCreatedAt'] for a in assets}
-    sorted_photos = sorted(batch_photos, key=lambda p: asset_date_map[p['photo_id']], reverse=True)
+    sorted_photos = sorted(batch_photos, key=lambda p: asset_date_map[p['photo_id']], reverse=False)
     true_rank_map = {p['photo_id']: r for r, p in enumerate(sorted_photos)}
 
     # Submit exact sequence placement (all photos in correct slots) -> 100 points

@@ -290,11 +290,11 @@ export const albumShuffleMode = {
     const libraryName = revealData.library_name || (state.currentQuestion ? state.currentQuestion.library_name : "");
     const totalPhotos = batchReveal.length;
 
-    // Sort batch items in TRUE chronological order (newest #1 to oldest #N)
+    // Sort batch items in TRUE chronological order (earliest #1 to latest #N)
     const sortedTrueBatch = [...batchReveal].sort((a, b) => {
       const dateA = a.actual_date ? new Date(a.actual_date).getTime() : 0;
       const dateB = b.actual_date ? new Date(b.actual_date).getTime() : 0;
-      return dateB - dateA;
+      return dateA - dateB;
     });
 
     // Map photo_id to true rank index (0-based)
@@ -730,8 +730,8 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
   if (questionData.date_mode && orderedIds.length > 0) {
     const topHeader = document.createElement("div");
-    topHeader.className = "shuffle-timeline-header newest";
-    topHeader.innerHTML = `<span>⬆️ <span data-i18n="game.shuffle_newest">${t("game.shuffle_newest")}</span></span>`;
+    topHeader.className = "shuffle-timeline-header oldest";
+    topHeader.innerHTML = `<span>⬆️ <span data-i18n="game.shuffle_oldest">${t("game.shuffle_oldest")}</span></span>`;
     containerEl.appendChild(topHeader);
   }
 
@@ -847,7 +847,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     upBtn.type = "button";
     upBtn.className = "shuffle-rank-btn";
     upBtn.textContent = "▲";
-    upBtn.title = "Move Up (Newer)";
+    upBtn.title = "Move Up (Earlier)";
     upBtn.disabled = index === 0 || isDisabled;
     upBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -864,7 +864,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     downBtn.type = "button";
     downBtn.className = "shuffle-rank-btn";
     downBtn.textContent = "▼";
-    downBtn.title = "Move Down (Older)";
+    downBtn.title = "Move Down (Later)";
     downBtn.disabled = index === orderedIds.length - 1 || isDisabled;
     downBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -895,8 +895,8 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
   if (questionData.date_mode && orderedIds.length > 0) {
     const bottomFooter = document.createElement("div");
-    bottomFooter.className = "shuffle-timeline-header oldest";
-    bottomFooter.innerHTML = `<span>⬇️ <span data-i18n="game.shuffle_oldest">${t("game.shuffle_oldest")}</span></span>`;
+    bottomFooter.className = "shuffle-timeline-header newest";
+    bottomFooter.innerHTML = `<span>⬇️ <span data-i18n="game.shuffle_newest">${t("game.shuffle_newest")}</span></span>`;
     containerEl.appendChild(bottomFooter);
   }
 

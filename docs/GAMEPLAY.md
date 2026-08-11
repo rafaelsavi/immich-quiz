@@ -56,7 +56,7 @@ In **Album Shuffle**, you get a batch of 3 photos and must match them to map pin
 Each player sees 3 photo cards in a list.
 
 - **Location mode**: a map appears with pins labeled A, B, and C. Click a photo card to select it, then click the map pin where you think that photo was taken to assign it.
-- **Date mode**: sort the 3 images into chronological order (from oldest to newest) using the rank buttons next to each photo card. Photos automatically auto-sort in real time as timeline ranks are assigned.
+- **Date mode**: sort the 3 images into chronological order (from earliest to latest, top to bottom) using the ▲ and ▼ rank buttons next to each photo card. Photos automatically reorder in real time as ranks are shifted.
 - Press **Submit** when you are finished. If a countdown is running, the turn auto-submits when time runs out.
 
 #### Reveal

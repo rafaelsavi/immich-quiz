@@ -394,7 +394,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             if not answers:
                 date_points = 0
             else:
-                sorted_by_date = sorted(batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=True)
+                sorted_by_date = sorted(batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
                 true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
 
                 correct_ranks = 0
