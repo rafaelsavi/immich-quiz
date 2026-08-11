@@ -125,7 +125,34 @@
 .map-fullscreen-btn:hover .fs-icon,
 .shuffle-card-fullscreen-btn:hover .fs-icon {
   transform: scale(1.12);
-  stroke: var(--accent, #2563eb);
+  stroke: var(--accent, #0f7c7f);
+}
+
+/* Cancel / Exit Fullscreen Button Style */
+.map-fullscreen-btn[aria-pressed="true"],
+.map-fullscreen-btn.is-active {
+  background: var(--ink, #1f2a44) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+
+.map-fullscreen-btn[aria-pressed="true"] .fs-icon,
+.map-fullscreen-btn.is-active .fs-icon {
+  stroke: #ffffff !important;
+}
+
+.map-fullscreen-btn[aria-pressed="true"]:hover,
+.map-fullscreen-btn.is-active:hover {
+  background: var(--accent-2, #f25f5c) !important;
+  border-color: var(--accent-2, #f25f5c) !important;
+  color: #ffffff !important;
+}
+
+.map-fullscreen-btn[aria-pressed="true"]:hover .fs-icon,
+.map-fullscreen-btn.is-active:hover .fs-icon {
+  stroke: #ffffff !important;
+  transform: scale(1.12);
 }
 
 /* Zoom Control Bar */

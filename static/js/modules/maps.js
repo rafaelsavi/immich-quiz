@@ -177,21 +177,6 @@ export function ensureMapFullscreenButton(shell, titleKey = "game.fullscreen_map
   if (!btn) {
     btn = createMapFullscreenButton(shell, titleKey);
     shell.appendChild(btn);
-  } else {
-    const hasIcon = btn.querySelector(".fs-icon");
-    if (!hasIcon) {
-      btn.innerHTML = `
-        <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <polyline points="9 21 3 21 3 15"></polyline>
-          <line x1="21" y1="3" x2="14" y2="10"></line>
-          <line x1="3" y1="21" x2="10" y2="14"></line>
-        </svg>
-      `;
-    } else {
-      const textSpan = btn.querySelector("[data-i18n]");
-      if (textSpan) textSpan.remove();
-    }
   }
   btn.classList.add("leaflet-control");
   const tryMove = () => {
@@ -203,6 +188,7 @@ export function ensureMapFullscreenButton(shell, titleKey = "game.fullscreen_map
   tryMove();
   requestAnimationFrame(tryMove);
   setTimeout(tryMove, 50);
+  syncFullscreenButtons();
   return btn;
 }
 
@@ -572,6 +558,20 @@ export function updateMapLayerControls(extraMaps = []) {
   });
 }
 
+export const ENTER_FS_SVG = `<svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="15 3 21 3 21 9"></polyline>
+  <polyline points="9 21 3 21 3 15"></polyline>
+  <line x1="21" y1="3" x2="14" y2="10"></line>
+  <line x1="3" y1="21" x2="10" y2="14"></line>
+</svg>`;
+
+export const EXIT_FS_SVG = `<svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="14 4 14 10 20 10"></polyline>
+  <polyline points="10 20 10 14 4 14"></polyline>
+  <line x1="21" y1="3" x2="14" y2="10"></line>
+  <line x1="3" y1="21" x2="10" y2="14"></line>
+</svg>`;
+
 export function createMapFullscreenButton(shell, titleKey = "game.fullscreen_map_title") {
   const btn = document.createElement("button");
   btn.type = "button";
@@ -579,14 +579,7 @@ export function createMapFullscreenButton(shell, titleKey = "game.fullscreen_map
   btn.setAttribute("aria-pressed", "false");
   btn.title = t(titleKey);
   btn.setAttribute("data-i18n-title", titleKey);
-  btn.innerHTML = `
-    <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="15 3 21 3 21 9"></polyline>
-      <polyline points="9 21 3 21 3 15"></polyline>
-      <line x1="21" y1="3" x2="14" y2="10"></line>
-      <line x1="3" y1="21" x2="10" y2="14"></line>
-    </svg>
-  `;
+  btn.innerHTML = ENTER_FS_SVG;
   btn.addEventListener("click", () => toggleMapFullscreen(shell));
   return btn;
 }
@@ -594,12 +587,12 @@ export function createMapFullscreenButton(shell, titleKey = "game.fullscreen_map
 export function syncFullscreenButtons() {
   document.querySelectorAll(".map-fullscreen-btn").forEach((button) => {
     const shell = button.closest(".map-shell, .media-frame");
-    const isActive = Boolean(shell && document.fullscreenElement === shell);
+    const isActive = Boolean(shell && (document.fullscreenElement === shell || shell.contains(document.fullscreenElement)));
     const titleKey = isActive ? "game.fullscreen_exit_btn" : "game.fullscreen_btn";
     button.title = t(titleKey);
     button.setAttribute("data-i18n-title", titleKey);
     button.setAttribute("aria-pressed", isActive ? "true" : "false");
-    const textEl = button.querySelector("[data-i18n]");
-    if (textEl) textEl.remove();
+    button.classList.toggle("is-active", isActive);
+    button.innerHTML = isActive ? EXIT_FS_SVG : ENTER_FS_SVG;
   });
 }
