@@ -201,11 +201,16 @@
   bottom: 0;
   left: 0;
   right: 0;
+  top: auto !important;
+  height: auto !important;
+  flex: none !important;
   z-index: 1100;
   padding: 0.5rem 0.8rem;
   background: linear-gradient(to top, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.75));
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border-top: 1px solid rgba(0, 0, 0, 0.1);
+  pointer-events: none;
 }
 
 :fullscreen .fullscreen-timer {

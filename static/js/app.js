@@ -1184,6 +1184,7 @@ document.addEventListener("fullscreenchange", () => {
   // Leaflet needs to re-measure and refit after the container resizes.
   [state.guessMap, state.revealMap, state.journeyMap, ...getShuffleMaps()].forEach((map) => {
     if (map) {
+      refitMap(map);
       setTimeout(() => refitMap(map), 120);
     }
   });

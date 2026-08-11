@@ -515,8 +515,9 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
 }
 
 export function refitMap(map) {
-  if (map && map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
-    map.invalidateSize();
+  if (!map) return;
+  map.invalidateSize();
+  if (map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
     const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
     const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
     map.fitBounds(map._lastFitBounds, { padding, maxZoom });

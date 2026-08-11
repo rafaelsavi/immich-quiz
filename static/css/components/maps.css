@@ -14,19 +14,6 @@
   border: 1px solid #d6dbea;
 }
 
-.map-shell:fullscreen {
-  width: 100vw;
-  height: 100vh;
-  background: var(--card);
-  padding: 0;
-}
-
-.map-shell:fullscreen #guess-map,
-.map-shell:fullscreen #reveal-map {
-  height: 100%;
-  border-radius: 0;
-  border: none;
-}
 
 .player-pin {
   background: transparent;
@@ -352,12 +339,12 @@
 .map-shell:fullscreen #guess-map,
 .map-shell:fullscreen #reveal-map,
 .map-shell:fullscreen #journey-map,
-.map-shell:fullscreen div[id*="map"],
+.map-shell:fullscreen div[id*="map"]:not(.fullscreen-timer),
 .map-shell:fullscreen div.leaflet-container,
 .map-shell:-webkit-full-screen #guess-map,
 .map-shell:-webkit-full-screen #reveal-map,
 .map-shell:-webkit-full-screen #journey-map,
-.map-shell:-webkit-full-screen div[id*="map"],
+.map-shell:-webkit-full-screen div[id*="map"]:not(.fullscreen-timer),
 .map-shell:-webkit-full-screen div.leaflet-container {
   width: 100vw !important;
   height: 100vh !important;
