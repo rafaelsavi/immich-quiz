@@ -107,10 +107,14 @@
   aspect-ratio: 1 / 1;
   max-height: min(340px, 42vh);
   min-height: 240px;
-  border-radius: 14px;
-  border: 1px solid #d5dcec;
-  overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+#reveal-shuffle-map-shell {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  max-height: 55vh;
+  min-height: 260px;
 }
 
 @media (min-width: 1024px) {

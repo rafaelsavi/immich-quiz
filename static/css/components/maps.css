@@ -1,6 +1,12 @@
 .map-shell {
   position: relative;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  border-radius: 14px;
+  border: 1px solid #d5dcec;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 #guess-map,
@@ -10,8 +16,8 @@
 .map-shell>div.leaflet-container {
   width: 100%;
   height: var(--quiz-map-height);
-  border-radius: 12px;
-  border: 1px solid #d6dbea;
+  border: none;
+  border-radius: inherit;
 }
 
 
@@ -361,6 +367,9 @@
   background: var(--bg) !important;
   display: flex !important;
   flex-direction: column !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .map-shell:fullscreen #guess-map,
