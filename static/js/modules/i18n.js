@@ -84,7 +84,7 @@ export const TRANSLATIONS = {
       `Are you sure you want to ${label}? Current game progress will be lost.`,
     // Reveal card
     "reveal.title": (roundNum, totalRounds) => `Round ${roundNum} of ${totalRounds} - Reveal`,
-    "reveal.correct_answer": "Correct answer",
+    "reveal.correct_answer": "Answer",
     "reveal.actual_date": "Actual date:",
     "reveal.actual_location": "Actual location:",
     "reveal.actual_location_legend": "Actual location",
@@ -266,7 +266,7 @@ export const TRANSLATIONS = {
       `Tem certeza que deseja ${label}? O progresso atual será perdido.`,
     // Reveal card
     "reveal.title": (roundNum, totalRounds) => `Rodada ${roundNum} de ${totalRounds} - Revelação`,
-    "reveal.correct_answer": "Resposta correta",
+    "reveal.correct_answer": "Resposta",
     "reveal.actual_date": "Data real:",
     "reveal.actual_location": "Local real:",
     "reveal.actual_location_legend": "Local real",

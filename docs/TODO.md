@@ -27,8 +27,6 @@ This document lists planned features, design ideas, and technical debt items for
 
 - **Leaderboard availability**: By ditching scores in leaderboard and using only accuracy, game scores can be shared shown simultaneously independently of the round count.
 
-- **Better game reveal in album shuffle mode**: Instead of isolated `true-val-banner`, integrate it better in `shuffle-card-guesses`.
-
 ---
 
 ## 🧹 Code Health & Maintenance
