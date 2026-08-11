@@ -4,16 +4,26 @@ Each enabled goal is scored using exponential decay, with parameters from
 environment variables. Defaults:
 
 - `SCORE_MAX_POINTS = 100`
-- `LOCATION_SCORE_DECAY_KM = 500`
-- `DATE_SCORE_DECAY_DAYS = 500`
 
-## Location Score
+## Pinpoint Game
+
+For Pinpoint game mode, score is calculated based on the error of the gueeses.
+
+### Location Score
+
+The location score uses the following environment variables:
+
+- `LOCATION_SCORE_DECAY_KM = 500`
 
 Distance d is computed in km using Haversine.
 
-- score = round(SCORE_MAX_POINTS * exp(-d / LOCATION_SCORE_DECAY_KM)), clamped to 0
+- score = round(SCORE_MAX_POINTS * exp(-d / `LOCATION_SCORE_DECAY_KM`)), clamped to 0
 
-## Date Score
+### Date Score
+
+The date score uses the following environment variables:
+
+- `DATE_SCORE_DECAY_DAYS = 500`
 
 The player only guesses a **year and a month**, so the guess covers that whole
 month. Scoring is still measured in **days**, using whichever month boundary
@@ -25,12 +35,19 @@ faces the actual capture date:
 
 (The last day accounts for month length and leap years.)
 
-- score = round(SCORE_MAX_POINTS * exp(-DeltaD / DATE_SCORE_DECAY_DAYS)), clamped to 0
+- score = round(SCORE_MAX_POINTS * exp(-DeltaD / `DATE_SCORE_DECAY_DAYS`)), clamped to 0
 
-Reference points with defaults: 0 days -> 100, 500 days -> 36, 4500 days -> 0.
+## Album Shuffle Game
 
-The reveal additionally shows a whole-month distance split into a years part
-and a months part (`divmod(DeltaM, 12)`) purely for readability.
+In **Album Shuffle** mode, the score of a round is computed over the entire batch of $N=3$ photos.
+
+### Location Score
+
+- Each photo correctly matched to its corresponding map pin earns $round($`SCORE_MAX_POINTS`$)/N$ points. If all photos are correctly matched, `SCORE_MAX_POINTS` is awarded to the location guess.
+
+#### Date Score
+
+- Each photo placed in its exact sequence position (timeline index matching true chronological order rank) earns $round($`SCORE_MAX_POINTS`$)/N$ points. If all photos are placed in their exact sequence position, `SCORE_MAX_POINTS` is awarded to the date guess.
 
 ## Common values for scoring exponential function
 
@@ -71,5 +88,4 @@ Common values for inverse exponential decay scoring with `SCORE_MAX_POINTS`:
 
 ## Match Totals
 
-- max_possible_score = rounds_played * ((SCORE_MAX_POINTS if location mode) + (SCORE_MAX_POINTS if date mode))
-- accuracy_pct = round((total_score / max_possible_score) * 100, 1)
+- $ MaxPossibleScore = roundsPlayed * ($`SCORE_MAX_POINTS` if location mode $) + ($`SCORE_MAX_POINTS` if date mode $)$

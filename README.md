@@ -4,7 +4,7 @@
 [![GHCR Container](https://img.shields.io/badge/docker-ghcr.io%2Frafaelsavi%2Fimmich--quiz-blue?logo=docker)](https://github.com/rafaelsavi/immich-quiz/pkgs/container/immich-quiz)
 [![CI](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml)
 
-Immich Quiz is a local-first, pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when each photo was taken, scored on map distance and date accuracy.
+Immich Quiz is a pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when photos were taken in **Pinpoint** mode, or matching photo batches to map pins and timeline dates in **Album Shuffle** mode.
 
 ![Immich Quiz Home Screen](docs/assets/home.webp)
 
@@ -12,13 +12,12 @@ Immich Quiz is a local-first, pass-and-play trivia game that generates rounds fr
 
 ## Playing the Game
 
-1. Open the app in your browser after starting the server (see [Self-Hosting](#self-hosting) or [Development](#development) below).
-2. Enter player names, choose round count, goals, and a library.
-3. Pass the device to each player when prompted.
-4. After all rounds the leaderboard appears.
+- Start the app in your browser after launching the server.
+- Select players, choose a game mode (**Pinpoint** or **Album Shuffle**), rounds, round length, guess mode, and library.
+- Take turns guessing photo locations, capture dates, or both.
+- Review end-of-match performance awards and the leaderboard when the game ends.
 
-See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for a full explanation of setup options, round flow, and scoring.
-For scoring details see [docs/SCORING.md](docs/SCORING.md).
+See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough. For scoring details, see [docs/SCORING.md](docs/SCORING.md).
 
 ---
 
@@ -33,12 +32,28 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 | Tag                  | Description                       | Command                                             |
 |----------------------|-----------------------------------|-----------------------------------------------------|
 | `:latest`            | Latest build from `main` branch   | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
-| `:v0.1.2` / `:0.1.2` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v0.1.2` |
+| `:rc`                | Latest Release Candidate build    | `docker pull ghcr.io/rafaelsavi/immich-quiz:rc`     |
+| `:v1.0.0` / `:1.0.0` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v1.0.0` |
 | `:<sha>`             | Exact commit hash build           | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
 ### Starting the server
 
-To run with Docker Compose use the provided [docker-compose.example.yml](docker-compose.example.yml) and edit it to your needs. Mount `./data` volume to store the leaderboard CSV file and persist scores across container restarts. Pass environment variables to the container to configure the app.
+Create your `.env` configuration file from `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` to set your `IMMICH_SERVER_URL`, `IMMICH_LIBRARIES`, and optional settings.
+
+Start the container with Docker Compose using the provided [docker-compose.example.yml](docker-compose.example.yml):
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d
+```
+
+Docker Compose reads configuration directly from your `.env` file via `env_file`. Mount the `./data` volume to store the leaderboard CSV file and persist scores across container restarts.
 
 ### Environment Variables
 
@@ -48,13 +63,13 @@ To run with Docker Compose use the provided [docker-compose.example.yml](docker-
 | `IMMICH_LIBRARIES`              | Yes      | —                      | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`    |
 | `APP_TITLE`                     | No       | `Immich Quiz`          | Browser tab title and main heading shown on the landing page                  |
 | `APP_TAGLINE`                   | No       |                        | Optional tagline shown below the main heading on the landing page             |
-| `INCLUDE_SHARED_ALBUMS`         | No       | `false`                | Set to `true` to include shared albums by default                             |
+| `INCLUDE_SHARED_ALBUMS`         | No       | `false`                | Set to `true` to show albums shared with you in the album picker              |
+| `INCLUDE_PARTNER_ASSETS`        | No       | `false`                | Set to `true` to include photos from Immich partner libraries in quiz rounds  |
 | `FETCH_PHOTOS_DATE_LOWER_BOUND` | No       | —                      | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
 | `FETCH_PHOTOS_DATE_UPPER_BOUND` | No       | —                      | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
 | `LEADERBOARD_CSV_PATH`          | No       | `data/leaderboard.csv` | Path to leaderboard CSV file (relative to working dir or absolute path)       |
 | `APP_HOST`                      | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
 | `APP_PORT`                      | No       | `8010`                 | Port the app listens on                                                       |
-| `QUIZ_IMAGE_MAX_HEIGHT_PX`      | No       | `420`                  | Max displayed quiz image height in px; valid range `200` to `1600`            |
 | `SCORE_MAX_POINTS`              | No       | `100`                  | Max points per enabled goal, per turn                                         |
 | `LOCATION_SCORE_DECAY_KM`       | No       | `500`                  | Location decay constant in km for `exp(-distance/decay)`                      |
 | `DATE_SCORE_DECAY_DAYS`         | No       | `500`                  | Date decay constant in days for `exp(-delta_days/decay)`                      |
@@ -124,6 +139,7 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 
 ### Documentation
 
+- [CHANGELOG.md](CHANGELOG.md) — release history and notable changes
 - [docs/GAMEPLAY.md](docs/GAMEPLAY.md) — gameplay rules, setup parameters, and UI walkthrough
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module design, anti-cheat boundary, and data flow
 - [docs/API.md](docs/API.md) — full API contract and response schemas

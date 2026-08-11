@@ -1,18 +1,26 @@
-import { state } from "./state.js";
+import { state, el } from "./state.js";
 
 export const TRANSLATIONS = {
   EN: {
-    // Setup card
     "setup.heading": "Game Setup",
     "setup.players_label": "Players (comma separated)",
     "setup.rounds_label": "Rounds",
     "setup.round_length_label": "Round Length",
     "setup.round_30s": "30s",
     "setup.round_1m": "1 min",
+    "setup.round_2m": "2 min",
+    "setup.round_5m": "5 min",
     "setup.round_unlimited": "Unlimited",
-    "setup.guess_mode": "Guess Mode",
+    "setup.game_mode_label": "Game Mode",
+    "setup.game_settings_label": "Guessing mode",
+    "mode.pinpoint": "Pinpoint",
+    "mode.pinpoint_desc": "One photo per turn. Pinpoint its location and date as precise as you can.",
+    "mode.album_shuffle": "Album Shuffle",
+    "mode.album_shuffle_desc": "Match 3 photos to map pins & order chronologically.",
     "setup.goal_location": "Location",
+    "mode.goal_location_desc": "Pinpoint where the photo was taken on an interactive world map.",
     "setup.goal_date": "Date",
+    "mode.goal_date_desc": "Guess the month and year when the photo was captured.",
     "setup.library_label": "Library",
     "setup.album_label": "Album",
     "setup.all_photos": "-",
@@ -51,6 +59,16 @@ export const TRANSLATIONS = {
     "game.timer_time_up_notice": "Time's up! Your answers are frozen. Press Continue when you are ready.",
     "game.continue_btn": "Continue",
     "game.pin_required": "Place a pin on the map first",
+    "game.help_btn": "Help",
+    "game.shuffle_newest": "Last",
+    "game.shuffle_oldest": "First",
+    "game.shuffle_help_location_title": "Location guessing",
+    "game.shuffle_help_location_item1": "Choose a photo card first.",
+    "game.shuffle_help_location_item2": "Then click the map pin where you think that photo was taken.",
+    "game.shuffle_help_location_item3": "The selected photo card and the highlighted pin both stand out so you can track your choices.",
+    "game.shuffle_help_date_title": "Date guessing",
+    "game.shuffle_help_date_item1": "Arrange the photo cards from oldest to newest.",
+    "game.shuffle_help_date_item2": "Use the ▲ and ▼ buttons to move a card up or down in the timeline.",
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Round ${roundNum} of ${totalRounds}\nPlayer ${playerNum}: ${playerName}`,
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>
@@ -80,7 +98,13 @@ export const TRANSLATIONS = {
     "reveal.col_date_error": "Date Error",
     "reveal.col_round": "Round",
     "reveal.col_total": "Total",
-    "reveal.no_guess": "no guess",
+    "reveal.col_pins_correct": "Pins Correct",
+    "reveal.col_order_correct": "Order Correct",
+    "reveal.photo_breakdown_title": "Photo Breakdown",
+    "reveal.col_photo": "Photo",
+    "reveal.col_true_values": "True Values",
+    "reveal.col_pin_guess": "Pin Guess",
+    "reveal.col_rank_guess": "Rank Guess",
     "reveal.perfect_badge": "PERFECT!",
     "reveal.popup_actual": "Actual location",
     "reveal.popup_guess": (playerName, dist) => `${playerName}: ${dist} off`,
@@ -109,9 +133,9 @@ export const TRANSLATIONS = {
     // Formatting
     "fmt.no_guess": "no guess",
     "fmt.unknown_place": "unknown",
-    "fmt.exact_month": "exact month (0 days)",
-    "fmt.years_abbr": "y",
-    "fmt.months_abbr": "m",
+    "fmt.year": "year",
+    "fmt.years": "years",
+    "fmt.mon": "mon",
     "fmt.day": "day",
     "fmt.days": "days",
     "fmt.timed_out_tag": "TIMED OUT",
@@ -137,25 +161,45 @@ export const TRANSLATIONS = {
     // Map theme layers
     "map.layer_streets": "Streets",
     "map.layer_satellite": "Satellite",
+    "map.layer_control_title": "Layers",
+    "game.fullscreen_map_title": "Toggle fullscreen map",
+    "game.fullscreen_image_title": "Toggle fullscreen image",
+    "game.view_fullscreen_photo": "View fullscreen photo",
+    "game.close_btn": "Close",
+    "game.fullscreen_photo_alt": "Fullscreen photo",
     // Summary Journey & Memory Cards
     "summary.journey_map_heading": "World Journey Map",
     "summary.polaroids_heading": "Match Memory Cards",
     "summary.share_btn": "Share Match",
     "summary.share_copied": "Match summary copied to clipboard!",
     "summary.journey_round": (n) => `Round ${n}`,
+    "audio.enabled": "Sound Effects: Enabled",
+    "audio.muted": "Sound Effects: Muted",
+    "audio.toggle_title": "Toggle Sound Effects",
+    "lang.title": "Language: English",
+    "lang.toggle_title": "Switch Language",
+    "game.shuffle_help_title": "Album Shuffle Help",
   },
   PT: {
-    // Setup card
     "setup.heading": "Configuração do Jogo",
     "setup.players_label": "Jogadores (separados por vírgula)",
     "setup.rounds_label": "Rodadas",
     "setup.round_length_label": "Duração da Rodada",
     "setup.round_30s": "30s",
     "setup.round_1m": "1 min",
+    "setup.round_2m": "2 min",
+    "setup.round_5m": "5 min",
     "setup.round_unlimited": "Ilimitado",
-    "setup.guess_mode": "Modo de adivinhação",
+    "setup.game_mode_label": "Modo de Jogo",
+    "setup.game_settings_label": "Modo de adivinhação",
+    "mode.pinpoint": "Mira Certa",
+    "mode.pinpoint_desc": "Uma foto por rodada. Adivinhe a localização e data o mais preciso que puder.",
+    "mode.album_shuffle": "Álbum Embaralhado",
+    "mode.album_shuffle_desc": "Associe 3 fotos aos pinos do mapa e ordene-as cronologicamente.",
     "setup.goal_location": "Localização",
+    "mode.goal_location_desc": "Descubra onde a foto foi tirada num mapa interativo.",
     "setup.goal_date": "Data",
+    "mode.goal_date_desc": "Adivinhe o mês e ano em que a foto foi capturada.",
     "setup.library_label": "Biblioteca",
     "setup.album_label": "Álbum",
     "setup.all_photos": "-",
@@ -194,6 +238,16 @@ export const TRANSLATIONS = {
     "game.timer_time_up_notice": "Tempo esgotado! Suas respostas foram congeladas. Pressione Continuar quando estiver pronto.",
     "game.continue_btn": "Continuar",
     "game.pin_required": "Coloque um pino no mapa primeiro",
+    "game.help_btn": "Ajuda",
+    "game.shuffle_newest": "Última",
+    "game.shuffle_oldest": "Primeira",
+    "game.shuffle_help_location_title": "Adivinhar a localização",
+    "game.shuffle_help_location_item1": "Primeiro, escolha uma foto da lista.",
+    "game.shuffle_help_location_item2": "Depois, clique no pino do mapa onde essa foto foi tirada.",
+    "game.shuffle_help_location_item3": "A foto selecionada e o pino destacado ficam em evidência para você acompanhar suas escolhas.",
+    "game.shuffle_help_date_title": "Adivinhar a data",
+    "game.shuffle_help_date_item1": "Organize as fotos da mais antiga (acima) para a mais recente (abaixo).",
+    "game.shuffle_help_date_item2": "Use os botões ▲ e ▼ para mover uma foto para cima ou para baixo.",
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Rodada ${roundNum} de ${totalRounds}\nJogador ${playerNum}: ${playerName}`,
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>
@@ -223,7 +277,13 @@ export const TRANSLATIONS = {
     "reveal.col_date_error": "Erro de Data",
     "reveal.col_round": "Rodada",
     "reveal.col_total": "Total",
-    "reveal.no_guess": "sem palpite",
+    "reveal.col_pins_correct": "Pinos Corretos",
+    "reveal.col_order_correct": "Ordem Correta",
+    "reveal.photo_breakdown_title": "Detalhamento das Fotos",
+    "reveal.col_photo": "Foto",
+    "reveal.col_true_values": "Valores Reais",
+    "reveal.col_pin_guess": "Palpite de Pino",
+    "reveal.col_rank_guess": "Palpite de Ordem",
     "reveal.perfect_badge": "PERFEITO!",
     "reveal.popup_actual": "Local real",
     "reveal.popup_guess": (playerName, dist) => `${playerName}: ${dist} de distância`,
@@ -252,9 +312,9 @@ export const TRANSLATIONS = {
     // Formatting
     "fmt.no_guess": "sem palpite",
     "fmt.unknown_place": "desconhecido",
-    "fmt.exact_month": "mês exato (0 dias)",
-    "fmt.years_abbr": "a",
-    "fmt.months_abbr": "m",
+    "fmt.year": "ano",
+    "fmt.years": "anos",
+    "fmt.mon": "mes",
     "fmt.day": "dia",
     "fmt.days": "dias",
     "fmt.timed_out_tag": "TEMPO ESGOTADO",
@@ -280,12 +340,24 @@ export const TRANSLATIONS = {
     // Map theme layers
     "map.layer_streets": "Ruas",
     "map.layer_satellite": "Satélite",
+    "map.layer_control_title": "Camadas",
+    "game.fullscreen_map_title": "Alternar mapa em tela cheia",
+    "game.fullscreen_image_title": "Alternar imagem em tela cheia",
+    "game.view_fullscreen_photo": "Ver foto em tela cheia",
+    "game.close_btn": "Fechar",
+    "game.fullscreen_photo_alt": "Foto em tela cheia",
     // Summary Journey & Memory Cards
     "summary.journey_map_heading": "Mapa da Jornada Mundial",
     "summary.polaroids_heading": "Cartões de Memória da Partida",
     "summary.share_btn": "Compartilhar Partida",
     "summary.share_copied": "Resumo da partida copiado para a área de transferência!",
     "summary.journey_round": (n) => `Rodada ${n}`,
+    "audio.enabled": "Efeitos de Som: Ativados",
+    "audio.muted": "Efeitos de Som: Mudos",
+    "audio.toggle_title": "Alternar Efeitos de Som",
+    "lang.title": "Idioma: Português",
+    "lang.toggle_title": "Mudar Idioma",
+    "game.shuffle_help_title": "Ajuda do Álbum Embaralhado",
   },
 };
 
@@ -326,24 +398,98 @@ export function showAlert(msg) {
   alert(translateError(msg));
 }
 
+export function getInitialLanguagePreference() {
+  try {
+    const stored = localStorage.getItem("immich_quiz_language");
+    if (stored === "PT" || stored === "EN") return stored;
+  } catch (_) { }
+  return null;
+}
+
+export const FLAGS = {
+  EN: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#012169"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6"/><path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16"/><path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10"/></svg>`,
+  PT: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#009B3A"/><polygon points="30,10 52,30 30,50 8,30" fill="#FEDF00"/><circle cx="30" cy="30" r="12" fill="#002776"/><path d="M18,31 C23,26.5 37,26.5 42,31 C37,28 23,28 18,31 Z" fill="#FFFFFF"/></svg>`,
+};
+
+export function updateLanguageUi() {
+  const lang = state ? state.language || "EN" : "EN";
+  const iconEl = (el && el.langIcon) || document.getElementById("lang-icon");
+  const btnEl = (el && el.langToggleBtn) || document.getElementById("lang-toggle-btn");
+  if (iconEl) {
+    iconEl.innerHTML = FLAGS[lang] || FLAGS.EN;
+  }
+  if (btnEl) {
+    btnEl.setAttribute("title", t("lang.title"));
+    btnEl.setAttribute("aria-label", t("lang.toggle_title"));
+  }
+}
+
+export function toggleLanguage(onLanguageChanged) {
+  if (!state) return;
+  state.language = state.language === "PT" ? "EN" : "PT";
+  try {
+    localStorage.setItem("immich_quiz_language", state.language);
+  } catch (_) { }
+  updateLanguageUi();
+  applyLanguage();
+  if (typeof onLanguageChanged === "function") {
+    onLanguageChanged();
+  }
+}
+
 /**
- * Apply translations to all [data-i18n] elements in the DOM.
+ * Apply translations to all [data-i18n], [data-i18n-title], and [data-i18n-placeholder] elements in the DOM.
  * Elements with a sort arrow child keep the arrow intact.
+ * Dynamic function-valued keys (expecting parameters) are skipped to avoid overwriting runtime state.
  */
 export function applyLanguage() {
-  document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = el.getAttribute("data-i18n");
-    const translation = t(key);
-    // Leaderboard headers contain a nested .sort-arrow span — preserve it.
-    const arrow = el.querySelector(".sort-arrow");
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    const key = element.getAttribute("data-i18n");
+    const lang = state ? state.language || "EN" : "EN";
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.EN;
+    const rawEntry = key in dict ? dict[key] : TRANSLATIONS.EN[key];
+
+    // Skip dynamic entries whose translation value is a function needing arguments
+    if (typeof rawEntry === "function") {
+      return;
+    }
+
+    const translation = rawEntry !== undefined ? rawEntry : key;
+    if (typeof translation !== "string") {
+      return;
+    }
+
+    const arrow = element.querySelector(".sort-arrow");
     if (arrow) {
       const arrowClone = arrow.cloneNode(true);
-      el.textContent = translation;
-      el.appendChild(arrowClone);
-    } else if (el.hasAttribute("placeholder")) {
-      el.setAttribute("placeholder", translation);
+      element.textContent = translation;
+      element.appendChild(arrowClone);
+    } else if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+      element.setAttribute("placeholder", translation);
+    } else if (translation.includes("<") && translation.includes(">")) {
+      element.innerHTML = translation;
     } else {
-      el.textContent = translation;
+      element.textContent = translation;
     }
+  });
+
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-title");
+    element.setAttribute("title", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-aria-label");
+    element.setAttribute("aria-label", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-alt");
+    element.setAttribute("alt", t(key));
+  });
+
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    const key = element.getAttribute("data-i18n-placeholder");
+    element.setAttribute("placeholder", t(key));
   });
 }

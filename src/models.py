@@ -9,7 +9,14 @@ from pydantic import BaseModel, Field, model_validator
 class RoundLength(str, Enum):
     seconds_30 = '30s'
     minute_1 = '1m'
+    minute_2 = '2m'
+    minute_5 = '5m'
     unlimited = 'unlimited'
+
+
+class GameMode(str, Enum):
+    pinpoint = 'pinpoint'
+    album_shuffle = 'album_shuffle'
 
 
 def _validate_and_normalize_players(players: list[str], *, allow_empty: bool = False) -> list[str]:
@@ -36,6 +43,7 @@ class GameSetupRequest(BaseModel):
     round_length: RoundLength = RoundLength.minute_1
     location_mode: bool = True
     date_mode: bool = True
+    game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
     album_id: str | None = None
     album_name: str | None = None
@@ -62,6 +70,17 @@ class QuestionRequest(BaseModel):
     played_asset_ids: list[str] = Field(default_factory=list)
 
 
+class BatchPhotoItem(BaseModel):
+    photo_id: str
+    media_url: str
+
+
+class BatchPinItem(BaseModel):
+    pin_id: str
+    latitude: float
+    longitude: float
+
+
 class QuestionResponse(BaseModel):
     question_id: str
     asset_id: str
@@ -77,7 +96,16 @@ class QuestionResponse(BaseModel):
     total_turns: int
     location_mode: bool
     date_mode: bool
+    game_mode: GameMode = GameMode.pinpoint
     round_length: RoundLength
+    batch_photos: list[BatchPhotoItem] | None = None
+    batch_pins: list[BatchPinItem] | None = None
+
+
+class AlbumShuffleAnswerItem(BaseModel):
+    photo_id: str
+    assigned_pin_id: str | None = None
+    assigned_timeline_index: int | None = None
 
 
 class AnswerRequest(BaseModel):
@@ -87,11 +115,12 @@ class AnswerRequest(BaseModel):
     guessed_longitude: float | None = None
     guessed_year: int | None = Field(default=None, ge=1826, le=2200)
     guessed_month: int | None = Field(default=None, ge=1, le=12)
+    album_shuffle_answers: list[AlbumShuffleAnswerItem] | None = None
     timed_out: bool = False
 
     @model_validator(mode='after')
     def validate_month_pair(self) -> AnswerRequest:
-        if (self.guessed_year is None) != (self.guessed_month is None):
+        if self.album_shuffle_answers is None and (self.guessed_year is None) != (self.guessed_month is None):
             raise ValueError('guessed_year and guessed_month must be provided together')
         return self
 
@@ -124,7 +153,9 @@ class PlayerRoundResult(BaseModel):
     date_diff_months: int | None
     date_diff_years_part: int | None
     date_diff_months_part: int | None
+    date_diff_days_part: int | None = None
     timed_out: bool
+    album_shuffle_guesses: list[AlbumShuffleAnswerItem] | None = None
 
 
 class RoundResultRequest(BaseModel):
@@ -132,11 +163,9 @@ class RoundResultRequest(BaseModel):
     round_number: int
 
 
-class RoundResultResponse(BaseModel):
-    round_number: int
-    total_rounds: int
-    location_mode: bool
-    date_mode: bool
+class BatchRevealItem(BaseModel):
+    photo_id: str
+    true_pin_id: str
     actual_latitude: float | None
     actual_longitude: float | None
     actual_date: date | None
@@ -144,6 +173,23 @@ class RoundResultResponse(BaseModel):
     actual_month: int | None
     actual_city: str | None = None
     actual_country: str | None = None
+
+
+class RoundResultResponse(BaseModel):
+    round_number: int
+    total_rounds: int
+    location_mode: bool
+    date_mode: bool
+    game_mode: GameMode = GameMode.pinpoint
+    library_name: str = ''
+    actual_latitude: float | None
+    actual_longitude: float | None
+    actual_date: date | None
+    actual_year: int | None
+    actual_month: int | None
+    actual_city: str | None = None
+    actual_country: str | None = None
+    batch_reveal: list[BatchRevealItem] | None = None
     results: list[PlayerRoundResult]
     match_finished: bool
     score_max_points: int = 100
@@ -165,6 +211,7 @@ class MatchSummaryResponse(BaseModel):
     rounds_played: int
     location_mode: bool
     date_mode: bool
+    game_mode: GameMode = GameMode.pinpoint
     library_name: str
     album_name: str
     finished: bool
@@ -186,6 +233,7 @@ class PreflightRequest(BaseModel):
     round_count: int = Field(default=10)
     location_mode: bool = True
     date_mode: bool = True
+    game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
     album_id: str | None = None
 

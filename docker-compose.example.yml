@@ -5,9 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "8010:8010"
-    environment:
-      IMMICH_SERVER_URL: "https://photos.example.com/api"
-      IMMICH_LIBRARIES: '{"Family": "your-api-key-here"}'
-      APP_PORT: "8010"
+    env_file:
+      - .env
     volumes:
       - ./data:/app/data

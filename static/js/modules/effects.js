@@ -1,4 +1,44 @@
 import { t } from "./i18n.js";
+import { playScoreRollupTick } from "./audio.js";
+
+export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 200) {
+  if (!cellElement || targetScore <= 0) {
+    if (cellElement) cellElement.textContent = String(targetScore);
+    return;
+  }
+  const maxPossible = maxPossibleScore || 200;
+  const scoreRatio = Math.max(0.05, Math.min(1, targetScore / maxPossible));
+  const durationMs = Math.round(150 + scoreRatio * 1250);
+  const tickInterval = 45;
+
+  const span = document.createElement("span");
+  span.className = "score-rollup is-rolling";
+  span.textContent = "0";
+  cellElement.replaceChildren(span);
+
+  let startTime = null;
+  let lastTickTime = 0;
+
+  function step(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const progress = Math.min(1, (timestamp - startTime) / durationMs);
+    const currentVal = Math.floor(progress * targetScore);
+    span.textContent = String(currentVal);
+
+    if (timestamp - lastTickTime > tickInterval && progress < 1) {
+      lastTickTime = timestamp;
+      playScoreRollupTick(progress);
+    }
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      span.textContent = String(targetScore);
+      span.classList.remove("is-rolling");
+    }
+  }
+  requestAnimationFrame(step);
+}
 
 export function launchGoldConfetti() {
   const canvas = document.getElementById("confetti-canvas");
@@ -97,7 +137,13 @@ export function launchGoldConfetti() {
 export function createPerfectBadge() {
   const badge = document.createElement("span");
   badge.className = "perfect-badge";
-  badge.textContent = `\u2605 ${t("reveal.perfect_badge")}`;
+  const star = document.createElement("span");
+  star.className = "perfect-badge-star";
+  star.textContent = "\u2605";
+  const text = document.createElement("span");
+  text.className = "perfect-badge-text";
+  text.textContent = ` ${t("reveal.perfect_badge")}`;
+  badge.append(star, text);
   return badge;
 }
 

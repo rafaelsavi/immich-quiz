@@ -11,5 +11,9 @@
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
     }
+  },
+  "files.exclude": {
+    ".git": true,
+    "**/__pycache__": true,
+    ".*_cache": true
   }
-}

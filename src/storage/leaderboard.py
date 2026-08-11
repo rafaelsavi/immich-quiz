@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import csv
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 from src.models import LeaderboardEntry
 from src.scoring import max_possible_score
+
+logger = logging.getLogger(__name__)
 
 CSV_HEADER = [
     'match_id',
@@ -15,6 +18,7 @@ CSV_HEADER = [
     'round_length',
     'location_mode',
     'date_mode',
+    'game_mode',
     'library',
     'album',
     'max_possible_score',
@@ -37,6 +41,7 @@ class LeaderboardStore:
         round_length: str,
         location_mode: bool,
         date_mode: bool,
+        game_mode: str,
         player_scores: dict[str, dict[str, int]],
     ) -> None:
         played_at = datetime.now(timezone.utc).isoformat()
@@ -60,6 +65,7 @@ class LeaderboardStore:
                     'round_length': round_length,
                     'location_mode': location_mode,
                     'date_mode': date_mode,
+                    'game_mode': game_mode,
                     'library': library_name,
                     'album': album_name,
                     'max_possible_score': max_score,
@@ -74,6 +80,7 @@ class LeaderboardStore:
         round_length: str | None = None,
         location_mode: bool | None = None,
         date_mode: bool | None = None,
+        game_mode: str | None = None,
         library: str | None = None,
         album: str | None = None,
     ) -> list[LeaderboardEntry]:
@@ -84,15 +91,14 @@ class LeaderboardStore:
                 if not row:
                     continue
 
-                # Parse flat config columns — booleans are stored as 'True'/'False'
                 row_rounds = int(row['rounds'])
                 row_round_length = row['round_length']
-                row_location_mode = row['location_mode'].lower() == 'true'
-                row_date_mode = row['date_mode'].lower() == 'true'
-                row_library = row['library']
-                row_album = row['album']
+                row_location_mode = row.get('location_mode', 'true').lower() == 'true'
+                row_date_mode = row.get('date_mode', 'true').lower() == 'true'
+                row_game_mode = row.get('game_mode', 'pinpoint')
+                row_library = row.get('library', '')
+                row_album = row.get('album', '')
 
-                # Apply filters — skip rows that don't match
                 if rounds is not None and row_rounds != rounds:
                     continue
                 if round_length is not None and row_round_length != round_length:
@@ -100,6 +106,8 @@ class LeaderboardStore:
                 if location_mode is not None and row_location_mode != location_mode:
                     continue
                 if date_mode is not None and row_date_mode != date_mode:
+                    continue
+                if game_mode is not None and row_game_mode != game_mode:
                     continue
                 if library is not None and row_library != library:
                     continue
@@ -111,6 +119,7 @@ class LeaderboardStore:
                     'round_length': row_round_length,
                     'location_mode': row_location_mode,
                     'date_mode': row_date_mode,
+                    'game_mode': row_game_mode,
                     'library': row_library,
                     'album': row_album,
                 }
@@ -130,8 +139,37 @@ class LeaderboardStore:
 
     def _ensure_file(self) -> None:
         self._csv_path.parent.mkdir(parents=True, exist_ok=True)
-        if self._csv_path.exists():
+        if not self._csv_path.exists():
+            self._write_header_file(self._csv_path)
             return
-        with self._csv_path.open('w', newline='', encoding='utf-8') as handle:
+
+        existing_header = self._read_existing_header()
+        if existing_header != CSV_HEADER:
+            backup_path = self._backup_existing_file()
+            logger.warning(
+                'Leaderboard CSV schema mismatch detected. Backed up invalid file %r to %r and recreated %r.',
+                self._csv_path,
+                backup_path,
+                self._csv_path,
+            )
+            self._write_header_file(self._csv_path)
+
+    def _read_existing_header(self) -> list[str] | None:
+        with self._csv_path.open('r', newline='', encoding='utf-8') as handle:
+            reader = csv.reader(handle)
+            return next(reader, None)
+
+    def _write_header_file(self, path: Path) -> None:
+        with path.open('w', newline='', encoding='utf-8') as handle:
             writer = csv.writer(handle)
             writer.writerow(CSV_HEADER)
+
+    def _backup_existing_file(self) -> Path:
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
+        backup_path = self._csv_path.with_name(f'{self._csv_path.name}.bak.{timestamp}')
+        counter = 0
+        while backup_path.exists():
+            counter += 1
+            backup_path = self._csv_path.with_name(f'{self._csv_path.name}.bak.{timestamp}.{counter}')
+        self._csv_path.rename(backup_path)
+        return backup_path

@@ -20,7 +20,6 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'INCLUDE_SHARED_ALBUMS',
         'APP_HOST',
         'APP_PORT',
-        'QUIZ_IMAGE_MAX_HEIGHT_PX',
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
         'FETCH_PHOTOS_DATE_UPPER_BOUND',
         'SCORE_MAX_POINTS',
@@ -83,9 +82,9 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.app_title == 'Immich Quiz'
     assert settings.app_tagline == ''
     assert settings.include_shared_albums is False
+    assert settings.include_partner_assets is False
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
-    assert settings.quiz_image_max_height_px == 420
     assert settings.fetch_photos_date_lower_bound is None
     assert settings.fetch_photos_date_upper_bound is None
     assert settings.score_max_points == 100
@@ -109,7 +108,6 @@ def test_server_url_adds_api_if_missing(monkeypatch: pytest.MonkeyPatch, raw_url
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
     settings = load_settings()
     assert settings.immich_server_url == expected_url
-
 
 
 def test_date_bounds_parse_when_valid(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -162,6 +160,25 @@ def test_include_shared_albums_rejects_invalid(monkeypatch: pytest.MonkeyPatch) 
         load_settings()
 
 
+def test_include_partner_assets_accepts_true(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('INCLUDE_PARTNER_ASSETS', 'true')
+
+    settings = load_settings()
+
+    assert settings.include_partner_assets is True
+
+
+def test_include_partner_assets_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('INCLUDE_PARTNER_ASSETS', 'maybe')
+
+    with pytest.raises(ConfigError, match='INCLUDE_PARTNER_ASSETS'):
+        load_settings()
+
+
 def test_custom_app_title(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
@@ -170,15 +187,6 @@ def test_custom_app_title(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = load_settings()
 
     assert settings.app_title == 'Quiz Night'
-
-
-def test_quiz_image_max_height_rejects_non_integer(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('QUIZ_IMAGE_MAX_HEIGHT_PX', 'big')
-
-    with pytest.raises(ConfigError, match='QUIZ_IMAGE_MAX_HEIGHT_PX'):
-        load_settings()
 
 
 def test_score_max_points_rejects_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -225,4 +233,3 @@ def test_language_setting_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> No
 
     with pytest.raises(ConfigError, match='LANGUAGE'):
         load_settings()
-

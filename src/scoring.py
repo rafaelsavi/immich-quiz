@@ -54,6 +54,76 @@ def date_diff_days(guessed_year: int, guessed_month: int, actual: date) -> int:
     return 0
 
 
+def date_diff_parts(guessed_year: int, guessed_month: int, actual: date) -> tuple[int, int, int]:
+    """Break down the date difference into (years_part, months_part, days_part)."""
+    first_day = date(guessed_year, guessed_month, 1)
+    last_day = date(guessed_year, guessed_month, monthrange(guessed_year, guessed_month)[1])
+
+    if first_day <= actual <= last_day:
+        return 0, 0, 0
+
+    if actual > last_day:
+        ref = last_day
+        years_part = 0
+        while True:
+            try:
+                next_ref = date(ref.year + 1, ref.month, ref.day)
+            except ValueError:
+                next_ref = date(ref.year + 1, ref.month, ref.day - 1)
+            if next_ref <= actual:
+                years_part += 1
+                ref = next_ref
+            else:
+                break
+
+        months_part = 0
+        while True:
+            y = ref.year + (1 if ref.month == 12 else 0)
+            m = 1 if ref.month == 12 else ref.month + 1
+            max_d = monthrange(y, m)[1]
+            d = min(ref.day, max_d)
+            next_ref = date(y, m, d)
+            if next_ref <= actual:
+                months_part += 1
+                ref = next_ref
+            else:
+                break
+
+        days_part = (actual - ref).days
+        return years_part, months_part, days_part
+
+    ref = actual
+    target = first_day
+
+    years_part = 0
+    while True:
+        try:
+            next_ref = date(ref.year + 1, ref.month, ref.day)
+        except ValueError:
+            next_ref = date(ref.year + 1, ref.month, ref.day - 1)
+        if next_ref <= target:
+            years_part += 1
+            ref = next_ref
+        else:
+            break
+
+    months_part = 0
+    while True:
+        y = ref.year + (1 if ref.month == 12 else 0)
+        m = 1 if ref.month == 12 else ref.month + 1
+        max_d = monthrange(y, m)[1]
+        d = min(ref.day, max_d)
+        next_ref = date(y, m, d)
+        if next_ref <= target:
+            months_part += 1
+            ref = next_ref
+        else:
+            break
+
+    days_part = (target - ref).days
+    return years_part, months_part, days_part
+
+
 def date_score(delta_days: int, *, decay_days: float = 500.0, max_points: int = 100) -> int:
     return max(0, round(max_points * math.exp(-delta_days / decay_days)))
 
@@ -74,3 +144,17 @@ def accuracy_pct(total_score: int, max_score: int) -> float:
         return 0.0
     value = Decimal(total_score) / Decimal(max_score) * Decimal(100)
     return float(value.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP))
+
+
+def batch_strict_location_score(correct_matches: int, total_photos: int, max_points: int = 100) -> int:
+    """Strict location score: each correctly paired photo earns max_points / total_photos."""
+    if total_photos <= 0:
+        return 0
+    return max(0, round((correct_matches / total_photos) * max_points))
+
+
+def batch_strict_date_score(correct_matches: int, total_photos: int, max_points: int = 100) -> int:
+    """Strict date score: each correctly sequence-placed photo earns max_points / total_photos."""
+    if total_photos <= 0:
+        return 0
+    return max(0, round((correct_matches / total_photos) * max_points))

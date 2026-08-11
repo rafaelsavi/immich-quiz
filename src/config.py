@@ -21,16 +21,15 @@ class AppSettings:
     app_title: str
     app_tagline: str
     include_shared_albums: bool
+    include_partner_assets: bool
     fetch_photos_date_lower_bound: date | None
     fetch_photos_date_upper_bound: date | None
     app_host: str
     app_port: int
-    quiz_image_max_height_px: int
     score_max_points: int
     location_score_decay_km: float
     date_score_decay_days: float
     language: str = 'EN'
-
 
 
 def _parse_language(value: str) -> str:
@@ -107,7 +106,7 @@ def load_settings() -> AppSettings:
         server_url = f'{server_url}/api'
 
     app_title = os.getenv('APP_TITLE', 'Immich Quiz').strip() or 'Immich Quiz'
-    app_tagline = os.getenv('APP_TAGLINE', '').strip() 
+    app_tagline = os.getenv('APP_TAGLINE', '').strip()
 
     raw_libraries = os.getenv('IMMICH_LIBRARIES', '').strip()
     if not raw_libraries:
@@ -116,6 +115,7 @@ def load_settings() -> AppSettings:
     libraries = _parse_library_map(raw_libraries)
     csv_path = Path(os.getenv('LEADERBOARD_CSV_PATH', 'data/leaderboard.csv')).expanduser().resolve()
     include_shared_albums = _parse_bool(os.getenv('INCLUDE_SHARED_ALBUMS', 'false'), 'INCLUDE_SHARED_ALBUMS')
+    include_partner_assets = _parse_bool(os.getenv('INCLUDE_PARTNER_ASSETS', 'false'), 'INCLUDE_PARTNER_ASSETS')
     fetch_photos_date_lower_bound = _parse_optional_date(
         os.getenv('FETCH_PHOTOS_DATE_LOWER_BOUND', ''),
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
@@ -138,12 +138,6 @@ def load_settings() -> AppSettings:
     except ValueError as exc:
         raise ConfigError('APP_PORT must be an integer') from exc
 
-    quiz_image_max_height_px = _parse_int_range(
-        os.getenv('QUIZ_IMAGE_MAX_HEIGHT_PX', '420'),
-        'QUIZ_IMAGE_MAX_HEIGHT_PX',
-        min_value=200,
-        max_value=1600,
-    )
     score_max_points = _parse_int_range(
         os.getenv('SCORE_MAX_POINTS', '100'),
         'SCORE_MAX_POINTS',
@@ -167,11 +161,11 @@ def load_settings() -> AppSettings:
         app_title=app_title,
         app_tagline=app_tagline,
         include_shared_albums=include_shared_albums,
+        include_partner_assets=include_partner_assets,
         fetch_photos_date_lower_bound=fetch_photos_date_lower_bound,
         fetch_photos_date_upper_bound=fetch_photos_date_upper_bound,
         app_host=host,
         app_port=port,
-        quiz_image_max_height_px=quiz_image_max_height_px,
         score_max_points=score_max_points,
         location_score_decay_km=location_score_decay_km,
         date_score_decay_days=date_score_decay_days,

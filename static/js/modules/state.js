@@ -1,13 +1,28 @@
+function getInitialLanguagePreference() {
+  try {
+    const stored = localStorage.getItem("immich_quiz_language");
+    if (stored === "PT" || stored === "EN") return stored;
+  } catch (_) {}
+  return "EN";
+}
+
 export const state = {
   matchId: null,
+  gameMode: "pinpoint",
   players: [],
-  language: "EN",
+  language: getInitialLanguagePreference(),
   audioEnabled: true,
   scoreMaxPoints: 100,
   lastMatchConfig: null,
+  lastReveal: null,
+  lastSummary: null,
   playedAssetIds: [],
   currentQuestion: null,
   guessedLatLng: null,
+  albumShuffleState: {
+    selectedPhotoId: null,
+    assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
+  },
   guessMap: null,
   revealMap: null,
   journeyMap: null,
@@ -32,6 +47,8 @@ export const state = {
 };
 
 export const el = {
+  langToggleBtn: document.getElementById("lang-toggle-btn"),
+  langIcon: document.getElementById("lang-icon"),
   audioToggleBtn: document.getElementById("audio-toggle-btn"),
   audioIcon: document.getElementById("audio-icon"),
   setupCard: document.getElementById("setup-card"),
@@ -44,8 +61,12 @@ export const el = {
   players: document.getElementById("players"),
   roundCount: document.getElementById("round-count"),
   roundLength: document.getElementById("round-length"),
-  goalLocation: document.getElementById("goal-location"),
-  goalDate: document.getElementById("goal-date"),
+  get goalLocation() {
+    return document.getElementById("goal-location");
+  },
+  get goalDate() {
+    return document.getElementById("goal-date");
+  },
   library: document.getElementById("library"),
   album: document.getElementById("album"),
   roundMeta: document.getElementById("round-meta"),
@@ -53,19 +74,36 @@ export const el = {
   overlayTitle: document.getElementById("overlay-title"),
   overlaySubtitle: document.getElementById("overlay-subtitle"),
   readyBtn: document.getElementById("ready-btn"),
-  mediaFrame: document.getElementById("media-frame"),
-  quizImage: document.getElementById("quiz-image"),
-  quizImageFullscreen: document.getElementById("quiz-image-fullscreen"),
-  mediaPlaceholder: document.getElementById("media-placeholder"),
-  mediaErrorCard: document.getElementById("media-error-card"),
-  mediaErrorMsg: document.getElementById("media-error-msg"),
-  mediaSkipBtn: document.getElementById("media-skip-btn"),
-  mapGuessWrap: document.getElementById("map-guess-wrap"),
-  guessMapShell: document.getElementById("guess-map-shell"),
-  guessMapFullscreen: document.getElementById("guess-map-fullscreen"),
-  dateGuessWrap: document.getElementById("date-guess-wrap"),
-  dateGuessYear: document.getElementById("date-guess-year"),
-  dateGuessMonth: document.getElementById("date-guess-month"),
+  get mediaFrame() {
+    return document.getElementById("media-frame");
+  },
+  get quizImage() {
+    return document.getElementById("quiz-image");
+  },
+  get quizImageFullscreen() {
+    return document.getElementById("quiz-image-fullscreen");
+  },
+  get mediaPlaceholder() {
+    return document.getElementById("media-placeholder");
+  },
+  get mapGuessWrap() {
+    return document.getElementById("map-guess-wrap");
+  },
+  get guessMapShell() {
+    return document.getElementById("guess-map-shell");
+  },
+  get guessMapFullscreen() {
+    return document.getElementById("guess-map-fullscreen");
+  },
+  get dateGuessWrap() {
+    return document.getElementById("date-guess-wrap");
+  },
+  get dateGuessYear() {
+    return document.getElementById("date-guess-year");
+  },
+  get dateGuessMonth() {
+    return document.getElementById("date-guess-month");
+  },
   submitAnswer: document.getElementById("submit-answer"),
   timerLabel: document.getElementById("timer-label"),
   timerRemaining: document.getElementById("timer-remaining"),

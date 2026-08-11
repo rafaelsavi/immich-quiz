@@ -1,4 +1,4 @@
-import { el } from "./state.js";
+import { state, el } from "./state.js";
 
 export async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -48,14 +48,23 @@ export async function api(path, options = {}) {
  * leaderboard entries filtered to that exact game configuration.
  */
 export function setupFilterParams() {
-  const albumId = el.album.value || null;
-  const albumText = albumId ? el.album.options[el.album.selectedIndex].text : "-";
+  const albumId = el.album && el.album.value ? el.album.value : null;
+  const albumText =
+    albumId && el.album && el.album.options && el.album.selectedIndex >= 0
+      ? el.album.options[el.album.selectedIndex].text
+      : "-";
+  const locEl = el.goalLocation;
+  const dateEl = el.goalDate;
+  const locationMode = locEl ? Boolean(locEl.checked) : true;
+  const dateMode = dateEl ? Boolean(dateEl.checked) : true;
+  const gameMode = (state && state.gameMode) || (el.gameModeSelect ? el.gameModeSelect.value : "pinpoint");
   const params = new URLSearchParams({
-    rounds: el.roundCount.value,
-    round_length: el.roundLength.value,
-    location_mode: String(el.goalLocation.checked),
-    date_mode: String(el.goalDate.checked),
-    library: el.library.value,
+    rounds: el.roundCount ? el.roundCount.value : "10",
+    round_length: el.roundLength ? el.roundLength.value : "1m",
+    location_mode: String(locationMode),
+    date_mode: String(dateMode),
+    game_mode: gameMode,
+    library: el.library ? el.library.value : "",
     album: albumText,
   });
   return params;

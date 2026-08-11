@@ -254,7 +254,7 @@ wheels = [
 
 [[package]]
 name = "immich-quiz"
-version = "0.3.0"
+version = "1.0.0rc6"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

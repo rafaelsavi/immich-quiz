@@ -4,8 +4,11 @@ import pytest
 
 from src.scoring import (
     accuracy_pct,
+    batch_strict_date_score,
+    batch_strict_location_score,
     date_diff_days,
     date_diff_months,
+    date_diff_parts,
     date_score,
     haversine_km,
     location_score,
@@ -68,6 +71,19 @@ def test_date_difference_months_is_display_only() -> None:
     assert date_diff_months(2023, 12, date(2024, 1, 15)) == 1
 
 
+def test_date_diff_parts_breakdown() -> None:
+    # Inside guessed month
+    assert date_diff_parts(2024, 3, date(2024, 3, 15)) == (0, 0, 0)
+    # Next month (5 days after March 31)
+    assert date_diff_parts(2024, 3, date(2024, 4, 5)) == (0, 0, 5)
+    # 2 months later (1 month and 15 days after Nov 30)
+    assert date_diff_parts(2023, 11, date(2024, 1, 14)) == (0, 1, 15)
+    # Earlier date (10 days before March 1 in leap year 2024)
+    assert date_diff_parts(2024, 3, date(2024, 2, 20)) == (0, 0, 10)
+    # 1 year or more (1 year, 1 month, 10 days)
+    assert date_diff_parts(2024, 3, date(2025, 5, 10)) == (1, 1, 10)
+
+
 def test_max_possible_score_respects_enabled_modes() -> None:
     assert max_possible_score(10, True, True, per_goal_max_points=100) == 2000
     assert max_possible_score(10, True, False, per_goal_max_points=100) == 1000
@@ -86,3 +102,15 @@ def test_accuracy_rounding() -> None:
 def test_accuracy_uses_half_up_rounding() -> None:
     # 6.25 rounds to 6.3 with ROUND_HALF_UP; banker's rounding would give 6.2.
     assert accuracy_pct(1, 16) == 6.3
+
+
+def test_batch_strict_location_score() -> None:
+    assert batch_strict_location_score(5, 5, max_points=100) == 100
+    assert batch_strict_location_score(0, 5, max_points=100) == 0
+    assert batch_strict_location_score(3, 5, max_points=100) == 60
+
+
+def test_batch_strict_date_score() -> None:
+    assert batch_strict_date_score(3, 3, max_points=100) == 100
+    assert batch_strict_date_score(0, 3, max_points=100) == 0
+    assert batch_strict_date_score(1, 3, max_points=100) == 33

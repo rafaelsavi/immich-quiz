@@ -6,11 +6,14 @@ This guide documents all end-of-match performance awards in **Immich Quiz**, the
 
 ## 🏆 Summary of Available Awards
 
-| Award             | Icon | Requirement                                                 | Description                                                                                                              | Tie-breaker           |
-|-------------------|------|-------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|-----------------------|
-| **Sniper**        | 🎯   | `≥ 1 perfect location guess`                                | Awarded to the player with the most **perfect location guesses** (100% score)                                            | Higher location score |
-| **Time Traveler** | ⏳    | `≥ 1 perfect date guess`                                    | Awarded to the player with the most **perfect date guesses** (100% score)                                                | Higher date score     |
-| **Speed Demon**   | ⚡    | `≥ 1 fast round`; `Timed game` (`30s` or `1m`); `0 timeouts | Awarded to the player with the maximum number of fast rounds (submitted within **≤ 50% of the max round time limit**)  ` | Lower total duration  |
+| Award             | Icon | Requirement                                  | Description                                                                                                            | Tie-breaker           |
+|-------------------|------|----------------------------------------------|------------------------------------------------------------------------------------------------------------------------|-----------------------|
+| **Sniper**        | 🎯   | `≥ 1 perfect location guess`                 | Awarded to the player with the most **perfect location guesses** (100% score). *Disabled in Album Shuffle mode.*       | Higher location score |
+| **Time Traveler** | ⏳    | `≥ 1 perfect date guess`                     | Awarded to the player with the most **perfect date guesses** (100% score). *Disabled in Album Shuffle mode.*           | Higher date score     |
+| **Speed Demon**   | ⚡    | `≥ 1 fast round`; `Timed game`; `0 timeouts` | Awarded to the player with the maximum number of fast rounds (submitted within **≤ 50% of the max round time limit**). | Lower total duration  |
+
+> [!NOTE]
+> In **Album Shuffle** mode (`game_mode == 'album_shuffle'`), only the **⚡ Speed Demon** award is active.
 
 If the tie cannot be broken, the award is not given to any player.
 

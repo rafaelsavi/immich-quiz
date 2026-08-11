@@ -29,7 +29,6 @@ def test_immich_client_url_normalization() -> None:
     assert client3._server_url == 'https://example.test/api'
 
 
-
 def asset(**overrides) -> dict:
     base = {
         'id': 'asset-1',
@@ -58,6 +57,20 @@ def test_missing_coordinates_rejected_in_location_mode() -> None:
 def test_zero_coordinates_rejected_in_location_mode() -> None:
     zeroed = asset(exifInfo={'latitude': 0, 'longitude': 0, 'dateTimeOriginal': '2024-01-14T10:11:12Z'})
     assert ImmichClient.is_eligible_asset(zeroed, True, False) is False
+
+    ans = ImmichClient.extract_answer(zeroed)
+    assert ans.latitude is None
+    assert ans.longitude is None
+
+
+def test_greenwich_and_equator_coordinates_accepted() -> None:
+    greenwich = asset(exifInfo={'latitude': 51.4778, 'longitude': 0.0, 'dateTimeOriginal': '2024-01-14T10:11:12Z'})
+    equator = asset(exifInfo={'latitude': 0.0, 'longitude': 37.9062, 'dateTimeOriginal': '2024-01-14T10:11:12Z'})
+    assert ImmichClient.is_eligible_asset(greenwich, True, False) is True
+    assert ImmichClient.is_eligible_asset(equator, True, False) is True
+    ans_g = ImmichClient.extract_answer(greenwich)
+    assert ans_g.latitude == 51.4778
+    assert ans_g.longitude == 0.0
 
 
 def test_unparseable_date_rejected_in_date_mode() -> None:
@@ -125,6 +138,8 @@ async def test_media_uses_preview_thumbnail_not_original() -> None:
 
 async def test_random_search_falls_back_to_metadata_search() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
         if request.url.path.endswith('/search/random'):
             return httpx.Response(404, json={'error': 'not found'})
         return httpx.Response(200, json={'assets': {'items': [asset()]}})
@@ -141,6 +156,8 @@ async def test_random_search_fallback_samples_multiple_metadata_pages() -> None:
     seen_pages: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
         if request.url.path.endswith('/search/random'):
             return httpx.Response(404, json={'error': 'not found'})
 
@@ -218,3 +235,159 @@ async def test_list_albums_returns_ascending_by_name() -> None:
         {'id': 'album-3', 'name': 'banana'},
         {'id': 'album-1', 'name': 'Zebra'},
     ]
+
+
+async def test_list_albums_includes_shared_albums_when_true() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/albums'):
+            return httpx.Response(
+                200,
+                json=[
+                    {'id': 'album-1', 'albumName': 'Mine', 'ownerId': 'me-user'},
+                    {'id': 'album-2', 'albumName': 'Shared', 'ownerId': 'other-user'},
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    albums = await client.list_albums('family', include_shared_albums=True)
+    await client.aclose()
+
+    assert albums == [
+        {'id': 'album-1', 'name': 'Mine'},
+        {'id': 'album-2', 'name': 'Shared'},
+    ]
+
+
+async def test_search_random_assets_payload_flags() -> None:
+    payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/random'):
+            data = json.loads(request.content.decode('utf-8'))
+            payloads.append(data)
+            return httpx.Response(200, json={'assets': {'items': [asset()]}})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    await client.search_random_assets('family', size=1, include_partner_assets=True, include_shared_albums=False)
+    await client.search_random_assets('family', size=1, include_partner_assets=False, include_shared_albums=True)
+    await client.aclose()
+
+    assert len(payloads) == 2
+    assert payloads[0].get('withPartners') is True
+    assert 'isShared' not in payloads[0]
+
+    assert 'withPartners' not in payloads[1]
+    assert payloads[1].get('isShared') is True
+
+
+async def test_search_random_assets_owner_filtering_both_false() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/random'):
+            return httpx.Response(
+                200,
+                json={
+                    'assets': {
+                        'items': [
+                            asset(id='my-photo', ownerId='me-user'),
+                            asset(id='shared-photo', ownerId='other-user', isShared=True),
+                            asset(id='partner-photo', ownerId='partner-user', isShared=False),
+                        ]
+                    }
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets('family', include_shared_albums=False, include_partner_assets=False)
+    await client.aclose()
+
+    assert [item['id'] for item in items] == ['my-photo']
+
+
+async def test_search_random_assets_owner_filtering_include_partner() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/random'):
+            return httpx.Response(
+                200,
+                json={
+                    'assets': {
+                        'items': [
+                            asset(id='my-photo', ownerId='me-user'),
+                            asset(id='shared-photo', ownerId='other-user', isShared=True),
+                            asset(id='partner-photo', ownerId='partner-user', isShared=False),
+                        ]
+                    }
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets('family', include_shared_albums=False, include_partner_assets=True)
+    await client.aclose()
+
+    assert set(item['id'] for item in items) == {'my-photo', 'partner-photo'}
+
+
+async def test_search_random_assets_owner_filtering_include_shared_albums() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/random'):
+            return httpx.Response(
+                200,
+                json={
+                    'assets': {
+                        'items': [
+                            asset(id='my-photo', ownerId='me-user'),
+                            asset(id='shared-photo', ownerId='other-user', isShared=True),
+                            asset(id='partner-photo', ownerId='partner-user', isShared=False),
+                        ]
+                    }
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets('family', include_shared_albums=True, include_partner_assets=False)
+    await client.aclose()
+
+    assert set(item['id'] for item in items) == {'my-photo', 'shared-photo'}
+
+
+async def test_search_random_assets_owner_filtering_selected_album() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/random'):
+            return httpx.Response(
+                200,
+                json={
+                    'assets': {
+                        'items': [
+                            asset(id='shared-album-photo', ownerId='other-user', isShared=True),
+                        ]
+                    }
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets(
+        'family',
+        album_id='album-shared',
+        include_shared_albums=False,
+        include_partner_assets=False,
+    )
+    await client.aclose()
+
+    assert [item['id'] for item in items] == ['shared-album-photo']

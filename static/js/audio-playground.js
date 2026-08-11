@@ -1,6 +1,7 @@
 import { state, el } from "./modules/state.js";
 import {
   playTone,
+  playSubmitTone,
   playTick,
   playBuzzer,
   playChime,
@@ -19,6 +20,7 @@ const audioCtxBadge = document.getElementById("audio-ctx-badge");
 const unlockAudioBtn = document.getElementById("unlock-audio-btn");
 
 const playTickBtn = document.getElementById("play-tick-btn");
+const playSubmitBtn = document.getElementById("play-submit-btn");
 const playBuzzerBtn = document.getElementById("play-buzzer-btn");
 const playChimeBtn = document.getElementById("play-chime-btn");
 const playFanfareBtn = document.getElementById("play-fanfare-btn");
@@ -40,6 +42,13 @@ const simCorrectBtn = document.getElementById("sim-correct");
 const simVictoryBtn = document.getElementById("sim-victory");
 const simToggleBtn = document.getElementById("sim-toggle");
 
+const countdownSecondsInput = document.getElementById("countdown-seconds");
+const startCountdownBtn = document.getElementById("start-countdown-btn");
+const resetCountdownBtn = document.getElementById("reset-countdown-btn");
+const countdownDisplay = document.getElementById("countdown-display");
+const countdownStatus = document.getElementById("countdown-status");
+const countdownFill = document.getElementById("countdown-fill");
+
 const logBody = document.getElementById("log-body");
 const clearLogBtn = document.getElementById("clear-log-btn");
 
@@ -51,6 +60,9 @@ let logCount = 0;
 let visualPulse = 0;
 let visualFreq = 440;
 let visualType = "sine";
+let countdownTimerId = null;
+let countdownTotalSeconds = 10;
+let countdownRemainingSeconds = 10;
 
 function logEvent(fnName, details) {
   if (!logBody) return;
@@ -173,8 +185,17 @@ function setupPresets() {
     playTickBtn.addEventListener("click", () => {
       unlockAudioContext();
       playTick();
-      triggerVisualizer(800, "sine", 0.05);
-      logEvent("playTick()", "800 Hz • Sine • 0.05s");
+      triggerVisualizer(620, "sine", 0.09);
+      logEvent("playTick()", "520 ➔ 720 Hz • Sine • 0.09s");
+    });
+  }
+
+  if (playSubmitBtn) {
+    playSubmitBtn.addEventListener("click", () => {
+      unlockAudioContext();
+      playSubmitTone();
+      triggerVisualizer(480, "sine", 0.08);
+      logEvent("playSubmitTone()", "480 Hz • Sine • 0.08s • Gain 0.12");
     });
   }
 
@@ -271,6 +292,82 @@ function setupSynth() {
 }
 
 // Simulator Actions
+function updateCountdownUi() {
+  if (!countdownDisplay || !countdownStatus || !countdownFill) return;
+
+  const remaining = Math.max(countdownRemainingSeconds, 0);
+  countdownDisplay.textContent = `${remaining}s`;
+  const ratio = countdownTotalSeconds > 0 ? remaining / countdownTotalSeconds : 1;
+  countdownFill.style.width = `${Math.max(0, ratio * 100)}%`;
+  countdownFill.classList.toggle("is-warning", remaining > 0 && remaining <= 5);
+  countdownFill.classList.toggle("is-critical", remaining <= 0);
+
+  if (remaining <= 0) {
+    countdownStatus.textContent = "Time is up";
+  } else if (countdownTimerId) {
+    countdownStatus.textContent = "Running";
+  } else {
+    countdownStatus.textContent = "Idle";
+  }
+}
+
+function stopCountdownTimer() {
+  if (countdownTimerId) {
+    clearInterval(countdownTimerId);
+    countdownTimerId = null;
+  }
+}
+
+function resetCountdownTimer() {
+  stopCountdownTimer();
+  const parsed = parseInt(countdownSecondsInput?.value || "10", 10);
+  countdownTotalSeconds = Number.isFinite(parsed) ? Math.max(1, Math.min(60, parsed)) : 10;
+  countdownRemainingSeconds = countdownTotalSeconds;
+  updateCountdownUi();
+}
+
+function setupCountdownTimer() {
+  if (startCountdownBtn) {
+    startCountdownBtn.addEventListener("click", () => {
+      unlockAudioContext();
+      stopCountdownTimer();
+      resetCountdownTimer();
+      countdownStatus.textContent = "Running";
+      countdownTimerId = setInterval(() => {
+        countdownRemainingSeconds -= 1;
+        const clamped = Math.max(countdownRemainingSeconds, 0);
+        updateCountdownUi();
+
+        if (clamped > 0) {
+          playTick(clamped);
+          triggerVisualizer(520 + (5 - clamped) * 50, "sine", 0.09);
+        } else {
+          stopCountdownTimer();
+          playBuzzer();
+          triggerVisualizer(220, "sawtooth", 0.4);
+          logEvent("Countdown Demo", "Timer reached zero");
+        }
+      }, 1000);
+      logEvent("Countdown Demo", `Started ${countdownTotalSeconds}s countdown`);
+    });
+  }
+
+  if (resetCountdownBtn) {
+    resetCountdownBtn.addEventListener("click", () => {
+      resetCountdownTimer();
+      logEvent("Countdown Demo", "Reset countdown");
+    });
+  }
+
+  if (countdownSecondsInput) {
+    countdownSecondsInput.addEventListener("change", () => {
+      resetCountdownTimer();
+    });
+  }
+
+  resetCountdownTimer();
+}
+
 function setupSimulators() {
   if (simClickBtn) {
     simClickBtn.addEventListener("click", () => {
@@ -356,6 +453,7 @@ function setupGlobal() {
 document.addEventListener("DOMContentLoaded", () => {
   setupPresets();
   setupSynth();
+  setupCountdownTimer();
   setupSimulators();
   setupGlobal();
   drawVisualizer();

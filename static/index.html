@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
-  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/style.css?v=7" />
 </head>
 
 <body>
@@ -26,9 +26,16 @@
         <h1>{{APP_HEADING}}</h1>
         <p>{{APP_TAGLINE}}</p>
       </div>
-      <button type="button" id="audio-toggle-btn" class="audio-toggle-btn" title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
-        <span id="audio-icon">🔊</span>
-      </button>
+      <div class="header-controls">
+        <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
+          aria-label="Switch Language">
+          <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#012169"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6"/><path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16"/><path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10"/></svg></span>
+        </button>
+        <button type="button" id="audio-toggle-btn" class="header-icon-btn audio-toggle-btn" title="Toggle Sound Effects"
+          aria-label="Toggle Sound Effects">
+          <span id="audio-icon">🔊</span>
+        </button>
+      </div>
     </header>
 
     <section id="setup-card" class="card">
@@ -51,16 +58,11 @@
             <select id="round-length">
               <option value="30s" data-i18n="setup.round_30s">30s</option>
               <option value="1m" selected data-i18n="setup.round_1m">1 min</option>
+              <option value="2m" data-i18n="setup.round_2m">2 min</option>
+              <option value="5m" data-i18n="setup.round_5m">5 min</option>
               <option value="unlimited" data-i18n="setup.round_unlimited">Unlimited</option>
             </select>
           </div>
-        </div>
-
-        <label data-i18n="setup.guess_mode">Guess Mode</label>
-        <div class="goals-row">
-          <label><input type="checkbox" id="goal-location" checked /> <span
-              data-i18n="setup.goal_location">Location</span></label>
-          <label><input type="checkbox" id="goal-date" checked /> <span data-i18n="setup.goal_date">Date</span></label>
         </div>
 
         <div class="grid-2">
@@ -73,6 +75,29 @@
             <select id="album">
               <option value="" data-i18n="setup.all_photos">-</option>
             </select>
+          </div>
+        </div>
+
+        <div class="form-group mode-selection-group">
+          <label data-i18n="setup.game_mode_label">Game Mode</label>
+          <div class="mode-buttons" id="game-mode-selector">
+            <button type="button" class="mode-btn active" data-mode="pinpoint" id="mode-pinpoint-btn">
+              <span class="mode-title" data-i18n="mode.pinpoint">Pinpoint</span>
+              <span class="mode-desc" data-i18n="mode.pinpoint_desc">One photo per turn. Guess location pin & capture
+                date.</span>
+            </button>
+            <button type="button" class="mode-btn" data-mode="album_shuffle" id="mode-album-shuffle-btn">
+              <span class="mode-title" data-i18n="mode.album_shuffle">Album Shuffle</span>
+              <span class="mode-desc" data-i18n="mode.album_shuffle_desc">Match photo set to map pins & order
+                chronologically.</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="form-group mode-selection-group">
+          <label data-i18n="setup.game_settings_label">Guessing mode</label>
+          <div id="game-settings-container" class="game-settings-container">
+            <!-- Dynamically populated by active game mode module (e.g. pinpoint.js, album_shuffle.js) -->
           </div>
         </div>
 
@@ -91,56 +116,77 @@
         </div>
       </div>
 
-      <div id="media-frame" class="media-frame">
-        <p id="media-placeholder" class="media-placeholder" data-i18n="game.media_placeholder">Photo hidden until you
+      <div id="media-frame" class="media-frame hidden">
+        <p id="media-placeholder" class="media-placeholder" data-i18n="game.media_placeholder">Photo hidden until
+          you
           press "I'm Ready".</p>
-        <div id="media-error-card" class="media-error-card hidden">
-          <p id="media-error-msg" data-i18n="game.media_error_msg">Photo failed to load from Immich server.</p>
-          <button type="button" id="media-skip-btn" class="btn-secondary" data-i18n="game.media_skip_btn">Skip Photo</button>
-        </div>
         <img id="quiz-image" class="hidden" alt="Quiz media" />
         <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-          title="Toggle fullscreen image" data-i18n="game.fullscreen_btn">
-          Fullscreen
+          title="Toggle fullscreen image" data-i18n-title="game.fullscreen_image_title">
+          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
         </button>
         <div class="fullscreen-timer" id="fs-timer-image">
           <div class="fs-timer-head">
             <span class="fs-timer-label"></span>
             <span class="fs-timer-remaining"></span>
           </div>
-          <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
+          <div class="fs-timer-track">
+            <div class="fs-timer-fill"></div>
+          </div>
         </div>
       </div>
 
-      <div id="guessing-ui">
-        <div class="grid-2 round-guess-layout">
-          <div id="map-guess-wrap" class="hidden">
-            <div class="field-head">
-              <label data-i18n="game.location_guess_label">Location Guess</label>
-            </div>
-            <div id="guess-map-shell" class="map-shell">
-              <div id="guess-map"></div>
-              <button type="button" id="guess-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-                title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
-                Fullscreen
-              </button>
-              <div class="fullscreen-timer" id="fs-timer-guess-map">
-                <div class="fs-timer-head">
-                  <span class="fs-timer-label"></span>
-                  <span class="fs-timer-remaining"></span>
+      <template id="tmpl-mode-pinpoint">
+        <div id="pinpoint-ui">
+          <div class="grid-2 round-guess-layout">
+            <div id="map-guess-wrap" class="hidden">
+              <div class="field-head">
+                <label data-i18n="game.location_guess_label">Location Guess</label>
+              </div>
+              <div id="guess-map-shell" class="map-shell">
+                <div id="guess-map"></div>
+                <button type="button" id="guess-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                  title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+                  <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
+                </button>
+                <div class="fullscreen-timer" id="fs-timer-guess-map">
+                  <div class="fs-timer-head">
+                    <span class="fs-timer-label"></span>
+                    <span class="fs-timer-remaining"></span>
+                  </div>
+                  <div class="fs-timer-track">
+                    <div class="fs-timer-fill"></div>
+                  </div>
                 </div>
-                <div class="fs-timer-track"><div class="fs-timer-fill"></div></div>
+              </div>
+            </div>
+            <div id="date-guess-wrap" class="hidden">
+              <label data-i18n="game.date_guess_label">Date Guess (year / month)</label>
+              <div class="grid-2 date-guess-grid">
+                <select id="date-guess-year" aria-label="Guessed year"></select>
+                <select id="date-guess-month" aria-label="Guessed month"></select>
               </div>
             </div>
           </div>
-          <div id="date-guess-wrap" class="hidden">
-            <label data-i18n="game.date_guess_label">Date Guess (year / month)</label>
-            <div class="grid-2 date-guess-grid">
-              <select id="date-guess-year" aria-label="Guessed year"></select>
-              <select id="date-guess-month" aria-label="Guessed month"></select>
-            </div>
-          </div>
         </div>
+      </template>
+
+      <template id="tmpl-mode-album-shuffle">
+        <div id="album-shuffle-ui" class="hidden"></div>
+      </template>
+
+      <div id="guessing-ui">
+        <div id="mode-active-host"></div>
 
         <button id="submit-answer" class="btn-primary" data-i18n="game.submit_btn">Submit Answer</button>
 
@@ -162,29 +208,37 @@
       </div>
 
       <div id="reveal-ui" class="hidden">
-        <div id="reveal-actual" class="reveal-actual"></div>
-        <div id="reveal-legend" class="reveal-legend"></div>
-        <div class="field-head" id="reveal-map-head">
-          <label data-i18n="reveal.map_label">Round Map</label>
+        <div id="pinpoint-reveal-ui">
+          <div id="reveal-actual" class="reveal-actual"></div>
+          <div id="reveal-legend" class="reveal-legend"></div>
+          <div class="field-head" id="reveal-map-head">
+            <label data-i18n="reveal.map_label">Round Map</label>
+          </div>
+          <div id="reveal-map-shell" class="map-shell">
+            <div id="reveal-map"></div>
+            <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+              title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+              <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <polyline points="9 21 3 21 3 15"></polyline>
+                <line x1="21" y1="3" x2="14" y2="10"></line>
+                <line x1="3" y1="21" x2="10" y2="14"></line>
+              </svg>
+            </button>
+          </div>
+          <div class="table-scroll">
+            <table id="reveal-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <button id="next-round" class="btn-primary" data-i18n="reveal.next_round_btn">Next Round</button>
+          <div class="game-actions">
+            <button type="button" id="reveal-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
+            <button type="button" id="reveal-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
+          </div>
         </div>
-        <div id="reveal-map-shell" class="map-shell">
-          <div id="reveal-map"></div>
-          <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-            title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
-            Fullscreen
-          </button>
-        </div>
-        <div class="table-scroll">
-          <table id="reveal-table">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-        <button id="next-round" class="btn-primary" data-i18n="reveal.next_round_btn">Next Round</button>
-        <div class="game-actions">
-          <button type="button" id="reveal-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
-          <button type="button" id="reveal-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
-        </div>
+        <div id="album-shuffle-reveal-ui" class="hidden"></div>
       </div>
     </section>
 
@@ -205,11 +259,15 @@
       <div id="journey-map-shell" class="map-shell hidden">
         <div id="journey-map"></div>
         <button type="button" id="journey-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-          title="Toggle fullscreen map" data-i18n="game.fullscreen_btn">
-          Fullscreen
+          title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <polyline points="9 21 3 21 3 15"></polyline>
+            <line x1="21" y1="3" x2="14" y2="10"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
         </button>
       </div>
-
       <div class="polaroids-section">
         <div class="field-head">
           <label data-i18n="summary.polaroids_heading">Match Memory Cards</label>
@@ -236,7 +294,7 @@
                   aria-hidden="true"></span></th>
               <th data-sort="player_name" data-i18n="leaderboard.col_player">Player<span class="sort-arrow"
                   aria-hidden="true"></span></th>
-              <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy">Accuracy %<span class="sort-arrow"
+              <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy" class="col-accuracy hide-on-mobile">Accuracy %<span class="sort-arrow"
                   aria-hidden="true"></span></th>
               <th data-sort="total_score" data-i18n="leaderboard.col_score">Score<span class="sort-arrow"
                   aria-hidden="true"></span></th>
@@ -246,6 +304,10 @@
         </table>
       </div>
     </section>
+
+    <footer class="app-footer">
+      {{APP_VERSION_BADGE}}
+    </footer>
   </main>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"

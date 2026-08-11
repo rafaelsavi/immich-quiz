@@ -1,4 +1,5 @@
 import { state, el } from "./state.js";
+import { t } from "./i18n.js";
 
 let audioCtx = null;
 
@@ -27,7 +28,7 @@ export function unlockAudioContext() {
     }
   }
   if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume().catch(() => {});
+    audioCtx.resume().catch(() => { });
   }
 }
 
@@ -49,7 +50,7 @@ export function playTone(freq, type, duration, gainValue = 0.22) {
     if (!ctx) return;
 
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(() => { });
     }
 
     const osc = ctx.createOscillator();
@@ -69,6 +70,11 @@ export function playTone(freq, type, duration, gainValue = 0.22) {
   } catch (_) {
     // Ignore audio restrictions
   }
+}
+
+export function playSubmitTone() {
+  if (!state || !state.audioEnabled) return;
+  playTone(480, "sine", 0.08, 0.12);
 }
 
 export function playTick(clampedSec = 5) {
@@ -91,7 +97,7 @@ export function playBuzzer() {
     if (!ctx) return;
 
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(() => { });
     }
 
     // Dramatic double-pulse buzzer (BUZZ - BUZZ!)
@@ -115,7 +121,7 @@ export function playBuzzer() {
         });
       }, delay * 1000);
     });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function playChime() {
@@ -138,7 +144,7 @@ export function playChime() {
         osc.stop(ctx.currentTime + 0.35);
       }, idx * 100);
     });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function playPinDropSound() {
@@ -147,7 +153,7 @@ export function playPinDropSound() {
     const ctx = getAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(() => { });
     }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -162,7 +168,7 @@ export function playPinDropSound() {
     gain.connect(ctx.destination);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.08);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function playScoreRollupTick(progress = 0) {
@@ -171,7 +177,7 @@ export function playScoreRollupTick(progress = 0) {
     const ctx = getAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      ctx.resume().catch(() => { });
     }
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -187,7 +193,7 @@ export function playScoreRollupTick(progress = 0) {
     gain.connect(ctx.destination);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + 0.035);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function playVictoryFanfare() {
@@ -198,7 +204,7 @@ export function playVictoryFanfare() {
 
     const notes = [
       { freq: 349.23, delay: 0, duration: 0.18 },
-      { freq: 440.0, delay: 0.12, duration: 0.18 },
+      { freq: 440.0, delay: 0.10, duration: 0.18 },
       { freq: 523.25, delay: 0.24, duration: 0.18 },
       { freq: 698.46, delay: 0.36, duration: 0.65 },
     ];
@@ -210,7 +216,7 @@ export function playVictoryFanfare() {
         osc.type = "triangle";
         osc.frequency.setValueAtTime(n.freq, ctx.currentTime);
 
-        gain.gain.setValueAtTime(0.22, ctx.currentTime);
+        gain.gain.setValueAtTime(0.20, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + n.duration);
 
         osc.connect(gain);
@@ -220,7 +226,7 @@ export function playVictoryFanfare() {
         osc.stop(ctx.currentTime + n.duration);
       }, n.delay * 1000);
     });
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function toggleAudio() {
@@ -238,9 +244,8 @@ export function updateAudioUi() {
     el.audioIcon.textContent = state.audioEnabled ? "🔊" : "🔇";
   }
   if (el.audioToggleBtn) {
-    el.audioToggleBtn.setAttribute(
-      "title",
-      state.audioEnabled ? "Sound Effects: Enabled" : "Sound Effects: Muted"
-    );
+    const titleText = state.audioEnabled ? t("audio.enabled") : t("audio.muted");
+    el.audioToggleBtn.setAttribute("title", titleText);
+    el.audioToggleBtn.setAttribute("aria-label", titleText);
   }
 }

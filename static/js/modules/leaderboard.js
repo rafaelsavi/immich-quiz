@@ -31,12 +31,12 @@ export function renderLeaderboard() {
   el.leaderboardBody.replaceChildren();
   rows.forEach((row) => {
     const tr = document.createElement("tr");
-    [
-      new Date(row.played_at).toLocaleString(state.language),
-      row.player_name,
-      `${row.accuracy_pct}%`,
-      `${row.total_score}/${row.max_possible_score}`,
-    ].forEach((value) => tr.appendChild(buildCell(value)));
+    const cell1 = buildCell(new Date(row.played_at).toLocaleString(state.language));
+    const cell2 = buildCell(row.player_name);
+    const cell3 = buildCell(`${row.accuracy_pct}%`);
+    cell3.className = "col-accuracy hide-on-mobile";
+    const cell4 = buildCell(`${row.total_score}/${row.max_possible_score}`);
+    tr.append(cell1, cell2, cell3, cell4);
     el.leaderboardBody.appendChild(tr);
   });
 

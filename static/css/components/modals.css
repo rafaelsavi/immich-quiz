@@ -1,0 +1,149 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: #0c1224;
+  display: grid;
+  place-items: center;
+  /* Must beat Leaflet's control layer (z-index 1000) so zoom buttons and the
+     attribution never bleed through the pass-device screen. */
+  z-index: 3000;
+}
+
+.overlay-content {
+  width: min(90vw, 520px);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.round-meta {
+  position: relative;
+  padding-right: 5rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  white-space: pre-line;
+}
+
+.round-meta-text {
+  display: block;
+}
+
+.round-meta .shuffle-help-btn {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-left: 0;
+  align-self: auto;
+}
+
+/* Confetti overlay canvas */
+.confetti-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 2500;
+}
+
+/* Summary Actions & Share Toast */
+.summary-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+
+.share-toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--ink);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  z-index: 10000;
+}
+
+.share-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Floating Score Popups */
+.floating-score-pop {
+  position: absolute;
+  z-index: 5000;
+  pointer-events: none;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 800;
+  font-size: 1.15rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  transform: translate(-50%, -100%);
+  animation: floatScoreUp 1.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  white-space: nowrap;
+}
+
+.floating-score-pop.pop-variant-bullseye {
+  background: linear-gradient(135deg, #f59f00, #ff6b00);
+  color: #ffffff;
+  font-size: 1.3rem;
+  box-shadow: 0 8px 25px rgba(245, 159, 0, 0.5);
+}
+
+.floating-score-pop.pop-variant-perfect {
+  background: linear-gradient(135deg, #10b981, #047857);
+  color: #ffffff;
+}
+
+.floating-score-pop.pop-variant-good {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: #ffffff;
+}
+
+@keyframes floatScoreUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.6);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -20px) scale(1.15);
+  }
+
+  80% {
+    opacity: 1;
+    transform: translate(-50%, -50px) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -75px) scale(0.85);
+  }
+}
+
+.score-rollup {
+  display: inline-block;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.score-rollup.is-rolling {
+  color: #2563eb;
+  transform: scale(1.18);
+  font-weight: 800;
+}

@@ -21,9 +21,13 @@ class ImmichClientError(RuntimeError):
 class AssetAnswer:
     latitude: float | None
     longitude: float | None
-    capture_date: date | None
+    capture_datetime: datetime | None = None
     city: str | None = None
     country: str | None = None
+
+    @property
+    def capture_date(self) -> date | None:
+        return self.capture_datetime.date() if self.capture_datetime is not None else None
 
 
 class ImmichClient:
@@ -85,7 +89,10 @@ class ImmichClient:
         items.sort(key=lambda item: (item['name'].lower(), item['id']))
         logger.info(
             'list_albums(%s): %d raw album(s) from Immich, %d returned (include_shared=%s)',
-            library_name, raw_count, len(items), include_shared_albums,
+            library_name,
+            raw_count,
+            len(items),
+            include_shared_albums,
         )
         return items
 
@@ -94,6 +101,8 @@ class ImmichClient:
         library_name: str,
         album_id: str | None = None,
         *,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
         size: int = 250,
         page: int = 1,
     ) -> list[dict[str, Any]]:
@@ -101,15 +110,29 @@ class ImmichClient:
         payload: dict[str, Any] = {'size': size, 'page': page, 'withExif': True}
         if album_id:
             payload['albumIds'] = [album_id]
+        if include_partner_assets:
+            payload['withPartners'] = True
+        if include_shared_albums and not album_id:
+            payload['isShared'] = True
 
         raw = await self._request_json('POST', '/search/metadata', key, json=payload)
-        return self._extract_asset_items(raw)
+        items = self._extract_asset_items(raw)
+        current_user_id = await self._current_user_id(key)
+        return self._filter_assets_by_owner(
+            items,
+            current_user_id=current_user_id,
+            album_id=album_id,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
 
     async def search_random_assets(
         self,
         library_name: str,
         album_id: str | None = None,
         size: int = 250,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
     ) -> list[dict[str, Any]]:
         """Draw a randomized candidate pool.
 
@@ -121,7 +144,12 @@ class ImmichClient:
         payload: dict[str, Any] = {'size': size, 'withExif': True}
         if album_id:
             payload['albumIds'] = [album_id]
+        if include_partner_assets:
+            payload['withPartners'] = True
+        if include_shared_albums and not album_id:
+            payload['isShared'] = True
 
+        raw_items: list[dict[str, Any]] = []
         try:
             unique_assets: dict[str, dict[str, Any]] = {}
             for _ in range(3):
@@ -132,17 +160,35 @@ class ImmichClient:
             if unique_assets:
                 items = list(unique_assets.values())
                 random.shuffle(items)
-                return items[:size]
+                raw_items = items[:size]
         except ImmichClientError:
             pass
 
-        return await self._search_assets_randomized_fallback(library_name, album_id, size)
+        if not raw_items:
+            raw_items = await self._search_assets_randomized_fallback(
+                library_name,
+                album_id,
+                size,
+                include_shared_albums=include_shared_albums,
+                include_partner_assets=include_partner_assets,
+            )
+
+        current_user_id = await self._current_user_id(key)
+        return self._filter_assets_by_owner(
+            raw_items,
+            current_user_id=current_user_id,
+            album_id=album_id,
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
 
     async def _search_assets_randomized_fallback(
         self,
         library_name: str,
         album_id: str | None,
         size: int,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
     ) -> list[dict[str, Any]]:
         """Randomize metadata fallback by sampling multiple pages instead of page 1 only."""
         key = self._library_key(library_name)
@@ -150,6 +196,10 @@ class ImmichClient:
         first_page_payload: dict[str, Any] = {'size': size, 'page': 1, 'withExif': True}
         if album_id:
             first_page_payload['albumIds'] = [album_id]
+        if include_partner_assets:
+            first_page_payload['withPartners'] = True
+        if include_shared_albums and not album_id:
+            first_page_payload['isShared'] = True
 
         first_raw = await self._request_json('POST', '/search/metadata', key, json=first_page_payload)
         unique_assets: dict[str, dict[str, Any]] = {}
@@ -165,12 +215,60 @@ class ImmichClient:
                     page_payload: dict[str, Any] = {'size': size, 'page': page, 'withExif': True}
                     if album_id:
                         page_payload['albumIds'] = [album_id]
+                    if include_partner_assets:
+                        page_payload['withPartners'] = True
+                    if include_shared_albums and not album_id:
+                        page_payload['isShared'] = True
                     raw = await self._request_json('POST', '/search/metadata', key, json=page_payload)
                     self._merge_assets(unique_assets, self._extract_asset_items(raw))
 
         items = list(unique_assets.values())
         random.shuffle(items)
         return items[:size]
+
+    @staticmethod
+    def _asset_owner_id(asset: dict[str, Any]) -> str:
+        owner_id = asset.get('ownerId')
+        if owner_id:
+            return str(owner_id).strip()
+        owner = asset.get('owner')
+        if isinstance(owner, dict) and owner.get('id'):
+            return str(owner['id']).strip()
+        return ''
+
+    @staticmethod
+    def _filter_assets_by_owner(
+        items: list[dict[str, Any]],
+        current_user_id: str,
+        album_id: str | None,
+        include_shared_albums: bool,
+        include_partner_assets: bool,
+    ) -> list[dict[str, Any]]:
+        if album_id:
+            return items
+
+        if include_shared_albums and include_partner_assets:
+            return items
+
+        filtered: list[dict[str, Any]] = []
+        for asset in items:
+            owner_id = ImmichClient._asset_owner_id(asset)
+            if not owner_id or owner_id == current_user_id:
+                filtered.append(asset)
+                continue
+
+            is_shared = bool(asset.get('isShared'))
+            if (
+                is_shared
+                and include_shared_albums
+                or not is_shared
+                and include_partner_assets
+                or (include_shared_albums or include_partner_assets)
+                and 'isShared' not in asset
+            ):
+                filtered.append(asset)
+
+        return filtered
 
     @staticmethod
     def _merge_assets(target: dict[str, dict[str, Any]], items: list[dict[str, Any]]) -> None:
@@ -236,7 +334,7 @@ class ImmichClient:
         if location_mode:
             if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
                 return False
-            if latitude == 0 or longitude == 0:
+            if abs(latitude) < 1e-6 and abs(longitude) < 1e-6:
                 return False
 
         capture_date: date | None = None
@@ -261,11 +359,17 @@ class ImmichClient:
         exif = ImmichClient._exif(asset)
         latitude = exif.get('latitude') if isinstance(exif.get('latitude'), (int, float)) else None
         longitude = exif.get('longitude') if isinstance(exif.get('longitude'), (int, float)) else None
-        capture_date = ImmichClient._parse_capture_date(exif.get('dateTimeOriginal') or asset.get('fileCreatedAt'))
+        if latitude is not None and longitude is not None and abs(latitude) < 1e-6 and abs(longitude) < 1e-6:
+            latitude = None
+            longitude = None
+
+        date_value = exif.get('dateTimeOriginal') or asset.get('fileCreatedAt')
+        capture_datetime = ImmichClient._parse_capture_datetime(date_value)
+
         return AssetAnswer(
             latitude=latitude,
             longitude=longitude,
-            capture_date=capture_date,
+            capture_datetime=capture_datetime,
             # Immich already reverse-geocodes assets, so reuse its labels.
             city=ImmichClient._clean_text(exif.get('city')),
             country=ImmichClient._clean_text(exif.get('country')),
@@ -279,14 +383,19 @@ class ImmichClient:
         return cleaned or None
 
     @staticmethod
-    def _parse_capture_date(value: Any) -> date | None:
+    def _parse_capture_datetime(value: Any) -> datetime | None:
         if not value or not isinstance(value, str):
             return None
         try:
             normalized = value.replace('Z', '+00:00')
-            return datetime.fromisoformat(normalized).date()
+            return datetime.fromisoformat(normalized)
         except ValueError:
             return None
+
+    @staticmethod
+    def _parse_capture_date(value: Any) -> date | None:
+        dt = ImmichClient._parse_capture_datetime(value)
+        return dt.date() if dt is not None else None
 
     def _library_key(self, library_name: str) -> str:
         key = self._library_keys.get(library_name)
@@ -344,7 +453,7 @@ class ImmichClient:
                 if u_id:
                     return str(u_id).strip()
 
-        logger.warning(f"Album {album.get('id')} does not have an owner")
+        logger.warning(f'Album {album.get("id")} does not have an owner')
         return ''
 
     async def _current_user_id(self, api_key: str) -> str:

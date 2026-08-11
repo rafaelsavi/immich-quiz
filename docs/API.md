@@ -15,7 +15,6 @@ Returns frontend configuration parameters:
 
 ```json
 {
-  "quiz_image_max_height_px": 600,
   "language": "EN",
   "score_max_points": 100
 }
@@ -47,6 +46,7 @@ Set `include_shared_albums=true` or `false` to explicitly override.
 Validates whether the selected library or album contains enough eligible media assets for the requested match parameters before starting a game.
 
 Request:
+
 ```json
 {
   "players": ["Alice", "Bob"],
@@ -59,6 +59,7 @@ Request:
 ```
 
 Response:
+
 ```json
 {
   "eligible_count": 45,
@@ -73,6 +74,7 @@ Response:
 ### POST /api/game/setup
 
 Request:
+
 ```json
 {
   "players": ["Alice", "Bob"],
@@ -80,13 +82,15 @@ Request:
   "round_length": "1m",
   "location_mode": true,
   "date_mode": true,
+  "game_mode": "pinpoint",
   "library_name": "family_library",
   "album_id": null
 }
 ```
 
+- `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
 - `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
-- `round_length` supports `"30s"`, `"1m"`, or `"unlimited"`.
+- `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
 - `album_name` is resolved server-side from `album_id`, so a client cannot
   spoof leaderboard metadata. Unknown `album_id` returns `400`.
 - Responds with `{"match_id": "...", "total_turns": N, "players": ["Alice", "Bob"]}`.
@@ -150,6 +154,7 @@ Body: `{"match_id": "...", "round_number": 1}`
 ### GET /api/leaderboard
 
 Optional query parameters:
+
 - `rounds`: Filter by round count (`5`, `10`, `20`)
 - `round_length`: Filter by timer setting (`30s`, `1m`, `unlimited`)
 - `location_mode`: Filter by location mode enabled (`true`/`false`)
@@ -169,4 +174,3 @@ Question payloads never include answer fields:
 
 Answer submissions return no reveal data either. Reveal data is only available
 from `POST /api/round/result` once every player in the round has answered.
-

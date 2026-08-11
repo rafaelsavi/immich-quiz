@@ -1,7 +1,15 @@
 import { state, el } from "./modules/state.js";
-import { t, translateError, showAlert, applyLanguage } from "./modules/i18n.js";
 import {
-  playTone,
+  t,
+  translateError,
+  showAlert,
+  applyLanguage,
+  getInitialLanguagePreference,
+  updateLanguageUi,
+  toggleLanguage,
+} from "./modules/i18n.js";
+import {
+  playSubmitTone,
   playTick,
   playBuzzer,
   playChime,
@@ -11,32 +19,28 @@ import {
   updateAudioUi,
 } from "./modules/audio.js";
 import { api } from "./modules/api.js";
-import {
-  ACTUAL_COLOR,
-  playerColor,
-  playerInitial,
-  formatMonth,
-  formatPlace,
-  formatDistance,
-  formatMonthError,
-  buildCell,
-  playerBadge,
-  playerNameCell,
-} from "./modules/formatters.js";
-import { launchGoldConfetti, createPerfectBadge, launchStarBurst, spawnFloatingScorePop } from "./modules/effects.js";
+import { formatPlace, formatMonth, buildCell, playerNameCell } from "./modules/formatters.js";
 import {
   updateSubmitState,
-  createPinIcon,
-  ensureGuessMap,
-  ensureRevealMap,
   renderJourneyMap,
   toggleMapFullscreen,
   syncFullscreenButtons,
+  updateMapLayerControls,
+  refitMap,
 } from "./modules/maps.js";
-import {
-  loadLeaderboard,
-  handleSortClick,
-} from "./modules/leaderboard.js";
+import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
+import { pinpointMode } from "./modules/modes/pinpoint.js";
+import { albumShuffleMode, openPhotoLightbox, getShuffleMaps } from "./modules/modes/album_shuffle.js";
+
+const GAME_MODES = {
+  pinpoint: pinpointMode,
+  album_shuffle: albumShuffleMode,
+};
+
+function getActiveMode() {
+  return GAME_MODES[state.gameMode] || pinpointMode;
+}
+
 
 const EARLIEST_YEAR = 1950;
 const DEFAULT_MAP_WIDTH_PCT = 67;
@@ -76,49 +80,13 @@ async function initAlbums(libraryName) {
   });
 }
 
-/* ------------------------------------------------- year / month dropdowns */
+/* ------------------------------------------------- select wheel scroll */
 
-function initDateDropdowns() {
-  const currentYear = new Date().getFullYear();
-
-  el.dateGuessYear.replaceChildren();
-  for (let year = currentYear; year >= EARLIEST_YEAR; year -= 1) {
-    const option = document.createElement("option");
-    option.value = String(year);
-    option.textContent = String(year);
-    el.dateGuessYear.appendChild(option);
-  }
-
-  el.dateGuessYear.value = String(currentYear);
-  renderMonthOptions();
-
-  bindSelectWheelScroll(el.dateGuessYear, true);
-  bindSelectWheelScroll(el.dateGuessMonth, false);
+function initWheelScrolls() {
   bindSelectWheelScroll(el.roundCount, false);
   bindSelectWheelScroll(el.roundLength, false);
   bindSelectWheelScroll(el.library, false);
   bindSelectWheelScroll(el.album, false);
-}
-
-function renderMonthOptions(keepSelection = true) {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  const selectedYear = Number(el.dateGuessYear.value);
-  const maxMonth = selectedYear >= currentYear ? currentMonth : 12;
-  const previous = Number(el.dateGuessMonth.value);
-
-  el.dateGuessMonth.replaceChildren();
-  for (let month = 1; month <= maxMonth; month += 1) {
-    const option = document.createElement("option");
-    option.value = String(month);
-    option.textContent = String(month).padStart(2, "0");
-    el.dateGuessMonth.appendChild(option);
-  }
-
-  // Default to (and clamp at) the newest selectable month.
-  const keep = keepSelection && previous >= 1 && previous <= maxMonth;
-  el.dateGuessMonth.value = String(keep ? previous : maxMonth);
 }
 
 async function initUiConfig() {
@@ -127,16 +95,17 @@ async function initUiConfig() {
 }
 
 function applyUiConfig(config) {
-  const heightPxRaw = Number(config.quiz_image_max_height_px);
-  const heightPx = Number.isFinite(heightPxRaw) ? Math.min(1600, Math.max(200, heightPxRaw)) : 420;
-  document.documentElement.style.setProperty("--quiz-image-max-height", `${heightPx}px`);
-
-  if (config.language && (config.language === "PT" || config.language === "EN")) {
+  const savedLang = getInitialLanguagePreference();
+  if (savedLang) {
+    state.language = savedLang;
+  } else if (config.language && (config.language === "PT" || config.language === "EN")) {
     state.language = config.language;
   }
   if (config.score_max_points) {
     state.scoreMaxPoints = Number(config.score_max_points);
   }
+  updateLanguageUi();
+  updateAudioUi();
   applyLanguage();
 }
 
@@ -155,12 +124,6 @@ function applyGuessLayout(locationMode, dateMode) {
   );
 }
 
-function resetDateGuess() {
-  const now = new Date();
-  el.dateGuessYear.value = String(now.getFullYear());
-  renderMonthOptions(false);
-}
-
 function stepSelectOption(selectEl, direction) {
   if (!selectEl || selectEl.disabled || selectEl.options.length === 0) {
     return;
@@ -177,6 +140,11 @@ function stepSelectOption(selectEl, direction) {
 }
 
 function bindSelectWheelScroll(selectEl, invertScroll = false) {
+  if (!selectEl || selectEl.dataset.wheelBound) {
+    return;
+  }
+  selectEl.dataset.wheelBound = "true";
+
   selectEl.addEventListener(
     "wheel",
     (event) => {
@@ -212,7 +180,6 @@ function resetTimerBar() {
   const timerRow = el.timerTrack.closest(".timer-row");
   if (timerRow) timerRow.classList.remove("is-pulsing");
   el.timerRemaining.classList.remove("is-critical-text");
-  if (el.mediaFrame) el.mediaFrame.classList.remove("timer-tension");
 
   // Feature 7: reset all fullscreen timer overlays
   document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
@@ -234,13 +201,19 @@ function startTimer(roundLength) {
     return;
   }
 
-  const total = roundLength === "30s" ? 30 : 60;
+  let total = 60;
+  if (roundLength === "30s") total = 30;
+  else if (roundLength === "1m") total = 60;
+  else if (roundLength === "2m") total = 120;
+  else if (roundLength === "5m") total = 300;
+
   let remaining = total;
   state.timerTotalSeconds = total;
   state.timerRemainingSeconds = remaining;
   el.timerTrack.classList.remove("is-idle");
   el.timerLabel.textContent = t("game.timer_time_left");
   el.timerRemaining.textContent = `${remaining}s`;
+
 
   state.timerRef = setInterval(() => {
     remaining -= 1;
@@ -259,7 +232,6 @@ function startTimer(roundLength) {
     const timerRow = el.timerTrack.closest(".timer-row");
     if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
     el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
-    if (el.mediaFrame) el.mediaFrame.classList.toggle("timer-tension", clamped <= 5 && clamped > 0);
 
     // Feature 7: sync fullscreen timer overlays
     syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
@@ -283,8 +255,7 @@ function handleTimeout() {
   state.timedOut = true;
   el.timerLabel.textContent = t("game.timer_time_up_label");
   el.timerRemaining.textContent = "0s";
-  el.dateGuessYear.disabled = true;
-  el.dateGuessMonth.disabled = true;
+  getActiveMode()?.setDisabled?.(true);
 
   el.timeoutNotice.textContent = t("game.timer_time_up_notice");
   el.timeoutNotice.classList.remove("hidden");
@@ -323,16 +294,18 @@ async function startMatch(event) {
     .map((name) => name.trim())
     .filter(Boolean);
 
+  const activeMode = getActiveMode();
+  const modePayload = activeMode.getModePayload();
+
   const albumId = el.album.value || null;
   const payload = {
     players,
     round_count: Number(el.roundCount.value),
     round_length: el.roundLength.value,
-    location_mode: el.goalLocation.checked,
-    date_mode: el.goalDate.checked,
     library_name: el.library.value,
     album_id: albumId,
     album_name: albumId ? el.album.options[el.album.selectedIndex].text : "-",
+    ...modePayload,
   };
 
   try {
@@ -357,6 +330,8 @@ async function startMatch(event) {
 
   state.lastMatchConfig = payload;
 
+  getActiveMode().unmount();
+
   const response = await api("/api/game/setup", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -374,62 +349,20 @@ async function startMatch(event) {
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
 
+  activeMode.mount(el.guessingUi, payload);
+  applyLanguage();
+
   await loadQuestion();
 }
 
-async function loadQuestion() {
-  resetTimerBar();
-  state.guessedLatLng = null;
-  state.timedOut = false;
-  state.currentQuestion = null;
-  el.guessingUi.classList.remove("hidden");
-  el.revealUi.classList.add("hidden");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-  el.submitAnswer.textContent = t("game.submit_btn");
-  el.dateGuessYear.disabled = false;
-  el.dateGuessMonth.disabled = false;
-  updateSubmitState();
-
-  if (state.guessMarker) {
-    state.guessMarker.remove();
-    state.guessMarker = null;
-  }
-  if (state.guessMap) {
-    state.guessMap.setView([20, 0], 2);
-  }
-  resetDateGuess();
-
-  // Clear the image immediately so the previous round's photo never shows
-  // through the pass-device overlay while the API call is in flight.
-  el.quizImage.classList.add("hidden");
-  el.quizImage.removeAttribute("src");
-  if (el.mediaErrorCard) {
-    el.mediaErrorCard.classList.add("hidden");
-  }
-  el.mediaPlaceholder.classList.remove("hidden");
-
-  el.quizImage.onerror = () => {
-    el.quizImage.classList.add("hidden");
-    el.mediaPlaceholder.classList.add("hidden");
-    if (el.mediaErrorCard) {
-      el.mediaErrorCard.classList.remove("hidden");
-    }
-  };
-
-  const data = await api("/api/question", {
-    method: "POST",
-    body: JSON.stringify({
-      match_id: state.matchId,
-      played_asset_ids: state.playedAssetIds,
-    }),
-  });
-
-  state.currentQuestion = data;
-  if (!state.playedAssetIds.includes(data.asset_id)) {
-    state.playedAssetIds.push(data.asset_id);
-  }
-
-  el.roundMeta.textContent = t(
+function updateRoundMeta() {
+  const roundMeta = el.roundMeta;
+  if (!roundMeta || !state.currentQuestion) return;
+  const data = state.currentQuestion;
+  roundMeta.replaceChildren();
+  const roundMetaText = document.createElement("span");
+  roundMetaText.className = "round-meta-text";
+  roundMetaText.textContent = t(
     "game.round_meta",
     data.player_round_number,
     data.total_rounds_per_player,
@@ -437,9 +370,123 @@ async function loadQuestion() {
     data.total_players,
     data.player_name
   );
-  applyGuessLayout(data.location_mode, data.date_mode);
-  el.mapGuessWrap.classList.toggle("hidden", !data.location_mode);
-  el.dateGuessWrap.classList.toggle("hidden", !data.date_mode);
+  roundMeta.appendChild(roundMetaText);
+
+  if (state.gameMode === "album_shuffle") {
+    const helpBtn = document.createElement("button");
+    helpBtn.type = "button";
+    helpBtn.className = "shuffle-help-btn";
+    helpBtn.textContent = t("game.help_btn");
+    helpBtn.addEventListener("click", () => {
+      const activeMode = getActiveMode();
+      activeMode.openHelp?.(state.currentQuestion);
+    });
+    roundMeta.appendChild(helpBtn);
+  }
+}
+
+function checkMediaLoadable(url) {
+  return new Promise((resolve) => {
+    if (!url) return resolve(true);
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+}
+
+async function fetchAndVerifyQuestion() {
+  while (true) {
+    let data;
+    try {
+      data = await api("/api/question", {
+        method: "POST",
+        body: JSON.stringify({
+          match_id: state.matchId,
+          played_asset_ids: state.playedAssetIds,
+        }),
+      });
+    } catch (err) {
+      if (
+        err.message &&
+        (err.message.includes("No eligible assets") || err.message.includes("404"))
+      ) {
+        return null;
+      }
+      throw err;
+    }
+
+    const photosToTest = [];
+    if (data.batch_photos && data.batch_photos.length > 0) {
+      for (const p of data.batch_photos) {
+        photosToTest.push({ id: p.photo_id, url: p.media_url });
+      }
+    } else if (data.media_url) {
+      photosToTest.push({ id: data.asset_id, url: data.media_url });
+    }
+
+    const results = await Promise.all(
+      photosToTest.map(async (photo) => ({
+        id: photo.id,
+        ok: await checkMediaLoadable(photo.url),
+      }))
+    );
+
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length === 0) {
+      return data;
+    }
+
+    console.warn(
+      `[Media Verification] Failed to load ${failed.length} photo(s) [${failed.map((f) => f.id).join(", ")}]. Requesting replacement photo from server...`
+    );
+
+    for (const f of failed) {
+      if (f.id && !state.playedAssetIds.includes(f.id)) {
+        state.playedAssetIds.push(f.id);
+      }
+    }
+  }
+}
+
+async function loadQuestion() {
+  resetTimerBar();
+  state.guessedLatLng = null;
+  state.timedOut = false;
+  state.currentQuestion = null;
+  el.submitAnswer.textContent = t("game.submit_btn");
+  getActiveMode()?.setDisabled?.(false);
+  updateSubmitState();
+
+  const data = await fetchAndVerifyQuestion();
+
+  if (!data) {
+    state.timedOut = true;
+    showAlert("No eligible photos available. Round accepted.");
+    await submitAnswer(true);
+    return;
+  }
+
+  state.currentQuestion = data;
+  state.gameMode = data.game_mode || "pinpoint";
+  if (data.asset_id && !state.playedAssetIds.includes(data.asset_id)) {
+    state.playedAssetIds.push(data.asset_id);
+  }
+  if (data.batch_photos) {
+    for (const p of data.batch_photos) {
+      if (p.photo_id && !state.playedAssetIds.includes(p.photo_id)) {
+        state.playedAssetIds.push(p.photo_id);
+      }
+    }
+  }
+
+  updateRoundMeta();
+
+  const activeMode = getActiveMode();
+  activeMode.renderQuestion(data);
+  el.guessingUi.classList.remove("hidden");
+  el.revealUi.classList.add("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
   updateSubmitState();
 
   if (data.total_players > 1) {
@@ -453,12 +500,7 @@ async function loadQuestion() {
     el.passOverlay.classList.remove("hidden");
   } else {
     el.passOverlay.classList.add("hidden");
-    el.quizImage.src = data.media_url;
-    el.quizImage.classList.remove("hidden");
-    el.mediaPlaceholder.classList.add("hidden");
-    if (data.location_mode) {
-      ensureGuessMap();
-    }
+    activeMode.onReady(data);
     startTimer(data.round_length);
   }
 }
@@ -469,7 +511,7 @@ async function submitAnswer(fromTimeout = false) {
   }
   state.submitting = true;
   updateSubmitState();
-  playTone(480, "sine", 0.08, 0.12);
+  playSubmitTone();
 
   try {
     const question = state.currentQuestion;
@@ -493,15 +535,9 @@ async function submitAnswer(fromTimeout = false) {
       }
     }
 
-    const payload = {
-      match_id: state.matchId,
-      question_id: question.question_id,
-      guessed_latitude: state.guessedLatLng ? state.guessedLatLng.lat : null,
-      guessed_longitude: state.guessedLatLng ? state.guessedLatLng.lng : null,
-      guessed_year: question.date_mode ? Number(el.dateGuessYear.value) : null,
-      guessed_month: question.date_mode ? Number(el.dateGuessMonth.value) : null,
-      timed_out: fromTimeout,
-    };
+    const activeMode = getActiveMode();
+    const payload = activeMode.buildAnswerPayload(question, fromTimeout);
+
 
     const result = await api("/api/answer", {
       method: "POST",
@@ -510,10 +546,6 @@ async function submitAnswer(fromTimeout = false) {
 
     clearTimer();
     state.matchFinished = result.match_finished;
-
-    // Release the lock before the next screen loads, otherwise the submit gate
-    // and the map click handler stay frozen for the following player.
-    state.submitting = false;
 
     if (result.round_complete) {
       await showRoundReveal(result.round_number);
@@ -549,6 +581,9 @@ async function showRoundReveal(roundNumber) {
     actual_country: reveal.actual_country,
     location_string: formatPlace(reveal),
     results: reveal.results,
+    batch_reveal: reveal.batch_reveal || null,
+    location_mode: reveal.location_mode,
+    library_name: reveal.library_name || (state.currentQuestion ? state.currentQuestion.library_name : ""),
   };
   if (existingIdx >= 0) {
     state.roundHistory[existingIdx] = entry;
@@ -556,12 +591,13 @@ async function showRoundReveal(roundNumber) {
     state.roundHistory.push(entry);
   }
 
+  state.lastReveal = reveal;
   showCard(el.gameCard);
   el.guessingUi.classList.add("hidden");
   el.revealUi.classList.remove("hidden");
 
-  renderRevealSummary(reveal);
-  renderRevealMap(reveal);
+  const activeMode = getActiveMode();
+  activeMode.renderReveal(el.revealUi, reveal);
 
   el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
 
@@ -569,349 +605,6 @@ async function showRoundReveal(roundNumber) {
   if (targetScrollEl) {
     targetScrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
   }
-}
-
-function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 200) {
-  if (!cellElement || targetScore <= 0) {
-    if (cellElement) cellElement.textContent = String(targetScore);
-    return;
-  }
-  // Strictly proportional ratio (0.0 to 1.0) of score points vs max possible round points.
-  const maxPossible = maxPossibleScore || 200;
-  const scoreRatio = Math.max(0.05, Math.min(1, targetScore / maxPossible));
-
-  // Directly proportional sound & animation duration (linear scaling from 150ms to 1400ms):
-  const durationMs = Math.round(150 + scoreRatio * 1250);
-  const tickInterval = 45;
-
-  const span = document.createElement("span");
-  span.className = "score-rollup is-rolling";
-  span.textContent = "0";
-  cellElement.replaceChildren(span);
-
-  let startTime = null;
-  let lastTickTime = 0;
-
-  function step(timestamp) {
-    if (!startTime) startTime = timestamp;
-    const progress = Math.min(1, (timestamp - startTime) / durationMs);
-    const currentVal = Math.floor(progress * targetScore);
-    span.textContent = String(currentVal);
-
-    if (timestamp - lastTickTime > tickInterval && progress < 1) {
-      lastTickTime = timestamp;
-      playScoreRollupTick(progress);
-    }
-
-    if (progress < 1) {
-      requestAnimationFrame(step);
-    } else {
-      span.textContent = String(targetScore);
-      span.classList.remove("is-rolling");
-    }
-  }
-  requestAnimationFrame(step);
-}
-
-function renderRevealSummary(reveal) {
-  el.roundMeta.textContent = t("reveal.title", reveal.round_number, reveal.total_rounds);
-
-  el.revealActual.replaceChildren();
-  const heading = document.createElement("div");
-  heading.textContent = t("reveal.correct_answer");
-  el.revealActual.appendChild(heading);
-
-  if (reveal.date_mode) {
-    const dateLine = document.createElement("span");
-    dateLine.textContent = `${t("reveal.actual_date")} ${formatMonth(reveal.actual_year, reveal.actual_month)}`;
-    el.revealActual.appendChild(dateLine);
-  }
-  if (reveal.location_mode) {
-    const locLine = document.createElement("span");
-    locLine.textContent = `${t("reveal.actual_location")} ${formatPlace(reveal)}`;
-    el.revealActual.appendChild(locLine);
-  }
-
-  el.revealLegend.replaceChildren();
-  if (reveal.location_mode) {
-    const actualItem = document.createElement("span");
-    actualItem.className = "legend-item";
-    const actualBadge = document.createElement("span");
-    actualBadge.className = "legend-badge";
-    actualBadge.style.background = ACTUAL_COLOR;
-    actualBadge.textContent = "\u2605";
-    actualItem.append(actualBadge, document.createTextNode(t("reveal.actual_location_legend")));
-    el.revealLegend.appendChild(actualItem);
-
-    reveal.results.forEach((result) => {
-      const item = document.createElement("span");
-      item.className = "legend-item";
-      item.append(
-        playerBadge(result.player_name),
-        document.createTextNode(`${playerInitial(result.player_name)} = ${result.player_name}`)
-      );
-      el.revealLegend.appendChild(item);
-    });
-  }
-
-  const groups = [];
-  if (reveal.location_mode) {
-    groups.push({ label: t("reveal.col_location"), columns: [t("reveal.col_points"), t("reveal.col_distance_error")] });
-  }
-  if (reveal.date_mode) {
-    groups.push({ label: t("reveal.col_date"), columns: [t("reveal.col_points"), t("reveal.col_guessed"), t("reveal.col_date_error")] });
-  }
-  groups.push({ label: t("reveal.col_score"), columns: [t("reveal.col_round"), t("reveal.col_total")] });
-
-  const groupRow = document.createElement("tr");
-  const playerHead = buildCell(t("reveal.col_player"), true);
-  playerHead.rowSpan = 2;
-  groupRow.appendChild(playerHead);
-  groups.forEach((group) => {
-    const cell = buildCell(group.label, true);
-    cell.colSpan = group.columns.length;
-    cell.className = "group-head group-start";
-    groupRow.appendChild(cell);
-  });
-
-  const columnRow = document.createElement("tr");
-  groups.forEach((group) => {
-    group.columns.forEach((label, index) => {
-      const cell = buildCell(label, true);
-      if (index === 0) {
-        cell.className = "group-start";
-      }
-      columnRow.appendChild(cell);
-    });
-  });
-  el.revealTableHead.replaceChildren(groupRow, columnRow);
-
-  const maxPoints = reveal.score_max_points || state.scoreMaxPoints || 100;
-  const maxRoundPoints = (reveal.location_mode ? maxPoints : 0) + (reveal.date_mode ? maxPoints : 0);
-  let hasAnyPerfectInRound = false;
-
-  const ordered = [...reveal.results].sort((a, b) => b.round_score - a.round_score);
-  el.revealTableBody.replaceChildren();
-
-  ordered.forEach((result, rIdx) => {
-    const isPerfectLocation = reveal.location_mode && (result.location_score === maxPoints || result.distance_km === 0);
-    const isPerfectDate = reveal.date_mode && (result.date_score === maxPoints || result.date_diff_days === 0);
-    const isPerfectRound = maxRoundPoints > 0 && result.round_score === maxRoundPoints;
-    const isPerfectPlayer = isPerfectLocation || isPerfectDate || isPerfectRound;
-
-    if (isPerfectPlayer) {
-      hasAnyPerfectInRound = true;
-    }
-
-    // Feature 1: track perfect count for any perfect guess or round
-    if (isPerfectPlayer) {
-      state.perfectCounts[result.player_name] = (state.perfectCounts[result.player_name] || 0) + 1;
-    }
-
-    // Feature 4: accumulate player stats for awards
-    if (!state.playerStats[result.player_name]) {
-      state.playerStats[result.player_name] = {
-        totalDistanceKm: 0, distanceCount: 0,
-        totalDateDiffDays: 0, dateCount: 0,
-        perfectLocationCount: 0, perfectDateCount: 0,
-        perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0, totalDurationSec: 0,
-      };
-    }
-    const ps = state.playerStats[result.player_name];
-    if (result.distance_km !== null && result.distance_km !== undefined) {
-      ps.totalDistanceKm += result.distance_km;
-      ps.distanceCount += 1;
-    }
-    if (result.date_diff_days !== null && result.date_diff_days !== undefined) {
-      ps.totalDateDiffDays += result.date_diff_days;
-      ps.dateCount += 1;
-    }
-    if (isPerfectLocation) ps.perfectLocationCount += 1;
-    if (isPerfectDate) ps.perfectDateCount += 1;
-    if (isPerfectPlayer) ps.perfectRounds += 1;
-    if (result.timed_out) ps.timedOutCount += 1;
-
-    const row = document.createElement("tr");
-    if (isPerfectPlayer) {
-      row.className = "is-perfect-row";
-    }
-
-    // Build player name cell with perfect count badge
-    const nameCell = playerNameCell(result.player_name, result.timed_out);
-    const count = state.perfectCounts[result.player_name] || 0;
-    if (count > 0) {
-      const countBadge = document.createElement("span");
-      countBadge.className = "perfect-count-badge";
-      countBadge.textContent = t("fmt.perfect_count", count);
-      nameCell.appendChild(countBadge);
-    }
-    row.appendChild(buildCell(nameCell));
-
-    const valueGroups = [];
-    if (reveal.location_mode) {
-      valueGroups.push({
-        isPerfect: isPerfectLocation,
-        items: [
-          result.location_score === null ? "-" : String(result.location_score),
-          result.guessed_latitude === null ? t("reveal.no_guess") : formatDistance(result.distance_km),
-        ],
-      });
-    }
-    if (reveal.date_mode) {
-      valueGroups.push({
-        isPerfect: isPerfectDate,
-        items: [
-          result.date_score === null ? "-" : String(result.date_score),
-          formatMonth(result.guessed_year, result.guessed_month),
-          formatMonthError(result),
-        ],
-      });
-    }
-
-    const isTotalScoreGroup = true;
-    valueGroups.push({
-      isPerfect: isPerfectRound,
-      isScoreGroup: isTotalScoreGroup,
-      roundScoreNum: result.round_score,
-      items: [String(result.round_score), String(result.total_score)],
-    });
-
-    valueGroups.forEach((group) => {
-      group.items.forEach((value, index) => {
-        const cell = buildCell(value);
-        if (index === 0) {
-          cell.classList.add("group-start");
-          if (group.isPerfect) {
-            cell.classList.add("is-perfect-cell");
-            cell.appendChild(createPerfectBadge());
-          }
-        }
-        if (group.isScoreGroup && index === 0) {
-          // Only animate the points gained in this round (round_score), NOT the total score.
-          animateScoreRollup(cell, group.roundScoreNum, maxRoundPoints);
-        }
-        row.appendChild(cell);
-      });
-    });
-
-    el.revealTableBody.appendChild(row);
-
-    // Floating Score Pops per player row
-    setTimeout(() => {
-      if (isPerfectLocation) {
-        spawnFloatingScorePop(row, `🎯 BULLSEYE! +${result.location_score}`, "bullseye");
-      } else if (isPerfectDate) {
-        spawnFloatingScorePop(row, `⏳ TIME TRAVELER! +${result.date_score}`, "perfect");
-      } else if (result.round_score > 0) {
-        spawnFloatingScorePop(row, `+${result.round_score} pts`, "good");
-      }
-    }, rIdx * 250);
-  });
-
-  if (hasAnyPerfectInRound) {
-    playChime();
-    launchStarBurst();
-    launchGoldConfetti();
-  }
-}
-
-function renderRevealMap(reveal) {
-  el.revealMapShell.classList.toggle("hidden", !reveal.location_mode);
-  el.revealMapHead.classList.toggle("hidden", !reveal.location_mode);
-  if (!reveal.location_mode) {
-    clearRevealAnimation();
-    return;
-  }
-
-  ensureRevealMap();
-  clearRevealAnimation();
-
-  state.revealLayers.forEach((layer) => state.revealMap.removeLayer(layer));
-  state.revealLayers = [];
-
-  if (reveal.actual_latitude === null || reveal.actual_longitude === null) {
-    return;
-  }
-
-  // 1. Plot the actual (correct) pinpoint star marker immediately
-  const actual = L.latLng(reveal.actual_latitude, reveal.actual_longitude);
-  const actualMarker = L.marker(actual, {
-    icon: createPinIcon("\u2605", ACTUAL_COLOR),
-    zIndexOffset: 1000,
-  })
-    .addTo(state.revealMap)
-    .bindPopup(t("reveal.popup_actual"));
-  state.revealLayers.push(actualMarker);
-
-  const points = [actual];
-  const playerGuesses = [];
-
-  reveal.results.forEach((result) => {
-    if (result.guessed_latitude === null || result.guessed_longitude === null) {
-      return;
-    }
-    const guessed = L.latLng(result.guessed_latitude, result.guessed_longitude);
-    points.push(guessed);
-    playerGuesses.push({ result, guessed });
-  });
-
-  if (points.length > 1) {
-    state.revealMap.fitBounds(L.latLngBounds(points).pad(0.3));
-  } else {
-    state.revealMap.setView(actual, 4);
-  }
-
-  if (playerGuesses.length === 0) {
-    return;
-  }
-
-  // 2. Expand ALL lines simultaneously from actual location to player guess points!
-  const lineDuration = 800; // ms for line expansion
-
-  state.revealAnimationTimeoutId = window.setTimeout(() => {
-    state.revealAnimationTimeoutId = null;
-    // Create all polylines anchored at actual location
-    const lineEntries = playerGuesses.map(({ result, guessed }) => {
-      const color = playerColor(result.player_name);
-      const line = L.polyline([actual, actual], {
-        color,
-        weight: 3,
-        dashArray: "8, 8",
-        opacity: 0.85,
-      }).addTo(state.revealMap);
-      state.revealLayers.push(line);
-      return { result, guessed, color, line };
-    });
-
-    const startTime = performance.now();
-
-    function animateAllLines(now) {
-      const elapsed = now - startTime;
-      const progress = Math.min(1, elapsed / lineDuration);
-
-      lineEntries.forEach(({ guessed, line }) => {
-        const curLat = actual.lat + (guessed.lat - actual.lat) * progress;
-        const curLng = actual.lng + (guessed.lng - actual.lng) * progress;
-        line.setLatLngs([actual, [curLat, curLng]]);
-      });
-
-      if (progress < 1) {
-        state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
-      } else {
-        state.revealAnimationFrameId = null;
-        // All lines reached their guess points! Pop in all player markers together!
-        lineEntries.forEach(({ result, guessed, color }) => {
-          const icon = createPopPinIcon(playerInitial(result.player_name), color);
-          const marker = L.marker(guessed, { icon })
-            .addTo(state.revealMap)
-            .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(result.distance_km)));
-          state.revealLayers.push(marker);
-        });
-      }
-    }
-
-    state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
-  }, 350);
 }
 
 function createPopPinIcon(label, color) {
@@ -925,22 +618,29 @@ function createPopPinIcon(label, color) {
 }
 
 async function handleNextRound() {
-  if (state.matchFinished) {
-    await showMatchSummary();
+  if (state.submitting) {
     return;
   }
-  showCard(el.gameCard);
-  await loadQuestion();
+  state.submitting = true;
+  updateSubmitState();
+
+  try {
+    if (state.matchFinished) {
+      await showMatchSummary();
+      return;
+    }
+    showCard(el.gameCard);
+    await loadQuestion();
+  } finally {
+    state.submitting = false;
+    updateSubmitState();
+  }
 }
 
 /* ------------------------------------------------------- match conclusion */
 
-async function showMatchSummary() {
-  const summary = await api(`/api/match/${encodeURIComponent(state.matchId)}/summary`);
-  showCard(el.summaryCard);
-  playVictoryFanfare();
-
-  // Feature 3: Winner Podium
+function renderSummaryContent(summary) {
+  if (!summary) return;
   renderPodium(summary);
 
   const modes = [];
@@ -958,7 +658,6 @@ async function showMatchSummary() {
     summary.album_name
   );
 
-  // Feature 4: Fun Performance Awards
   renderAwards(summary);
 
   const columns = [t("summary.col_rank"), t("summary.col_player")];
@@ -971,7 +670,13 @@ async function showMatchSummary() {
   columns.push(t("summary.col_total"), t("summary.col_accuracy"));
 
   const headRow = document.createElement("tr");
-  columns.forEach((label) => headRow.appendChild(buildCell(label, true)));
+  columns.forEach((label) => {
+    const cell = buildCell(label, true);
+    if (label === t("summary.col_accuracy")) {
+      cell.className = "col-accuracy hide-on-mobile";
+    }
+    headRow.appendChild(cell);
+  });
   el.summaryTableHead.replaceChildren(headRow);
 
   el.summaryTableBody.replaceChildren();
@@ -981,7 +686,6 @@ async function showMatchSummary() {
 
     row.appendChild(buildCell(String(player.rank)));
 
-    // Feature 1: show perfect count in summary table
     const nameCell = playerNameCell(player.player_name);
     const count = state.perfectCounts[player.player_name] || 0;
     if (count > 0) {
@@ -999,15 +703,25 @@ async function showMatchSummary() {
       row.appendChild(buildCell(String(player.date_score ?? 0)));
     }
     row.appendChild(buildCell(`${player.total_score}/${player.max_possible_score}`));
-    row.appendChild(buildCell(String(player.accuracy_pct)));
+    
+    const accCell = buildCell(`${player.accuracy_pct}%`);
+    accCell.className = "col-accuracy hide-on-mobile";
+    row.appendChild(accCell);
 
     el.summaryTableBody.appendChild(row);
   });
+}
 
+async function showMatchSummary() {
+  const summary = await api(`/api/match/${encodeURIComponent(state.matchId)}/summary`);
   state.lastSummary = summary;
+  showCard(el.summaryCard);
+  playVictoryFanfare();
+
+  renderSummaryContent(summary);
 
   // Render World Journey Map
-  renderJourneyMap(state.roundHistory);
+  renderJourneyMap(state.roundHistory, summary.location_mode);
 
   // Render Polaroid Memory Cards
   renderPolaroidGallery(state.roundHistory);
@@ -1020,39 +734,88 @@ function renderPolaroidGallery(roundHistory) {
   if (!el.polaroidGallery) return;
   el.polaroidGallery.replaceChildren();
 
+  const defaultLibrary = state.lastSummary
+    ? state.lastSummary.library_name
+    : state.currentQuestion
+    ? state.currentQuestion.library_name
+    : "";
+
   (roundHistory || []).forEach((round) => {
-    const card = document.createElement("div");
-    card.className = "polaroid-card";
+    if (round.batch_reveal && Array.isArray(round.batch_reveal) && round.batch_reveal.length > 0) {
+      round.batch_reveal.forEach((item) => {
+        const card = document.createElement("div");
+        card.className = "polaroid-card";
 
-    const imgWrap = document.createElement("div");
-    imgWrap.className = "polaroid-img-wrap";
+        const imgWrap = document.createElement("div");
+        imgWrap.className = "polaroid-img-wrap";
 
-    if (round.media_url) {
-      const img = document.createElement("img");
-      img.className = "polaroid-img";
-      img.src = round.media_url;
-      img.alt = `Round ${round.round_number}`;
-      imgWrap.appendChild(img);
+        const lib = round.library_name || defaultLibrary;
+        const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(lib)}`;
+        const img = document.createElement("img");
+        img.className = "polaroid-img";
+        img.src = imgUrl;
+        img.alt = `Round ${round.round_number} - Pin ${item.true_pin_id}`;
+        img.style.cursor = "pointer";
+        img.addEventListener("click", () => openPhotoLightbox(imgUrl));
+        imgWrap.appendChild(img);
+
+        const caption = document.createElement("div");
+        caption.className = "polaroid-caption";
+
+        const badge = document.createElement("span");
+        badge.className = "polaroid-round-badge";
+        badge.textContent = item.true_pin_id
+          ? `${t("summary.journey_round", round.round_number)} - ${item.true_pin_id}`
+          : t("summary.journey_round", round.round_number);
+
+        const loc = document.createElement("span");
+        loc.className = "polaroid-location";
+        loc.textContent = formatPlace(item) || t("fmt.unknown_place");
+
+        const date = document.createElement("span");
+        date.className = "polaroid-date";
+        date.textContent = formatMonth(item.actual_year, item.actual_month);
+
+        caption.append(badge, loc, date);
+        card.append(imgWrap, caption);
+        el.polaroidGallery.appendChild(card);
+      });
+    } else {
+      const card = document.createElement("div");
+      card.className = "polaroid-card";
+
+      const imgWrap = document.createElement("div");
+      imgWrap.className = "polaroid-img-wrap";
+
+      if (round.media_url) {
+        const img = document.createElement("img");
+        img.className = "polaroid-img";
+        img.src = round.media_url;
+        img.alt = `Round ${round.round_number}`;
+        img.style.cursor = "pointer";
+        img.addEventListener("click", () => openPhotoLightbox(round.media_url));
+        imgWrap.appendChild(img);
+      }
+
+      const caption = document.createElement("div");
+      caption.className = "polaroid-caption";
+
+      const badge = document.createElement("span");
+      badge.className = "polaroid-round-badge";
+      badge.textContent = t("summary.journey_round", round.round_number);
+
+      const loc = document.createElement("span");
+      loc.className = "polaroid-location";
+      loc.textContent = round.location_string || t("fmt.unknown_place");
+
+      const date = document.createElement("span");
+      date.className = "polaroid-date";
+      date.textContent = formatMonth(round.actual_year, round.actual_month);
+
+      caption.append(badge, loc, date);
+      card.append(imgWrap, caption);
+      el.polaroidGallery.appendChild(card);
     }
-
-    const caption = document.createElement("div");
-    caption.className = "polaroid-caption";
-
-    const badge = document.createElement("span");
-    badge.className = "polaroid-round-badge";
-    badge.textContent = t("summary.journey_round", round.round_number);
-
-    const loc = document.createElement("span");
-    loc.className = "polaroid-location";
-    loc.textContent = round.location_string || t("fmt.unknown_place");
-
-    const date = document.createElement("span");
-    date.className = "polaroid-date";
-    date.textContent = formatMonth(round.actual_year, round.actual_month);
-
-    caption.append(badge, loc, date);
-    card.append(imgWrap, caption);
-    el.polaroidGallery.appendChild(card);
   });
 }
 
@@ -1212,8 +975,10 @@ function renderAwards(summary) {
     return hasTie ? null : bestName;
   };
 
+  const isAlbumShuffle = summary.game_mode === "album_shuffle";
+
   // 1. Sniper — most perfect location guesses (0 km / max points)
-  if (summary.location_mode) {
+  if (summary.location_mode && !isAlbumShuffle) {
     const bestSniper = pickAwardWinner("perfectLocationCount", (name) => summaryByName.get(name)?.location_score ?? -1);
     if (bestSniper) {
       awards.push({
@@ -1226,7 +991,7 @@ function renderAwards(summary) {
   }
 
   // 2. Time Traveler — most perfect date guesses (0 days / exact month / max points)
-  if (summary.date_mode) {
+  if (summary.date_mode && !isAlbumShuffle) {
     const bestTimeTraveler = pickAwardWinner("perfectDateCount", (name) => summaryByName.get(name)?.date_score ?? -1);
     if (bestTimeTraveler) {
       awards.push({
@@ -1300,6 +1065,7 @@ function syncFullscreenTimers(seconds, ratio, isWarning, isCritical) {
 }
 
 function returnToSetup() {
+  getActiveMode().unmount();
   state.matchId = null;
   state.currentQuestion = null;
   state.matchFinished = false;
@@ -1317,6 +1083,7 @@ function handleAbandonGame(action) {
     return;
   }
   clearTimer();
+  getActiveMode().unmount();
   if (action === "restart") {
     restartSameGame().catch((err) => showAlert(err.message));
   } else {
@@ -1330,6 +1097,9 @@ async function restartSameGame() {
     returnToSetup();
     return;
   }
+
+  const activeMode = getActiveMode();
+  activeMode.unmount();
 
   state.matchId = null;
   state.currentQuestion = null;
@@ -1348,6 +1118,10 @@ async function restartSameGame() {
   state.players = response.players;
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
+
+  activeMode.mount(el.guessingUi, config);
+  applyLanguage();
+
   await loadQuestion();
 }
 
@@ -1367,33 +1141,13 @@ el.album.addEventListener("change", () => {
   loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
 });
 
-el.dateGuessYear.addEventListener("change", () => renderMonthOptions(true));
-bindSelectWheelScroll(el.dateGuessYear);
-bindSelectWheelScroll(el.dateGuessMonth, true);
-
-// Setup form dropdowns
-bindSelectWheelScroll(el.roundCount);
-bindSelectWheelScroll(el.roundLength);
-bindSelectWheelScroll(el.library);
-bindSelectWheelScroll(el.album);
-
-if (el.mediaSkipBtn) {
-  el.mediaSkipBtn.addEventListener("click", () => {
-    submitAnswer(true).catch((err) => showAlert(err.message));
-  });
-}
-
 el.readyBtn.addEventListener("click", () => {
   if (!state.currentQuestion) {
     return;
   }
   el.passOverlay.classList.add("hidden");
-  el.quizImage.src = state.currentQuestion.media_url;
-  el.quizImage.classList.remove("hidden");
-  el.mediaPlaceholder.classList.add("hidden");
-  if (state.currentQuestion.location_mode) {
-    ensureGuessMap();
-  }
+  const activeMode = getActiveMode();
+  activeMode.onReady(state.currentQuestion);
   startTimer(state.currentQuestion.round_length);
 });
 
@@ -1401,9 +1155,9 @@ el.submitAnswer.addEventListener("click", () => {
   submitAnswer(state.timedOut).catch((err) => showAlert(err.message));
 });
 
-el.nextRound.addEventListener("click", () => {
-  handleNextRound().catch((err) => showAlert(err.message));
-});
+window.handleNextRoundClick = () => handleNextRound().catch((err) => showAlert(err.message));
+
+el.nextRound.addEventListener("click", window.handleNextRoundClick);
 
 el.newMatch.addEventListener("click", returnToSetup);
 
@@ -1418,8 +1172,7 @@ el.gameExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
 el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 
-el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
-el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
+
 el.revealMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.revealMapShell));
 if (el.journeyMapFullscreen) {
   el.journeyMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.journeyMapShell));
@@ -1428,25 +1181,38 @@ if (el.journeyMapFullscreen) {
 document.addEventListener("fullscreenchange", () => {
   syncFullscreenButtons();
 
-  // Leaflet needs to re-measure after the container resizes.
-  [state.guessMap, state.revealMap, state.journeyMap].forEach((map) => {
+  // Leaflet needs to re-measure and refit after the container resizes.
+  [state.guessMap, state.revealMap, state.journeyMap, ...getShuffleMaps()].forEach((map) => {
     if (map) {
-      setTimeout(() => map.invalidateSize(), 120);
+      refitMap(map);
+      setTimeout(() => refitMap(map), 120);
+    }
+  });
+});
+
+window.addEventListener("resize", () => {
+  [state.guessMap, state.revealMap, state.journeyMap, ...getShuffleMaps()].forEach((map) => {
+    if (map) {
+      refitMap(map);
     }
   });
 });
 
 // Setup form controls — reload leaderboard whenever any setting changes.
-[
-  el.roundCount,
-  el.roundLength,
-  el.goalLocation,
-  el.goalDate,
-].forEach((control) => {
-  control.addEventListener("change", () => {
+[el.roundCount, el.roundLength].forEach((control) => {
+  if (control) {
+    control.addEventListener("change", () => {
+      loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+    });
+  }
+});
+
+const settingsContainer = document.getElementById("game-settings-container");
+if (settingsContainer) {
+  settingsContainer.addEventListener("change", () => {
     loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
   });
-});
+}
 
 el.refreshLeaderboard.addEventListener("click", () => {
   loadLeaderboard().catch((err) => showAlert(err.message));
@@ -1454,17 +1220,114 @@ el.refreshLeaderboard.addEventListener("click", () => {
 
 el.leaderboardHead.addEventListener("click", handleSortClick);
 
+function refreshActiveScreenLanguage() {
+  updateLanguageUi();
+  updateAudioUi();
+  applyLanguage();
+  syncFullscreenButtons();
+  updateMapLayerControls(getShuffleMaps());
+
+  if (!el.setupCard.classList.contains("hidden")) {
+    const settingsContainer = document.getElementById("game-settings-container");
+    if (settingsContainer) {
+      const mode = getActiveMode();
+      mode.renderSettings(settingsContainer);
+      applyLanguage();
+    }
+  }
+
+  // Only update the round-meta banner when guessing (on the reveal screen it shows
+  // reveal.title which refreshRevealText will handle).
+  if (state.currentQuestion && el.guessingUi && !el.guessingUi.classList.contains("hidden")) {
+    updateRoundMeta();
+  }
+
+  // Refresh the Album Shuffle help modal body if it is currently open.
+  if (state.currentQuestion) {
+    const activeMode = getActiveMode();
+    activeMode.refreshHelpModal?.(state.currentQuestion);
+  }
+
+  if (!el.passOverlay.classList.contains("hidden") && state.currentQuestion) {
+    const data = state.currentQuestion;
+    if (el.overlayTitle) {
+      el.overlayTitle.textContent = t(
+        "game.pass_device_title",
+        data.player_name,
+        data.player_number,
+        data.total_players
+      );
+    }
+    if (el.overlaySubtitle) {
+      el.overlaySubtitle.textContent = t(
+        "game.pass_device_subtitle",
+        data.player_round_number,
+        data.total_rounds_per_player
+      );
+    }
+    if (el.readyBtn) {
+      el.readyBtn.textContent = t("game.ready_btn");
+    }
+  }
+
+  if (!el.guessingUi.classList.contains("hidden") && state.currentQuestion) {
+    // Update only dynamic text nodes — never touch image/map/date selects.
+    if (state.timedOut) {
+      el.timerLabel.textContent = t("game.timer_time_up_label");
+      el.timeoutNotice.textContent = t("game.timer_time_up_notice");
+      el.submitAnswer.textContent = t("game.continue_btn");
+    } else {
+      if (state.currentQuestion.round_length === "unlimited") {
+        el.timerLabel.textContent = t("game.timer_unlimited");
+      } else if (!el.timerTrack.classList.contains("is-idle")) {
+        el.timerLabel.textContent = t("game.timer_time_left");
+      }
+      el.submitAnswer.textContent = t("game.submit_btn");
+    }
+  }
+
+  if (!el.revealUi.classList.contains("hidden") && state.lastReveal) {
+    // Refresh all text in the reveal (table headers, actual date/location, buttons)
+    // without re-initializing the map or triggering animations.
+    const activeMode = getActiveMode();
+    activeMode.refreshRevealText(el.revealUi, state.lastReveal);
+    el.nextRound.textContent = state.lastReveal.match_finished
+      ? t("reveal.see_results_btn")
+      : t("reveal.next_round_btn");
+  }
+
+  if (!el.summaryCard.classList.contains("hidden") && state.lastSummary) {
+    renderSummaryContent(state.lastSummary);
+  }
+
+  loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+}
+
+document.addEventListener("click", (e) => {
+  const langBtn = e.target.closest("#lang-toggle-btn");
+  if (langBtn) {
+    e.preventDefault();
+    toggleLanguage(() => {
+      refreshActiveScreenLanguage();
+    });
+  }
+});
+
 if (el.audioToggleBtn) {
   el.audioToggleBtn.addEventListener("click", (e) => {
     e.preventDefault();
     toggleAudio();
   });
 }
+updateLanguageUi();
 updateAudioUi();
 
 /* Enter or Space key triggers the primary action of whatever screen is showing. */
 
 function activeActionButton() {
+  if (state.submitting) {
+    return null;
+  }
   if (!el.passOverlay.classList.contains("hidden")) {
     return el.readyBtn;
   }
@@ -1473,7 +1336,10 @@ function activeActionButton() {
       return el.submitAnswer;
     }
     if (!el.revealUi.classList.contains("hidden")) {
-      return el.nextRound;
+      const activeNextBtn = document.querySelector(
+        "#reveal-ui button#next-round:not(.hidden), #album-shuffle-reveal-ui button.next-round-btn:not(.hidden)"
+      );
+      return activeNextBtn || el.nextRound;
     }
   }
   return null;
@@ -1508,16 +1374,38 @@ document.addEventListener("keydown", (event) => {
   button.click();
 });
 
-window.addEventListener("beforeunload", (event) => {
-  if (state.matchId && !state.matchFinished) {
-    event.preventDefault();
+function initModeButtons() {
+  const selector = document.getElementById("game-mode-selector");
+  const settingsContainer = document.getElementById("game-settings-container");
+  if (!selector) return;
+  const buttons = selector.querySelectorAll(".mode-btn");
+
+  function updateModeUI(modeName) {
+    state.gameMode = modeName || "pinpoint";
+    buttons.forEach((b) => b.classList.toggle("active", b.dataset.mode === state.gameMode));
+    if (settingsContainer) {
+      const mode = getActiveMode();
+      mode.renderSettings(settingsContainer);
+      applyLanguage();
+    }
+    loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
   }
-});
+
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      updateModeUI(btn.dataset.mode || "pinpoint");
+    });
+  });
+
+  updateModeUI("pinpoint");
+}
+
 
 (async function bootstrap() {
-  initDateDropdowns();
+  refreshActiveScreenLanguage();
+  initWheelScrolls();
+  initModeButtons();
   syncFullscreenButtons();
-  updateAudioUi();
 
   const startupErrors = [];
   const rememberStartupError = (scope, err) => {

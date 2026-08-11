@@ -71,23 +71,29 @@ export function formatMonthError(result) {
   if (result.date_diff_days === null || result.date_diff_days === undefined) {
     return "-";
   }
-  if (result.date_diff_days === 0) {
-    return t("fmt.exact_month");
-  }
 
   const years = result.date_diff_years_part ?? 0;
   const months = result.date_diff_months_part ?? 0;
-  const parts = [];
-  if (years > 0) {
-    parts.push(`${years}${t("fmt.years_abbr")}`);
-  }
-  if (months > 0) {
-    parts.push(`${months}${t("fmt.months_abbr")}`);
+  const days = result.date_diff_days_part ?? result.date_diff_days ?? 0;
+
+  if (years === 0 && months === 0) {
+    const dayWord = days === 1 ? t("fmt.day") : t("fmt.days");
+    return `${days} ${dayWord}`;
   }
 
-  const dayWord = result.date_diff_days === 1 ? t("fmt.day") : t("fmt.days");
-  const days = `${result.date_diff_days} ${dayWord}`;
-  return parts.length > 0 ? `${parts.join(" ")} (${days})` : days;
+  if (years === 0) {
+    if (days === 0) {
+      return `${months} ${t("fmt.mon")}`;
+    }
+    const dayWord = days === 1 ? t("fmt.day") : t("fmt.days");
+    return `${months} ${t("fmt.mon")} ${days} ${dayWord}`;
+  }
+
+  const yearWord = years === 1 ? t("fmt.year") : t("fmt.years");
+  if (months === 0) {
+    return `${years} ${yearWord}`;
+  }
+  return `${years} ${yearWord} ${months} ${t("fmt.mon")}`;
 }
 
 export function buildCell(content, isHeader = false) {
