@@ -126,3 +126,88 @@ export function playerNameCell(playerName, timedOut = false) {
   }
   return wrap;
 }
+
+export function renderRoundMeta(container, options = {}) {
+  if (!container) return;
+  const {
+    roundNum,
+    totalRounds,
+    playerNum,
+    totalPlayers = 1,
+    playerName,
+    isReveal = false,
+    showHelp = false,
+    onHelpClick = null,
+  } = options;
+
+  container.replaceChildren();
+
+  const pillsWrap = document.createElement("div");
+  pillsWrap.className = "round-meta-pills";
+
+  // 1. Round Number Pill
+  if (roundNum && totalRounds) {
+    const roundPill = document.createElement("span");
+    roundPill.className = "round-meta-pill round-meta-number";
+
+    const flagSvgWrap = document.createElement("span");
+    flagSvgWrap.className = "meta-pill-icon-wrap";
+    flagSvgWrap.innerHTML = `<svg class="meta-pill-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>`;
+
+    const roundText = document.createElement("span");
+    roundText.className = "round-meta-text";
+    roundText.textContent = t("game.round_label", roundNum, totalRounds);
+
+    roundPill.append(flagSvgWrap.firstElementChild, roundText);
+    pillsWrap.appendChild(roundPill);
+  }
+
+  if (isReveal) {
+    // 2. Reveal Tag Pill
+    const revealPill = document.createElement("span");
+    revealPill.className = "round-meta-pill round-meta-reveal-tag";
+
+    const starSvgWrap = document.createElement("span");
+    starSvgWrap.className = "meta-pill-icon-wrap";
+    starSvgWrap.innerHTML = `<svg class="meta-pill-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
+
+    const revealText = document.createElement("span");
+    revealText.textContent = t("reveal.badge");
+
+    revealPill.append(starSvgWrap.firstElementChild, revealText);
+    pillsWrap.appendChild(revealPill);
+  } else if (playerName) {
+    // 2. Player Info Pill
+    const playerPill = document.createElement("span");
+    playerPill.className = "round-meta-pill round-meta-player";
+
+    const badge = playerBadge(playerName);
+    playerPill.appendChild(badge);
+
+    const playerSpan = document.createElement("span");
+    const labelText = totalPlayers > 1 ? t("game.player_label", playerNum, "") : "";
+    if (labelText) {
+      playerSpan.appendChild(document.createTextNode(labelText + " "));
+    }
+    const strong = document.createElement("strong");
+    strong.textContent = playerName;
+    playerSpan.appendChild(strong);
+
+    playerPill.appendChild(playerSpan);
+    pillsWrap.appendChild(playerPill);
+  }
+
+  container.appendChild(pillsWrap);
+
+  if (showHelp) {
+    const helpBtn = document.createElement("button");
+    helpBtn.type = "button";
+    helpBtn.className = "shuffle-help-btn";
+    helpBtn.textContent = t("game.help_btn");
+    if (onHelpClick) {
+      helpBtn.addEventListener("click", onHelpClick);
+    }
+    container.appendChild(helpBtn);
+  }
+}
+

@@ -19,7 +19,7 @@ import {
   updateAudioUi,
 } from "./modules/audio.js";
 import { api } from "./modules/api.js";
-import { formatPlace, formatMonth, buildCell, playerNameCell } from "./modules/formatters.js";
+import { formatPlace, formatMonth, buildCell, playerNameCell, renderRoundMeta } from "./modules/formatters.js";
 import {
   updateSubmitState,
   renderJourneyMap,
@@ -359,30 +359,19 @@ function updateRoundMeta() {
   const roundMeta = el.roundMeta;
   if (!roundMeta || !state.currentQuestion) return;
   const data = state.currentQuestion;
-  roundMeta.replaceChildren();
-  const roundMetaText = document.createElement("span");
-  roundMetaText.className = "round-meta-text";
-  roundMetaText.textContent = t(
-    "game.round_meta",
-    data.player_round_number,
-    data.total_rounds_per_player,
-    data.player_number,
-    data.total_players,
-    data.player_name
-  );
-  roundMeta.appendChild(roundMetaText);
-
-  if (state.gameMode === "album_shuffle") {
-    const helpBtn = document.createElement("button");
-    helpBtn.type = "button";
-    helpBtn.className = "shuffle-help-btn";
-    helpBtn.textContent = t("game.help_btn");
-    helpBtn.addEventListener("click", () => {
+  renderRoundMeta(roundMeta, {
+    roundNum: data.player_round_number,
+    totalRounds: data.total_rounds_per_player,
+    playerNum: data.player_number,
+    totalPlayers: data.total_players,
+    playerName: data.player_name,
+    isReveal: false,
+    showHelp: state.gameMode === "album_shuffle",
+    onHelpClick: () => {
       const activeMode = getActiveMode();
       activeMode.openHelp?.(state.currentQuestion);
-    });
-    roundMeta.appendChild(helpBtn);
-  }
+    },
+  });
 }
 
 function checkMediaLoadable(url) {

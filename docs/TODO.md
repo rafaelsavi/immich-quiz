@@ -27,8 +27,6 @@ This document lists planned features, design ideas, and technical debt items for
 
 - **Leaderboard availability**: By ditching scores in leaderboard and using only accuracy, game scores can be shared shown simultaneously independently of the round count.
 
-- **Improve design of round-meta-text**: In the guessing & results screens, the round-meta-text at the top is currently just a simple text line. It should be more prominent and better integrated with the overall design.
-
 - **Better game reveal in album shuffle mode**: Instead of isolated `true-val-banner`, integrate it better in `shuffle-card-guesses`.
 
 ---

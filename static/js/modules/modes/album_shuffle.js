@@ -2,7 +2,7 @@ import { t } from "../i18n.js";
 import { state, el } from "../state.js";
 import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
-import { playerBadge, playerNameCell, buildCell } from "../formatters.js";
+import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
 import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
 import { playChime } from "../audio.js";
 
@@ -282,7 +282,11 @@ export const albumShuffleMode = {
 
     // Standardize Round Meta header banner (matching Pinpoint mode)
     if (el.roundMeta) {
-      el.roundMeta.textContent = t("reveal.title", revealData.round_number, revealData.total_rounds);
+      renderRoundMeta(el.roundMeta, {
+        roundNum: revealData.round_number,
+        totalRounds: revealData.total_rounds,
+        isReveal: true,
+      });
     }
 
     const batchReveal = revealData.batch_reveal || [];
