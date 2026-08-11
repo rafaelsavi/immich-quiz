@@ -93,10 +93,19 @@
 
 #game-card,
 #summary-card,
-#leaderboard-card,
+#leaderboard-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
 #mode-active-host {
   display: grid;
   gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+#mode-active-host:empty {
+  margin-bottom: 0;
 }
 
 @keyframes slideIn {
