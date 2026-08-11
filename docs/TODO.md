@@ -25,6 +25,12 @@ This document lists planned features, design ideas, and technical debt items for
   - **Immich API & Performance**: Immich natively supports `country` parameter filtering in `POST /search/metadata` and `POST /search/random`. Because filtering is processed server-side via Immich's indexed database, performance is fast and sub-second (< 200ms) even with thousands of photos per country.
   - **Implementation**: Add `list_countries(library_name)` to `ImmichClient`, support `country` in `search_assets`/`search_random_assets` payloads, and add a Country selector in the frontend lobby setup UI.
 
+- **Leaderboard availability**: By ditching scores in leaderboard and using only accuracy, game scores can be shared shown simultaneously independently of the round count.
+
+- **Improve design of round-meta-text**: In the guessing & results screens, the round-meta-text at the top is currently just a simple text line. It should be more prominent and better integrated with the overall design.
+
+- **Better game reveal in album shuffle mode**: Instead of isolated `true-val-banner`, integrate it better in `shuffle-card-guesses`.
+
 ---
 
 ## 🧹 Code Health & Maintenance
