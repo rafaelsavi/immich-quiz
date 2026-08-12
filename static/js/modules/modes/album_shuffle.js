@@ -2,7 +2,7 @@ import { t } from "../i18n.js";
 import { state, el } from "../state.js";
 import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
-import { playerBadge, playerNameCell, buildCell } from "../formatters.js";
+import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
 import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
 import { playChime } from "../audio.js";
 
@@ -282,7 +282,11 @@ export const albumShuffleMode = {
 
     // Standardize Round Meta header banner (matching Pinpoint mode)
     if (el.roundMeta) {
-      el.roundMeta.textContent = t("reveal.title", revealData.round_number, revealData.total_rounds);
+      renderRoundMeta(el.roundMeta, {
+        roundNum: revealData.round_number,
+        totalRounds: revealData.total_rounds,
+        isReveal: true,
+      });
     }
 
     const batchReveal = revealData.batch_reveal || [];
@@ -632,38 +636,54 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
     const meta = document.createElement("div");
     meta.className = "shuffle-card-meta";
 
-    const rankTag = document.createElement("div");
-    rankTag.className = "shuffle-card-rank-tag";
-    if (trueRankIdx === 0) {
-      rankTag.innerHTML = `#1 (<span data-i18n="game.shuffle_oldest">${t("game.shuffle_oldest")}</span>)`;
-    } else if (trueRankIdx === sortedTrueBatch.length - 1 && sortedTrueBatch.length > 1) {
-      rankTag.innerHTML = `#${trueRankIdx + 1} (<span data-i18n="game.shuffle_newest">${t("game.shuffle_newest")}</span>)`;
-    } else {
-      rankTag.textContent = `#${trueRankIdx + 1}`;
-    }
+    const dateTag = document.createElement("div");
+    dateTag.className = "shuffle-card-date-tag";
+    dateTag.textContent = `📅 ${dateStr}`;
+    meta.appendChild(dateTag);
 
-    const banner = document.createElement("div");
-    banner.className = "true-val-banner";
-
-    if (revealData.date_mode) {
-      const datePill = document.createElement("span");
-      datePill.className = "true-val-pill";
-      datePill.textContent = `📅 ${dateStr}`;
-      banner.appendChild(datePill);
-    }
-    if (revealData.location_mode) {
-      const pinPill = document.createElement("span");
-      pinPill.className = "true-val-pill";
-      pinPill.innerHTML = `📍 Pin: <strong>${item.true_pin_id}</strong>`;
-      banner.appendChild(pinPill);
-    }
-
-    meta.append(rankTag, banner);
     top.append(meta, thumbWrap);
     card.appendChild(top);
 
     const guessesList = document.createElement("div");
     guessesList.className = "shuffle-card-guesses";
+
+    // Integrated Correct Answer Row at the top of guesses breakdown
+    const actualRow = document.createElement("div");
+    actualRow.className = "player-guess-row true-val-row";
+
+    const actualLabel = document.createElement("span");
+    actualLabel.className = "player-cell actual-label-cell";
+
+    const checkBadge = document.createElement("span");
+    checkBadge.className = "legend-badge actual-badge";
+    checkBadge.textContent = "✓";
+
+    const labelText = document.createElement("strong");
+    labelText.setAttribute("data-i18n", "reveal.correct_answer");
+    labelText.textContent = t("reveal.correct_answer");
+
+    actualLabel.append(checkBadge, labelText);
+    actualRow.appendChild(actualLabel);
+
+    const actualChipsWrap = document.createElement("div");
+    actualChipsWrap.className = "player-guess-chips";
+
+    if (revealData.date_mode) {
+      const dateChip = document.createElement("span");
+      dateChip.className = "guess-chip true-val-chip";
+      dateChip.textContent = `📅 #${trueRankIdx + 1}`;
+      actualChipsWrap.appendChild(dateChip);
+    }
+
+    if (revealData.location_mode) {
+      const pinChip = document.createElement("span");
+      pinChip.className = "guess-chip true-val-chip";
+      pinChip.innerHTML = `📍 Pin <strong>${item.true_pin_id}</strong>`;
+      actualChipsWrap.appendChild(pinChip);
+    }
+
+    actualRow.appendChild(actualChipsWrap);
+    guessesList.appendChild(actualRow);
 
     playerResults.forEach((pRes) => {
       const pRow = document.createElement("div");
@@ -677,21 +697,6 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
 
       const pGuesses = pRes.album_shuffle_guesses || [];
       const pGuess = pGuesses.find((g) => g.photo_id === item.photo_id);
-
-      if (revealData.location_mode) {
-        const isPinCorrect = pGuess && String(pGuess.assigned_pin_id) === String(item.true_pin_id);
-        const pinChip = document.createElement("span");
-        pinChip.className = `guess-chip ${isPinCorrect ? "correct" : "incorrect"}`;
-
-        const assignedPin = pGuess && pGuess.assigned_pin_id ? pGuess.assigned_pin_id : "None";
-
-        if (isPinCorrect) {
-          pinChip.innerHTML = `📍 Pin ${assignedPin} ✓`;
-        } else {
-          pinChip.innerHTML = `📍 ${assignedPin === "None" ? "None" : "Pin " + assignedPin} ✗`;
-        }
-        chipsWrap.appendChild(pinChip);
-      }
 
       if (revealData.date_mode) {
         const pSubmittedRank = pGuess ? pGuess.assigned_timeline_index : null;
@@ -707,6 +712,21 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
           rankChip.textContent = `${rankText} ✗`;
         }
         chipsWrap.appendChild(rankChip);
+      }
+
+      if (revealData.location_mode) {
+        const isPinCorrect = pGuess && String(pGuess.assigned_pin_id) === String(item.true_pin_id);
+        const pinChip = document.createElement("span");
+        pinChip.className = `guess-chip ${isPinCorrect ? "correct" : "incorrect"}`;
+
+        const assignedPin = pGuess && pGuess.assigned_pin_id ? pGuess.assigned_pin_id : "None";
+
+        if (isPinCorrect) {
+          pinChip.innerHTML = `📍 Pin ${assignedPin} ✓`;
+        } else {
+          pinChip.innerHTML = `📍 ${assignedPin === "None" ? "None" : "Pin " + assignedPin} ✗`;
+        }
+        chipsWrap.appendChild(pinChip);
       }
 
       pRow.appendChild(chipsWrap);

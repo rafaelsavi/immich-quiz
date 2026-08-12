@@ -13,6 +13,7 @@ import {
   buildCell,
   playerBadge,
   playerNameCell,
+  renderRoundMeta,
 } from "../formatters.js";
 import {
   createPerfectBadge,
@@ -176,7 +177,11 @@ function createPopPinIcon(label, color) {
 }
 
 function renderRevealSummary(reveal, skipEffects = false) {
-  el.roundMeta.textContent = t("reveal.title", reveal.round_number, reveal.total_rounds);
+  renderRoundMeta(el.roundMeta, {
+    roundNum: reveal.round_number,
+    totalRounds: reveal.total_rounds,
+    isReveal: true,
+  });
 
   el.revealActual.replaceChildren();
   const heading = document.createElement("div");

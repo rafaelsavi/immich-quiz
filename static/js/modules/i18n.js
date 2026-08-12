@@ -71,6 +71,9 @@ export const TRANSLATIONS = {
     "game.shuffle_help_date_item2": "Use the ▲ and ▼ buttons to move a card up or down in the timeline.",
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Round ${roundNum} of ${totalRounds}\nPlayer ${playerNum}: ${playerName}`,
+    "game.round_label": (roundNum, totalRounds) => `Round ${roundNum} of ${totalRounds}`,
+    "game.player_label": (playerNum, playerName) => (playerNum ? `Player ${playerNum}: ${playerName}` : playerName),
+    "reveal.badge": "Reveal",
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>
       `Pass device to player ${playerNum}: ${playerName}`,
     "game.pass_device_subtitle": (roundNum, totalRounds) =>
@@ -81,7 +84,7 @@ export const TRANSLATIONS = {
       `Are you sure you want to ${label}? Current game progress will be lost.`,
     // Reveal card
     "reveal.title": (roundNum, totalRounds) => `Round ${roundNum} of ${totalRounds} - Reveal`,
-    "reveal.correct_answer": "Correct answer",
+    "reveal.correct_answer": "Answer",
     "reveal.actual_date": "Actual date:",
     "reveal.actual_location": "Actual location:",
     "reveal.actual_location_legend": "Actual location",
@@ -110,7 +113,7 @@ export const TRANSLATIONS = {
     "reveal.popup_guess": (playerName, dist) => `${playerName}: ${dist} off`,
     // Summary card
     "summary.heading": "Match Results",
-    "summary.new_match_btn": "Start New Match",
+    "summary.new_match_btn": "Back to home",
     "summary.tie": (names) => `It's a tie: ${names}!`,
     "summary.winner": (name) => `Winner: ${name}!`,
     "summary.mode_location": "location",
@@ -250,6 +253,9 @@ export const TRANSLATIONS = {
     "game.shuffle_help_date_item2": "Use os botões ▲ e ▼ para mover uma foto para cima ou para baixo.",
     "game.round_meta": (roundNum, totalRounds, playerNum, totalPlayers, playerName) =>
       `Rodada ${roundNum} de ${totalRounds}\nJogador ${playerNum}: ${playerName}`,
+    "game.round_label": (roundNum, totalRounds) => `Rodada ${roundNum} de ${totalRounds}`,
+    "game.player_label": (playerNum, playerName) => (playerNum ? `Jogador ${playerNum}: ${playerName}` : playerName),
+    "reveal.badge": "Revelação",
     "game.pass_device_title": (playerName, playerNum, totalPlayers) =>
       `Passe o dispositivo para o jogador ${playerNum}: ${playerName}`,
     "game.pass_device_subtitle": (roundNum, totalRounds) =>
@@ -260,7 +266,7 @@ export const TRANSLATIONS = {
       `Tem certeza que deseja ${label}? O progresso atual será perdido.`,
     // Reveal card
     "reveal.title": (roundNum, totalRounds) => `Rodada ${roundNum} de ${totalRounds} - Revelação`,
-    "reveal.correct_answer": "Resposta correta",
+    "reveal.correct_answer": "Resposta",
     "reveal.actual_date": "Data real:",
     "reveal.actual_location": "Local real:",
     "reveal.actual_location_legend": "Local real",
@@ -289,7 +295,7 @@ export const TRANSLATIONS = {
     "reveal.popup_guess": (playerName, dist) => `${playerName}: ${dist} de distância`,
     // Summary card
     "summary.heading": "Resultado da Partida",
-    "summary.new_match_btn": "Iniciar Nova Partida",
+    "summary.new_match_btn": "Voltar para o início",
     "summary.tie": (names) => `Empate: ${names}!`,
     "summary.winner": (name) => `Vencedor: ${name}!`,
     "summary.mode_location": "localização",
