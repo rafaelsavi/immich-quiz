@@ -81,8 +81,9 @@
   clear: both !important;
 }
 
-/* Base style shared by Fullscreen button, Zoom control bar, and Layer control */
+/* Base style shared by Fullscreen button, Reset zoom button, Zoom control bar, and Layer control */
 .map-fullscreen-btn,
+.map-reset-zoom-btn,
 .leaflet-touch .leaflet-bar,
 .leaflet-bar,
 .leaflet-touch .leaflet-control-layers,
@@ -98,6 +99,7 @@
 }
 
 .map-fullscreen-btn,
+.map-reset-zoom-btn,
 .shuffle-card-fullscreen-btn {
   position: absolute;
   top: 8px;
@@ -115,13 +117,15 @@
   cursor: pointer;
 }
 
-.map-shell .leaflet-top.leaflet-right .map-fullscreen-btn {
+.map-shell .leaflet-top.leaflet-right .map-fullscreen-btn,
+.map-shell .leaflet-top.leaflet-right .map-reset-zoom-btn {
   position: static !important;
   top: auto;
   right: auto;
 }
 
 .map-fullscreen-btn:hover,
+.map-reset-zoom-btn:hover,
 .shuffle-card-fullscreen-btn:hover {
   background: #f8fafc !important;
   border-color: #98a2b3 !important;
@@ -129,6 +133,7 @@
 }
 
 .map-fullscreen-btn:hover .fs-icon,
+.map-reset-zoom-btn:hover .reset-zoom-icon,
 .shuffle-card-fullscreen-btn:hover .fs-icon {
   transform: scale(1.12);
   stroke: var(--accent, #0f7c7f);

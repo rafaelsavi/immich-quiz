@@ -391,3 +391,128 @@ async def test_search_random_assets_owner_filtering_selected_album() -> None:
     await client.aclose()
 
     assert [item['id'] for item in items] == ['shared-album-photo']
+
+
+async def test_immich_client_async_context_manager() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={})
+
+    transport = httpx.MockTransport(handler)
+    async_client = httpx.AsyncClient(transport=transport)
+
+    async with ImmichClient('https://example.test/api', {'family': 'token'}, client=async_client) as client:
+        assert client._client is not None
+
+    assert client._client is None
+
+
+async def test_list_albums_lazy_loads_users_me() -> None:
+    users_me_called = False
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal users_me_called
+        if request.url.path.endswith('/users/me'):
+            users_me_called = True
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/albums'):
+            return httpx.Response(
+                200,
+                json=[
+                    {'id': 'album-1', 'albumName': 'Shared Album', 'ownerId': 'other-user'},
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    albums = await client.list_albums('family', include_shared_albums=True)
+    await client.aclose()
+
+    assert users_me_called is False
+    assert len(albums) == 1
+
+
+async def test_search_assets_lazy_loads_users_me_when_album_targeted_or_all_shared() -> None:
+    users_me_called = False
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal users_me_called
+        if request.url.path.endswith('/users/me'):
+            users_me_called = True
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/metadata'):
+            return httpx.Response(200, json={'assets': {'items': [asset()]}})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+
+    items1 = await client.search_assets('family', album_id='album-1')
+    assert users_me_called is False
+    assert len(items1) == 1
+
+    items2 = await client.search_assets('family', include_shared_albums=True, include_partner_assets=True)
+    assert users_me_called is False
+    assert len(items2) == 1
+
+    await client.aclose()
+
+
+def test_extract_owner_id() -> None:
+    assert ImmichClient._extract_owner_id({'ownerId': '  user-1  '}) == 'user-1'
+    assert ImmichClient._extract_owner_id({'owner': {'id': 'user-2'}}) == 'user-2'
+    assert ImmichClient._extract_owner_id({'ownerId': ''}) == ''
+    assert ImmichClient._extract_owner_id({}) == ''
+
+
+def test_build_search_payload() -> None:
+    payload1 = ImmichClient._build_search_payload(250)
+    assert payload1 == {'size': 250, 'withExif': True}
+
+    payload2 = ImmichClient._build_search_payload(
+        10,
+        album_id='album-123',
+        page=2,
+        include_shared_albums=True,
+        include_partner_assets=True,
+    )
+    assert payload2 == {
+        'size': 10,
+        'page': 2,
+        'withExif': True,
+        'albumIds': ['album-123'],
+        'withPartners': True,
+    }
+    assert 'isShared' not in payload2
+
+
+def test_search_query_build_payload() -> None:
+    from datetime import date
+
+    from src.immich.client import SearchQuery
+
+    q = SearchQuery(
+        album_id='album-1',
+        include_shared_albums=True,
+        include_partner_assets=True,
+        min_date=date(2020, 1, 1),
+        max_date=date(2024, 12, 31),
+    )
+    payload = q.build_payload(size=50, page=3)
+    assert payload == {
+        'size': 50,
+        'page': 3,
+        'withExif': True,
+        'albumIds': ['album-1'],
+        'withPartners': True,
+        'createdAfter': '2020-01-01T00:00:00.000Z',
+        'createdBefore': '2024-12-31T23:59:59.999Z',
+    }
+    assert 'isShared' not in payload  # album_id is set
+
+
+def test_search_query_should_filter_by_owner() -> None:
+    from src.immich.client import SearchQuery
+
+    assert SearchQuery(album_id='album-1').should_filter_by_owner is False
+    assert SearchQuery(include_shared_albums=True, include_partner_assets=True).should_filter_by_owner is False
+    assert SearchQuery(include_shared_albums=True, include_partner_assets=False).should_filter_by_owner is True
+    assert SearchQuery().should_filter_by_owner is True

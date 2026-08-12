@@ -21,13 +21,13 @@ from src.room.manager import GameRoom, RoomManager, RoomPhase, RoomPlayer
 from src.room.websocket import RoomEvent, RoomEventType, WebSocketManager
 
 __all__ = [
-    "GameRoom",
-    "RoomManager",
-    "RoomPhase",
-    "RoomPlayer",
-    "RoomEvent",
-    "RoomEventType",
-    "WebSocketManager",
+    'GameRoom',
+    'RoomManager',
+    'RoomPhase',
+    'RoomPlayer',
+    'RoomEvent',
+    'RoomEventType',
+    'WebSocketManager',
 ]
 ```
 
@@ -51,10 +51,10 @@ from uuid import uuid4
 
 
 class RoomPhase(str, Enum):
-    LOBBY = "lobby"
-    IN_MATCH = "in_match"
-    BETWEEN_MATCHES = "between_matches"
-    CLOSED = "closed"
+    LOBBY = 'lobby'
+    IN_MATCH = 'in_match'
+    BETWEEN_MATCHES = 'between_matches'
+    CLOSED = 'closed'
 
 
 @dataclass
@@ -126,15 +126,15 @@ class RoomManager:
     MAX_PLAYERS_PER_ROOM = 8
 
     def __init__(self) -> None:
-        self._rooms: dict[str, GameRoom] = {}          # room_id -> GameRoom
-        self._code_to_room: dict[str, str] = {}        # join_code -> room_id
-        self._token_to_room: dict[str, str] = {}       # player_token -> room_id
+        self._rooms: dict[str, GameRoom] = {}  # room_id -> GameRoom
+        self._code_to_room: dict[str, str] = {}  # join_code -> room_id
+        self._token_to_room: dict[str, str] = {}  # player_token -> room_id
 
     def _generate_join_code(self) -> str:
         """Generate a 4-char alphanumeric code, excluding ambiguous chars (O/0/I/1/L)."""
-        alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+        alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
         while True:
-            code = "".join(secrets.choice(alphabet) for _ in range(4))
+            code = ''.join(secrets.choice(alphabet) for _ in range(4))
             if code not in self._code_to_room:
                 return code
 
@@ -142,7 +142,7 @@ class RoomManager:
         """Create a new room. Returns (room, host_token)."""
         host_name = host_name.strip()
         if not host_name:
-            raise RoomError("Host name cannot be empty")
+            raise RoomError('Host name cannot be empty')
 
         room_id = str(uuid4())
         join_code = self._generate_join_code()
@@ -167,22 +167,22 @@ class RoomManager:
         player_name = player_name.strip()
 
         if not player_name:
-            raise RoomError("Player name cannot be empty")
+            raise RoomError('Player name cannot be empty')
 
         room_id = self._code_to_room.get(join_code)
         if room_id is None:
-            raise RoomError(f"No room found with code: {join_code}")
+            raise RoomError(f'No room found with code: {join_code}')
 
         room = self._rooms[room_id]
 
         if room.phase == RoomPhase.CLOSED:
-            raise RoomError("This room has been closed")
+            raise RoomError('This room has been closed')
 
         if room.phase == RoomPhase.IN_MATCH:
-            raise RoomError("A match is currently in progress. Please wait for it to finish.")
+            raise RoomError('A match is currently in progress. Please wait for it to finish.')
 
         if len(room.players) >= self.MAX_PLAYERS_PER_ROOM:
-            raise RoomError(f"Room is full (max {self.MAX_PLAYERS_PER_ROOM} players)")
+            raise RoomError(f'Room is full (max {self.MAX_PLAYERS_PER_ROOM} players)')
 
         if room.get_player_by_name(player_name) is not None:
             raise RoomError(f"Name '{player_name}' is already taken in this room")
@@ -199,7 +199,7 @@ class RoomManager:
         room = self.get_room(room_id)
         player = room.get_player_by_token(player_token)
         if player is None:
-            raise RoomError("Player not found in room")
+            raise RoomError('Player not found in room')
 
         room.players.remove(player)
         self._token_to_room.pop(player_token, None)
@@ -218,13 +218,13 @@ class RoomManager:
         room = self.get_room(room_id)
         host = room.get_player_by_token(host_token)
         if host is None or not host.is_host:
-            raise RoomError("Only the host can kick players")
+            raise RoomError('Only the host can kick players')
 
         target = room.get_player_by_name(player_name)
         if target is None:
             raise RoomError(f"Player '{player_name}' not found")
         if target.is_host:
-            raise RoomError("Cannot kick the host")
+            raise RoomError('Cannot kick the host')
 
         room.players.remove(target)
         self._token_to_room.pop(target.session_token, None)
@@ -236,7 +236,7 @@ class RoomManager:
         room = self.get_room(room_id)
         player = room.get_player_by_token(player_token)
         if player is None:
-            raise RoomError("Player not found in room")
+            raise RoomError('Player not found in room')
         player.is_ready = not player.is_ready
         room.touch()
         return room
@@ -246,9 +246,9 @@ class RoomManager:
         room = self.get_room(room_id)
         host = room.get_player_by_token(host_token)
         if host is None or not host.is_host:
-            raise RoomError("Only the host can change settings")
+            raise RoomError('Only the host can change settings')
         if room.phase == RoomPhase.IN_MATCH:
-            raise RoomError("Cannot change settings during a match")
+            raise RoomError('Cannot change settings during a match')
 
         room.settings.update(settings)
         room.reset_ready_states()
@@ -260,11 +260,11 @@ class RoomManager:
         room = self.get_room(room_id)
         host = room.get_player_by_token(host_token)
         if host is None or not host.is_host:
-            raise RoomError("Only the host can start a match")
+            raise RoomError('Only the host can start a match')
         if len(room.players) < 2:
-            raise RoomError("Need at least 2 players to start")
+            raise RoomError('Need at least 2 players to start')
         if room.phase == RoomPhase.IN_MATCH:
-            raise RoomError("A match is already in progress")
+            raise RoomError('A match is already in progress')
 
         room.phase = RoomPhase.IN_MATCH
         room.reset_ready_states()
@@ -287,19 +287,19 @@ class RoomManager:
         room = self.get_room(room_id)
         host = room.get_player_by_token(host_token)
         if host is None or not host.is_host:
-            raise RoomError("Only the host can close the room")
+            raise RoomError('Only the host can close the room')
         self._close_room_internal(room)
 
     def get_room(self, room_id: str) -> GameRoom:
         room = self._rooms.get(room_id)
         if room is None:
-            raise RoomError(f"Room not found: {room_id}")
+            raise RoomError(f'Room not found: {room_id}')
         return room
 
     def get_room_by_code(self, join_code: str) -> GameRoom:
         room_id = self._code_to_room.get(join_code.strip().upper())
         if room_id is None:
-            raise RoomError(f"No room with code: {join_code}")
+            raise RoomError(f'No room with code: {join_code}')
         return self.get_room(room_id)
 
     def get_room_for_token(self, player_token: str) -> GameRoom | None:
@@ -313,7 +313,7 @@ class RoomManager:
         room = self.get_room(room_id)
         player = room.get_player_by_token(player_token)
         if player is None:
-            raise RoomError("Player token not recognized for this room")
+            raise RoomError('Player token not recognized for this room')
         player.connected = True
         room.touch()
         return room
@@ -330,11 +330,7 @@ class RoomManager:
     def cleanup_stale_rooms(self, ttl_seconds: int = 7200) -> int:
         """Remove rooms inactive for longer than ttl_seconds."""
         now = time.time()
-        stale = [
-            room_id
-            for room_id, room in self._rooms.items()
-            if (now - room.last_activity_at) > ttl_seconds
-        ]
+        stale = [room_id for room_id, room in self._rooms.items() if (now - room.last_activity_at) > ttl_seconds]
         for room_id in stale:
             room = self._rooms.get(room_id)
             if room:
@@ -371,23 +367,23 @@ logger = logging.getLogger(__name__)
 
 
 class RoomEventType(str, Enum):
-    PLAYER_JOINED = "player_joined"
-    PLAYER_LEFT = "player_left"
-    PLAYER_READY = "player_ready"
-    PLAYER_RECONNECTED = "player_reconnected"
-    PLAYER_DISCONNECTED = "player_disconnected"
-    SETTINGS_CHANGED = "settings_changed"
-    MATCH_STARTING = "match_starting"
-    QUESTION_READY = "question_ready"
-    PLAYER_ANSWERED = "player_answered"
-    ROUND_COMPLETE = "round_complete"
-    MATCH_FINISHED = "match_finished"
-    ROOM_CLOSED = "room_closed"
-    TIMER_SYNC = "timer_sync"
-    KICKED = "kicked"
-    HOST_CHANGED = "host_changed"
-    ROOM_STATE = "room_state"
-    ERROR = "error"
+    PLAYER_JOINED = 'player_joined'
+    PLAYER_LEFT = 'player_left'
+    PLAYER_READY = 'player_ready'
+    PLAYER_RECONNECTED = 'player_reconnected'
+    PLAYER_DISCONNECTED = 'player_disconnected'
+    SETTINGS_CHANGED = 'settings_changed'
+    MATCH_STARTING = 'match_starting'
+    QUESTION_READY = 'question_ready'
+    PLAYER_ANSWERED = 'player_answered'
+    ROUND_COMPLETE = 'round_complete'
+    MATCH_FINISHED = 'match_finished'
+    ROOM_CLOSED = 'room_closed'
+    TIMER_SYNC = 'timer_sync'
+    KICKED = 'kicked'
+    HOST_CHANGED = 'host_changed'
+    ROOM_STATE = 'room_state'
+    ERROR = 'error'
 
 
 @dataclass
@@ -396,7 +392,7 @@ class RoomEvent:
     data: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
-        return json.dumps({"type": self.type.value, "data": self.data})
+        return json.dumps({'type': self.type.value, 'data': self.data})
 
 
 class WebSocketManager:
@@ -419,7 +415,7 @@ class WebSocketManager:
             except Exception:
                 pass
         self._connections[room_id][player_token] = websocket
-        logger.info("WS connected: room=%s token=%s...", room_id[:8], player_token[:8])
+        logger.info('WS connected: room=%s token=%s...', room_id[:8], player_token[:8])
 
     def disconnect(self, room_id: str, player_token: str) -> None:
         """Remove a WebSocket connection."""
@@ -427,7 +423,7 @@ class WebSocketManager:
         room_conns.pop(player_token, None)
         if not room_conns:
             self._connections.pop(room_id, None)
-        logger.info("WS disconnected: room=%s token=%s...", room_id[:8], player_token[:8])
+        logger.info('WS disconnected: room=%s token=%s...', room_id[:8], player_token[:8])
 
     async def broadcast(self, room_id: str, event: RoomEvent, exclude_token: str | None = None) -> None:
         """Send an event to all connected clients in a room."""
@@ -485,29 +481,32 @@ Write and run a simple test:
 from src.room.manager import RoomManager, RoomError
 import pytest
 
+
 def test_create_and_join():
     mgr = RoomManager()
-    room, host_token = mgr.create_room("Alice", {"game_mode": "pinpoint"})
+    room, host_token = mgr.create_room('Alice', {'game_mode': 'pinpoint'})
     assert len(room.join_code) == 4
     assert len(room.players) == 1
     assert room.players[0].is_host
 
-    room2, guest_token = mgr.join_room(room.join_code, "Bob")
+    room2, guest_token = mgr.join_room(room.join_code, 'Bob')
     assert len(room2.players) == 2
     assert not room2.players[1].is_host
 
+
 def test_duplicate_name_rejected():
     mgr = RoomManager()
-    room, _ = mgr.create_room("Alice")
+    room, _ = mgr.create_room('Alice')
     with pytest.raises(RoomError):
-        mgr.join_room(room.join_code, "Alice")
+        mgr.join_room(room.join_code, 'Alice')
+
 
 def test_ready_and_start():
     mgr = RoomManager()
-    room, host_token = mgr.create_room("Alice")
-    _, guest_token = mgr.join_room(room.join_code, "Bob")
+    room, host_token = mgr.create_room('Alice')
+    _, guest_token = mgr.join_room(room.join_code, 'Bob')
     mgr.toggle_ready(room.room_id, guest_token)
     assert room.all_guests_ready()
     mgr.start_match(room.room_id, host_token)
-    assert room.phase.value == "in_match"
+    assert room.phase.value == 'in_match'
 ```

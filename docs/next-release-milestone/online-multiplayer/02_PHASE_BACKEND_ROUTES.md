@@ -17,6 +17,7 @@ Add these new models at the **end** of the existing `src/models.py` file. Do NOT
 ```python
 # --- Online Room Models (append to end of file) ---
 
+
 class PlayerMode(str, Enum):
     local = 'local'
     online = 'online'
@@ -164,7 +165,7 @@ async def join_room(
         room.room_id,
         RoomEvent(
             type=RoomEventType.PLAYER_JOINED,
-            data={"player_name": body.player_name, "players": _serialize_players(room)},
+            data={'player_name': body.player_name, 'players': _serialize_players(room)},
         ),
     )
 
@@ -196,13 +197,13 @@ async def toggle_ready(
         RoomEvent(
             type=RoomEventType.PLAYER_READY,
             data={
-                "player_name": player.name if player else "",
-                "is_ready": player.is_ready if player else False,
-                "players": _serialize_players(room),
+                'player_name': player.name if player else '',
+                'is_ready': player.is_ready if player else False,
+                'players': _serialize_players(room),
             },
         ),
     )
-    return {"ok": True, "players": _serialize_players(room)}
+    return {'ok': True, 'players': _serialize_players(room)}
 
 
 @room_router.get('/{room_id}/state', response_model=RoomStateResponse)
@@ -218,7 +219,7 @@ async def room_state(
 
     player = room.get_player_by_token(x_player_token)
     if player is None:
-        raise HTTPException(status_code=403, detail="Not a member of this room")
+        raise HTTPException(status_code=403, detail='Not a member of this room')
 
     return RoomStateResponse(
         room_id=room.room_id,
@@ -251,10 +252,10 @@ async def update_settings(
         room_id,
         RoomEvent(
             type=RoomEventType.SETTINGS_CHANGED,
-            data={"settings": room.settings, "players": _serialize_players(room)},
+            data={'settings': room.settings, 'players': _serialize_players(room)},
         ),
     )
-    return {"ok": True}
+    return {'ok': True}
 
 
 @room_router.post('/{room_id}/start')
@@ -284,7 +285,7 @@ async def start_match(
     except Exception as exc:
         # Revert room phase if setup fails
         room.phase = room.phase.LOBBY
-        raise HTTPException(status_code=400, detail=f"Invalid game settings: {exc}") from exc
+        raise HTTPException(status_code=400, detail=f'Invalid game settings: {exc}') from exc
 
     store: SessionStore = request.app.state.session_store
     immich = request.app.state.immich_client
@@ -298,17 +299,17 @@ async def start_match(
         RoomEvent(
             type=RoomEventType.MATCH_STARTING,
             data={
-                "match_id": response.match_id,
-                "total_turns": response.total_turns,
-                "players": response.players,
+                'match_id': response.match_id,
+                'total_turns': response.total_turns,
+                'players': response.players,
             },
         ),
     )
     return {
-        "ok": True,
-        "match_id": response.match_id,
-        "total_turns": response.total_turns,
-        "players": response.players,
+        'ok': True,
+        'match_id': response.match_id,
+        'total_turns': response.total_turns,
+        'players': response.players,
     }
 
 
@@ -329,10 +330,10 @@ async def kick_player(
         room_id,
         RoomEvent(
             type=RoomEventType.PLAYER_LEFT,
-            data={"player_name": player_name, "kicked": True, "players": _serialize_players(room)},
+            data={'player_name': player_name, 'kicked': True, 'players': _serialize_players(room)},
         ),
     )
-    return {"ok": True}
+    return {'ok': True}
 
 
 @room_router.post('/{room_id}/leave')
@@ -345,7 +346,7 @@ async def leave_room(
     try:
         room_before = mgr.get_room(room_id)
         player = room_before.get_player_by_token(x_player_token)
-        player_name = player.name if player else "Unknown"
+        player_name = player.name if player else 'Unknown'
         room = mgr.leave_room(room_id, x_player_token)
     except RoomError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -354,10 +355,10 @@ async def leave_room(
         room_id,
         RoomEvent(
             type=RoomEventType.PLAYER_LEFT,
-            data={"player_name": player_name, "kicked": False, "players": _serialize_players(room)},
+            data={'player_name': player_name, 'kicked': False, 'players': _serialize_players(room)},
         ),
     )
-    return {"ok": True}
+    return {'ok': True}
 
 
 @room_router.post('/{room_id}/close')
@@ -376,7 +377,7 @@ async def close_room(
         ws_mgr.close_room(room_id)
     except RoomError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"ok": True}
+    return {'ok': True}
 ```
 
 ### WebSocket Endpoint (add at the bottom of room_routes.py)
@@ -402,12 +403,12 @@ async def room_websocket(
     try:
         room = mgr.get_room(room_id)
     except RoomError:
-        await websocket.close(code=4004, reason="Room not found")
+        await websocket.close(code=4004, reason='Room not found')
         return
 
     player = room.get_player_by_token(token)
     if player is None:
-        await websocket.close(code=4003, reason="Invalid token")
+        await websocket.close(code=4003, reason='Invalid token')
         return
 
     await ws_mgr.connect(room_id, token, websocket)
@@ -418,7 +419,7 @@ async def room_websocket(
         room_id,
         RoomEvent(
             type=RoomEventType.PLAYER_RECONNECTED,
-            data={"player_name": player.name, "players": _serialize_players(room)},
+            data={'player_name': player.name, 'players': _serialize_players(room)},
         ),
         exclude_token=token,
     )
@@ -430,12 +431,12 @@ async def room_websocket(
         RoomEvent(
             type=RoomEventType.ROOM_STATE,
             data={
-                "room_id": room.room_id,
-                "join_code": room.join_code,
-                "players": _serialize_players(room),
-                "settings": room.settings,
-                "phase": room.phase.value,
-                "current_match_id": room.current_match_id,
+                'room_id': room.room_id,
+                'join_code': room.join_code,
+                'players': _serialize_players(room),
+                'settings': room.settings,
+                'phase': room.phase.value,
+                'current_match_id': room.current_match_id,
             },
         ),
     )
@@ -446,7 +447,7 @@ async def room_websocket(
             data = await websocket.receive_text()
             # For now, we handle ready toggle via REST. WS is receive-only for clients.
             # Future: parse JSON and handle lightweight signals here.
-            logger.debug("WS received from %s: %s", player.name, data[:100])
+            logger.debug('WS received from %s: %s', player.name, data[:100])
     except WebSocketDisconnect:
         ws_mgr.disconnect(room_id, token)
         mgr.disconnect_player(room_id, token)
@@ -454,7 +455,7 @@ async def room_websocket(
             room_id,
             RoomEvent(
                 type=RoomEventType.PLAYER_DISCONNECTED,
-                data={"player_name": player.name, "players": _serialize_players(room)},
+                data={'player_name': player.name, 'players': _serialize_players(room)},
             ),
         )
 ```
@@ -484,10 +485,11 @@ from src.room.websocket import WebSocketManager
 ### Change 3: Mount room routes (after `app.include_router(router)`)
 
 ```python
-    # ADD after: app.include_router(router)
-    from src.api.room_routes import room_router, ws_router
-    app.include_router(room_router)
-    app.include_router(ws_router)
+# ADD after: app.include_router(router)
+from src.api.room_routes import room_router, ws_router
+
+app.include_router(room_router)
+app.include_router(ws_router)
 ```
 
 ### Change 4: Add room cleanup to periodic task (in `_periodic_cleanup`)

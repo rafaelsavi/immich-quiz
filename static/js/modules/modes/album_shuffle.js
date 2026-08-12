@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { state, el } from "../state.js";
-import { createBaseTileLayers, addLayerControl, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy } from "../maps.js";
+import { createStandardMap, createBadgePinIcon, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
 import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
@@ -156,11 +156,11 @@ export const albumShuffleMode = {
   unmount() {
     state.albumShuffleDisabled = false;
     if (shuffleMap) {
-      shuffleMap.remove();
+      try { unregisterActiveMap(shuffleMap); shuffleMap.remove(); } catch (_) {}
       shuffleMap = null;
     }
     if (revealShuffleMap) {
-      revealShuffleMap.remove();
+      try { unregisterActiveMap(revealShuffleMap); revealShuffleMap.remove(); } catch (_) {}
       revealShuffleMap = null;
     }
     shuffleMarkers = {};
@@ -982,20 +982,14 @@ function updateShuffleMapMarkers(pins) {
 
 function renderShuffleMap(containerEl, pins, questionData) {
   if (!window.L) return;
-  if (shuffleMap) {
-    shuffleMap.remove();
-    shuffleMap = null;
-  }
   shuffleMarkers = {};
 
   const mapShell = containerEl.id ? containerEl : document.getElementById("shuffle-map-shell");
-  const base = createBaseTileLayers();
-  const map = L.map(mapShell, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
-  L.control.zoom({ position: "topright" }).addTo(map);
-  addLayerControl(map, base);
-  if (mapShell) ensureMapFullscreenButton(mapShell, "game.fullscreen_map_title");
-
+  const map = createStandardMap(mapShell, { existingMap: shuffleMap, titleKey: "game.fullscreen_map_title" });
   shuffleMap = map;
+
+  if (!map) return;
+
   const bounds = L.latLngBounds();
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
 
@@ -1009,16 +1003,10 @@ function renderShuffleMap(containerEl, pins, questionData) {
     bounds.extend([lat, lon]);
 
     const { isTaken, badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
-    const isAssignedClass = isTaken ? "assigned" : "unassigned";
-    const styleStr = isTaken
-      ? `background:${bgColor};color:#ffffff;border:2px solid #ffffff;opacity:1;box-shadow:0 3px 8px rgba(0,0,0,0.35);`
-      : `background:#ffffff;color:${bgColor};border:2px solid ${bgColor};opacity:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);`;
-
-    const icon = L.divIcon({
-      className: "custom-pin-icon",
-      html: `<div id="pin-marker-${pin.pin_id}" class="shuffle-pin-marker ${isAssignedClass}" style="${styleStr}">${badgeText}</div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+    const icon = createBadgePinIcon(badgeText, bgColor, {
+      id: `pin-marker-${pin.pin_id}`,
+      isTaken,
+      size: 36,
     });
 
     const marker = L.marker([lat, lon], { icon }).addTo(map);
@@ -1104,10 +1092,6 @@ function highlightMapMarker(pinId) {
 
 function renderBatchRevealMap(containerEl, batchItems) {
   if (!window.L) return;
-  if (revealShuffleMap) {
-    revealShuffleMap.remove();
-    revealShuffleMap = null;
-  }
 
   const validItems = (batchItems || []).filter(
     (item) =>
@@ -1129,14 +1113,11 @@ function renderBatchRevealMap(containerEl, batchItems) {
 
   containerEl.style.display = "block";
 
-  const mapShell = containerEl.closest ? containerEl.closest(".map-shell") || containerEl : containerEl;
-  const base = createBaseTileLayers();
-  const map = L.map(containerEl, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
-  L.control.zoom({ position: "topright" }).addTo(map);
-  addLayerControl(map, base);
-  if (mapShell) ensureMapFullscreenButton(mapShell, "game.fullscreen_map_title");
-
+  const map = createStandardMap(containerEl, { existingMap: revealShuffleMap, titleKey: "game.fullscreen_map_title" });
   revealShuffleMap = map;
+
+  if (!map) return;
+
   const bounds = L.latLngBounds();
 
   // Local spiderfy state — scoped to this reveal instance.
@@ -1152,12 +1133,7 @@ function renderBatchRevealMap(containerEl, batchItems) {
     revealTrueCoords[key] = { lat, lng: lon };
 
     const pinColor = getPinColor(item.true_pin_id);
-    const icon = L.divIcon({
-      className: "custom-pin-icon",
-      html: `<div style="background:${pinColor};color:#fff;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,0.35);">${item.true_pin_id}</div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
-    });
+    const icon = createBadgePinIcon(item.true_pin_id, pinColor, { isTaken: true, size: 36 });
 
     const dateStr = item.actual_date ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
     const marker = L.marker([lat, lon], { icon })

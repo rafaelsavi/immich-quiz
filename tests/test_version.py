@@ -66,3 +66,16 @@ def test_ui_config_endpoint_returns_version(client: TestClient) -> None:
     assert response.status_code == 200
     data = response.json()
     assert data['version'] == APP_VERSION
+
+
+def test_changelog_contains_current_version() -> None:
+    import re
+
+    changelog_path = Path(__file__).parent.parent / 'CHANGELOG.md'
+    assert changelog_path.exists()
+
+    content = changelog_path.read_text(encoding='utf-8')
+    version = get_app_version()
+    pattern = r'##\s*\[?v?' + re.escape(version) + r'\]?'
+
+    assert re.search(pattern, content), f"Version '{version}' from pyproject.toml not found in CHANGELOG.md"
