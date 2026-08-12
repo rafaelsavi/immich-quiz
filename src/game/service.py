@@ -59,6 +59,7 @@ class GameService:
                 raise HTTPException(status_code=400, detail=f'Unknown album_id for library {library_name}')
             names.append(album_map[aid])
 
+        names.sort(key=lambda s: (s.lower(), s))
         return ', '.join(names) if names else '-'
 
     async def preflight(

@@ -20,7 +20,7 @@ CSV_HEADER = [
     'date_mode',
     'game_mode',
     'library',
-    'album',
+    'albums',
     'max_possible_score',
     'total_score',
 ]
@@ -67,7 +67,7 @@ class LeaderboardStore:
                     'date_mode': date_mode,
                     'game_mode': game_mode,
                     'library': library_name,
-                    'album': album_name,
+                    'albums': album_name,
                     'max_possible_score': max_score,
                     'total_score': total,
                 }
@@ -82,7 +82,7 @@ class LeaderboardStore:
         date_mode: bool | None = None,
         game_mode: str | None = None,
         library: str | None = None,
-        album: str | None = None,
+        albums: str | None = None,
     ) -> list[LeaderboardEntry]:
         entries: list[LeaderboardEntry] = []
         with self._csv_path.open('r', newline='', encoding='utf-8') as handle:
@@ -97,7 +97,7 @@ class LeaderboardStore:
                 row_date_mode = row.get('date_mode', 'true').lower() == 'true'
                 row_game_mode = row.get('game_mode', 'pinpoint')
                 row_library = row.get('library', '')
-                row_album = row.get('album', '')
+                row_albums = row.get('albums', '')
 
                 if rounds is not None and row_rounds != rounds:
                     continue
@@ -111,7 +111,7 @@ class LeaderboardStore:
                     continue
                 if library is not None and row_library != library:
                     continue
-                if album is not None and row_album != album:
+                if albums is not None and row_albums != albums:
                     continue
 
                 config = {
@@ -121,7 +121,7 @@ class LeaderboardStore:
                     'date_mode': row_date_mode,
                     'game_mode': row_game_mode,
                     'library': row_library,
-                    'album': row_album,
+                    'albums': row_albums,
                 }
 
                 entries.append(

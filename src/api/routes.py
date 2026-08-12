@@ -91,7 +91,7 @@ async def leaderboard(
     date_mode: bool | None = Query(default=None),
     game_mode: str | None = Query(default=None),
     library: str | None = Query(default=None),
-    album: str | None = Query(default=None),
+    albums: str | None = Query(default=None),
 ) -> list[dict[str, object]]:
     entries = store.list_entries(
         rounds=rounds,
@@ -100,7 +100,7 @@ async def leaderboard(
         date_mode=date_mode,
         game_mode=game_mode,
         library=library,
-        album=album,
+        albums=albums,
     )
     return [entry.model_dump(mode='json') for entry in entries]
 

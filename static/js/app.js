@@ -283,9 +283,12 @@ async function initAlbums(libraryName) {
   allPhotos.setAttribute("data-i18n", "setup.all_photos");
   allPhotos.textContent = t("setup.all_photos");
   el.album.replaceChildren(allPhotos);
-  const albums = [...data.albums].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true })
-  );
+  const albums = [...data.albums].sort((a, b) => {
+    const na = (a.name || "").toLowerCase();
+    const nb = (b.name || "").toLowerCase();
+    if (na !== nb) return na.localeCompare(nb);
+    return (a.id || "").localeCompare(b.id || "");
+  });
   availableAlbums = albums;
   selectedAlbumMap.clear();
 
