@@ -43,9 +43,7 @@ class SearchQuery:
     def should_filter_by_owner(self) -> bool:
         if self.album_id:
             return False
-        if self.include_shared_albums and self.include_partner_assets:
-            return False
-        return True
+        return not (self.include_shared_albums and self.include_partner_assets)
 
     def build_payload(self, size: int, page: int | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {'size': size, 'withExif': True}

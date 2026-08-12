@@ -486,6 +486,7 @@ def test_build_search_payload() -> None:
 
 def test_search_query_build_payload() -> None:
     from datetime import date
+
     from src.immich.client import SearchQuery
 
     q = SearchQuery(

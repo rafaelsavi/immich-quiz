@@ -24,7 +24,7 @@ async def notify_player_answered(app, room_id: str, player_name: str) -> None:
         room_id,
         RoomEvent(
             type=RoomEventType.PLAYER_ANSWERED,
-            data={"player_name": player_name},
+            data={'player_name': player_name},
         ),
     )
 
@@ -36,7 +36,7 @@ async def notify_round_complete(app, room_id: str, round_number: int) -> None:
         room_id,
         RoomEvent(
             type=RoomEventType.ROUND_COMPLETE,
-            data={"round_number": round_number},
+            data={'round_number': round_number},
         ),
     )
 
@@ -53,7 +53,7 @@ async def notify_match_finished(app, room_id: str, match_id: str) -> None:
         room_id,
         RoomEvent(
             type=RoomEventType.MATCH_FINISHED,
-            data={"match_id": match_id},
+            data={'match_id': match_id},
         ),
     )
 ```
@@ -69,6 +69,7 @@ Add room_id as an optional header/query param to the answer call:
 ```python
 # In src/api/routes.py, modify the answer endpoint:
 
+
 @router.post('/answer', response_model=AnswerResponse)
 async def answer(
     payload: AnswerRequest,
@@ -83,6 +84,7 @@ async def answer(
     # Online mode: broadcast WS events
     if x_room_id and hasattr(request.app.state, 'ws_manager'):
         from src.api.room_routes import notify_player_answered, notify_round_complete, notify_match_finished
+
         await notify_player_answered(request.app, x_room_id, result.player_name)
         if result.round_complete:
             await notify_round_complete(request.app, x_room_id, result.round_number)
@@ -243,7 +245,7 @@ async def broadcast_timer_sync(room_id, total_seconds):
         remaining -= 5
         await ws_mgr.broadcast(
             room_id,
-            RoomEvent(type=RoomEventType.TIMER_SYNC, data={"remaining": remaining}),
+            RoomEvent(type=RoomEventType.TIMER_SYNC, data={'remaining': remaining}),
         )
 ```
 

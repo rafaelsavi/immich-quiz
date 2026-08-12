@@ -79,4 +79,3 @@ def test_changelog_contains_current_version() -> None:
     pattern = r'##\s*\[?v?' + re.escape(version) + r'\]?'
 
     assert re.search(pattern, content), f"Version '{version}' from pyproject.toml not found in CHANGELOG.md"
-
