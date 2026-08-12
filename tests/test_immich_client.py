@@ -81,17 +81,17 @@ def test_unparseable_date_rejected_in_date_mode() -> None:
 
 def test_date_lower_bound_filters_older_assets() -> None:
     older = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2020-01-01T10:11:12Z'})
-    assert ImmichClient.is_eligible_asset(older, False, False, min_capture_date=date(2021, 1, 1)) is False
+    assert ImmichClient.is_eligible_asset(older, False, False, min_date=date(2021, 1, 1)) is False
 
 
 def test_date_upper_bound_filters_newer_assets() -> None:
     newer = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2025-01-01T10:11:12Z'})
-    assert ImmichClient.is_eligible_asset(newer, False, False, max_capture_date=date(2024, 12, 31)) is False
+    assert ImmichClient.is_eligible_asset(newer, False, False, max_date=date(2024, 12, 31)) is False
 
 
 def test_date_bounds_require_parseable_date() -> None:
     bad_date = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': 'nope'}, fileCreatedAt=None)
-    assert ImmichClient.is_eligible_asset(bad_date, False, False, min_capture_date=date(2021, 1, 1)) is False
+    assert ImmichClient.is_eligible_asset(bad_date, False, False, min_date=date(2021, 1, 1)) is False
 
 
 def test_valid_asset_accepted() -> None:
@@ -104,8 +104,8 @@ def test_asset_within_date_bounds_is_accepted() -> None:
             asset(),
             True,
             True,
-            min_capture_date=date(2024, 1, 1),
-            max_capture_date=date(2024, 12, 31),
+            min_date=date(2024, 1, 1),
+            max_date=date(2024, 12, 31),
         )
         is True
     )
@@ -445,7 +445,7 @@ async def test_search_assets_lazy_loads_users_me_when_album_targeted_or_all_shar
 
     client = build_client(handler)
 
-    items1 = await client.search_assets('family', album_id='album-1')
+    items1 = await client.search_assets('family', album_ids=['album-1'])
     assert users_me_called is False
     assert len(items1) == 1
 
@@ -469,7 +469,7 @@ def test_build_search_payload() -> None:
 
     payload2 = ImmichClient._build_search_payload(
         10,
-        album_id='album-123',
+        album_ids=['album-123'],
         page=2,
         include_shared_albums=True,
         include_partner_assets=True,
@@ -490,7 +490,7 @@ def test_search_query_build_payload() -> None:
     from src.immich.client import SearchQuery
 
     q = SearchQuery(
-        album_id='album-1',
+        album_ids=('album-1',),
         include_shared_albums=True,
         include_partner_assets=True,
         min_date=date(2020, 1, 1),
@@ -506,13 +506,13 @@ def test_search_query_build_payload() -> None:
         'createdAfter': '2020-01-01T00:00:00.000Z',
         'createdBefore': '2024-12-31T23:59:59.999Z',
     }
-    assert 'isShared' not in payload  # album_id is set
+    assert 'isShared' not in payload  # album_ids is set
 
 
 def test_search_query_should_filter_by_owner() -> None:
     from src.immich.client import SearchQuery
 
-    assert SearchQuery(album_id='album-1').should_filter_by_owner is False
+    assert SearchQuery(album_ids=('album-1',)).should_filter_by_owner is False
     assert SearchQuery(include_shared_albums=True, include_partner_assets=True).should_filter_by_owner is False
     assert SearchQuery(include_shared_albums=True, include_partner_assets=False).should_filter_by_owner is True
     assert SearchQuery().should_filter_by_owner is True

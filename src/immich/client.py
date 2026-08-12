@@ -142,9 +142,6 @@ class ImmichClient:
                 if not isinstance(album, dict):
                     continue
                 owner_id = self._album_owner_id(album)
-                # Only filter when owner is *positively* identified as another user.
-                # If owner_id is empty (API field name changed / unknown format),
-                # include the album rather than silently drop it.
                 if owner_id and not include_shared_albums:
                     if current_user_id is None:
                         current_user_id = await self._current_user_id(key)
@@ -213,12 +210,7 @@ class ImmichClient:
         min_date: date | None = None,
         max_date: date | None = None,
     ) -> list[dict[str, Any]]:
-        """Draw a randomized candidate pool.
-
-        Metadata search always returns the same first page, which makes matches
-        repetitive. Immich's random search spreads selection across the whole
-        library; fall back to metadata search if it is unavailable.
-        """
+        """Draw a randomized candidate pool."""
         if query is None:
             query = SearchQuery(
                 album_ids=tuple(album_ids) if album_ids else (),
@@ -458,14 +450,11 @@ class ImmichClient:
         if not date_str or not isinstance(date_str, str):
             return None
 
-        # Clean string
         s = date_str.strip()
 
-        # Handle 'YYYY:MM:DD HH:MM:SS' EXIF format
         if len(s) >= 19 and s[4] == ':' and s[7] == ':':
             s = s[:4] + '-' + s[5:7] + '-' + s[8:]
 
-        # Handle ISO strings with Z
         if s.endswith('Z'):
             s = s[:-1] + '+00:00'
 
@@ -474,7 +463,6 @@ class ImmichClient:
         except ValueError:
             pass
 
-        # Match leading YYYY-MM-DD
         m = re.match(r'^(\d{4}-\d{2}-\d{2})', s)
         if m:
             try:
