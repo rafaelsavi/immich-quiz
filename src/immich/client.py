@@ -385,6 +385,9 @@ class ImmichClient:
         min_date: date | None = None,
         max_date: date | None = None,
     ) -> bool:
+        if asset.get('type') == 'VIDEO':
+            return False
+
         if location_mode:
             exif = ImmichClient._exif(asset)
             lat = exif.get('latitude')
@@ -392,8 +395,10 @@ class ImmichClient:
             if lat is None or lon is None:
                 return False
             try:
-                float(lat)
-                float(lon)
+                lat_val = float(lat)
+                lon_val = float(lon)
+                if lat_val == 0.0 and lon_val == 0.0:
+                    return False
             except (ValueError, TypeError):
                 return False
 
@@ -401,7 +406,9 @@ class ImmichClient:
         if date_mode and capture_dt is None:
             return False
 
-        if capture_dt is not None:
+        if min_date is not None or max_date is not None:
+            if capture_dt is None:
+                return False
             c_date = capture_dt.date()
             if min_date is not None and c_date < min_date:
                 return False
@@ -420,8 +427,11 @@ class ImmichClient:
         raw_lon = exif.get('longitude')
         if raw_lat is not None and raw_lon is not None:
             try:
-                lat = float(raw_lat)
-                lon = float(raw_lon)
+                lat_val = float(raw_lat)
+                lon_val = float(raw_lon)
+                if not (lat_val == 0.0 and lon_val == 0.0):
+                    lat = lat_val
+                    lon = lon_val
             except (ValueError, TypeError):
                 lat = None
                 lon = None
