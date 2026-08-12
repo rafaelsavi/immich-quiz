@@ -482,3 +482,36 @@ def test_build_search_payload() -> None:
         'withPartners': True,
     }
     assert 'isShared' not in payload2
+
+
+def test_search_query_build_payload() -> None:
+    from datetime import date
+    from src.immich.client import SearchQuery
+
+    q = SearchQuery(
+        album_id='album-1',
+        include_shared_albums=True,
+        include_partner_assets=True,
+        min_date=date(2020, 1, 1),
+        max_date=date(2024, 12, 31),
+    )
+    payload = q.build_payload(size=50, page=3)
+    assert payload == {
+        'size': 50,
+        'page': 3,
+        'withExif': True,
+        'albumIds': ['album-1'],
+        'withPartners': True,
+        'createdAfter': '2020-01-01T00:00:00.000Z',
+        'createdBefore': '2024-12-31T23:59:59.999Z',
+    }
+    assert 'isShared' not in payload  # album_id is set
+
+
+def test_search_query_should_filter_by_owner() -> None:
+    from src.immich.client import SearchQuery
+
+    assert SearchQuery(album_id='album-1').should_filter_by_owner is False
+    assert SearchQuery(include_shared_albums=True, include_partner_assets=True).should_filter_by_owner is False
+    assert SearchQuery(include_shared_albums=True, include_partner_assets=False).should_filter_by_owner is True
+    assert SearchQuery().should_filter_by_owner is True
