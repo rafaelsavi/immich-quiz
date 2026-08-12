@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { el, state } from "../state.js";
-import { ensureGuessMap, ensureRevealMap, createPinIcon, createPopPinIcon, toggleMapFullscreen, fitMapToBounds } from "../maps.js";
+import { ensureGuessMap, ensureRevealMap, createPinIcon, createPopPinIcon, toggleMapFullscreen, fitMapToBounds, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import {
   ACTUAL_COLOR,
@@ -580,16 +580,28 @@ export const pinpointMode = {
       el.mediaFrame.classList.add("hidden");
     }
     if (state.guessMap) {
-      state.guessMap.remove();
+      try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) {}
       state.guessMap = null;
     }
     if (state.guessMarker) {
-      state.guessMarker.remove();
+      try { state.guessMarker.remove(); } catch (_) {}
       state.guessMarker = null;
+    }
+    if (state.revealMap) {
+      (state.revealLayers || []).forEach((l) => {
+        try { state.revealMap.removeLayer(l); } catch (_) {}
+      });
+      state.revealLayers = [];
+      try { unregisterActiveMap(state.revealMap); state.revealMap.remove(); } catch (_) {}
+      state.revealMap = null;
     }
     const host = document.getElementById("mode-active-host");
     if (host) {
       host.replaceChildren();
+    }
+    const pinpointReveal = document.getElementById("pinpoint-reveal-ui");
+    if (pinpointReveal) {
+      pinpointReveal.classList.add("hidden");
     }
   },
 

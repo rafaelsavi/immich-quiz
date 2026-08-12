@@ -28,6 +28,7 @@ import {
   updateMapLayerControls,
   refitMap,
   refitAllMaps,
+  unregisterActiveMap,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
 import { pinpointMode } from "./modules/modes/pinpoint.js";
@@ -287,8 +288,104 @@ function showCard(cardEl) {
   cardEl.classList.remove("hidden");
 }
 
+function resetGameUi() {
+  clearRevealAnimation();
+  clearTimer();
+
+  state.matchId = null;
+  state.currentQuestion = null;
+  state.lastReveal = null;
+  state.lastSummary = null;
+  state.guessedLatLng = null;
+  state.playedAssetIds = [];
+  state.roundHistory = [];
+  state.perfectCounts = {};
+  state.playerStats = {};
+  state.matchFinished = false;
+  state.timedOut = false;
+  state.submitting = false;
+
+  try {
+    getActiveMode().unmount();
+  } catch (_) {}
+
+  if (el.roundMeta) el.roundMeta.replaceChildren();
+  if (el.passOverlay) el.passOverlay.classList.add("hidden");
+  if (el.guessingUi) el.guessingUi.classList.add("hidden");
+  if (el.revealUi) el.revealUi.classList.add("hidden");
+  if (el.timeoutNotice) {
+    el.timeoutNotice.classList.add("hidden");
+    el.timeoutNotice.textContent = "";
+  }
+
+  if (el.quizImage) {
+    el.quizImage.classList.add("hidden");
+    el.quizImage.removeAttribute("src");
+    el.quizImage.onerror = null;
+  }
+  if (el.quizImageFullscreen) {
+    el.quizImageFullscreen.classList.add("hidden");
+    el.quizImageFullscreen.removeAttribute("src");
+  }
+  if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
+  if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
+
+  if (el.revealActual) el.revealActual.replaceChildren();
+  if (el.revealLegend) el.revealLegend.replaceChildren();
+  if (el.revealTableHead) el.revealTableHead.replaceChildren();
+  if (el.revealTableBody) el.revealTableBody.replaceChildren();
+  if (el.revealMapShell) el.revealMapShell.classList.add("hidden");
+  if (el.revealMapHead) el.revealMapHead.classList.add("hidden");
+
+  if (state.revealLayers && Array.isArray(state.revealLayers)) {
+    state.revealLayers.forEach((l) => {
+      try {
+        if (state.revealMap) state.revealMap.removeLayer(l);
+      } catch (_) {}
+    });
+    state.revealLayers = [];
+  }
+  if (state.revealMap) {
+    try {
+      unregisterActiveMap(state.revealMap);
+      state.revealMap.remove();
+    } catch (_) {}
+    state.revealMap = null;
+  }
+
+  if (state.journeyLayers && Array.isArray(state.journeyLayers)) {
+    state.journeyLayers.forEach((l) => {
+      try {
+        if (state.journeyMap) state.journeyMap.removeLayer(l);
+      } catch (_) {}
+    });
+    state.journeyLayers = [];
+  }
+  if (state.journeyMap) {
+    try {
+      unregisterActiveMap(state.journeyMap);
+      state.journeyMap.remove();
+    } catch (_) {}
+    state.journeyMap = null;
+  }
+  if (el.journeyMapShell) el.journeyMapShell.classList.add("hidden");
+  if (el.journeyMapHead) el.journeyMapHead.classList.add("hidden");
+
+  if (el.summaryWinner) el.summaryWinner.replaceChildren();
+  if (el.summaryMeta) el.summaryMeta.textContent = "";
+  if (el.summaryTableHead) el.summaryTableHead.replaceChildren();
+  if (el.summaryTableBody) el.summaryTableBody.replaceChildren();
+  if (el.polaroidGallery) el.polaroidGallery.replaceChildren();
+  if (el.summaryCard) {
+    const existingAwards = el.summaryCard.querySelector(".awards-row");
+    if (existingAwards) existingAwards.remove();
+  }
+}
+
 async function startMatch(event) {
   event.preventDefault();
+
+  resetGameUi();
 
   const players = el.players.value
     .split(",")
@@ -444,6 +541,22 @@ async function loadQuestion() {
   state.guessedLatLng = null;
   state.timedOut = false;
   state.currentQuestion = null;
+
+  if (el.revealUi) el.revealUi.classList.add("hidden");
+  if (el.guessingUi) el.guessingUi.classList.remove("hidden");
+  if (el.roundMeta) el.roundMeta.replaceChildren();
+
+  if (el.quizImage) {
+    el.quizImage.classList.add("hidden");
+    el.quizImage.removeAttribute("src");
+    el.quizImage.onerror = null;
+  }
+  if (el.quizImageFullscreen) {
+    el.quizImageFullscreen.classList.add("hidden");
+    el.quizImageFullscreen.removeAttribute("src");
+  }
+  if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
+
   el.submitAnswer.textContent = t("game.submit_btn");
   getActiveMode()?.setDisabled?.(false);
   updateSubmitState();
@@ -612,6 +725,8 @@ async function handleNextRound() {
       return;
     }
     showCard(el.gameCard);
+    if (el.revealUi) el.revealUi.classList.add("hidden");
+    if (el.guessingUi) el.guessingUi.classList.remove("hidden");
     await loadQuestion();
   } finally {
     state.submitting = false;
@@ -1047,14 +1162,7 @@ function syncFullscreenTimers(seconds, ratio, isWarning, isCritical) {
 }
 
 function returnToSetup() {
-  getActiveMode().unmount();
-  state.matchId = null;
-  state.currentQuestion = null;
-  state.matchFinished = false;
-  state.playedAssetIds = [];
-  state.perfectCounts = {};
-  state.playerStats = {};
-  resetTimerBar();
+  resetGameUi();
   showCard(el.setupCard);
   el.leaderboardCard.classList.remove("hidden");
 }
@@ -1065,7 +1173,6 @@ function handleAbandonGame(action) {
     return;
   }
   clearTimer();
-  getActiveMode().unmount();
   if (action === "restart") {
     restartSameGame().catch((err) => showAlert(err.message));
   } else {
@@ -1080,16 +1187,9 @@ async function restartSameGame() {
     return;
   }
 
-  const activeMode = getActiveMode();
-  activeMode.unmount();
+  resetGameUi();
 
-  state.matchId = null;
-  state.currentQuestion = null;
-  state.matchFinished = false;
-  state.playedAssetIds = [];
-  state.perfectCounts = {};
-  state.playerStats = {};
-  resetTimerBar();
+  const activeMode = getActiveMode();
 
   const response = await api("/api/game/setup", {
     method: "POST",

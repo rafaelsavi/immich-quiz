@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { state, el } from "../state.js";
-import { createStandardMap, createBadgePinIcon, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy } from "../maps.js";
+import { createStandardMap, createBadgePinIcon, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
 import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
@@ -156,11 +156,11 @@ export const albumShuffleMode = {
   unmount() {
     state.albumShuffleDisabled = false;
     if (shuffleMap) {
-      shuffleMap.remove();
+      try { unregisterActiveMap(shuffleMap); shuffleMap.remove(); } catch (_) {}
       shuffleMap = null;
     }
     if (revealShuffleMap) {
-      revealShuffleMap.remove();
+      try { unregisterActiveMap(revealShuffleMap); revealShuffleMap.remove(); } catch (_) {}
       revealShuffleMap = null;
     }
     shuffleMarkers = {};
