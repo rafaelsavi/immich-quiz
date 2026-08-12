@@ -48,3 +48,9 @@ jobs:
             exit 1
           fi
 
+          IS_IN_CHANGELOG=$(python3 -c "import re; content=open('CHANGELOG.md').read(); print('true' if re.search(r'##\s*\[?v?' + re.escape('$NEW_VERSION') + r'\]?', content) else 'false')")
+          if [ "$IS_IN_CHANGELOG" = "false" ]; then
+            echo "::error::Version '$NEW_VERSION' from pyproject.toml was not found in CHANGELOG.md! Please add release notes for [$NEW_VERSION] in CHANGELOG.md before merging to main."
+            exit 1
+          fi
+
