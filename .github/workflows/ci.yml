@@ -42,3 +42,9 @@ jobs:
             exit 1
           fi
 
+          IS_VALID_FORMAT=$(python3 -c "import re; print('true' if re.match(r'^[0-9]+\.[0-9]+\.[0-9]+$', '$NEW_VERSION') else 'false')")
+          if [ "$IS_VALID_FORMAT" = "false" ]; then
+            echo "::error::Version '$NEW_VERSION' in pyproject.toml does not match required x.x.x layout for main branch (e.g. 1.0.0, 1.0.1). Pre-release suffixes like 'rc' are not permitted on main."
+            exit 1
+          fi
+
