@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { el, state } from "../state.js";
-import { ensureGuessMap, ensureRevealMap, createPinIcon, toggleMapFullscreen, fitMapToBounds } from "../maps.js";
+import { ensureGuessMap, ensureRevealMap, createPinIcon, createPopPinIcon, toggleMapFullscreen, fitMapToBounds } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import {
   ACTUAL_COLOR,
@@ -166,15 +166,6 @@ function clearRevealAnimation() {
   }
 }
 
-function createPopPinIcon(label, color) {
-  return L.divIcon({
-    className: "player-pin player-pin-pop",
-    html: `<span style="background:${color};"><b>${label}</b></span>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -26],
-  });
-}
 
 function renderRevealSummary(reveal, skipEffects = false) {
   renderRoundMeta(el.roundMeta, {

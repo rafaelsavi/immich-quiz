@@ -27,6 +27,7 @@ import {
   syncFullscreenButtons,
   updateMapLayerControls,
   refitMap,
+  refitAllMaps,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
 import { pinpointMode } from "./modules/modes/pinpoint.js";
@@ -596,15 +597,7 @@ async function showRoundReveal(roundNumber) {
   }
 }
 
-function createPopPinIcon(label, color) {
-  return L.divIcon({
-    className: "player-pin player-pin-pop",
-    html: `<span style="background:${color}"><b>${label}</b></span>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 28],
-    popupAnchor: [0, -26],
-  });
-}
+
 
 async function handleNextRound() {
   if (state.submitting) {
@@ -1171,20 +1164,12 @@ document.addEventListener("fullscreenchange", () => {
   syncFullscreenButtons();
 
   // Leaflet needs to re-measure and refit after the container resizes.
-  [state.guessMap, state.revealMap, state.journeyMap, ...getShuffleMaps()].forEach((map) => {
-    if (map) {
-      refitMap(map);
-      setTimeout(() => refitMap(map), 120);
-    }
-  });
+  refitAllMaps();
+  setTimeout(() => refitAllMaps(), 120);
 });
 
 window.addEventListener("resize", () => {
-  [state.guessMap, state.revealMap, state.journeyMap, ...getShuffleMaps()].forEach((map) => {
-    if (map) {
-      refitMap(map);
-    }
-  });
+  refitAllMaps();
 });
 
 // Setup form controls — reload leaderboard whenever any setting changes.

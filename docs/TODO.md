@@ -35,4 +35,4 @@ This document lists planned features, design ideas, and technical debt items for
 
 - **Automated E2E Testing**: Add Playwright browser end-to-end tests for two-tap map/timeline interactions.
 
-- **Uniform map implementation**: Standardize maps to use the same implementation and features everywhere.
+- [x] **Uniform map implementation**: Standardize maps to use the same implementation and features everywhere.

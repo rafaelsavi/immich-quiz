@@ -192,6 +192,122 @@ export function ensureMapFullscreenButton(shell, titleKey = "game.fullscreen_map
   return btn;
 }
 
+const activeMapRegistry = new Set();
+
+export function registerActiveMap(map) {
+  if (map) {
+    activeMapRegistry.add(map);
+  }
+}
+
+export function unregisterActiveMap(map) {
+  if (map) {
+    activeMapRegistry.delete(map);
+  }
+}
+
+export function getActiveMaps() {
+  const result = [];
+  activeMapRegistry.forEach((map) => {
+    if (map && map.getContainer) {
+      try {
+        const container = map.getContainer();
+        if (container && document.body.contains(container)) {
+          result.push(map);
+        }
+      } catch (_) {}
+    }
+  });
+  return result;
+}
+
+export function refitAllMaps() {
+  getActiveMaps().forEach((map) => {
+    refitMap(map);
+  });
+}
+
+/**
+ * Standard factory for instantiating Leaflet maps across the application.
+ * Ensures uniform options (worldCopyJump: true, zoomControl: false), top-right zoom control,
+ * base layer controls, fullscreen toggle, and registration in activeMapRegistry.
+ */
+export function createStandardMap(containerOrEl, options = {}) {
+  if (!window.L) return null;
+
+  const containerEl = typeof containerOrEl === "string" ? document.getElementById(containerOrEl) : containerOrEl;
+  if (!containerEl) return null;
+
+  if (options.existingMap) {
+    try {
+      options.existingMap.remove();
+      unregisterActiveMap(options.existingMap);
+    } catch (_) {}
+  }
+
+  const base = createBaseTileLayers();
+  const mapOptions = {
+    worldCopyJump: true,
+    zoomControl: false,
+    layers: [base.streets],
+    ...options.leafletOptions,
+  };
+
+  const center = options.center || [20, 0];
+  const zoom = options.zoom !== undefined ? options.zoom : 2;
+
+  const map = L.map(containerEl, mapOptions).setView(center, zoom);
+  map._initialCenter = center;
+  map._initialZoom = zoom;
+
+  if (options.zoomControl !== false) {
+    L.control.zoom({ position: "topright" }).addTo(map);
+  }
+
+  if (options.layerControl !== false) {
+    addLayerControl(map, base);
+  }
+
+  if (options.resetZoomControl !== false) {
+    ensureMapResetZoomButton(map);
+  }
+
+  const shell = containerEl.closest ? containerEl.closest(".map-shell") || containerEl : containerEl;
+  if (options.fullscreenControl !== false && shell) {
+    ensureMapFullscreenButton(shell, options.titleKey || "game.fullscreen_map_title");
+  }
+
+  registerActiveMap(map);
+
+  return map;
+}
+
+export function createBadgePinIcon(badgeText, color, options = {}) {
+  const {
+    id = "",
+    isTaken = true,
+    className = "shuffle-pin-marker",
+    extraClasses = "",
+    size = 36,
+  } = options;
+
+  const isAssignedClass = isTaken ? "assigned" : "unassigned";
+  const styleStr = isTaken
+    ? `background:${color};color:#ffffff;border:2px solid #ffffff;opacity:1;box-shadow:0 3px 8px rgba(0,0,0,0.35);`
+    : `background:#ffffff;color:${color};border:2px solid ${color};opacity:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);`;
+
+  const idAttr = id ? `id="${id}"` : "";
+  const anchor = Math.round(size / 2);
+
+  return L.divIcon({
+    className: "custom-pin-icon",
+    html: `<div ${idAttr} class="${className} ${isAssignedClass} ${extraClasses}" style="${styleStr}">${badgeText}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [anchor, anchor],
+    popupAnchor: [0, -anchor],
+  });
+}
+
 export function ensureGuessMap() {
   const container = document.getElementById("guess-map");
   if (!container) return;
@@ -199,32 +315,31 @@ export function ensureGuessMap() {
   const shell = container.closest(".map-shell");
 
   if (!state.guessMap) {
-    const base = createBaseTileLayers();
-    state.guessMap = L.map(container, { worldCopyJump: true, zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
-    L.control.zoom({ position: "topright" }).addTo(state.guessMap);
-    addLayerControl(state.guessMap, base);
+    state.guessMap = createStandardMap(container, { titleKey: "game.fullscreen_map_title" });
 
-    state.guessMap.on("click", (event) => {
-      if (state.timedOut || state.submitting) {
-        return;
-      }
-      const lat = event.latlng.lat;
-      const lng = (((event.latlng.lng + 180) % 360) + 360) % 360 - 180;
-      const clickLatLng = L.latLng(lat, lng);
-      state.guessedLatLng = clickLatLng;
-      const player = state.currentQuestion ? state.currentQuestion.player_name : "";
-      const color = playerColor(player);
-      const icon = createPinIcon(playerInitial(player), color);
-      if (state.guessMarker) {
-        state.guessMarker.remove();
-      }
-      state.guessMarker = L.marker([lat, lng], { icon }).addTo(state.guessMap);
+    if (state.guessMap) {
+      state.guessMap.on("click", (event) => {
+        if (state.timedOut || state.submitting) {
+          return;
+        }
+        const lat = event.latlng.lat;
+        const lng = (((event.latlng.lng + 180) % 360) + 360) % 360 - 180;
+        const clickLatLng = L.latLng(lat, lng);
+        state.guessedLatLng = clickLatLng;
+        const player = state.currentQuestion ? state.currentQuestion.player_name : "";
+        const color = playerColor(player);
+        const icon = createPinIcon(playerInitial(player), color);
+        if (state.guessMarker) {
+          state.guessMarker.remove();
+        }
+        state.guessMarker = L.marker([lat, lng], { icon }).addTo(state.guessMap);
 
-      playPinDropSound();
-      spawnPinPulseEffect(state.guessMap, clickLatLng, color);
+        playPinDropSound();
+        spawnPinPulseEffect(state.guessMap, clickLatLng, color);
 
-      updateSubmitState();
-    });
+        updateSubmitState();
+      });
+    }
   }
 
   if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
@@ -241,10 +356,7 @@ export function ensureRevealMap() {
   const shell = container.closest(".map-shell");
 
   if (!state.revealMap) {
-    const base = createBaseTileLayers();
-    state.revealMap = L.map(container, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
-    L.control.zoom({ position: "topright" }).addTo(state.revealMap);
-    addLayerControl(state.revealMap, base);
+    state.revealMap = createStandardMap(container, { titleKey: "game.fullscreen_map_title" });
   }
 
   if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
@@ -261,10 +373,7 @@ export function ensureJourneyMap() {
   const shell = container.closest(".map-shell");
 
   if (!state.journeyMap) {
-    const base = createBaseTileLayers();
-    state.journeyMap = L.map(container, { zoomControl: false, layers: [base.streets] }).setView([20, 0], 2);
-    L.control.zoom({ position: "topright" }).addTo(state.journeyMap);
-    addLayerControl(state.journeyMap, base);
+    state.journeyMap = createStandardMap(container, { titleKey: "game.fullscreen_map_title" });
   }
 
   if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
@@ -500,10 +609,10 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
   }
 }
 
-export function refitMap(map) {
+export function refitMap(map, forceRefitBounds = false) {
   if (!map) return;
   map.invalidateSize();
-  if (map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
+  if (forceRefitBounds && map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
     const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
     const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
     map.fitBounds(map._lastFitBounds, { padding, maxZoom });
@@ -552,7 +661,7 @@ export function toggleMapFullscreen(shell) {
 }
 
 export function updateMapLayerControls(extraMaps = []) {
-  const maps = [state.guessMap, state.revealMap, state.journeyMap, ...extraMaps].filter(Boolean);
+  const maps = [...new Set([...getActiveMaps(), state.guessMap, state.revealMap, state.journeyMap, ...extraMaps])].filter(Boolean);
   maps.forEach((map) => {
     addLayerControl(map);
   });
@@ -595,4 +704,69 @@ export function syncFullscreenButtons() {
     button.classList.toggle("is-active", isActive);
     button.innerHTML = isActive ? EXIT_FS_SVG : ENTER_FS_SVG;
   });
+}
+
+export const RESET_ZOOM_SVG = `<svg class="reset-zoom-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="12" r="8"></circle>
+  <line x1="12" y1="2" x2="12" y2="5"></line>
+  <line x1="12" y1="19" x2="12" y2="22"></line>
+  <line x1="2" y1="12" x2="5" y2="12"></line>
+  <line x1="19" y1="12" x2="22" y2="12"></line>
+  <circle cx="12" cy="12" r="1.5" fill="currentColor"></circle>
+</svg>`;
+
+export function resetMapZoom(map) {
+  if (!map) return;
+  if (map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
+    const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
+    const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
+    map.fitBounds(map._lastFitBounds, { padding, maxZoom });
+  } else if (map._initialCenter && map._initialZoom !== undefined) {
+    map.setView(map._initialCenter, map._initialZoom);
+  } else {
+    map.setView([20, 0], 2);
+  }
+}
+
+export function createMapResetZoomButton(map) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "map-reset-zoom-btn leaflet-control";
+  btn.title = t("map.reset_zoom_title");
+  btn.setAttribute("data-i18n-title", "map.reset_zoom_title");
+  btn.setAttribute("aria-label", t("map.reset_zoom_title"));
+  btn.innerHTML = RESET_ZOOM_SVG;
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    resetMapZoom(map);
+  });
+  return btn;
+}
+
+export function ensureMapResetZoomButton(map) {
+  if (!map) return null;
+  const containerEl = map.getContainer ? map.getContainer() : null;
+  const shell = containerEl ? containerEl.closest(".map-shell") || containerEl : null;
+  if (!shell) return null;
+
+  let btn = shell.querySelector(".map-reset-zoom-btn");
+  if (!btn) {
+    btn = createMapResetZoomButton(map);
+  }
+  btn.classList.add("leaflet-control");
+  const tryMove = () => {
+    const rightCorner = shell.querySelector(".leaflet-top.leaflet-right");
+    if (rightCorner && btn.parentElement !== rightCorner) {
+      const zoomControl = rightCorner.querySelector(".leaflet-control-zoom");
+      if (zoomControl && zoomControl.nextSibling) {
+        rightCorner.insertBefore(btn, zoomControl.nextSibling);
+      } else {
+        rightCorner.appendChild(btn);
+      }
+    }
+  };
+  tryMove();
+  requestAnimationFrame(tryMove);
+  setTimeout(tryMove, 50);
+  return btn;
 }
