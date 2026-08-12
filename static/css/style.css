@@ -9,6 +9,7 @@
 @import "./components/maps.css";
 @import "./components/leaderboard.css";
 @import "./components/modals.css";
+@import "./components/multi_select.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";

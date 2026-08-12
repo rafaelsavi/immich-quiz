@@ -19,7 +19,7 @@ async def load_asset_pool(
     """Populate the per-match candidate pool once instead of searching every round."""
     raw_assets = await immich.search_random_assets(
         state.setup.library_name,
-        state.setup.album_id,
+        album_ids=state.setup.album_ids,
         include_shared_albums=include_shared_albums,
         include_partner_assets=include_partner_assets,
     )

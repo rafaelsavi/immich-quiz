@@ -70,10 +70,37 @@
             <label data-i18n="setup.library_label">Library</label>
             <select id="library" required></select>
           </div>
-          <div>
-            <label data-i18n="setup.album_label">Album</label>
-            <select id="album">
-              <option value="" data-i18n="setup.all_photos">-</option>
+          <div class="album-select-group">
+            <label id="album-select-label" data-i18n="setup.album_label">Album</label>
+            <div id="album-multi-select" class="multi-select" aria-expanded="false" role="combobox" aria-haspopup="listbox">
+              <div class="multi-select-trigger" tabindex="0" id="album-select-trigger">
+                <div class="multi-select-value" id="album-select-value">
+                  <span class="placeholder" data-i18n="setup.all_photos">-</span>
+                </div>
+                <div class="multi-select-controls">
+                  <button type="button" class="multi-select-clear hidden" id="album-select-clear" title="Clear selection" aria-label="Clear selection">&times;</button>
+                  <span class="multi-select-arrow" aria-hidden="true">&#9662;</span>
+                </div>
+              </div>
+              <div class="multi-select-dropdown hidden" id="album-select-dropdown" role="listbox">
+                <div class="multi-select-search-wrap">
+                  <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="text" class="multi-select-search" id="album-search-input" placeholder="Search albums..." data-i18n-placeholder="setup.album_search_placeholder" autocomplete="off" />
+                </div>
+                <div class="multi-select-actions">
+                  <button type="button" class="btn-text-action" id="album-select-all" data-i18n="setup.select_all">Select All</button>
+                  <button type="button" class="btn-text-action" id="album-deselect-all" data-i18n="setup.deselect_all">Deselect All</button>
+                </div>
+                <div class="multi-select-options" id="album-options-list">
+                  <!-- Dynamically populated options -->
+                </div>
+              </div>
+            </div>
+            <select id="album" class="hidden-select" multiple tabindex="-1" aria-hidden="true">
+              <option value="" selected data-i18n="setup.all_photos">-</option>
             </select>
           </div>
         </div>

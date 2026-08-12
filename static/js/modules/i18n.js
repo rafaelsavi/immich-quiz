@@ -24,6 +24,11 @@ export const TRANSLATIONS = {
     "setup.library_label": "Library",
     "setup.album_label": "Album",
     "setup.all_photos": "-",
+    "setup.album_search_placeholder": "Search albums...",
+    "setup.select_all": "Select All",
+    "setup.deselect_all": "Deselect All",
+    "setup.no_albums_found": "No albums found",
+    "setup.albums_selected": (count) => `${count} albums selected`,
     "setup.start_btn": "Start Match",
     "setup.not_enough_media": (found, required, filters) =>
       `Cannot start match: only ${found} photo(s) matching criteria found in selected album/library, but ${required} rounds are required.\n\nActive filters: ${filters}`,
@@ -207,6 +212,11 @@ export const TRANSLATIONS = {
     "setup.library_label": "Biblioteca",
     "setup.album_label": "Álbum",
     "setup.all_photos": "-",
+    "setup.album_search_placeholder": "Buscar álbuns...",
+    "setup.select_all": "Selecionar todos",
+    "setup.deselect_all": "Desmarcar todos",
+    "setup.no_albums_found": "Nenhum álbum encontrado",
+    "setup.albums_selected": (count) => `${count} álbuns selecionados`,
     "setup.start_btn": "Iniciar Partida",
     "setup.not_enough_media": (found, required, filters) =>
       `Não é possível iniciar a partida: apenas ${found} foto(s) com os critérios foram encontradas no álbum/biblioteca selecionado, mas são necessárias ${required} rodadas.\n\nFiltros ativos: ${filters}`,

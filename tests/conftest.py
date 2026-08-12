@@ -38,7 +38,7 @@ def setup_payload(**overrides: Any) -> dict[str, Any]:
         'location_mode': True,
         'date_mode': True,
         'library_name': 'family',
-        'album_id': None,
+        'album_ids': [],
         'album_name': '-',
     }
     payload.update(overrides)
@@ -65,7 +65,7 @@ class FakeImmichClient:
     async def search_assets(
         self,
         library_name: str,
-        album_id: str | None = None,
+        album_ids: list[str] | None = None,
         *,
         include_shared_albums: bool = False,
         include_partner_assets: bool = False,
@@ -78,7 +78,7 @@ class FakeImmichClient:
     async def search_random_assets(
         self,
         library_name: str,
-        album_id: str | None = None,
+        album_ids: list[str] | None = None,
         size: int = 250,
         include_shared_albums: bool = False,
         include_partner_assets: bool = False,
