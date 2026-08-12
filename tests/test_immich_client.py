@@ -384,7 +384,7 @@ async def test_search_random_assets_owner_filtering_selected_album() -> None:
     client = build_client(handler)
     items = await client.search_random_assets(
         'family',
-        album_id='album-shared',
+        album_ids=['album-shared'],
         include_shared_albums=False,
         include_partner_assets=False,
     )

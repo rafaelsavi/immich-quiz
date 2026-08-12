@@ -45,7 +45,7 @@ class GameSetupRequest(BaseModel):
     date_mode: bool = True
     game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
-    album_id: str | None = None
+    album_ids: list[str] = Field(default_factory=list)
     album_name: str | None = None
 
     @model_validator(mode='after')
@@ -235,7 +235,7 @@ class PreflightRequest(BaseModel):
     date_mode: bool = True
     game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
-    album_id: str | None = None
+    album_ids: list[str] = Field(default_factory=list)
 
     @model_validator(mode='after')
     def validate_modes_and_rounds(self) -> PreflightRequest:

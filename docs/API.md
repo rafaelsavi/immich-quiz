@@ -54,7 +54,7 @@ Request:
   "location_mode": true,
   "date_mode": true,
   "library_name": "family_library",
-  "album_id": null
+  "album_ids": []
 }
 ```
 
@@ -84,15 +84,15 @@ Request:
   "date_mode": true,
   "game_mode": "pinpoint",
   "library_name": "family_library",
-  "album_id": null
+  "album_ids": []
 }
 ```
 
 - `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
 - `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
 - `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
-- `album_name` is resolved server-side from `album_id`, so a client cannot
-  spoof leaderboard metadata. Unknown `album_id` returns `400`.
+- `album_name` is resolved server-side from `album_ids`, so a client cannot
+  spoof leaderboard metadata. Unknown `album_ids` returns `400`.
 - Responds with `{"match_id": "...", "total_turns": N, "players": ["Alice", "Bob"]}`.
 
 ## Round Flow

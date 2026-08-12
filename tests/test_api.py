@@ -391,13 +391,13 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
 
 
 def test_album_name_is_resolved_server_side(client: TestClient) -> None:
-    match_id = start_match(client, album_id='album-1', album_name='Spoofed Album')
+    match_id = start_match(client, album_ids=['album-1'], album_name='Spoofed Album')
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
     assert question['album_name'] == 'Holidays'
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
-    response = client.post('/api/game/setup', json=setup_payload(album_id='does-not-exist'))
+    response = client.post('/api/game/setup', json=setup_payload(album_ids=['does-not-exist']))
     assert response.status_code == 400
 
 
