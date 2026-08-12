@@ -35,10 +35,4 @@ This document lists planned features, design ideas, and technical debt items for
 
 - **Automated E2E Testing**: Add Playwright browser end-to-end tests for two-tap map/timeline interactions.
 
-- **Simplify Immich Client Search & Helper Functions (`src/immich/client.py`)**:
-  - **Refactor `search_assets` & `search_random_assets`**: Both functions repeat identical search payload construction (`size`, `albumIds`, `withPartners`, `isShared`, `withExif`). Extract a `_build_search_payload(...)` helper to eliminate repetitive dictionary construction across search endpoints and fallback loops.
-  - **Unify Owner ID Extraction (`_asset_owner_id` & `_album_owner_id`)**: Consolidate redundant property lookups (`ownerId` top-level string vs. `owner.id` object) into a common `_extract_owner_id` helper.
-  - **Lazy-Load `/users/me` User ID**: In `list_albums`, `search_assets`, and `search_random_assets`, defer fetching `current_user_id` until owner filtering is actually required (e.g., skip `/users/me` HTTP call entirely when `include_shared_albums=True` or when an explicit `album_id` is targeted).
-  - **Add Async Context Manager Support (`__aenter__` / `__aexit__`)**: Implement `__aenter__` and `__aexit__` on `ImmichClient` to allow safe, clean usage via `async with ImmichClient(...) as client:`.
-  - **Simplify `_filter_assets_by_owner` & Logging Consistency**: Clean up complex nested boolean expressions in `_filter_assets_by_owner` and replace f-strings in `logger.warning` with standard deferred logging args.
 - **Uniform map implementation**: Standardize maps to use the same implementation and features everywhere.

@@ -1,6 +1,21 @@
 name: Build & Publish Docker Image
 
 on:
+  push:
+    branches:
+      - main
+      - rc
+      - 'release/**'
+      - 'rc/**'
+    tags:
+      - 'v*.*.*'
+      - 'v*.*.*-rc*'
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.vscode/**'
+      - '.githooks/**'
+      - '.github/CODEOWNERS'
   release:
     types: [published]
   workflow_dispatch:
@@ -39,7 +54,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest,enable=${{ !contains(steps.get_version.outputs.version, 'rc') && !contains(steps.get_version.outputs.version, 'alpha') && !contains(steps.get_version.outputs.version, 'beta') }}
+            type=raw,value=latest,enable=${{ (github.ref_name == 'main' || github.event_name == 'release') && !contains(steps.get_version.outputs.version, 'rc') }}
             type=raw,value=v${{ steps.get_version.outputs.version }}
             type=raw,value=${{ steps.get_version.outputs.version }}
             type=raw,value=rc,enable=${{ contains(steps.get_version.outputs.version, 'rc') }}
