@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-08-12
+
+### Fixed
+
+- **Round Reset**: Fixed round reset to properly reset game state
+
+### Added
+
+- **Button to reset map to default zoom**
+
+### Refactored
+
+- **Unified map creation**
+- **Better Immich query controls**
+
+## [1.0.1] - 2026-08-12
+
+### Fixed
+
+- **Improved design uniformization**
+
 ## [1.0.0] - 2026-08-08
 
 ### Added
