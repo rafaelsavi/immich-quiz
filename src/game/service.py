@@ -86,6 +86,15 @@ class GameService:
         if settings.fetch_photos_date_lower_bound or settings.fetch_photos_date_upper_bound:
             active_filters.append('date_range')
 
+        logger.debug(
+            'preflight: album_ids=%s, library=%s, location_mode=%s, date_mode=%s, raw_assets_count=%d',
+            setup.album_ids,
+            setup.library_name,
+            setup.location_mode,
+            setup.date_mode,
+            len(raw_assets),
+        )
+
         eligible_count = sum(
             1
             for asset in raw_assets

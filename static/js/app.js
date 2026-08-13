@@ -112,7 +112,24 @@ function updateAlbumTriggerUi() {
   }
 }
 
+function updateSearchClearVisibility() {
+  if (!el.albumSearchClear || !el.albumSearchInput) return;
+  if (el.albumSearchInput.value.length > 0) {
+    el.albumSearchClear.classList.remove("hidden");
+  } else {
+    el.albumSearchClear.classList.add("hidden");
+  }
+}
+
+function clearAlbumSearch() {
+  if (!el.albumSearchInput) return;
+  el.albumSearchInput.value = "";
+  renderAlbumOptions();
+  el.albumSearchInput.focus();
+}
+
 function renderAlbumOptions() {
+  updateSearchClearVisibility();
   if (!el.albumOptionsList) return;
   el.albumOptionsList.replaceChildren();
 
@@ -227,6 +244,13 @@ function initAlbumMultiSelectUi() {
       if (e.key === "Escape") {
         closeAlbumDropdown();
       }
+    });
+  }
+
+  if (el.albumSearchClear) {
+    el.albumSearchClear.addEventListener("click", (e) => {
+      e.stopPropagation();
+      clearAlbumSearch();
     });
   }
 

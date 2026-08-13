@@ -78,8 +78,17 @@
                   <span class="placeholder" data-i18n="setup.all_photos">-</span>
                 </div>
                 <div class="multi-select-controls">
-                  <button type="button" class="multi-select-clear hidden" id="album-select-clear" title="Clear selection" aria-label="Clear selection">&times;</button>
-                  <span class="multi-select-arrow" aria-hidden="true">&#9662;</span>
+                  <button type="button" class="multi-select-clear hidden" id="album-select-clear" title="Clear selection" aria-label="Clear selection">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                  <span class="multi-select-arrow" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
                 </div>
               </div>
               <div class="multi-select-dropdown hidden" id="album-select-dropdown" role="listbox">
@@ -89,6 +98,12 @@
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                   </svg>
                   <input type="text" class="multi-select-search" id="album-search-input" placeholder="Search albums..." data-i18n-placeholder="setup.album_search_placeholder" autocomplete="off" />
+                  <button type="button" class="search-clear-btn hidden" id="album-search-clear" title="Clear search" aria-label="Clear search" data-i18n-title="setup.clear_search" data-i18n-aria-label="setup.clear_search">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
                 </div>
                 <div class="multi-select-actions">
                   <button type="button" class="btn-text-action" id="album-select-all" data-i18n="setup.select_all">Select All</button>

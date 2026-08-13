@@ -75,6 +75,7 @@ export const el = {
   get albumSelectClear() { return document.getElementById("album-select-clear"); },
   get albumSelectDropdown() { return document.getElementById("album-select-dropdown"); },
   get albumSearchInput() { return document.getElementById("album-search-input"); },
+  get albumSearchClear() { return document.getElementById("album-search-clear"); },
   get albumSelectAll() { return document.getElementById("album-select-all"); },
   get albumDeselectAll() { return document.getElementById("album-deselect-all"); },
   get albumOptionsList() { return document.getElementById("album-options-list"); },

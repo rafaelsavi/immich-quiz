@@ -464,24 +464,24 @@ def test_extract_owner_id() -> None:
 
 
 def test_build_search_payload() -> None:
-    payload1 = ImmichClient._build_search_payload(250)
+    from src.immich.client import SearchQuery
+
+    payload1 = SearchQuery().build_payload(250)
     assert payload1 == {'size': 250, 'withExif': True}
 
-    payload2 = ImmichClient._build_search_payload(
-        10,
-        album_ids=['album-123'],
-        page=2,
+    payload2 = SearchQuery(
+        album_ids=('album-123',),
         include_shared_albums=True,
         include_partner_assets=True,
-    )
+    ).build_payload(10, page=2)
     assert payload2 == {
         'size': 10,
         'page': 2,
         'withExif': True,
         'albumIds': ['album-123'],
         'withPartners': True,
+        'isShared': True,
     }
-    assert 'isShared' not in payload2
 
 
 def test_search_query_build_payload() -> None:
@@ -503,10 +503,10 @@ def test_search_query_build_payload() -> None:
         'withExif': True,
         'albumIds': ['album-1'],
         'withPartners': True,
+        'isShared': True,
         'createdAfter': '2020-01-01T00:00:00.000Z',
         'createdBefore': '2024-12-31T23:59:59.999Z',
     }
-    assert 'isShared' not in payload  # album_ids is set
 
 
 def test_search_query_should_filter_by_owner() -> None:
@@ -516,3 +516,59 @@ def test_search_query_should_filter_by_owner() -> None:
     assert SearchQuery(include_shared_albums=True, include_partner_assets=True).should_filter_by_owner is False
     assert SearchQuery(include_shared_albums=True, include_partner_assets=False).should_filter_by_owner is True
     assert SearchQuery().should_filter_by_owner is True
+
+
+def test_extract_asset_items_list_format() -> None:
+    raw = {'assets': [{'id': 'a1'}, {'id': 'a2'}]}
+    items = ImmichClient._extract_asset_items(raw)
+    assert [x['id'] for x in items] == ['a1', 'a2']
+
+
+def test_exif_fallback_top_level() -> None:
+    asset = {'id': 'a1', 'latitude': 48.8584, 'longitude': 2.2945, 'dateTimeOriginal': '2023-06-15T12:00:00Z'}
+    exif = ImmichClient._exif(asset)
+    assert exif['latitude'] == 48.8584
+    assert exif['longitude'] == 2.2945
+    assert exif['dateTimeOriginal'] == '2023-06-15T12:00:00Z'
+    assert ImmichClient.is_eligible_asset(asset, location_mode=True, date_mode=True) is True
+
+
+async def test_search_random_assets_album_get_fallback() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/random') or request.url.path.endswith('/search/metadata'):
+            return httpx.Response(200, json={'assets': []})
+        if '/albums/album-fallback' in request.url.path:
+            return httpx.Response(
+                200,
+                json={
+                    'id': 'album-fallback',
+                    'assets': [
+                        asset(id='photo-in-album', latitude=10.0, longitude=20.0),
+                    ],
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets('family', album_ids=['album-fallback'])
+    await client.aclose()
+
+    assert [item['id'] for item in items] == ['photo-in-album']
+
+
+async def test_search_random_assets_multiple_albums_or_query() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/random') or request.url.path.endswith('/search/metadata'):
+            body = request.read().decode('utf-8')
+            if 'album-1' in body:
+                return httpx.Response(200, json={'assets': [{'id': 'photo-album-1'}]})
+            if 'album-2' in body:
+                return httpx.Response(200, json={'assets': [{'id': 'photo-album-2'}]})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets('family', album_ids=['album-1', 'album-2'])
+    await client.aclose()
+
+    item_ids = set(item['id'] for item in items)
+    assert item_ids == {'photo-album-1', 'photo-album-2'}

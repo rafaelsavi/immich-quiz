@@ -51,9 +51,9 @@ class SearchQuery:
             payload['page'] = page
         if self.album_ids:
             payload['albumIds'] = list(self.album_ids)
-        if self.include_partner_assets:
+        if self.include_partner_assets or self.album_ids:
             payload['withPartners'] = True
-        if self.include_shared_albums and not self.album_ids:
+        if self.include_shared_albums or self.album_ids:
             payload['isShared'] = True
         if self.min_date:
             payload['createdAfter'] = f'{self.min_date.isoformat()}T00:00:00.000Z'
@@ -109,28 +109,6 @@ class ImmichClient:
         payload = {'size': 1, 'page': 1, 'withExif': True}
         await self._request_json('POST', '/search/metadata', key, json=payload)
 
-    @staticmethod
-    def _build_search_payload(
-        size: int,
-        album_ids: list[str] | None = None,
-        *,
-        query: SearchQuery | None = None,
-        page: int | None = None,
-        include_shared_albums: bool = False,
-        include_partner_assets: bool = False,
-        min_date: date | None = None,
-        max_date: date | None = None,
-    ) -> dict[str, Any]:
-        if query is None:
-            query = SearchQuery(
-                album_ids=tuple(album_ids) if album_ids else (),
-                include_shared_albums=include_shared_albums,
-                include_partner_assets=include_partner_assets,
-                min_date=min_date,
-                max_date=max_date,
-            )
-        return query.build_payload(size, page=page)
-
     async def list_albums(self, library_name: str, include_shared_albums: bool = False) -> list[dict[str, str]]:
         key = self._library_key(library_name)
         raw = await self._request_json('GET', '/albums', key)
@@ -141,7 +119,7 @@ class ImmichClient:
             for album in raw:
                 if not isinstance(album, dict):
                     continue
-                owner_id = self._album_owner_id(album)
+                owner_id = self._extract_owner_id(album)
                 if owner_id and not include_shared_albums:
                     if current_user_id is None:
                         current_user_id = await self._current_user_id(key)
@@ -183,10 +161,14 @@ class ImmichClient:
                 max_date=max_date,
             )
         key = self._library_key(library_name)
+
         payload = query.build_payload(size, page=page)
 
         raw = await self._request_json('POST', '/search/metadata', key, json=payload)
         items = self._extract_asset_items(raw)
+        if not items and query.album_ids:
+            items = await self._fetch_album_assets(key, query.album_ids[0])
+
         if not items or not query.should_filter_by_owner:
             return items
         current_user_id = await self._current_user_id(key)
@@ -197,6 +179,13 @@ class ImmichClient:
             include_shared_albums=query.include_shared_albums,
             include_partner_assets=query.include_partner_assets,
         )
+
+    async def _fetch_album_assets(self, key: str, album_id: str) -> list[dict[str, Any]]:
+        try:
+            album_raw = await self._request_json('GET', f'/albums/{album_id}', key)
+            return self._extract_asset_items(album_raw)
+        except ImmichClientError:
+            return []
 
     async def search_random_assets(
         self,
@@ -220,29 +209,49 @@ class ImmichClient:
                 max_date=max_date,
             )
         key = self._library_key(library_name)
-        payload = query.build_payload(size)
+        pool: dict[str, dict[str, Any]] = {}
 
-        raw_items: list[dict[str, Any]] = []
-        try:
-            unique_assets: dict[str, dict[str, Any]] = {}
-            for _ in range(3):
-                raw = await self._request_json('POST', '/search/random', key, json=payload)
-                self._merge_assets(unique_assets, self._extract_asset_items(raw))
-                if len(unique_assets) >= size:
-                    break
-            if unique_assets:
-                items = list(unique_assets.values())
-                random.shuffle(items)
-                raw_items = items[:size]
-        except ImmichClientError:
-            pass
+        if query.album_ids:
+            for album_id in query.album_ids:
+                single_query = SearchQuery(
+                    album_ids=(album_id,),
+                    include_shared_albums=query.include_shared_albums,
+                    include_partner_assets=query.include_partner_assets,
+                    min_date=query.min_date,
+                    max_date=query.max_date,
+                )
+                items: list[dict[str, Any]] = []
+                try:
+                    raw = await self._request_json('POST', '/search/random', key, json=single_query.build_payload(size))
+                    items = self._extract_asset_items(raw)
+                except ImmichClientError:
+                    pass
 
-        if not raw_items:
-            raw_items = await self._search_assets_randomized_fallback(
-                library_name,
-                size,
-                query=query,
-            )
+                if not items:
+                    items = await self._search_assets_randomized_fallback(library_name, size, query=single_query)
+
+                if not items:
+                    items = await self._fetch_album_assets(key, album_id)
+
+                self._merge_assets(pool, items)
+        else:
+            payload = query.build_payload(size)
+            try:
+                for _ in range(3):
+                    raw = await self._request_json('POST', '/search/random', key, json=payload)
+                    self._merge_assets(pool, self._extract_asset_items(raw))
+                    if len(pool) >= size:
+                        break
+            except ImmichClientError:
+                pass
+
+            if not pool:
+                items = await self._search_assets_randomized_fallback(library_name, size, query=query)
+                self._merge_assets(pool, items)
+
+        raw_items = list(pool.values())
+        random.shuffle(raw_items)
+        raw_items = raw_items[:size]
 
         if not raw_items or not query.should_filter_by_owner:
             return raw_items
@@ -267,20 +276,24 @@ class ImmichClient:
 
         first_page_payload = query.build_payload(size, page=1)
 
-        first_raw = await self._request_json('POST', '/search/metadata', key, json=first_page_payload)
         unique_assets: dict[str, dict[str, Any]] = {}
-        self._merge_assets(unique_assets, self._extract_asset_items(first_raw))
+        try:
+            first_raw = await self._request_json('POST', '/search/metadata', key, json=first_page_payload)
+            extracted = self._extract_asset_items(first_raw)
+            self._merge_assets(unique_assets, extracted)
 
-        total = self._extract_total_assets(first_raw)
-        if total is not None and total > size:
-            total_pages = (total + size - 1) // size
-            if total_pages > 1:
-                extra_page_count = min(4, total_pages - 1)
-                pages = random.sample(range(2, total_pages + 1), k=extra_page_count)
-                for page in pages:
-                    page_payload = query.build_payload(size, page=page)
-                    raw = await self._request_json('POST', '/search/metadata', key, json=page_payload)
-                    self._merge_assets(unique_assets, self._extract_asset_items(raw))
+            total = self._extract_total_assets(first_raw)
+            if total is not None and total > size:
+                total_pages = (total + size - 1) // size
+                if total_pages > 1:
+                    extra_page_count = min(4, total_pages - 1)
+                    pages = random.sample(range(2, total_pages + 1), k=extra_page_count)
+                    for page in pages:
+                        page_payload = query.build_payload(size, page=page)
+                        raw = await self._request_json('POST', '/search/metadata', key, json=page_payload)
+                        self._merge_assets(unique_assets, self._extract_asset_items(raw))
+        except ImmichClientError as exc:
+            logger.warning('/search/metadata fallback failed: %s', exc)
 
         items = list(unique_assets.values())
         random.shuffle(items)
@@ -294,12 +307,6 @@ class ImmichClient:
         owner = item.get('owner')
         if isinstance(owner, dict) and owner.get('id'):
             return str(owner['id']).strip()
-        return ''
-
-    @staticmethod
-    def _asset_owner_id(asset: dict[str, Any]) -> str:
-        return ImmichClient._extract_owner_id(asset)
-
     @staticmethod
     def _filter_assets_by_owner(
         items: list[dict[str, Any]],
@@ -314,7 +321,7 @@ class ImmichClient:
 
         filtered: list[dict[str, Any]] = []
         for asset in items:
-            owner_id = ImmichClient._asset_owner_id(asset)
+            owner_id = ImmichClient._extract_owner_id(asset)
             if not owner_id or owner_id == current_user_id:
                 filtered.append(asset)
                 continue
@@ -333,9 +340,20 @@ class ImmichClient:
         return filtered
 
     @staticmethod
+    def _unwrap_asset(item: dict[str, Any]) -> dict[str, Any]:
+        if isinstance(item.get('asset'), dict) and (item['asset'].get('id') or item['asset'].get('assetId')):
+            unwrapped = dict(item['asset'])
+            for k, v in item.items():
+                if k != 'asset' and k not in unwrapped:
+                    unwrapped[k] = v
+            return unwrapped
+        return item
+
+    @staticmethod
     def _merge_assets(target: dict[str, dict[str, Any]], items: list[dict[str, Any]]) -> None:
-        for item in items:
-            asset_id = str(item.get('id', '')).strip()
+        for raw_item in items:
+            item = ImmichClient._unwrap_asset(raw_item)
+            asset_id = str(item.get('id', '') or item.get('assetId', '')).strip()
             if asset_id and asset_id not in target:
                 target[asset_id] = item
 
@@ -356,15 +374,18 @@ class ImmichClient:
 
     @staticmethod
     def _extract_asset_items(raw: Any) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         if isinstance(raw, list):
-            return [x for x in raw if isinstance(x, dict)]
-        if not isinstance(raw, dict):
-            return []
-        if isinstance(raw.get('assets'), dict) and isinstance(raw['assets'].get('items'), list):
-            return [x for x in raw['assets']['items'] if isinstance(x, dict)]
-        if isinstance(raw.get('items'), list):
-            return [x for x in raw['items'] if isinstance(x, dict)]
-        return []
+            items = [x for x in raw if isinstance(x, dict)]
+        elif isinstance(raw, dict):
+            if isinstance(raw.get('assets'), list):
+                items = [x for x in raw['assets'] if isinstance(x, dict)]
+            elif isinstance(raw.get('assets'), dict) and isinstance(raw['assets'].get('items'), list):
+                items = [x for x in raw['assets']['items'] if isinstance(x, dict)]
+            elif isinstance(raw.get('items'), list):
+                items = [x for x in raw['items'] if isinstance(x, dict)]
+
+        return [ImmichClient._unwrap_asset(item) for item in items]
 
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
         key = self._library_key(library_name)
@@ -374,8 +395,12 @@ class ImmichClient:
 
     @staticmethod
     def _exif(asset: dict[str, Any]) -> dict[str, Any]:
-        exif = asset.get('exifInfo')
-        return exif if isinstance(exif, dict) else {}
+        exif = asset.get('exifInfo') or asset.get('exif')
+        res = dict(exif) if isinstance(exif, dict) else {}
+        for key in ('latitude', 'longitude', 'city', 'country', 'state', 'dateTimeOriginal'):
+            if key not in res and key in asset and asset[key] is not None:
+                res[key] = asset[key]
+        return res
 
     @staticmethod
     def is_eligible_asset(
@@ -504,9 +529,6 @@ class ImmichClient:
 
         return None
 
-    def _album_owner_id(self, album: dict[str, Any]) -> str:
-        return ImmichClient._extract_owner_id(album)
-
     async def _request_json(
         self,
         method: str,
@@ -541,6 +563,6 @@ class ImmichClient:
         if res.status_code in {401, 403}:
             raise ImmichClientError(f'Authentication failed for library ({res.status_code})')
         if res.status_code >= 400:
-            raise ImmichClientError(f'Immich API error {res.status_code} at {path}')
+            raise ImmichClientError(f'Immich API error {res.status_code} at {path}: {res.text[:300]}')
 
         return res
