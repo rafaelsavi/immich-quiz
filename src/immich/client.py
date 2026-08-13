@@ -56,9 +56,9 @@ class SearchQuery:
         if self.include_shared_albums or self.album_ids:
             payload['isShared'] = True
         if self.min_date:
-            payload['createdAfter'] = f'{self.min_date.isoformat()}T00:00:00.000Z'
+            payload['takenAfter'] = f'{self.min_date.isoformat()}T00:00:00.000Z'
         if self.max_date:
-            payload['createdBefore'] = f'{self.max_date.isoformat()}T23:59:59.999Z'
+            payload['takenBefore'] = f'{self.max_date.isoformat()}T23:59:59.999Z'
         return payload
 
 
@@ -116,17 +116,15 @@ class ImmichClient:
         raw_count = len(raw) if isinstance(raw, list) else 0
         if isinstance(raw, list):
             current_user_id: str | None = None
+            if not include_shared_albums:
+                current_user_id = await self._current_user_id(key)
             for album in raw:
                 if not isinstance(album, dict):
                     continue
-                owner_id = self._extract_owner_id(album)
-                if owner_id and not include_shared_albums:
-                    if current_user_id is None:
-                        current_user_id = await self._current_user_id(key)
-                    if owner_id != current_user_id:
-                        continue
+                if not include_shared_albums and self._is_shared_album(album, current_user_id):
+                    continue
                 album_id = str(album.get('id', '')).strip()
-                album_name = str(album.get('albumName', '')).strip()
+                album_name = str(album.get('albumName', '') or album.get('name', '')).strip()
                 if album_id and album_name:
                     items.append({'id': album_id, 'name': album_name})
         items.sort(key=lambda item: (item['name'].lower(), item['id']))
@@ -236,34 +234,41 @@ class ImmichClient:
                 self._merge_assets(pool, items)
         else:
             payload = query.build_payload(size)
-            try:
-                for _ in range(3):
-                    raw = await self._request_json('POST', '/search/random', key, json=payload)
-                    self._merge_assets(pool, self._extract_asset_items(raw))
-                    if len(pool) >= size:
-                        break
-            except ImmichClientError:
-                pass
-
-            if not pool:
+            if query.min_date or query.max_date:
+                # When date filters are applied, use metadata search with takenAfter/takenBefore
+                # and page sampling to accurately sample from the filtered population.
                 items = await self._search_assets_randomized_fallback(library_name, size, query=query)
                 self._merge_assets(pool, items)
+            else:
+                try:
+                    for _ in range(3):
+                        raw = await self._request_json('POST', '/search/random', key, json=payload)
+                        self._merge_assets(pool, self._extract_asset_items(raw))
+                        if len(pool) >= size:
+                            break
+                except ImmichClientError:
+                    pass
+
+                if not pool:
+                    items = await self._search_assets_randomized_fallback(library_name, size, query=query)
+                    self._merge_assets(pool, items)
 
         raw_items = list(pool.values())
-        random.shuffle(raw_items)
-        raw_items = raw_items[:size]
 
         if not raw_items or not query.should_filter_by_owner:
-            return raw_items
+            random.shuffle(raw_items)
+            return raw_items[:size]
 
         current_user_id = await self._current_user_id(key)
-        return self._filter_assets_by_owner(
+        filtered = self._filter_assets_by_owner(
             raw_items,
             current_user_id=current_user_id,
             has_selected_albums=bool(query.album_ids),
             include_shared_albums=query.include_shared_albums,
             include_partner_assets=query.include_partner_assets,
         )
+        random.shuffle(filtered)
+        return filtered[:size]
 
     async def _search_assets_randomized_fallback(
         self,
@@ -286,7 +291,7 @@ class ImmichClient:
             if total is not None and total > size:
                 total_pages = (total + size - 1) // size
                 if total_pages > 1:
-                    extra_page_count = min(4, total_pages - 1)
+                    extra_page_count = min(10, total_pages - 1)
                     pages = random.sample(range(2, total_pages + 1), k=extra_page_count)
                     for page in pages:
                         page_payload = query.build_payload(size, page=page)
@@ -307,7 +312,52 @@ class ImmichClient:
         owner = item.get('owner')
         if isinstance(owner, dict) and owner.get('id') is not None:
             return str(owner['id']).strip()
+        album_users = item.get('albumUsers')
+        if isinstance(album_users, list):
+            for u in album_users:
+                if isinstance(u, dict) and u.get('role') == 'owner':
+                    user_obj = u.get('user')
+                    if isinstance(user_obj, dict) and user_obj.get('id'):
+                        return str(user_obj['id']).strip()
+                    if u.get('userId'):
+                        return str(u['userId']).strip()
+            if album_users and isinstance(album_users[0], dict):
+                first = album_users[0]
+                user_obj = first.get('user')
+                if isinstance(user_obj, dict) and user_obj.get('id'):
+                    return str(user_obj['id']).strip()
+                if first.get('userId'):
+                    return str(first['userId']).strip()
+        user_val = item.get('user')
+        if isinstance(user_val, dict) and user_val.get('id'):
+            return str(user_val['id']).strip()
+        user_id = item.get('userId')
+        if user_id is not None and str(user_id).strip():
+            return str(user_id).strip()
         return ''
+
+    @staticmethod
+    def _is_shared_album(album: dict[str, Any], current_user_id: str | None = None) -> bool:
+        if album.get('shared') is True or album.get('isShared') is True:
+            return True
+        if album.get('shared') is False or album.get('isShared') is False:
+            owner_id = ImmichClient._extract_owner_id(album)
+            return bool(owner_id and current_user_id and owner_id != current_user_id)
+
+        album_users = album.get('albumUsers')
+        if isinstance(album_users, list):
+            if len(album_users) > 1:
+                return True
+            if len(album_users) == 1 and current_user_id:
+                owner_id = ImmichClient._extract_owner_id(album)
+                if owner_id and owner_id != current_user_id:
+                    return True
+
+        owner_id = ImmichClient._extract_owner_id(album)
+        if owner_id and current_user_id and owner_id != current_user_id:
+            return True
+
+        return bool(album.get('sharedUsers') or album.get('sharedWith'))
 
     @staticmethod
     def _filter_assets_by_owner(
@@ -324,18 +374,18 @@ class ImmichClient:
         filtered: list[dict[str, Any]] = []
         for asset in items:
             owner_id = ImmichClient._extract_owner_id(asset)
-            if not owner_id or owner_id == current_user_id:
+            if not owner_id or (current_user_id and owner_id == current_user_id):
                 filtered.append(asset)
                 continue
 
-            is_shared = bool(asset.get('isShared'))
+            is_shared = bool(asset.get('isShared') or asset.get('shared'))
             if (
                 is_shared
                 and include_shared_albums
                 or not is_shared
                 and include_partner_assets
                 or (include_shared_albums or include_partner_assets)
-                and 'isShared' not in asset
+                and ('isShared' not in asset and 'shared' not in asset)
             ):
                 filtered.append(asset)
 

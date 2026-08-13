@@ -82,6 +82,8 @@ class FakeImmichClient:
         size: int = 250,
         include_shared_albums: bool = False,
         include_partner_assets: bool = False,
+        min_date: date | None = None,
+        max_date: date | None = None,
     ) -> list[dict[str, Any]]:
         self.search_calls += 1
         return self.assets

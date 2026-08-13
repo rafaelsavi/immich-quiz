@@ -74,20 +74,24 @@
 
 .multi-select-tag .tag-remove {
   cursor: pointer;
-  opacity: 0.65;
   border: none;
-  background: none;
-  padding: 0 0.1rem;
-  line-height: 1;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
   color: currentColor;
-  font-weight: bold;
-  font-size: 0.88rem;
-  transition: opacity 0.15s ease;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 
 .multi-select-tag .tag-remove:hover {
   opacity: 1;
-  color: var(--accent-2);
+  color: var(--text, #1e293b);
+  background-color: rgba(0, 0, 0, 0.08);
 }
 
 .multi-select-summary {
@@ -131,9 +135,8 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 50%;
   color: #8c97ad;
-  transition: transform 0.2s ease, color 0.15s ease, background-color 0.15s ease;
+  transition: transform 0.2s ease, color 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -142,7 +145,6 @@
 .multi-select-trigger:hover .multi-select-arrow,
 .multi-select-arrow:hover {
   color: var(--text, #1e293b);
-  background-color: rgba(0, 0, 0, 0.08);
 }
 
 .custom-select[aria-expanded="true"] .select-arrow,

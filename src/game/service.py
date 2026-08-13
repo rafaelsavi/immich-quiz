@@ -74,6 +74,8 @@ class GameService:
                 album_ids=setup.album_ids,
                 include_shared_albums=settings.include_shared_albums,
                 include_partner_assets=settings.include_partner_assets,
+                min_date=settings.fetch_photos_date_lower_bound,
+                max_date=settings.fetch_photos_date_upper_bound,
             )
         except ImmichClientError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
