@@ -307,6 +307,7 @@ class ImmichClient:
         owner = item.get('owner')
         if isinstance(owner, dict) and owner.get('id'):
             return str(owner['id']).strip()
+
     @staticmethod
     def _filter_assets_by_owner(
         items: list[dict[str, Any]],

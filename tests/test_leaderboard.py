@@ -138,4 +138,3 @@ def test_leaderboard_multi_album_filter(tmp_path: Path) -> None:
     assert filtered[0].match_id == 'm1'
     assert filtered[0].config['albums'] == 'Europe, Japan'
     assert filtered[0].config['game_mode'] == 'album_shuffle'
-
