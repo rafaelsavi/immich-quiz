@@ -302,11 +302,12 @@ class ImmichClient:
     @staticmethod
     def _extract_owner_id(item: dict[str, Any]) -> str:
         owner_id = item.get('ownerId')
-        if owner_id:
+        if owner_id is not None and str(owner_id).strip():
             return str(owner_id).strip()
         owner = item.get('owner')
-        if isinstance(owner, dict) and owner.get('id'):
+        if isinstance(owner, dict) and owner.get('id') is not None:
             return str(owner['id']).strip()
+        return ''
 
     @staticmethod
     def _filter_assets_by_owner(
