@@ -213,6 +213,7 @@ async def test_list_albums_excludes_shared_albums() -> None:
 
 async def test_list_albums_excludes_modern_shared_albums() -> None:
     """Modern Immich payloads use shared: bool and albumUsers instead of top-level ownerId."""
+
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith('/users/me'):
             return httpx.Response(200, json={'id': 'me-user'})
@@ -497,15 +498,11 @@ async def test_search_random_assets_owner_filtering_with_shared_field() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    items_none = await client.search_random_assets(
-        'family', include_shared_albums=False, include_partner_assets=False
-    )
+    items_none = await client.search_random_assets('family', include_shared_albums=False, include_partner_assets=False)
     items_partner = await client.search_random_assets(
         'family', include_shared_albums=False, include_partner_assets=True
     )
-    items_shared = await client.search_random_assets(
-        'family', include_shared_albums=True, include_partner_assets=False
-    )
+    items_shared = await client.search_random_assets('family', include_shared_albums=True, include_partner_assets=False)
     await client.aclose()
 
     assert [item['id'] for item in items_none] == ['my-photo']

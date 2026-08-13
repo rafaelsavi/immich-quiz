@@ -112,6 +112,11 @@
   font-weight: 600;
 }
 
+#pinpoint-reveal-ui .table-scroll {
+  margin-top: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
 .score-popup {
   position: fixed;
   z-index: 4000;
@@ -321,6 +326,10 @@
   padding-right: 2.5rem;
 }
 
+.mode-btn.multi-select input[type="checkbox"] {
+  display: none !important;
+}
+
 .mode-btn.multi-select::after {
   content: "";
   position.absolute;
@@ -374,3 +383,5 @@
   border-left: 4px solid #0284c7;
   line-height: 1.4;
 }
+
+

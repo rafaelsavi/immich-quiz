@@ -5,13 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-13
+
+### Added
+
+- **Smart Map Zoom (Pinpoint Mode)**: Added dynamic geographic auto-framing for Pinpoint guess maps based on the overall geographic distribution of photos selected for the match, eliminating repetitive manual zooming when playing regional or trip albums.
+- **Regional Focus Map Control**: Added a dedicated "Focus match region" button to Leaflet map toolbars, allowing players to snap back to the album's regional view at any point during a round.
+- **Map Canvas Zoom Bounds Guard**: Implemented dynamic `minZoom` computation on all Leaflet maps to prevent over-zooming out where map tiles are smaller than the container canvas height.
+
+### Changed
+
+- **Setup Screen Organization**: Reordered the match setup screen into clear logical groups: Player Settings (Players, Rounds, Round Length), Library Settings (Library, Albums), and Game Settings (Game Mode, Guessing Mode).
+
 ## [1.1.0] - 2026-08-13
 
 ### Added
 
 - **Searchable Multi-Select Album Selector**: Added a searchable multi-select album dropdown component on the setup screen, allowing real-time text searching of albums, multi-album selection, and batch quick actions (Select All / Deselect All).
-
----
 
 ## [1.0.2] - 2026-08-12
 
@@ -62,8 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Modular Frontend Architecture**: Split monolithic game UI logic into specialized ES modules (`static/js/modules/modes/album_shuffle.js`, `pinpoint.js`, `common.js`).
 - **Modular CSS Architecture**: Refactored monolithic `static/css/style.css` into domain-focused sub-stylesheets
 
----
-
 ## [0.3.0] - 2026-08-08
 
 ### Added
@@ -82,15 +90,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tie-Breaking Logic**: Enhanced leaderboard tie-breaking for equal score results.
 - **General Robustness**: Hardened edge-case handling across map rendering and turn transitions.
 
----
-
 ## [0.2.0] - 2026-08-08
 
 ### Added
 
 - **Interactive Audio Playground**: Introduced a dedicated audio testing route (`/audio-test`) to audition and test Web Audio API sound effects.
-
----
 
 ## [0.1.2] - 2026-08-08
 
@@ -109,8 +113,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Audio Settings Toggle**: Fixed issue where disabling audio feedback did not persist correctly.
-
----
 
 ## [0.1.0] - 2026-08-08
 

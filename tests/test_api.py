@@ -6,7 +6,7 @@ from pathlib import Path
 from conftest import FakeImmichClient, build_client, make_asset, setup_payload
 from fastapi.testclient import TestClient
 
-from src.game.selector import is_asset_valid_for_batch
+from src.game.selector import calculate_match_bounds, is_asset_valid_for_batch
 from src.immich.client import AssetAnswer
 from src.storage.session import RoundAsset
 
@@ -783,3 +783,131 @@ def test_album_shuffle_reselects_batch_when_asset_marked_played(tmp_path: Path) 
     new_photo_ids = [p['photo_id'] for p in q2['batch_photos']]
 
     assert failed_photo_id not in new_photo_ids
+
+
+def test_setup_returns_smart_map_bounds_for_regional_album(tmp_path: Path) -> None:
+    assets = [
+        make_asset('photo-1', latitude=43.7696, longitude=11.2558),  # Florence
+        make_asset('photo-2', latitude=43.7228, longitude=10.4017),  # Pisa (~70 km away)
+        make_asset('photo-3', latitude=43.3188, longitude=11.3308),  # Siena (~50 km away)
+    ]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(
+        game_mode='pinpoint',
+        location_mode=True,
+        date_mode=True,
+        smart_map_zoom=True,
+    )
+    res = client.post('/api/game/setup', json=payload)
+    assert res.status_code == 200
+    data = res.json()
+    assert 'map_bounds' in data
+    assert data['map_bounds'] is not None
+    bounds = data['map_bounds']
+    assert bounds['min_lat'] <= 43.3188
+    assert bounds['max_lat'] >= 43.7696
+    assert bounds['min_lng'] <= 10.4017
+    assert bounds['max_lng'] >= 11.3308
+
+
+def test_setup_smart_map_zoom_disabled_returns_none(tmp_path: Path) -> None:
+    assets = [
+        make_asset('photo-1', latitude=43.7696, longitude=11.2558),
+        make_asset('photo-2', latitude=43.7228, longitude=10.4017),
+    ]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(
+        game_mode='pinpoint',
+        location_mode=True,
+        date_mode=True,
+        smart_map_zoom=False,
+    )
+    res = client.post('/api/game/setup', json=payload)
+    assert res.status_code == 200
+    assert res.json()['map_bounds'] is None
+
+
+def test_setup_smart_map_zoom_disabled_when_location_mode_false(tmp_path: Path) -> None:
+    assets = [make_asset('photo-1', latitude=43.7696, longitude=11.2558)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(
+        game_mode='pinpoint',
+        location_mode=False,
+        date_mode=True,
+        smart_map_zoom=True,
+    )
+    res = client.post('/api/game/setup', json=payload)
+    assert res.status_code == 200
+    assert res.json()['map_bounds'] is None
+
+
+def test_setup_smart_map_zoom_disabled_for_album_shuffle(tmp_path: Path) -> None:
+    assets = [make_asset(f'photo-{i}', latitude=43.76 + i * 0.01, longitude=11.25 + i * 0.01) for i in range(15)]
+    immich = FakeImmichClient(assets)
+    client = build_client(tmp_path, immich)
+
+    payload = setup_payload(
+        game_mode='album_shuffle',
+        location_mode=True,
+        date_mode=True,
+        smart_map_zoom=True,
+    )
+    res = client.post('/api/game/setup', json=payload)
+    assert res.status_code == 200
+    assert res.json()['map_bounds'] is None
+
+
+def test_calculate_match_bounds_single_location() -> None:
+    pool = [AssetAnswer(latitude=48.8584, longitude=2.2945)]  # Eiffel Tower
+    bounds = calculate_match_bounds(pool)
+    assert bounds is not None
+    assert bounds.min_lat == 48.8584
+    assert bounds.max_lat == 48.8584
+    assert bounds.min_lng == 2.2945
+    assert bounds.max_lng == 2.2945
+
+
+def test_calculate_match_bounds_global_fallback() -> None:
+    pool = [
+        AssetAnswer(latitude=48.8584, longitude=2.2945),  # Paris
+        AssetAnswer(latitude=-33.8688, longitude=151.2093),  # Sydney
+        AssetAnswer(latitude=-22.9068, longitude=-43.1729),  # Rio
+    ]
+    bounds = calculate_match_bounds(pool, max_span_km=5000.0)
+    assert bounds is None
+
+
+def test_calculate_match_bounds_empty_and_invalid() -> None:
+    assert calculate_match_bounds([]) is None
+    assert calculate_match_bounds([AssetAnswer(latitude=None, longitude=None)]) is None
+    assert calculate_match_bounds([AssetAnswer(latitude=0.0, longitude=0.0)]) is None
+
+
+def test_calculate_match_bounds_multiple_locations() -> None:
+    answers = [
+        AssetAnswer(latitude=48.8584, longitude=2.2945),
+        AssetAnswer(latitude=48.8606, longitude=2.3376),
+    ]
+    bounds = calculate_match_bounds(
+        answers,
+        max_span_km=1000.0,
+    )
+    assert bounds is not None
+    assert bounds.min_lat == 48.8584
+    assert bounds.max_lat == 48.8606
+
+
+def test_ui_config_returns_runtime_metadata(tmp_path: Path) -> None:
+    client = build_client(tmp_path, FakeImmichClient([]))
+    res = client.get('/api/ui-config')
+    assert res.status_code == 200
+    data = res.json()
+    assert data['language'] == 'EN'
+    assert data['score_max_points'] == 100
+    assert 'version' in data

@@ -1,11 +1,61 @@
-from __future__ import annotations
-
 import random
 from datetime import date
 
 from src.immich.client import AssetAnswer, ImmichClient
+from src.models import MapBounds
 from src.scoring import haversine_km
 from src.storage.session import MatchState, RoundAsset
+
+# Hardcoded Smart Map Zoom internal safeguards
+SMART_MAP_ZOOM_MAX_SPAN_KM: float = 5000.0
+
+
+def calculate_match_bounds(
+    pool: list[AssetAnswer] | dict[str, AssetAnswer],
+    max_span_km: float = SMART_MAP_ZOOM_MAX_SPAN_KM,
+) -> MapBounds | None:
+    """Calculate the geographic bounding box for the match asset pool.
+
+    Anti-spoiler & Privacy safeguards:
+    - Computed match-wide across the whole pool (never per-photo).
+    - If photos span globally (> max_span_km or > 60 deg lat / 90 deg lng), returns None
+      so the client defaults cleanly to standard world view.
+    - The client enforces `maxZoom` in Leaflet `fitBounds`, guaranteeing
+      single-location and city albums never over-zoom to street level regardless of screen size.
+    """
+    answers = pool.values() if isinstance(pool, dict) else pool
+    coords = [
+        (ans.latitude, ans.longitude)
+        for ans in answers
+        if ans.latitude is not None
+        and ans.longitude is not None
+        and not (abs(ans.latitude) < 1e-6 and abs(ans.longitude) < 1e-6)
+    ]
+    if not coords:
+        return None
+
+    lats = [c[0] for c in coords]
+    lngs = [c[1] for c in coords]
+
+    min_lat = min(lats)
+    max_lat = max(lats)
+    min_lng = min(lngs)
+    max_lng = max(lngs)
+
+    lat_span = max_lat - min_lat
+    lng_span = max_lng - min_lng
+
+    # Global check: if span is excessively wide (> 60 deg lat or > 90 deg lng),
+    # or distance between corners exceeds max_span_km, fallback to world view.
+    if lat_span > 60.0 or lng_span > 90.0 or haversine_km(min_lat, min_lng, max_lat, max_lng) > max_span_km:
+        return None
+
+    return MapBounds(
+        min_lat=round(min_lat, 6),
+        max_lat=round(max_lat, 6),
+        min_lng=round(min_lng, 6),
+        max_lng=round(max_lng, 6),
+    )
 
 
 async def load_asset_pool(

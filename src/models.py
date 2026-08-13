@@ -37,12 +37,20 @@ def _validate_and_normalize_players(players: list[str], *, allow_empty: bool = F
     return normalized_players
 
 
+class MapBounds(BaseModel):
+    min_lat: float
+    max_lat: float
+    min_lng: float
+    max_lng: float
+
+
 class GameSetupRequest(BaseModel):
     players: list[str] = Field(min_length=1)
     round_count: int = Field(default=10)
     round_length: RoundLength = RoundLength.minute_1
     location_mode: bool = True
     date_mode: bool = True
+    smart_map_zoom: bool = True
     game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
     album_ids: list[str] = Field(default_factory=list)
@@ -63,6 +71,7 @@ class GameSetupResponse(BaseModel):
     match_id: str
     total_turns: int
     players: list[str]
+    map_bounds: MapBounds | None = None
 
 
 class QuestionRequest(BaseModel):

@@ -570,6 +570,7 @@ function resetGameUi() {
   state.lastReveal = null;
   state.lastSummary = null;
   state.guessedLatLng = null;
+  state.mapBounds = null;
   state.playedAssetIds = [];
   state.roundHistory = [];
   state.perfectCounts = {};
@@ -714,6 +715,7 @@ async function startMatch(event) {
 
   state.matchId = response.match_id;
   state.players = response.players;
+  state.mapBounds = response.map_bounds || null;
   state.playedAssetIds = [];
   state.matchFinished = false;
   state.perfectCounts = {};
@@ -1475,6 +1477,7 @@ async function restartSameGame() {
 
   state.matchId = response.match_id;
   state.players = response.players;
+  state.mapBounds = response.map_bounds || null;
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
 

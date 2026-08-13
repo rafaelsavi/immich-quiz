@@ -24,7 +24,9 @@ import {
 } from "../effects.js";
 import { playChime } from "../audio.js";
 
-const EARLIEST_YEAR = 1950;
+const EARLIEST_YEAR = 1930;
+const SMART_MAP_ZOOM_ENABLED = true;
+const SMART_MAP_MAX_INITIAL_ZOOM = 9;
 
 function stepSelectOption(selectEl, direction) {
   if (!selectEl || selectEl.disabled || selectEl.options.length === 0) {
@@ -536,12 +538,19 @@ export const pinpointMode = {
   },
 
   getModePayload() {
+    const locCard = document.getElementById("card-goal-location");
     const locCheckbox = document.getElementById("goal-location");
+    const dateCard = document.getElementById("card-goal-date");
     const dateCheckbox = document.getElementById("goal-date");
+
+    const locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
+    const dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+
     return {
       game_mode: "pinpoint",
-      location_mode: locCheckbox ? locCheckbox.checked : true,
-      date_mode: dateCheckbox ? dateCheckbox.checked : true,
+      location_mode: locationMode,
+      date_mode: dateMode,
+      smart_map_zoom: SMART_MAP_ZOOM_ENABLED,
     };
   },
 
@@ -580,19 +589,19 @@ export const pinpointMode = {
       el.mediaFrame.classList.add("hidden");
     }
     if (state.guessMap) {
-      try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) {}
+      try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) { }
       state.guessMap = null;
     }
     if (state.guessMarker) {
-      try { state.guessMarker.remove(); } catch (_) {}
+      try { state.guessMarker.remove(); } catch (_) { }
       state.guessMarker = null;
     }
     if (state.revealMap) {
       (state.revealLayers || []).forEach((l) => {
-        try { state.revealMap.removeLayer(l); } catch (_) {}
+        try { state.revealMap.removeLayer(l); } catch (_) { }
       });
       state.revealLayers = [];
-      try { unregisterActiveMap(state.revealMap); state.revealMap.remove(); } catch (_) {}
+      try { unregisterActiveMap(state.revealMap); state.revealMap.remove(); } catch (_) { }
       state.revealMap = null;
     }
     const host = document.getElementById("mode-active-host");
@@ -636,12 +645,24 @@ export const pinpointMode = {
       state.guessMarker.remove();
       state.guessMarker = null;
     }
-    if (state.guessMap) {
-      state.guessMap.setView([20, 0], 2);
-    }
 
     if (questionData.location_mode) {
       ensureGuessMap();
+    }
+
+    if (state.guessMap) {
+      if (SMART_MAP_ZOOM_ENABLED && state.mapBounds) {
+        const bounds = L.latLngBounds(
+          [state.mapBounds.min_lat, state.mapBounds.min_lng],
+          [state.mapBounds.max_lat, state.mapBounds.max_lng]
+        );
+        state.guessMap._regionalBounds = bounds;
+        state.guessMap._regionalOptions = { padding: [40, 40], maxZoom: SMART_MAP_MAX_INITIAL_ZOOM };
+        fitMapToBounds(state.guessMap, bounds, { padding: [40, 40], maxZoom: SMART_MAP_MAX_INITIAL_ZOOM });
+      } else {
+        state.guessMap._regionalBounds = null;
+        state.guessMap.setView([20, 0], 2);
+      }
     }
   },
 
@@ -653,6 +674,13 @@ export const pinpointMode = {
     }
     if (questionData && questionData.location_mode) {
       ensureGuessMap();
+      if (state.guessMap && SMART_MAP_ZOOM_ENABLED && state.mapBounds) {
+        const bounds = L.latLngBounds(
+          [state.mapBounds.min_lat, state.mapBounds.min_lng],
+          [state.mapBounds.max_lat, state.mapBounds.max_lng]
+        );
+        fitMapToBounds(state.guessMap, bounds, { padding: [40, 40], maxZoom: SMART_MAP_MAX_INITIAL_ZOOM });
+      }
     }
   },
 

@@ -19,6 +19,7 @@ export const state = {
   playedAssetIds: [],
   currentQuestion: null,
   guessedLatLng: null,
+  mapBounds: null,
   albumShuffleState: {
     selectedPhotoId: null,
     assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
