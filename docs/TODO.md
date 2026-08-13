@@ -10,7 +10,7 @@ This document lists planned features, design ideas, and technical debt items for
 
 - **Improve Audio Effects / Soundtrack**
 
-- **Smart map zoom**: Dynamically adjust initial pinpoint guess map zoom & framing based on the geographic distribution of photos fetched for the current game session, eliminating tedious manual zooming when playing local/regional albums.
+- [x] **Smart map zoom**: Dynamically adjust initial pinpoint guess map zoom & framing based on the geographic distribution of photos fetched for the current game session, eliminating tedious manual zooming when playing local/regional albums.
   - **Match Bounding Box Calculation**: During `/api/game/setup`, calculate the bounding box (min/max latitude & longitude) encompassing all sampled photos for the match. Return `map_bounds` in `SetupResponse`.
   - **Anti-Spoiler & Privacy Safeguards**:
     - **Match-Wide Scope**: Bounds are computed across all rounds in the match (never per-photo), ensuring initial map framing does not reveal the answer to the current round.
@@ -25,7 +25,7 @@ This document lists planned features, design ideas, and technical debt items for
   - **Immich API & Performance**: Immich natively supports `country` parameter filtering in `POST /search/metadata` and `POST /search/random`. Because filtering is processed server-side via Immich's indexed database, performance is fast and sub-second (< 200ms) even with thousands of photos per country.
   - **Implementation**: Add `list_countries(library_name)` to `ImmichClient`, support `country` in `search_assets`/`search_random_assets` payloads, and add a Country selector in the frontend lobby setup UI.
 
-- **Leaderboard availability**: By ditching scores in leaderboard and using only accuracy, game scores can be shared shown simultaneously independently of the round count.
+- **Add more library filter settings**
 
 - **Player statistics**: TBD
 

@@ -202,6 +202,12 @@ export function registerActiveMap(map) {
 
 export function unregisterActiveMap(map) {
   if (map) {
+    if (map._resizeObserver) {
+      try {
+        map._resizeObserver.disconnect();
+      } catch (_) {}
+      map._resizeObserver = null;
+    }
     activeMapRegistry.delete(map);
   }
 }
@@ -228,9 +234,32 @@ export function refitAllMaps() {
 }
 
 /**
+ * Calculates and updates the minimum zoom level so the world map height
+ * (256 * 2^zoom) is never smaller than the map canvas/container's pixel height.
+ * This prevents the map from zooming out so far that grey bars or vertical
+ * repetition appear above and below the world map.
+ */
+export function updateMapMinZoom(map) {
+  if (!map || !map.getContainer) return;
+  try {
+    const container = map.getContainer();
+    if (!container) return;
+    const height = container.clientHeight || container.offsetHeight || 0;
+    if (height <= 0) return;
+    const minZoom = Math.max(1, Math.ceil(Math.log2(height / 256)));
+    if (map.getMinZoom() !== minZoom) {
+      map.setMinZoom(minZoom);
+      if (map.getZoom() < minZoom) {
+        map.setZoom(minZoom);
+      }
+    }
+  } catch (_) {}
+}
+
+/**
  * Standard factory for instantiating Leaflet maps across the application.
- * Ensures uniform options (worldCopyJump: true, zoomControl: false), top-right zoom control,
- * base layer controls, fullscreen toggle, and registration in activeMapRegistry.
+ * Ensures uniform options (worldCopyJump: true, zoomControl: false, dynamic minZoom, maxBounds),
+ * top-right zoom control, base layer controls, fullscreen toggle, and registration in activeMapRegistry.
  */
 export function createStandardMap(containerOrEl, options = {}) {
   if (!window.L) return null;
@@ -240,25 +269,47 @@ export function createStandardMap(containerOrEl, options = {}) {
 
   if (options.existingMap) {
     try {
+      if (options.existingMap._resizeObserver) {
+        options.existingMap._resizeObserver.disconnect();
+      }
       options.existingMap.remove();
       unregisterActiveMap(options.existingMap);
     } catch (_) {}
   }
 
+  const containerHeight = containerEl.clientHeight || containerEl.offsetHeight || 400;
+  const initialMinZoom = Math.max(1, Math.ceil(Math.log2(containerHeight / 256)));
+
   const base = createBaseTileLayers();
   const mapOptions = {
     worldCopyJump: true,
     zoomControl: false,
+    minZoom: initialMinZoom,
+    maxBounds: [[-85.05112878, -Infinity], [85.05112878, Infinity]],
     layers: [base.streets],
     ...options.leafletOptions,
   };
 
   const center = options.center || [20, 0];
-  const zoom = options.zoom !== undefined ? options.zoom : 2;
+  const zoom = options.zoom !== undefined ? Math.max(initialMinZoom, options.zoom) : Math.max(initialMinZoom, 2);
 
   const map = L.map(containerEl, mapOptions).setView(center, zoom);
   map._initialCenter = center;
   map._initialZoom = zoom;
+
+  updateMapMinZoom(map);
+
+  map.on("resize", () => {
+    updateMapMinZoom(map);
+  });
+
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      updateMapMinZoom(map);
+    });
+    ro.observe(containerEl);
+    map._resizeObserver = ro;
+  }
 
   if (options.zoomControl !== false) {
     L.control.zoom({ position: "topright" }).addTo(map);
@@ -612,6 +663,7 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
 export function refitMap(map, forceRefitBounds = false) {
   if (!map) return;
   map.invalidateSize();
+  updateMapMinZoom(map);
   if (forceRefitBounds && map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
     const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
     const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
@@ -717,7 +769,11 @@ export const RESET_ZOOM_SVG = `<svg class="reset-zoom-icon" viewBox="0 0 24 24" 
 
 export function resetMapZoom(map) {
   if (!map) return;
-  if (map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
+  if (map._regionalBounds && typeof map._regionalBounds.isValid === "function" && map._regionalBounds.isValid()) {
+    const padding = (map._regionalOptions && map._regionalOptions.padding) || [40, 40];
+    const maxZoom = (map._regionalOptions && map._regionalOptions.maxZoom !== undefined) ? map._regionalOptions.maxZoom : 6;
+    fitMapToBounds(map, map._regionalBounds, { padding, maxZoom });
+  } else if (map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
     const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
     const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
     map.fitBounds(map._lastFitBounds, { padding, maxZoom });
@@ -732,9 +788,10 @@ export function createMapResetZoomButton(map) {
   const btn = document.createElement("button");
   btn.type = "button";
   btn.className = "map-reset-zoom-btn leaflet-control";
-  btn.title = t("map.reset_zoom_title");
-  btn.setAttribute("data-i18n-title", "map.reset_zoom_title");
-  btn.setAttribute("aria-label", t("map.reset_zoom_title"));
+  const titleKey = map && map._regionalBounds ? "map.focus_region_title" : "map.reset_zoom_title";
+  btn.title = t(titleKey);
+  btn.setAttribute("data-i18n-title", titleKey);
+  btn.setAttribute("aria-label", t(titleKey));
   btn.innerHTML = RESET_ZOOM_SVG;
   btn.addEventListener("click", (e) => {
     e.stopPropagation();

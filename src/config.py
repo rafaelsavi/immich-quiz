@@ -29,7 +29,7 @@ class AppSettings:
     score_max_points: int
     location_score_decay_km: float
     date_score_decay_days: float
-    language: str = 'EN'
+    language: str
 
 
 def _parse_language(value: str) -> str:

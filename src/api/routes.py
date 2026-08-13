@@ -118,11 +118,12 @@ async def game_preflight(
 @router.post('/game/setup', response_model=GameSetupResponse)
 async def game_setup(
     setup: GameSetupRequest,
+    request: Request,
     store: SessionStore = Depends(get_session_store),
     immich: ImmichClient = Depends(get_immich_client),
     game_service: GameService = Depends(get_game_service),
 ) -> GameSetupResponse:
-    return await game_service.setup_game(setup, store, immich)
+    return await game_service.setup_game(setup, request.app.state.settings, store, immich)
 
 
 @router.post('/question', response_model=QuestionResponse)

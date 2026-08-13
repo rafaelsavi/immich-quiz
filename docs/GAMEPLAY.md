@@ -1,75 +1,78 @@
 # How to Play Immich Quiz
 
-Immich Quiz is a pass-and-play trivia game that uses photos from your Immich library. You and your friends take turns on the same device and try to guess where each photo was taken, when it was taken, or both.
+Immich Quiz is a pass-and-play trivia game that tests how well you know your photos. Gather your friends on the same device and take turns guessing where each photo was taken, when it was captured, or both!
+
+---
 
 ## Setting Up a Game
 
-When you open the app, you start on the setup screen. Fill in your game options:
+Customize your match on the setup screen:
 
-| Option           | What it does                                                                                   |
-|------------------|------------------------------------------------------------------------------------------------|
-| **Players**      | Add one or more player names. You can add as many players as you like.                         |
-| **Rounds**       | Choose how many rounds the game will run.                                                      |
-| **Round Length** | Pick a time limit per turn: 30 s, 1 min, 2 min, 5 min, or unlimited.                           |
-| **Library**      | Pick which Immich library to use for photos.                                                    |
-| **Album**        | Optional. Pick an album to narrow the photo pool, or leave blank to use the whole library.     |
-| **Game Mode**    | Choose **Pinpoint** (single photo per turn) or **Album Shuffle** (batch matching & timeline).  |
-| **Guess Mode**   | Choose **Location**, **Date**, or **Both**.                                                     |
+| Option           | Description                                                                                     |
+|------------------|-------------------------------------------------------------------------------------------------|
+| **Players**      | Enter player names separated by commas (e.g. `Alice, Bob, Charlie`).                            |
+| **Rounds**       | Choose the length of the game: **5**, **10**, or **20** rounds.                                 |
+| **Round Length** | Set a turn timer: **30s**, **1 min**, **2 min**, **5 min**, or **Unlimited**.                   |
+| **Library**      | Select which Immich library to pull photos from.                                                |
+| **Album**        | Optional. Search and pick one or more albums to quiz from, or leave empty for the full library. |
+| **Game Mode**    | Choose **Pinpoint** (one photo per turn) or **Album Shuffle** (match 3 photos at once).         |
+| **Guess Mode**   | Choose to guess **Location**, **Date**, or **Both**.                                            |
 
-Press **Start** when you're ready. The game checks that the selected library or album has enough eligible photos for your settings before it begins. You can also switch the UI language between **English** and **Portuguese** at any time using the header language toggle button.
+Press **Start Match** when you are ready. You can also change the interface language between **English** and **Portuguese** at any time using the header button.
+
+---
 
 ## Game Modes
 
 ### 🎯 Pinpoint
 
-In **Pinpoint**, everyone takes turns guessing one photo at a time.
+In **Pinpoint**, players take turns guessing photos individually.
 
-#### Pass-device overlay
+#### 1. Pass the Device
 
-Before your turn, a screen appears that hides the photo. Hand the device to the active player and press **Ready** to reveal the photo.
+Before each turn, a privacy screen hides the upcoming photo. Hand the device to the active player and press **I'm Ready** to start the turn.
 
-#### Your turn
+#### 2. Make Your Guess
 
-A single photo is shown to the active player.
+- **Location**: Drag and drop your pin on the interactive world map. You can zoom freely or open the map in fullscreen.
+- **Date**: Pick the month and year you think the photo was taken (you can also scroll your mouse wheel over the selectors to quickly spin through dates).
+- **Smart Auto-Framing**: When playing regional or vacation albums, the guess map automatically opens framed to that region so you don't have to zoom in from across the globe on every turn. If you ever pan away, tap the **Focus region** map button to snap back instantly.
+- Tap **Submit** when you are done. If the turn timer expires, your pin and date are submitted automatically.
 
-- **Location mode**: a map appears. Drag and drop a pin where you think the photo was taken. You can zoom or open the map in fullscreen. Place the pin anywhere on the globe.
-- **Date mode**: a month/year picker appears. Choose the month and year you think the photo was taken. You can also scroll your mouse wheel over the month and year boxes to quickly adjust dates.
-- Press **Submit** when you are done. If a countdown is running, the turn auto-submits when time runs out.
+#### 3. The Reveal
 
-#### Reveal
+Once all players have taken their turn, the reveal screen shows:
 
-Once every player in the round has submitted, the reveal screen appears:
+- **Location**: Your pin compared to the actual photo location, linked by a dashed line showing your distance error in kilometers.
+- **Date**: Your guessed date compared to the real month and year.
+- **Points & Badges**: Points awarded based on how close you were. Spot-on guesses earn special celebratory badges!
 
-- **Location**: your pin and the real location are shown on the map, linked by a dashed line. Your distance error is shown in kilometres.
-- **Date**: the real month and year are shown next to your guess.
-
-Your score is calculated from how close your guesses were. See [SCORING.md](SCORING.md) for more details. Great performance can earn a badge; see [AWARDS.md](AWARDS.md) for badge details.
-
-The next round begins with the pass-device overlay for the first player again.
+---
 
 ### 🔀 Album Shuffle
 
-In **Album Shuffle**, you get a batch of 3 photos and must match them to map pins or sort them in chronological order.
+In **Album Shuffle**, players receive a set of 3 photos to solve together.
 
-#### Your turn
+#### 1. Your Turn
 
-Each player sees 3 photo cards in a list.
+- **Location**: Three lettered pins (**A**, **B**, **C**) appear on the map. Tap a photo card to select it, then tap its matching pin on the map.
+- **Date (Timeline)**: Sort the 3 photos chronologically from earliest (top) to latest (bottom) using the ▲ and ▼ reordering buttons.
+- Tap **Submit** when you are finished.
 
-- **Location mode**: a map appears with pins labeled A, B, and C. Click a photo card to select it, then click the map pin where you think that photo was taken to assign it.
-- **Date mode**: sort the 3 images into chronological order (from earliest to latest, top to bottom) using the ▲ and ▼ rank buttons next to each photo card. Photos automatically reorder in real time as ranks are shifted.
-- Press **Submit** when you are finished. If a countdown is running, the turn auto-submits when time runs out.
+#### 2. The Reveal
 
-#### Reveal
+See the real locations and chronology side-by-side, along with each player's score breakdown.
 
-After everyone submits, the game calculates your score based on how accurate your location and date assignments were. See [SCORING.md](SCORING.md) for more details and [AWARDS.md](AWARDS.md) for badge information.
+---
 
-## Photo Variety & Quality
+## Scoring & Achievements
 
-To ensure every match is engaging and fair:
+- **Accuracy Matters**: The closer your pin or date is to reality, the higher your score.
+- **Bonus Badges**: Outstanding performances (like pinpointing within meters or nailing the exact month/year) earn custom achievement badges.
+- Full scoring details are available in [SCORING.md](SCORING.md), and badge criteria in [AWARDS.md](AWARDS.md).
 
-- Photos without valid location data (or Null Island `0,0` coordinates) are automatically filtered out when location guessing is enabled.
-- Photo locations are chosen to be at least 100 metres apart from each other, and photo capture times are chosen at least 1 minute apart, giving you distinct photos to guess every round.
+---
 
 ## Leaderboard
 
-After the final round—or from the setup screen—you can view the leaderboard. It shows past games played with the same settings.
+View high scores and personal bests at the end of every match—or directly from the home screen—filtered by your match settings.

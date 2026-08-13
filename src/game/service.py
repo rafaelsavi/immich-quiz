@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
+from src.game.selector import calculate_match_bounds, load_asset_pool
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     AnswerRequest,
@@ -13,6 +14,7 @@ from src.models import (
     GameMode,
     GameSetupRequest,
     GameSetupResponse,
+    MapBounds,
     MatchSummaryPlayer,
     MatchSummaryResponse,
     PreflightRequest,
@@ -122,6 +124,7 @@ class GameService:
     async def setup_game(
         self,
         setup: GameSetupRequest,
+        settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
     ) -> GameSetupResponse:
@@ -131,10 +134,27 @@ class GameService:
             album_ids=setup.album_ids,
         )
         state = store.create_match(setup)
+
+        map_bounds: MapBounds | None = None
+        if setup.location_mode and setup.smart_map_zoom and setup.game_mode == GameMode.pinpoint:
+            try:
+                await load_asset_pool(
+                    state,
+                    immich,
+                    min_capture_date=settings.fetch_photos_date_lower_bound,
+                    max_capture_date=settings.fetch_photos_date_upper_bound,
+                    include_shared_albums=settings.include_shared_albums,
+                    include_partner_assets=settings.include_partner_assets,
+                )
+                map_bounds = calculate_match_bounds(state.asset_pool)
+            except Exception as exc:
+                logger.warning('Failed to pre-compute match bounds during setup: %s', exc)
+
         return GameSetupResponse(
             match_id=state.match_id,
             total_turns=state.total_turns,
             players=list(state.setup.players),
+            map_bounds=map_bounds,
         )
 
     async def get_question(
