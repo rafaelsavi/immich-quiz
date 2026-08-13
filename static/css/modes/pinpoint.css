@@ -321,6 +321,10 @@
   padding-right: 2.5rem;
 }
 
+.mode-btn.multi-select input[type="checkbox"] {
+  display: none !important;
+}
+
 .mode-btn.multi-select::after {
   content: "";
   position.absolute;

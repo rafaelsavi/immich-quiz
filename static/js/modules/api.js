@@ -52,8 +52,10 @@ export function setupFilterParams() {
   const albumText = selectedOptions.length > 0 ? selectedOptions.map((opt) => opt.textContent).join(", ") : "-";
   const locEl = el.goalLocation;
   const dateEl = el.goalDate;
-  const locationMode = locEl ? Boolean(locEl.checked) : true;
-  const dateMode = dateEl ? Boolean(dateEl.checked) : true;
+  const locCard = document.getElementById("card-goal-location");
+  const dateCard = document.getElementById("card-goal-date");
+  const locationMode = locEl ? Boolean(locEl.checked) : (locCard ? locCard.classList.contains("active") : true);
+  const dateMode = dateEl ? Boolean(dateEl.checked) : (dateCard ? dateCard.classList.contains("active") : true);
   const gameMode = (state && state.gameMode) || (el.gameModeSelect ? el.gameModeSelect.value : "pinpoint");
   const params = new URLSearchParams({
     rounds: el.roundCount ? el.roundCount.value : "10",

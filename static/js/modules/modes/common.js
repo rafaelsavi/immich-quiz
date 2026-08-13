@@ -23,6 +23,19 @@ import { t } from "../i18n.js";
  * @param {HTMLElement} containerEl 
  */
 export function renderGuessingModeSettings(containerEl) {
+  const existingLocCheckbox = document.getElementById("goal-location");
+  const existingDateCheckbox = document.getElementById("goal-date");
+  const existingLocCard = document.getElementById("card-goal-location");
+  const existingDateCard = document.getElementById("card-goal-date");
+
+  let locActive = existingLocCheckbox ? existingLocCheckbox.checked : (existingLocCard ? existingLocCard.classList.contains("active") : true);
+  let dateActive = existingDateCheckbox ? existingDateCheckbox.checked : (existingDateCard ? existingDateCard.classList.contains("active") : true);
+
+  // Safeguard: Ensure at least one mode is active
+  if (!locActive && !dateActive) {
+    locActive = true;
+  }
+
   containerEl.replaceChildren();
 
   const cardsWrap = document.createElement("div");
@@ -31,14 +44,19 @@ export function renderGuessingModeSettings(containerEl) {
   // Location Card
   const locCard = document.createElement("button");
   locCard.type = "button";
-  locCard.className = "mode-btn multi-select active";
+  locCard.className = `mode-btn multi-select ${locActive ? "active" : ""}`;
   locCard.id = "card-goal-location";
+  locCard.setAttribute("role", "checkbox");
+  locCard.setAttribute("aria-checked", String(locActive));
 
   const locCheckbox = document.createElement("input");
   locCheckbox.type = "checkbox";
   locCheckbox.id = "goal-location";
-  locCheckbox.checked = true;
+  locCheckbox.checked = locActive;
   locCheckbox.className = "hidden";
+  locCheckbox.tabIndex = -1;
+  locCheckbox.setAttribute("aria-hidden", "true");
+  locCheckbox.style.display = "none";
 
   const locTitle = document.createElement("span");
   locTitle.className = "mode-title";
@@ -55,14 +73,19 @@ export function renderGuessingModeSettings(containerEl) {
   // Date Card
   const dateCard = document.createElement("button");
   dateCard.type = "button";
-  dateCard.className = "mode-btn multi-select active";
+  dateCard.className = `mode-btn multi-select ${dateActive ? "active" : ""}`;
   dateCard.id = "card-goal-date";
+  dateCard.setAttribute("role", "checkbox");
+  dateCard.setAttribute("aria-checked", String(dateActive));
 
   const dateCheckbox = document.createElement("input");
   dateCheckbox.type = "checkbox";
   dateCheckbox.id = "goal-date";
-  dateCheckbox.checked = true;
+  dateCheckbox.checked = dateActive;
   dateCheckbox.className = "hidden";
+  dateCheckbox.tabIndex = -1;
+  dateCheckbox.setAttribute("aria-hidden", "true");
+  dateCheckbox.style.display = "none";
 
   const dateTitle = document.createElement("span");
   dateTitle.className = "mode-title";
@@ -78,18 +101,27 @@ export function renderGuessingModeSettings(containerEl) {
 
   // Toggle handler enforcing at least 1 selected mode
   const toggleCard = (card, checkbox, otherCheckbox) => {
-    if (checkbox.checked && !otherCheckbox.checked) {
+    const isCurrentlyChecked = checkbox.checked;
+    if (isCurrentlyChecked && !otherCheckbox.checked) {
       card.classList.add("shake-warning");
       setTimeout(() => card.classList.remove("shake-warning"), 400);
       return;
     }
-    checkbox.checked = !checkbox.checked;
-    card.classList.toggle("active", checkbox.checked);
+    const nextState = !isCurrentlyChecked;
+    checkbox.checked = nextState;
+    card.classList.toggle("active", nextState);
+    card.setAttribute("aria-checked", String(nextState));
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));
   };
 
-  locCard.addEventListener("click", () => toggleCard(locCard, locCheckbox, dateCheckbox));
-  dateCard.addEventListener("click", () => toggleCard(dateCard, dateCheckbox, locCheckbox));
+  locCard.addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleCard(locCard, locCheckbox, dateCheckbox);
+  });
+  dateCard.addEventListener("click", (e) => {
+    e.preventDefault();
+    toggleCard(dateCard, dateCheckbox, locCheckbox);
+  });
 
   cardsWrap.append(locCard, dateCard);
   containerEl.append(cardsWrap);
