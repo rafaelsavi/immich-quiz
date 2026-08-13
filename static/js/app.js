@@ -47,9 +47,272 @@ function getActiveMode() {
 const EARLIEST_YEAR = 1950;
 const DEFAULT_MAP_WIDTH_PCT = 67;
 
+/* ------------------------------------------------ album multi-select UI */
+
+let availableAlbums = [];
+const selectedAlbumMap = new Map();
+let albumUiInitialized = false;
+
+function syncNativeAlbumSelect() {
+  if (!el.album) return;
+  const selectedIds = new Set(selectedAlbumMap.keys());
+  Array.from(el.album.options).forEach((opt) => {
+    if (opt.value === "") {
+      opt.selected = selectedIds.size === 0;
+    } else {
+      opt.selected = selectedIds.has(opt.value);
+    }
+  });
+  el.album.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function getSelectedAlbumIds() {
+  return Array.from(selectedAlbumMap.keys());
+}
+
+function getSelectedAlbumNames() {
+  return Array.from(selectedAlbumMap.values());
+}
+
+function updateAlbumTriggerUi() {
+  if (!el.albumSelectValue) return;
+  el.albumSelectValue.replaceChildren();
+
+  const selectedNames = Array.from(selectedAlbumMap.values());
+  const allNamesList = selectedNames.length > 0
+    ? (selectedNames.length > 1
+        ? `Selected albums (${selectedNames.length}):\n• ` + selectedNames.join("\n• ")
+        : selectedNames[0])
+    : "";
+
+  if (selectedAlbumMap.size === 0) {
+    const placeholder = document.createElement("span");
+    placeholder.className = "placeholder";
+    placeholder.setAttribute("data-i18n", "setup.all_photos");
+    placeholder.textContent = t("setup.all_photos");
+    el.albumSelectValue.appendChild(placeholder);
+    if (el.albumSelectClear) el.albumSelectClear.classList.add("hidden");
+    if (el.albumSelectTrigger) el.albumSelectTrigger.removeAttribute("title");
+  } else if (selectedAlbumMap.size <= 3) {
+    if (el.albumSelectTrigger) {
+      el.albumSelectTrigger.title = allNamesList;
+    }
+    selectedAlbumMap.forEach((name, id) => {
+      const tag = document.createElement("span");
+      tag.className = "multi-select-tag";
+      tag.title = name;
+
+      const label = document.createElement("span");
+      label.className = "tag-label";
+      label.textContent = name;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "tag-remove";
+      removeBtn.setAttribute("aria-label", `Remove ${name}`);
+      removeBtn.title = `Remove ${name}`;
+      removeBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      `;
+      removeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleAlbumSelection(id, name);
+      });
+      tag.appendChild(label);
+      tag.appendChild(removeBtn);
+      el.albumSelectValue.appendChild(tag);
+    });
+    if (el.albumSelectClear) el.albumSelectClear.classList.remove("hidden");
+  } else {
+    if (el.albumSelectTrigger) {
+      el.albumSelectTrigger.title = allNamesList;
+    }
+    const summary = document.createElement("span");
+    summary.className = "multi-select-summary";
+    summary.title = allNamesList;
+    summary.textContent = t("setup.albums_selected", selectedAlbumMap.size);
+    el.albumSelectValue.appendChild(summary);
+    if (el.albumSelectClear) el.albumSelectClear.classList.remove("hidden");
+  }
+}
+
+function updateSearchClearVisibility() {
+  if (!el.albumSearchClear || !el.albumSearchInput) return;
+  if (el.albumSearchInput.value.length > 0) {
+    el.albumSearchClear.classList.remove("hidden");
+  } else {
+    el.albumSearchClear.classList.add("hidden");
+  }
+}
+
+function clearAlbumSearch() {
+  if (!el.albumSearchInput) return;
+  el.albumSearchInput.value = "";
+  renderAlbumOptions();
+  el.albumSearchInput.focus();
+}
+
+function renderAlbumOptions() {
+  updateSearchClearVisibility();
+  if (!el.albumOptionsList) return;
+  el.albumOptionsList.replaceChildren();
+
+  const query = el.albumSearchInput ? el.albumSearchInput.value.trim().toLowerCase() : "";
+  const filtered = availableAlbums.filter((a) => a.name.toLowerCase().includes(query));
+
+  if (filtered.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "multi-select-empty";
+    empty.textContent = t("setup.no_albums_found");
+    el.albumOptionsList.appendChild(empty);
+    return;
+  }
+
+  filtered.forEach((album) => {
+    const isSelected = selectedAlbumMap.has(album.id);
+    const item = document.createElement("div");
+    item.className = `multi-select-option ${isSelected ? "selected" : ""}`;
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = isSelected;
+    checkbox.id = `album-opt-${album.id}`;
+
+    const label = document.createElement("span");
+    label.className = "multi-select-option-label";
+    label.textContent = album.name;
+
+    item.appendChild(checkbox);
+    item.appendChild(label);
+
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      toggleAlbumSelection(album.id, album.name);
+    });
+
+    el.albumOptionsList.appendChild(item);
+  });
+}
+
+function toggleAlbumSelection(id, name) {
+  if (selectedAlbumMap.has(id)) {
+    selectedAlbumMap.delete(id);
+  } else {
+    selectedAlbumMap.set(id, name);
+  }
+  syncNativeAlbumSelect();
+  updateAlbumTriggerUi();
+  renderAlbumOptions();
+}
+
+function selectAllAlbums() {
+  const query = el.albumSearchInput ? el.albumSearchInput.value.trim().toLowerCase() : "";
+  const filtered = availableAlbums.filter((a) => a.name.toLowerCase().includes(query));
+  filtered.forEach((a) => selectedAlbumMap.set(a.id, a.name));
+  syncNativeAlbumSelect();
+  updateAlbumTriggerUi();
+  renderAlbumOptions();
+}
+
+function clearAlbumSelection() {
+  selectedAlbumMap.clear();
+  if (el.albumSearchInput) el.albumSearchInput.value = "";
+  syncNativeAlbumSelect();
+  updateAlbumTriggerUi();
+  renderAlbumOptions();
+}
+
+function toggleAlbumDropdown(forceState) {
+  if (!el.albumSelectDropdown) return;
+  const isExpanded = el.albumMultiSelect.getAttribute("aria-expanded") === "true";
+  const newState = forceState !== undefined ? forceState : !isExpanded;
+
+  el.albumMultiSelect.setAttribute("aria-expanded", String(newState));
+  if (newState) {
+    el.albumSelectDropdown.classList.remove("hidden");
+    if (el.albumSearchInput) {
+      el.albumSearchInput.focus();
+    }
+  } else {
+    el.albumSelectDropdown.classList.add("hidden");
+  }
+}
+
+function closeAlbumDropdown() {
+  toggleAlbumDropdown(false);
+}
+
+function initAlbumMultiSelectUi() {
+  if (albumUiInitialized || !el.albumSelectTrigger) return;
+  albumUiInitialized = true;
+
+  el.albumSelectTrigger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleAlbumDropdown();
+  });
+
+  el.albumSelectTrigger.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
+      e.preventDefault();
+      toggleAlbumDropdown(true);
+    } else if (e.key === "Escape") {
+      closeAlbumDropdown();
+    }
+  });
+
+  if (el.albumSearchInput) {
+    el.albumSearchInput.addEventListener("input", () => {
+      renderAlbumOptions();
+    });
+    el.albumSearchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeAlbumDropdown();
+      }
+    });
+  }
+
+  if (el.albumSearchClear) {
+    el.albumSearchClear.addEventListener("click", (e) => {
+      e.stopPropagation();
+      clearAlbumSearch();
+    });
+  }
+
+  if (el.albumSelectClear) {
+    el.albumSelectClear.addEventListener("click", (e) => {
+      e.stopPropagation();
+      clearAlbumSelection();
+    });
+  }
+
+  if (el.albumSelectAll) {
+    el.albumSelectAll.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectAllAlbums();
+    });
+  }
+
+  if (el.albumDeselectAll) {
+    el.albumDeselectAll.addEventListener("click", (e) => {
+      e.stopPropagation();
+      clearAlbumSelection();
+    });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (el.albumMultiSelect && !el.albumMultiSelect.contains(e.target)) {
+      closeAlbumDropdown();
+    }
+  });
+}
+
 /* -------------------------------------------------------- setup + lookups */
 
 async function initLibraries() {
+  initAlbumMultiSelectUi();
   const data = await api("/api/libraries");
   el.library.replaceChildren();
   data.libraries.forEach((name) => {
@@ -71,15 +334,25 @@ async function initAlbums(libraryName) {
   allPhotos.setAttribute("data-i18n", "setup.all_photos");
   allPhotos.textContent = t("setup.all_photos");
   el.album.replaceChildren(allPhotos);
-  const albums = [...data.albums].sort((a, b) =>
-    a.name.localeCompare(b.name, undefined, { sensitivity: "base", numeric: true })
-  );
+  const albums = [...data.albums].sort((a, b) => {
+    const na = (a.name || "").toLowerCase();
+    const nb = (b.name || "").toLowerCase();
+    if (na !== nb) return na.localeCompare(nb);
+    return (a.id || "").localeCompare(b.id || "");
+  });
+  availableAlbums = albums;
+  selectedAlbumMap.clear();
+
   albums.forEach((album) => {
     const option = document.createElement("option");
     option.value = album.id;
     option.textContent = album.name;
     el.album.appendChild(option);
   });
+
+  if (el.albumSearchInput) el.albumSearchInput.value = "";
+  updateAlbumTriggerUi();
+  renderAlbumOptions();
 }
 
 /* ------------------------------------------------- select wheel scroll */
@@ -395,14 +668,18 @@ async function startMatch(event) {
   const activeMode = getActiveMode();
   const modePayload = activeMode.getModePayload();
 
-  const albumId = el.album.value || null;
+  const selectedAlbumIds = getSelectedAlbumIds();
+  const selectedAlbumNames = getSelectedAlbumNames();
+  const albumIds = selectedAlbumIds;
+  const albumName = selectedAlbumNames.length > 0 ? selectedAlbumNames.join(", ") : "-";
+
   const payload = {
     players,
     round_count: Number(el.roundCount.value),
     round_length: el.roundLength.value,
     library_name: el.library.value,
-    album_id: albumId,
-    album_name: albumId ? el.album.options[el.album.selectedIndex].text : "-",
+    album_ids: albumIds,
+    album_name: albumName,
     ...modePayload,
   };
 

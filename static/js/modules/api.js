@@ -48,11 +48,8 @@ export async function api(path, options = {}) {
  * leaderboard entries filtered to that exact game configuration.
  */
 export function setupFilterParams() {
-  const albumId = el.album && el.album.value ? el.album.value : null;
-  const albumText =
-    albumId && el.album && el.album.options && el.album.selectedIndex >= 0
-      ? el.album.options[el.album.selectedIndex].text
-      : "-";
+  const selectedOptions = el.album ? Array.from(el.album.selectedOptions).filter((opt) => opt.value !== "") : [];
+  const albumText = selectedOptions.length > 0 ? selectedOptions.map((opt) => opt.textContent).join(", ") : "-";
   const locEl = el.goalLocation;
   const dateEl = el.goalDate;
   const locationMode = locEl ? Boolean(locEl.checked) : true;

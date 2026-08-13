@@ -324,6 +324,10 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
     assert len(entries) == 1
     assert entries[0]['total_score'] == 1000
 
+    filtered_albums = client.get('/api/leaderboard?albums=-').json()
+    assert len(filtered_albums) == 1
+    assert filtered_albums[0]['config']['albums'] == '-'
+
 
 def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> None:
     immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(6)])
@@ -391,13 +395,13 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
 
 
 def test_album_name_is_resolved_server_side(client: TestClient) -> None:
-    match_id = start_match(client, album_id='album-1', album_name='Spoofed Album')
+    match_id = start_match(client, album_ids=['album-1'], album_name='Spoofed Album')
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
     assert question['album_name'] == 'Holidays'
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
-    response = client.post('/api/game/setup', json=setup_payload(album_id='does-not-exist'))
+    response = client.post('/api/game/setup', json=setup_payload(album_ids=['does-not-exist']))
     assert response.status_code == 400
 
 

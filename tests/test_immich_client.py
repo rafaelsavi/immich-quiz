@@ -81,17 +81,17 @@ def test_unparseable_date_rejected_in_date_mode() -> None:
 
 def test_date_lower_bound_filters_older_assets() -> None:
     older = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2020-01-01T10:11:12Z'})
-    assert ImmichClient.is_eligible_asset(older, False, False, min_capture_date=date(2021, 1, 1)) is False
+    assert ImmichClient.is_eligible_asset(older, False, False, min_date=date(2021, 1, 1)) is False
 
 
 def test_date_upper_bound_filters_newer_assets() -> None:
     newer = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2025-01-01T10:11:12Z'})
-    assert ImmichClient.is_eligible_asset(newer, False, False, max_capture_date=date(2024, 12, 31)) is False
+    assert ImmichClient.is_eligible_asset(newer, False, False, max_date=date(2024, 12, 31)) is False
 
 
 def test_date_bounds_require_parseable_date() -> None:
     bad_date = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': 'nope'}, fileCreatedAt=None)
-    assert ImmichClient.is_eligible_asset(bad_date, False, False, min_capture_date=date(2021, 1, 1)) is False
+    assert ImmichClient.is_eligible_asset(bad_date, False, False, min_date=date(2021, 1, 1)) is False
 
 
 def test_valid_asset_accepted() -> None:
@@ -104,8 +104,8 @@ def test_asset_within_date_bounds_is_accepted() -> None:
             asset(),
             True,
             True,
-            min_capture_date=date(2024, 1, 1),
-            max_capture_date=date(2024, 12, 31),
+            min_date=date(2024, 1, 1),
+            max_date=date(2024, 12, 31),
         )
         is True
     )
@@ -208,6 +208,90 @@ async def test_list_albums_excludes_shared_albums() -> None:
     assert albums == [
         {'id': 'album-3', 'name': 'Also Mine'},
         {'id': 'album-1', 'name': 'Mine'},
+    ]
+
+
+async def test_list_albums_excludes_modern_shared_albums() -> None:
+    """Modern Immich payloads use shared: bool and albumUsers instead of top-level ownerId."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/albums'):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        'id': 'album-private',
+                        'albumName': 'Private Trip',
+                        'shared': False,
+                        'albumUsers': [{'role': 'owner', 'userId': 'me-user'}],
+                    },
+                    {
+                        'id': 'album-shared-with-me',
+                        'albumName': 'Family Shared By Bob',
+                        'shared': True,
+                        'albumUsers': [
+                            {'role': 'owner', 'userId': 'other-user'},
+                            {'role': 'viewer', 'userId': 'me-user'},
+                        ],
+                    },
+                    {
+                        'id': 'album-shared-by-me',
+                        'albumName': 'My Album Shared To Family',
+                        'shared': True,
+                        'albumUsers': [
+                            {'role': 'owner', 'userId': 'me-user'},
+                            {'role': 'editor', 'userId': 'other-user'},
+                        ],
+                    },
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    albums = await client.list_albums('family', include_shared_albums=False)
+    await client.aclose()
+
+    # Only private album should be returned
+    assert albums == [
+        {'id': 'album-private', 'name': 'Private Trip'},
+    ]
+
+
+async def test_list_albums_includes_modern_shared_albums_when_true() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/albums'):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        'id': 'album-private',
+                        'albumName': 'Private Trip',
+                        'shared': False,
+                        'albumUsers': [{'role': 'owner', 'userId': 'me-user'}],
+                    },
+                    {
+                        'id': 'album-shared-with-me',
+                        'albumName': 'Family Shared By Bob',
+                        'shared': True,
+                        'albumUsers': [
+                            {'role': 'owner', 'userId': 'other-user'},
+                            {'role': 'viewer', 'userId': 'me-user'},
+                        ],
+                    },
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    albums = await client.list_albums('family', include_shared_albums=True)
+    await client.aclose()
+
+    assert albums == [
+        {'id': 'album-shared-with-me', 'name': 'Family Shared By Bob'},
+        {'id': 'album-private', 'name': 'Private Trip'},
     ]
 
 
@@ -384,13 +468,49 @@ async def test_search_random_assets_owner_filtering_selected_album() -> None:
     client = build_client(handler)
     items = await client.search_random_assets(
         'family',
-        album_id='album-shared',
+        album_ids=['album-shared'],
         include_shared_albums=False,
         include_partner_assets=False,
     )
     await client.aclose()
 
     assert [item['id'] for item in items] == ['shared-album-photo']
+
+
+async def test_search_random_assets_owner_filtering_with_shared_field() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/random'):
+            return httpx.Response(
+                200,
+                json={
+                    'assets': {
+                        'items': [
+                            asset(id='my-photo', ownerId='me-user'),
+                            asset(id='shared-photo', ownerId='other-user', shared=True),
+                            asset(id='partner-photo', ownerId='partner-user', shared=False),
+                        ]
+                    }
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items_none = await client.search_random_assets(
+        'family', include_shared_albums=False, include_partner_assets=False
+    )
+    items_partner = await client.search_random_assets(
+        'family', include_shared_albums=False, include_partner_assets=True
+    )
+    items_shared = await client.search_random_assets(
+        'family', include_shared_albums=True, include_partner_assets=False
+    )
+    await client.aclose()
+
+    assert [item['id'] for item in items_none] == ['my-photo']
+    assert set(item['id'] for item in items_partner) == {'my-photo', 'partner-photo'}
+    assert set(item['id'] for item in items_shared) == {'my-photo', 'shared-photo'}
 
 
 async def test_immich_client_async_context_manager() -> None:
@@ -445,7 +565,7 @@ async def test_search_assets_lazy_loads_users_me_when_album_targeted_or_all_shar
 
     client = build_client(handler)
 
-    items1 = await client.search_assets('family', album_id='album-1')
+    items1 = await client.search_assets('family', album_ids=['album-1'])
     assert users_me_called is False
     assert len(items1) == 1
 
@@ -464,24 +584,24 @@ def test_extract_owner_id() -> None:
 
 
 def test_build_search_payload() -> None:
-    payload1 = ImmichClient._build_search_payload(250)
+    from src.immich.client import SearchQuery
+
+    payload1 = SearchQuery().build_payload(250)
     assert payload1 == {'size': 250, 'withExif': True}
 
-    payload2 = ImmichClient._build_search_payload(
-        10,
-        album_id='album-123',
-        page=2,
+    payload2 = SearchQuery(
+        album_ids=('album-123',),
         include_shared_albums=True,
         include_partner_assets=True,
-    )
+    ).build_payload(10, page=2)
     assert payload2 == {
         'size': 10,
         'page': 2,
         'withExif': True,
         'albumIds': ['album-123'],
         'withPartners': True,
+        'isShared': True,
     }
-    assert 'isShared' not in payload2
 
 
 def test_search_query_build_payload() -> None:
@@ -490,7 +610,7 @@ def test_search_query_build_payload() -> None:
     from src.immich.client import SearchQuery
 
     q = SearchQuery(
-        album_id='album-1',
+        album_ids=('album-1',),
         include_shared_albums=True,
         include_partner_assets=True,
         min_date=date(2020, 1, 1),
@@ -503,16 +623,112 @@ def test_search_query_build_payload() -> None:
         'withExif': True,
         'albumIds': ['album-1'],
         'withPartners': True,
-        'createdAfter': '2020-01-01T00:00:00.000Z',
-        'createdBefore': '2024-12-31T23:59:59.999Z',
+        'isShared': True,
+        'takenAfter': '2020-01-01T00:00:00.000Z',
+        'takenBefore': '2024-12-31T23:59:59.999Z',
     }
-    assert 'isShared' not in payload  # album_id is set
 
 
 def test_search_query_should_filter_by_owner() -> None:
     from src.immich.client import SearchQuery
 
-    assert SearchQuery(album_id='album-1').should_filter_by_owner is False
+    assert SearchQuery(album_ids=('album-1',)).should_filter_by_owner is False
     assert SearchQuery(include_shared_albums=True, include_partner_assets=True).should_filter_by_owner is False
     assert SearchQuery(include_shared_albums=True, include_partner_assets=False).should_filter_by_owner is True
     assert SearchQuery().should_filter_by_owner is True
+
+
+def test_extract_asset_items_list_format() -> None:
+    raw = {'assets': [{'id': 'a1'}, {'id': 'a2'}]}
+    items = ImmichClient._extract_asset_items(raw)
+    assert [x['id'] for x in items] == ['a1', 'a2']
+
+
+def test_exif_fallback_top_level() -> None:
+    asset = {'id': 'a1', 'latitude': 48.8584, 'longitude': 2.2945, 'dateTimeOriginal': '2023-06-15T12:00:00Z'}
+    exif = ImmichClient._exif(asset)
+    assert exif['latitude'] == 48.8584
+    assert exif['longitude'] == 2.2945
+    assert exif['dateTimeOriginal'] == '2023-06-15T12:00:00Z'
+    assert ImmichClient.is_eligible_asset(asset, location_mode=True, date_mode=True) is True
+
+
+async def test_search_random_assets_album_get_fallback() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/random') or request.url.path.endswith('/search/metadata'):
+            return httpx.Response(200, json={'assets': []})
+        if '/albums/album-fallback' in request.url.path:
+            return httpx.Response(
+                200,
+                json={
+                    'id': 'album-fallback',
+                    'assets': [
+                        asset(id='photo-in-album', latitude=10.0, longitude=20.0),
+                    ],
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets('family', album_ids=['album-fallback'])
+    await client.aclose()
+
+    assert [item['id'] for item in items] == ['photo-in-album']
+
+
+async def test_search_random_assets_multiple_albums_or_query() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/random') or request.url.path.endswith('/search/metadata'):
+            body = request.read().decode('utf-8')
+            if 'album-1' in body:
+                return httpx.Response(200, json={'assets': [{'id': 'photo-album-1'}]})
+            if 'album-2' in body:
+                return httpx.Response(200, json={'assets': [{'id': 'photo-album-2'}]})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets('family', album_ids=['album-1', 'album-2'])
+    await client.aclose()
+
+    item_ids = set(item['id'] for item in items)
+    assert item_ids == {'photo-album-1', 'photo-album-2'}
+
+
+async def test_search_random_assets_with_date_bounds_uses_metadata_search() -> None:
+    recorded_endpoints: list[str] = []
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        recorded_endpoints.append(request.url.path)
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/metadata'):
+            data = json.loads(request.content.decode('utf-8'))
+            recorded_payloads.append(data)
+            return httpx.Response(
+                200,
+                json={
+                    'total': 100,
+                    'assets': {
+                        'items': [
+                            asset(id='vintage-photo', ownerId='me-user', dateTimeOriginal='1999-05-20T10:00:00Z'),
+                        ]
+                    },
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_random_assets(
+        'family',
+        min_date=date(1990, 1, 1),
+        max_date=date(2000, 12, 31),
+    )
+    await client.aclose()
+
+    assert any(ep.endswith('/search/metadata') for ep in recorded_endpoints)
+    assert not any(ep.endswith('/search/random') for ep in recorded_endpoints)
+    assert len(recorded_payloads) > 0
+    assert recorded_payloads[0].get('takenAfter') == '1990-01-01T00:00:00.000Z'
+    assert recorded_payloads[0].get('takenBefore') == '2000-12-31T23:59:59.999Z'
+    assert [item['id'] for item in items] == ['vintage-photo']

@@ -33,9 +33,14 @@ class GameService:
     def __init__(self, registry: GameModeRegistry | None = None) -> None:
         self.registry = registry or default_game_mode_registry
 
-    async def resolve_album_name(self, immich: ImmichClient, library_name: str, album_id: str | None) -> str:
+    async def resolve_album_name(
+        self,
+        immich: ImmichClient,
+        library_name: str,
+        album_ids: list[str] | None = None,
+    ) -> str:
         """Resolve the album label server-side so clients cannot spoof leaderboard metadata."""
-        if not album_id:
+        if not album_ids:
             return '-'
 
         try:
@@ -43,10 +48,19 @@ class GameService:
         except ImmichClientError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        for album in albums:
-            if album.get('id') == album_id:
-                return album.get('name', '-')
-        raise HTTPException(status_code=400, detail=f'Unknown album_id for library {library_name}')
+        album_map = {
+            str(album.get('id', '')).strip(): str(album.get('name', '-')).strip()
+            for album in albums
+            if isinstance(album, dict) and album.get('id')
+        }
+        names: list[str] = []
+        for aid in album_ids:
+            if aid not in album_map:
+                raise HTTPException(status_code=400, detail=f'Unknown album_id for library {library_name}')
+            names.append(album_map[aid])
+
+        names.sort(key=lambda s: (s.lower(), s))
+        return ', '.join(names) if names else '-'
 
     async def preflight(
         self,
@@ -57,9 +71,11 @@ class GameService:
         try:
             raw_assets = await immich.search_random_assets(
                 setup.library_name,
-                setup.album_id,
+                album_ids=setup.album_ids,
                 include_shared_albums=settings.include_shared_albums,
                 include_partner_assets=settings.include_partner_assets,
+                min_date=settings.fetch_photos_date_lower_bound,
+                max_date=settings.fetch_photos_date_upper_bound,
             )
         except ImmichClientError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -71,6 +87,15 @@ class GameService:
             active_filters.append('date')
         if settings.fetch_photos_date_lower_bound or settings.fetch_photos_date_upper_bound:
             active_filters.append('date_range')
+
+        logger.debug(
+            'preflight: album_ids=%s, library=%s, location_mode=%s, date_mode=%s, raw_assets_count=%d',
+            setup.album_ids,
+            setup.library_name,
+            setup.location_mode,
+            setup.date_mode,
+            len(raw_assets),
+        )
 
         eligible_count = sum(
             1
@@ -100,7 +125,11 @@ class GameService:
         store: SessionStore,
         immich: ImmichClient,
     ) -> GameSetupResponse:
-        setup.album_name = await self.resolve_album_name(immich, setup.library_name, setup.album_id)
+        setup.album_name = await self.resolve_album_name(
+            immich,
+            setup.library_name,
+            album_ids=setup.album_ids,
+        )
         state = store.create_match(setup)
         return GameSetupResponse(
             match_id=state.match_id,

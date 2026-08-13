@@ -33,7 +33,7 @@ class AssetAnswer:
 
 @dataclass(frozen=True)
 class SearchQuery:
-    album_id: str | None = None
+    album_ids: tuple[str, ...] = ()
     include_shared_albums: bool = False
     include_partner_assets: bool = False
     min_date: date | None = None
@@ -41,7 +41,7 @@ class SearchQuery:
 
     @property
     def should_filter_by_owner(self) -> bool:
-        if self.album_id:
+        if self.album_ids:
             return False
         return not (self.include_shared_albums and self.include_partner_assets)
 
@@ -49,16 +49,16 @@ class SearchQuery:
         payload: dict[str, Any] = {'size': size, 'withExif': True}
         if page is not None:
             payload['page'] = page
-        if self.album_id:
-            payload['albumIds'] = [self.album_id]
-        if self.include_partner_assets:
+        if self.album_ids:
+            payload['albumIds'] = list(self.album_ids)
+        if self.include_partner_assets or self.album_ids:
             payload['withPartners'] = True
-        if self.include_shared_albums and not self.album_id:
+        if self.include_shared_albums or self.album_ids:
             payload['isShared'] = True
         if self.min_date:
-            payload['createdAfter'] = f'{self.min_date.isoformat()}T00:00:00.000Z'
+            payload['takenAfter'] = f'{self.min_date.isoformat()}T00:00:00.000Z'
         if self.max_date:
-            payload['createdBefore'] = f'{self.max_date.isoformat()}T23:59:59.999Z'
+            payload['takenBefore'] = f'{self.max_date.isoformat()}T23:59:59.999Z'
         return payload
 
 
@@ -109,28 +109,6 @@ class ImmichClient:
         payload = {'size': 1, 'page': 1, 'withExif': True}
         await self._request_json('POST', '/search/metadata', key, json=payload)
 
-    @staticmethod
-    def _build_search_payload(
-        size: int,
-        album_id: str | None = None,
-        *,
-        query: SearchQuery | None = None,
-        page: int | None = None,
-        include_shared_albums: bool = False,
-        include_partner_assets: bool = False,
-        min_date: date | None = None,
-        max_date: date | None = None,
-    ) -> dict[str, Any]:
-        if query is None:
-            query = SearchQuery(
-                album_id=album_id,
-                include_shared_albums=include_shared_albums,
-                include_partner_assets=include_partner_assets,
-                min_date=min_date,
-                max_date=max_date,
-            )
-        return query.build_payload(size, page=page)
-
     async def list_albums(self, library_name: str, include_shared_albums: bool = False) -> list[dict[str, str]]:
         key = self._library_key(library_name)
         raw = await self._request_json('GET', '/albums', key)
@@ -138,20 +116,15 @@ class ImmichClient:
         raw_count = len(raw) if isinstance(raw, list) else 0
         if isinstance(raw, list):
             current_user_id: str | None = None
+            if not include_shared_albums:
+                current_user_id = await self._current_user_id(key)
             for album in raw:
                 if not isinstance(album, dict):
                     continue
-                owner_id = self._album_owner_id(album)
-                # Only filter when owner is *positively* identified as another user.
-                # If owner_id is empty (API field name changed / unknown format),
-                # include the album rather than silently drop it.
-                if owner_id and not include_shared_albums:
-                    if current_user_id is None:
-                        current_user_id = await self._current_user_id(key)
-                    if owner_id != current_user_id:
-                        continue
+                if not include_shared_albums and self._is_shared_album(album, current_user_id):
+                    continue
                 album_id = str(album.get('id', '')).strip()
-                album_name = str(album.get('albumName', '')).strip()
+                album_name = str(album.get('albumName', '') or album.get('name', '')).strip()
                 if album_id and album_name:
                     items.append({'id': album_id, 'name': album_name})
         items.sort(key=lambda item: (item['name'].lower(), item['id']))
@@ -167,7 +140,7 @@ class ImmichClient:
     async def search_assets(
         self,
         library_name: str,
-        album_id: str | None = None,
+        album_ids: list[str] | None = None,
         *,
         query: SearchQuery | None = None,
         include_shared_albums: bool = False,
@@ -179,32 +152,43 @@ class ImmichClient:
     ) -> list[dict[str, Any]]:
         if query is None:
             query = SearchQuery(
-                album_id=album_id,
+                album_ids=tuple(album_ids) if album_ids else (),
                 include_shared_albums=include_shared_albums,
                 include_partner_assets=include_partner_assets,
                 min_date=min_date,
                 max_date=max_date,
             )
         key = self._library_key(library_name)
+
         payload = query.build_payload(size, page=page)
 
         raw = await self._request_json('POST', '/search/metadata', key, json=payload)
         items = self._extract_asset_items(raw)
+        if not items and query.album_ids:
+            items = await self._fetch_album_assets(key, query.album_ids[0])
+
         if not items or not query.should_filter_by_owner:
             return items
         current_user_id = await self._current_user_id(key)
         return self._filter_assets_by_owner(
             items,
             current_user_id=current_user_id,
-            album_id=query.album_id,
+            has_selected_albums=bool(query.album_ids),
             include_shared_albums=query.include_shared_albums,
             include_partner_assets=query.include_partner_assets,
         )
 
+    async def _fetch_album_assets(self, key: str, album_id: str) -> list[dict[str, Any]]:
+        try:
+            album_raw = await self._request_json('GET', f'/albums/{album_id}', key)
+            return self._extract_asset_items(album_raw)
+        except ImmichClientError:
+            return []
+
     async def search_random_assets(
         self,
         library_name: str,
-        album_id: str | None = None,
+        album_ids: list[str] | None = None,
         size: int = 250,
         include_shared_albums: bool = False,
         include_partner_assets: bool = False,
@@ -213,56 +197,78 @@ class ImmichClient:
         min_date: date | None = None,
         max_date: date | None = None,
     ) -> list[dict[str, Any]]:
-        """Draw a randomized candidate pool.
-
-        Metadata search always returns the same first page, which makes matches
-        repetitive. Immich's random search spreads selection across the whole
-        library; fall back to metadata search if it is unavailable.
-        """
+        """Draw a randomized candidate pool."""
         if query is None:
             query = SearchQuery(
-                album_id=album_id,
+                album_ids=tuple(album_ids) if album_ids else (),
                 include_shared_albums=include_shared_albums,
                 include_partner_assets=include_partner_assets,
                 min_date=min_date,
                 max_date=max_date,
             )
         key = self._library_key(library_name)
-        payload = query.build_payload(size)
+        pool: dict[str, dict[str, Any]] = {}
 
-        raw_items: list[dict[str, Any]] = []
-        try:
-            unique_assets: dict[str, dict[str, Any]] = {}
-            for _ in range(3):
-                raw = await self._request_json('POST', '/search/random', key, json=payload)
-                self._merge_assets(unique_assets, self._extract_asset_items(raw))
-                if len(unique_assets) >= size:
-                    break
-            if unique_assets:
-                items = list(unique_assets.values())
-                random.shuffle(items)
-                raw_items = items[:size]
-        except ImmichClientError:
-            pass
+        if query.album_ids:
+            for album_id in query.album_ids:
+                single_query = SearchQuery(
+                    album_ids=(album_id,),
+                    include_shared_albums=query.include_shared_albums,
+                    include_partner_assets=query.include_partner_assets,
+                    min_date=query.min_date,
+                    max_date=query.max_date,
+                )
+                items: list[dict[str, Any]] = []
+                try:
+                    raw = await self._request_json('POST', '/search/random', key, json=single_query.build_payload(size))
+                    items = self._extract_asset_items(raw)
+                except ImmichClientError:
+                    pass
 
-        if not raw_items:
-            raw_items = await self._search_assets_randomized_fallback(
-                library_name,
-                size,
-                query=query,
-            )
+                if not items:
+                    items = await self._search_assets_randomized_fallback(library_name, size, query=single_query)
+
+                if not items:
+                    items = await self._fetch_album_assets(key, album_id)
+
+                self._merge_assets(pool, items)
+        else:
+            payload = query.build_payload(size)
+            if query.min_date or query.max_date:
+                # When date filters are applied, use metadata search with takenAfter/takenBefore
+                # and page sampling to accurately sample from the filtered population.
+                items = await self._search_assets_randomized_fallback(library_name, size, query=query)
+                self._merge_assets(pool, items)
+            else:
+                try:
+                    for _ in range(3):
+                        raw = await self._request_json('POST', '/search/random', key, json=payload)
+                        self._merge_assets(pool, self._extract_asset_items(raw))
+                        if len(pool) >= size:
+                            break
+                except ImmichClientError:
+                    pass
+
+                if not pool:
+                    items = await self._search_assets_randomized_fallback(library_name, size, query=query)
+                    self._merge_assets(pool, items)
+
+        raw_items = list(pool.values())
 
         if not raw_items or not query.should_filter_by_owner:
-            return raw_items
+            random.shuffle(raw_items)
+            return raw_items[:size]
 
         current_user_id = await self._current_user_id(key)
-        return self._filter_assets_by_owner(
+        filtered = self._filter_assets_by_owner(
             raw_items,
             current_user_id=current_user_id,
-            album_id=query.album_id,
+            has_selected_albums=bool(query.album_ids),
             include_shared_albums=query.include_shared_albums,
             include_partner_assets=query.include_partner_assets,
         )
+        random.shuffle(filtered)
+        return filtered[:size]
 
     async def _search_assets_randomized_fallback(
         self,
@@ -275,20 +281,24 @@ class ImmichClient:
 
         first_page_payload = query.build_payload(size, page=1)
 
-        first_raw = await self._request_json('POST', '/search/metadata', key, json=first_page_payload)
         unique_assets: dict[str, dict[str, Any]] = {}
-        self._merge_assets(unique_assets, self._extract_asset_items(first_raw))
+        try:
+            first_raw = await self._request_json('POST', '/search/metadata', key, json=first_page_payload)
+            extracted = self._extract_asset_items(first_raw)
+            self._merge_assets(unique_assets, extracted)
 
-        total = self._extract_total_assets(first_raw)
-        if total is not None and total > size:
-            total_pages = (total + size - 1) // size
-            if total_pages > 1:
-                extra_page_count = min(4, total_pages - 1)
-                pages = random.sample(range(2, total_pages + 1), k=extra_page_count)
-                for page in pages:
-                    page_payload = query.build_payload(size, page=page)
-                    raw = await self._request_json('POST', '/search/metadata', key, json=page_payload)
-                    self._merge_assets(unique_assets, self._extract_asset_items(raw))
+            total = self._extract_total_assets(first_raw)
+            if total is not None and total > size:
+                total_pages = (total + size - 1) // size
+                if total_pages > 1:
+                    extra_page_count = min(10, total_pages - 1)
+                    pages = random.sample(range(2, total_pages + 1), k=extra_page_count)
+                    for page in pages:
+                        page_payload = query.build_payload(size, page=page)
+                        raw = await self._request_json('POST', '/search/metadata', key, json=page_payload)
+                        self._merge_assets(unique_assets, self._extract_asset_items(raw))
+        except ImmichClientError as exc:
+            logger.warning('/search/metadata fallback failed: %s', exc)
 
         items = list(unique_assets.values())
         random.shuffle(items)
@@ -297,49 +307,105 @@ class ImmichClient:
     @staticmethod
     def _extract_owner_id(item: dict[str, Any]) -> str:
         owner_id = item.get('ownerId')
-        if owner_id:
+        if owner_id is not None and str(owner_id).strip():
             return str(owner_id).strip()
         owner = item.get('owner')
-        if isinstance(owner, dict) and owner.get('id'):
+        if isinstance(owner, dict) and owner.get('id') is not None:
             return str(owner['id']).strip()
+        album_users = item.get('albumUsers')
+        if isinstance(album_users, list):
+            for u in album_users:
+                if isinstance(u, dict) and u.get('role') == 'owner':
+                    user_obj = u.get('user')
+                    if isinstance(user_obj, dict) and user_obj.get('id'):
+                        return str(user_obj['id']).strip()
+                    if u.get('userId'):
+                        return str(u['userId']).strip()
+            if album_users and isinstance(album_users[0], dict):
+                first = album_users[0]
+                user_obj = first.get('user')
+                if isinstance(user_obj, dict) and user_obj.get('id'):
+                    return str(user_obj['id']).strip()
+                if first.get('userId'):
+                    return str(first['userId']).strip()
+        user_val = item.get('user')
+        if isinstance(user_val, dict) and user_val.get('id'):
+            return str(user_val['id']).strip()
+        user_id = item.get('userId')
+        if user_id is not None and str(user_id).strip():
+            return str(user_id).strip()
         return ''
 
     @staticmethod
-    def _asset_owner_id(asset: dict[str, Any]) -> str:
-        return ImmichClient._extract_owner_id(asset)
+    def _is_shared_album(album: dict[str, Any], current_user_id: str | None = None) -> bool:
+        if album.get('shared') is True or album.get('isShared') is True:
+            return True
+        if album.get('shared') is False or album.get('isShared') is False:
+            owner_id = ImmichClient._extract_owner_id(album)
+            return bool(owner_id and current_user_id and owner_id != current_user_id)
+
+        album_users = album.get('albumUsers')
+        if isinstance(album_users, list):
+            if len(album_users) > 1:
+                return True
+            if len(album_users) == 1 and current_user_id:
+                owner_id = ImmichClient._extract_owner_id(album)
+                if owner_id and owner_id != current_user_id:
+                    return True
+
+        owner_id = ImmichClient._extract_owner_id(album)
+        if owner_id and current_user_id and owner_id != current_user_id:
+            return True
+
+        return bool(album.get('sharedUsers') or album.get('sharedWith'))
 
     @staticmethod
     def _filter_assets_by_owner(
         items: list[dict[str, Any]],
-        current_user_id: str,
-        album_id: str | None,
-        include_shared_albums: bool,
-        include_partner_assets: bool,
+        *,
+        current_user_id: str | None,
+        has_selected_albums: bool = False,
+        include_shared_albums: bool = False,
+        include_partner_assets: bool = False,
     ) -> list[dict[str, Any]]:
-        if album_id or (include_shared_albums and include_partner_assets):
+        if has_selected_albums or (include_shared_albums and include_partner_assets):
             return items
 
         filtered: list[dict[str, Any]] = []
         for asset in items:
-            owner_id = ImmichClient._asset_owner_id(asset)
-            if not owner_id or owner_id == current_user_id:
+            owner_id = ImmichClient._extract_owner_id(asset)
+            if not owner_id or (current_user_id and owner_id == current_user_id):
                 filtered.append(asset)
                 continue
 
-            if 'isShared' in asset:
-                keep = include_shared_albums if asset['isShared'] else include_partner_assets
-            else:
-                keep = include_shared_albums or include_partner_assets
-
-            if keep:
+            is_shared = bool(asset.get('isShared') or asset.get('shared'))
+            if (
+                is_shared
+                and include_shared_albums
+                or not is_shared
+                and include_partner_assets
+                or (include_shared_albums or include_partner_assets)
+                and ('isShared' not in asset and 'shared' not in asset)
+            ):
                 filtered.append(asset)
 
         return filtered
 
     @staticmethod
+    def _unwrap_asset(item: dict[str, Any]) -> dict[str, Any]:
+        if isinstance(item.get('asset'), dict) and (item['asset'].get('id') or item['asset'].get('assetId')):
+            unwrapped = dict(item['asset'])
+            for k, v in item.items():
+                if k != 'asset' and k not in unwrapped:
+                    unwrapped[k] = v
+            return unwrapped
+        return item
+
+    @staticmethod
     def _merge_assets(target: dict[str, dict[str, Any]], items: list[dict[str, Any]]) -> None:
-        for item in items:
-            asset_id = str(item.get('id', '')).strip()
+        for raw_item in items:
+            item = ImmichClient._unwrap_asset(raw_item)
+            asset_id = str(item.get('id', '') or item.get('assetId', '')).strip()
             if asset_id and asset_id not in target:
                 target[asset_id] = item
 
@@ -360,15 +426,18 @@ class ImmichClient:
 
     @staticmethod
     def _extract_asset_items(raw: Any) -> list[dict[str, Any]]:
+        items: list[dict[str, Any]] = []
         if isinstance(raw, list):
-            return [x for x in raw if isinstance(x, dict)]
-        if not isinstance(raw, dict):
-            return []
-        if isinstance(raw.get('assets'), dict) and isinstance(raw['assets'].get('items'), list):
-            return [x for x in raw['assets']['items'] if isinstance(x, dict)]
-        if isinstance(raw.get('items'), list):
-            return [x for x in raw['items'] if isinstance(x, dict)]
-        return []
+            items = [x for x in raw if isinstance(x, dict)]
+        elif isinstance(raw, dict):
+            if isinstance(raw.get('assets'), list):
+                items = [x for x in raw['assets'] if isinstance(x, dict)]
+            elif isinstance(raw.get('assets'), dict) and isinstance(raw['assets'].get('items'), list):
+                items = [x for x in raw['assets']['items'] if isinstance(x, dict)]
+            elif isinstance(raw.get('items'), list):
+                items = [x for x in raw['items'] if isinstance(x, dict)]
+
+        return [ImmichClient._unwrap_asset(item) for item in items]
 
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
         key = self._library_key(library_name)
@@ -378,44 +447,49 @@ class ImmichClient:
 
     @staticmethod
     def _exif(asset: dict[str, Any]) -> dict[str, Any]:
-        exif = asset.get('exifInfo')
-        return exif if isinstance(exif, dict) else {}
+        exif = asset.get('exifInfo') or asset.get('exif')
+        res = dict(exif) if isinstance(exif, dict) else {}
+        for key in ('latitude', 'longitude', 'city', 'country', 'state', 'dateTimeOriginal'):
+            if key not in res and key in asset and asset[key] is not None:
+                res[key] = asset[key]
+        return res
 
     @staticmethod
     def is_eligible_asset(
         asset: dict[str, Any],
         location_mode: bool,
         date_mode: bool,
-        min_capture_date: date | None = None,
-        max_capture_date: date | None = None,
+        min_date: date | None = None,
+        max_date: date | None = None,
     ) -> bool:
-        media_type = str(asset.get('type', '')).upper()
-        if media_type != 'IMAGE':
+        if asset.get('type') == 'VIDEO':
             return False
 
-        exif = ImmichClient._exif(asset)
-        latitude = exif.get('latitude')
-        longitude = exif.get('longitude')
-
         if location_mode:
-            if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+            exif = ImmichClient._exif(asset)
+            lat = exif.get('latitude')
+            lon = exif.get('longitude')
+            if lat is None or lon is None:
                 return False
-            if abs(latitude) < 1e-6 and abs(longitude) < 1e-6:
+            try:
+                lat_val = float(lat)
+                lon_val = float(lon)
+                if lat_val == 0.0 and lon_val == 0.0:
+                    return False
+            except (ValueError, TypeError):
                 return False
 
-        capture_date: date | None = None
-        if date_mode or min_capture_date is not None or max_capture_date is not None:
-            date_value = exif.get('dateTimeOriginal') or asset.get('fileCreatedAt')
-            capture_date = ImmichClient._parse_capture_date(date_value)
-            if date_mode and capture_date is None:
-                return False
+        capture_dt = ImmichClient.extract_capture_datetime(asset)
+        if date_mode and capture_dt is None:
+            return False
 
-        if min_capture_date is not None or max_capture_date is not None:
-            if capture_date is None:
+        if min_date is not None or max_date is not None:
+            if capture_dt is None:
                 return False
-            if min_capture_date is not None and capture_date < min_capture_date:
+            c_date = capture_dt.date()
+            if min_date is not None and c_date < min_date:
                 return False
-            if max_capture_date is not None and capture_date > max_capture_date:
+            if max_date is not None and c_date > max_date:
                 return False
 
         return True
@@ -423,126 +497,102 @@ class ImmichClient:
     @staticmethod
     def extract_answer(asset: dict[str, Any]) -> AssetAnswer:
         exif = ImmichClient._exif(asset)
-        latitude = exif.get('latitude') if isinstance(exif.get('latitude'), (int, float)) else None
-        longitude = exif.get('longitude') if isinstance(exif.get('longitude'), (int, float)) else None
-        if latitude is not None and longitude is not None and abs(latitude) < 1e-6 and abs(longitude) < 1e-6:
-            latitude = None
-            longitude = None
 
-        date_value = exif.get('dateTimeOriginal') or asset.get('fileCreatedAt')
-        capture_datetime = ImmichClient._parse_capture_datetime(date_value)
+        lat: float | None = None
+        lon: float | None = None
+        raw_lat = exif.get('latitude')
+        raw_lon = exif.get('longitude')
+        if raw_lat is not None and raw_lon is not None:
+            try:
+                lat_val = float(raw_lat)
+                lon_val = float(raw_lon)
+                if not (lat_val == 0.0 and lon_val == 0.0):
+                    lat = lat_val
+                    lon = lon_val
+            except (ValueError, TypeError):
+                lat = None
+                lon = None
+
+        capture_dt = ImmichClient.extract_capture_datetime(asset)
+        city = str(exif.get('city', '')).strip() if exif.get('city') else None
+        country = str(exif.get('country', '')).strip() if exif.get('country') else None
 
         return AssetAnswer(
-            latitude=latitude,
-            longitude=longitude,
-            capture_datetime=capture_datetime,
-            # Immich already reverse-geocodes assets, so reuse its labels.
-            city=ImmichClient._clean_text(exif.get('city')),
-            country=ImmichClient._clean_text(exif.get('country')),
+            latitude=lat,
+            longitude=lon,
+            capture_datetime=capture_dt,
+            city=city,
+            country=country,
         )
 
     @staticmethod
-    def _clean_text(value: Any) -> str | None:
-        if not isinstance(value, str):
+    def extract_capture_datetime(asset: dict[str, Any]) -> datetime | None:
+        exif = ImmichClient._exif(asset)
+        date_str = (
+            exif.get('dateTimeOriginal')
+            or asset.get('fileCreatedAt')
+            or asset.get('localDateTime')
+            or asset.get('createdAt')
+        )
+        if not date_str or not isinstance(date_str, str):
             return None
-        cleaned = value.strip()
-        return cleaned or None
 
-    @staticmethod
-    def _parse_capture_datetime(value: Any) -> datetime | None:
-        if not value or not isinstance(value, str):
-            return None
+        s = date_str.strip()
+
+        if len(s) >= 19 and s[4] == ':' and s[7] == ':':
+            s = s[:4] + '-' + s[5:7] + '-' + s[8:]
+
+        if s.endswith('Z'):
+            s = s[:-1] + '+00:00'
+
         try:
-            normalized = value.replace('Z', '+00:00')
-            return datetime.fromisoformat(normalized)
+            return datetime.fromisoformat(s)
         except ValueError:
-            return None
+            pass
 
-    @staticmethod
-    def _parse_capture_date(value: Any) -> date | None:
-        dt = ImmichClient._parse_capture_datetime(value)
-        return dt.date() if dt is not None else None
+        m = re.match(r'^(\d{4}-\d{2}-\d{2})', s)
+        if m:
+            try:
+                return datetime.fromisoformat(m.group(1))
+            except ValueError:
+                pass
+
+        return None
 
     def _library_key(self, library_name: str) -> str:
         key = self._library_keys.get(library_name)
         if not key:
-            raise ImmichClientError(f'Unknown library: {library_name}')
+            available = ', '.join(sorted(self._library_keys.keys()))
+            raise ImmichClientError(f'Unknown library "{library_name}". Available libraries: {available}')
         return key
 
-    def _library_name_for_key(self, api_key: str) -> str | None:
-        for library_name, configured_key in self._library_keys.items():
-            if configured_key == api_key:
-                return library_name
-        return None
+    async def _current_user_id(self, key: str) -> str | None:
+        if key in self._user_id_by_key:
+            return self._user_id_by_key[key]
 
-    @staticmethod
-    def _api_key_hint(api_key: str) -> str:
-        tail = api_key[-4:] if len(api_key) >= 4 else api_key
-        return f'***{tail}'
-
-    @staticmethod
-    def _response_error_message(response: httpx.Response) -> str | None:
         try:
-            payload = response.json()
-        except ValueError:
-            return None
+            me = await self._request_json('GET', '/users/me', key)
+            if isinstance(me, dict) and me.get('id'):
+                user_id = str(me['id']).strip()
+                self._user_id_by_key[key] = user_id
+                return user_id
+        except ImmichClientError as exc:
+            logger.warning('Failed to fetch /users/me for key %s...: %s', key[:8], exc)
 
-        if isinstance(payload, dict):
-            for field in ('message', 'error', 'detail'):
-                value = payload.get(field)
-                if isinstance(value, str) and value.strip():
-                    return value.strip()
         return None
 
-    @staticmethod
-    def _missing_permission(message: str | None) -> str | None:
-        if not message:
-            return None
-        match = re.search(r'Missing required permission:\s*([a-zA-Z0-9._-]+)', message)
-        if match:
-            return match.group(1)
-        return None
-
-    @staticmethod
-    def _album_owner_id(album: dict[str, Any]) -> str:
-        owner_id = ImmichClient._extract_owner_id(album)
-        if owner_id:
-            return owner_id
-
-        album_users = album.get('albumUsers')
-        if isinstance(album_users, list):
-            for user in album_users:
-                if isinstance(user, dict) and user.get('role') == 'owner':
-                    u_id = user.get('user', {}).get('id')
-                    if u_id:
-                        return str(u_id).strip()
-
-        logger.warning('Album %s does not have an owner', album.get('id'))
-        return ''
-
-    async def _current_user_id(self, api_key: str) -> str:
-        cached = self._user_id_by_key.get(api_key)
-        if cached:
-            return cached
-
-        raw = await self._request_json('GET', '/users/me', api_key)
-        if not isinstance(raw, dict):
-            raise ImmichClientError('Invalid /users/me response from Immich')
-
-        user_id = str(raw.get('id', '')).strip()
-        if not user_id:
-            raise ImmichClientError('Immich /users/me response missing id')
-
-        self._user_id_by_key[api_key] = user_id
-        return user_id
-
-    async def _request_json(self, method: str, path: str, api_key: str, json: dict[str, Any] | None = None) -> Any:
-        response = await self._request_raw(method, path, api_key, json=json)
+    async def _request_json(
+        self,
+        method: str,
+        path: str,
+        api_key: str,
+        json: dict[str, Any] | None = None,
+    ) -> Any:
+        res = await self._request_raw(method, path, api_key, json=json)
         try:
-            return response.json()
+            return res.json()
         except ValueError as exc:
-            preview = response.text[:250].replace('\n', ' ')
-            raise ImmichClientError(f'Invalid JSON response from Immich ({response.status_code}): {preview}') from exc
+            raise ImmichClientError(f'Invalid JSON from Immich endpoint {path}') from exc
 
     async def _request_raw(
         self,
@@ -552,36 +602,19 @@ class ImmichClient:
         json: dict[str, Any] | None = None,
         accept: str = 'application/json',
     ) -> httpx.Response:
-        headers = {'x-api-key': api_key, 'accept': accept}
         url = f'{self._server_url}{path}'
-        response = await self._http.request(method=method, url=url, headers=headers, json=json)
+        headers = {
+            'x-api-key': api_key,
+            'Accept': accept,
+        }
+        try:
+            res = await self._http.request(method, url, headers=headers, json=json)
+        except httpx.RequestError as exc:
+            raise ImmichClientError(f'Network error connecting to Immich: {exc}') from exc
 
-        if response.status_code >= 400:
-            library_name = self._library_name_for_key(api_key)
-            library_label = f"library '{library_name}'" if library_name else 'a configured library'
-            key_hint = self._api_key_hint(api_key)
-            message = self._response_error_message(response)
+        if res.status_code in {401, 403}:
+            raise ImmichClientError(f'Authentication failed for library ({res.status_code})')
+        if res.status_code >= 400:
+            raise ImmichClientError(f'Immich API error {res.status_code} at {path}: {res.text[:300]}')
 
-            if response.status_code == 403 and path == '/users/me':
-                permission = self._missing_permission(message)
-                if permission:
-                    raise ImmichClientError(
-                        f'Immich denied access for {library_label} (API key {key_hint}). '
-                        f"This key is missing required permission '{permission}' for /users/me. "
-                    )
-                raise ImmichClientError(
-                    f'Immich denied access for {library_label} (API key {key_hint}) when calling /users/me.'
-                )
-
-            if message:
-                raise ImmichClientError(
-                    f'Immich API request failed for {library_label} (API key {key_hint}): '
-                    f'{method} {path} returned {response.status_code}. {message}'
-                )
-
-            preview = response.text[:250].replace('\n', ' ')
-            raise ImmichClientError(
-                f'Immich API request failed for {library_label} (API key {key_hint}): '
-                f'{method} {path} returned {response.status_code}. Response: {preview}'
-            )
-        return response
+        return res

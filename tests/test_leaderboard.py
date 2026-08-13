@@ -36,7 +36,7 @@ def test_leaderboard_config_stored_as_flat_columns(tmp_path: Path) -> None:
     assert entry.config['location_mode'] is False
     assert entry.config['date_mode'] is True
     assert entry.config['library'] == 'family'
-    assert entry.config['album'] == '-'
+    assert entry.config['albums'] == '-'
 
 
 def test_leaderboard_filter_by_config(tmp_path: Path) -> None:
@@ -73,7 +73,7 @@ def test_leaderboard_filter_by_config(tmp_path: Path) -> None:
         location_mode=True,
         date_mode=True,
         library='family',
-        album='-',
+        albums='-',
     )
     assert len(filtered) == 1
     assert filtered[0].match_id == 'm1'
@@ -85,7 +85,7 @@ def test_leaderboard_filter_by_config(tmp_path: Path) -> None:
         location_mode=False,
         date_mode=True,
         library='family',
-        album='Holidays',
+        albums='Holidays',
     )
     assert len(filtered) == 1
     assert filtered[0].match_id == 'm2'
@@ -107,3 +107,34 @@ def test_leaderboard_invalid_header_is_backed_up_and_recreated(tmp_path: Path) -
     backup_files = sorted(tmp_path.glob('leaderboard.csv.bak.*'))
     assert len(backup_files) == 1
     assert backup_files[0].read_text(encoding='utf-8').splitlines()[0] == 'bad,header,value'
+
+
+def test_leaderboard_multi_album_filter(tmp_path: Path) -> None:
+    csv_path = tmp_path / 'leaderboard.csv'
+    store = LeaderboardStore(csv_path)
+
+    store.append_match(
+        match_id='m1',
+        library_name='family',
+        album_name='Europe, Japan',
+        rounds_played=10,
+        round_length='1m',
+        location_mode=True,
+        date_mode=True,
+        game_mode='album_shuffle',
+        player_scores={'Alice': {'total': 850}},
+    )
+
+    filtered = store.list_entries(
+        rounds=10,
+        round_length='1m',
+        location_mode=True,
+        date_mode=True,
+        game_mode='album_shuffle',
+        library='family',
+        albums='Europe, Japan',
+    )
+    assert len(filtered) == 1
+    assert filtered[0].match_id == 'm1'
+    assert filtered[0].config['albums'] == 'Europe, Japan'
+    assert filtered[0].config['game_mode'] == 'album_shuffle'

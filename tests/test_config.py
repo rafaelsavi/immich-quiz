@@ -18,6 +18,7 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'APP_TITLE',
         'APP_TAGLINE',
         'INCLUDE_SHARED_ALBUMS',
+        'INCLUDE_PARTNER_ASSETS',
         'APP_HOST',
         'APP_PORT',
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
