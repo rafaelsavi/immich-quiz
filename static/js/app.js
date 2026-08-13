@@ -78,6 +78,13 @@ function updateAlbumTriggerUi() {
   if (!el.albumSelectValue) return;
   el.albumSelectValue.replaceChildren();
 
+  const selectedNames = Array.from(selectedAlbumMap.values());
+  const allNamesList = selectedNames.length > 0
+    ? (selectedNames.length > 1
+        ? `Selected albums (${selectedNames.length}):\n• ` + selectedNames.join("\n• ")
+        : selectedNames[0])
+    : "";
+
   if (selectedAlbumMap.size === 0) {
     const placeholder = document.createElement("span");
     placeholder.className = "placeholder";
@@ -85,18 +92,27 @@ function updateAlbumTriggerUi() {
     placeholder.textContent = t("setup.all_photos");
     el.albumSelectValue.appendChild(placeholder);
     if (el.albumSelectClear) el.albumSelectClear.classList.add("hidden");
+    if (el.albumSelectTrigger) el.albumSelectTrigger.removeAttribute("title");
   } else if (selectedAlbumMap.size <= 3) {
+    if (el.albumSelectTrigger) {
+      el.albumSelectTrigger.title = allNamesList;
+    }
     selectedAlbumMap.forEach((name, id) => {
       const tag = document.createElement("span");
       tag.className = "multi-select-tag";
-      tag.textContent = name + " ";
+      tag.title = name;
+
+      const label = document.createElement("span");
+      label.className = "tag-label";
+      label.textContent = name;
+
       const removeBtn = document.createElement("button");
       removeBtn.type = "button";
       removeBtn.className = "tag-remove";
-      removeBtn.setAttribute("aria-label", "Remove");
-      removeBtn.title = "Remove";
+      removeBtn.setAttribute("aria-label", `Remove ${name}`);
+      removeBtn.title = `Remove ${name}`;
       removeBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
@@ -105,13 +121,18 @@ function updateAlbumTriggerUi() {
         e.stopPropagation();
         toggleAlbumSelection(id, name);
       });
+      tag.appendChild(label);
       tag.appendChild(removeBtn);
       el.albumSelectValue.appendChild(tag);
     });
     if (el.albumSelectClear) el.albumSelectClear.classList.remove("hidden");
   } else {
+    if (el.albumSelectTrigger) {
+      el.albumSelectTrigger.title = allNamesList;
+    }
     const summary = document.createElement("span");
     summary.className = "multi-select-summary";
+    summary.title = allNamesList;
     summary.textContent = t("setup.albums_selected", selectedAlbumMap.size);
     el.albumSelectValue.appendChild(summary);
     if (el.albumSelectClear) el.albumSelectClear.classList.remove("hidden");
