@@ -6,16 +6,11 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Future Feature Concepts
 
-- **Online multiplayer**: Extend pass-and-play local multiplayer to support multi-device real-time lobbies. Design specification defined in docs\next-release-milestone\online-multiplayer
-
+- **Online multiplayer**: Extend pass-and-play local multiplayer to support multi-device real-time lobbies. Design specification defined in `docs\next-release-milestone\online-multiplayer`
 - **Improve Audio Effects / Soundtrack**
-
-- **Add more library filter settings**
-  - **Filter & Quiz by Country**: Add an alternative photo selection filter based on Country (e.g., "Quiz photos from Japan only").
-    - **Immich API & Performance**: Immich natively supports `country` parameter filtering in `POST /search/metadata` and `POST /search/random`. Because filtering is processed server-side via Immich's indexed database, performance is fast and sub-second (< 200ms) even with thousands of photos per country.
-    - **Implementation**: Add `list_countries(library_name)` to `ImmichClient`, support `country` in `search_assets`/`search_random_assets` payloads, and add a Country selector in the frontend lobby setup UI.
-
+- **Add more library filter settings**: Design specification defined in `docs\next-release-milestone\library-filters`
 - **Player statistics**: Create a page to show player statistics (best scores, most played modes, etc.)
+- **PWA & Mobile Haptics**: Make the web app installable as a Progressive Web App (manifest, standalone display, icons) with haptic vibration feedback for mobile map interactions, timeline adjustments, and timer alerts.
 
 ---
 
