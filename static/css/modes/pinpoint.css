@@ -112,6 +112,11 @@
   font-weight: 600;
 }
 
+#pinpoint-reveal-ui .table-scroll {
+  margin-top: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
 .score-popup {
   position: fixed;
   z-index: 4000;

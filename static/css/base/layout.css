@@ -86,7 +86,8 @@
 }
 
 #setup-form,
-#reveal-ui {
+#reveal-ui,
+#pinpoint-reveal-ui {
   display: grid;
   gap: 0.75rem;
 }
