@@ -124,6 +124,7 @@
   background-color: rgba(0, 0, 0, 0.08);
 }
 
+.select-arrow,
 .multi-select-arrow {
   display: flex;
   align-items: center;
@@ -133,14 +134,19 @@
   border-radius: 50%;
   color: #8c97ad;
   transition: transform 0.2s ease, color 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
 }
 
+.select-trigger:hover .select-arrow,
+.select-arrow:hover,
 .multi-select-trigger:hover .multi-select-arrow,
 .multi-select-arrow:hover {
   color: var(--text, #1e293b);
   background-color: rgba(0, 0, 0, 0.08);
 }
 
+.custom-select[aria-expanded="true"] .select-arrow,
+.multi-select[aria-expanded="true"] .select-arrow,
 .multi-select[aria-expanded="true"] .multi-select-arrow {
   transform: rotate(180deg);
 }
