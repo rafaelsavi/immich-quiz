@@ -290,13 +290,18 @@ class MetadataStore:
         with self._db.connection() as conn:
             conn.execute('DELETE FROM assets WHERE id = ?', (asset_id,))
 
-    def _build_filter_clauses(self, criteria: AssetFilterCriteria) -> tuple[str, list[Any]]:
+    def _build_filter_clauses(
+        self,
+        criteria: AssetFilterCriteria,
+        ignore_location_mode: bool = False,
+        ignore_date_mode: bool = False,
+    ) -> tuple[str, list[Any]]:
         """Construct unified SQL WHERE clauses and parameters matching exact quiz filter semantics."""
         clauses: list[str] = ['a.library_name = ?', "a.file_type != 'VIDEO'"]
         params: list[Any] = [criteria.library_name]
 
         # 1. Location mode: non-zero lat/lon
-        if criteria.location_mode:
+        if criteria.location_mode and not ignore_location_mode:
             clauses.append(
                 'a.latitude IS NOT NULL AND a.longitude IS NOT NULL AND NOT ('
                 'abs(a.latitude) < 1e-6 AND abs(a.longitude) < 1e-6'
@@ -304,7 +309,7 @@ class MetadataStore:
             )
 
         # 2. Date mode: capture datetime required
-        if criteria.date_mode:
+        if criteria.date_mode and not ignore_date_mode:
             clauses.append('a.capture_datetime IS NOT NULL')
 
         # 3. Date bounds (ISO8601 string comparison)
@@ -394,6 +399,53 @@ class MetadataStore:
         sql = f'SELECT COUNT(DISTINCT a.id) FROM assets a WHERE {where_sql}'
         count = self._db.fetch_val(sql, params)
         return int(count) if count is not None else 0
+
+    def get_asset_counts(self, criteria: AssetFilterCriteria) -> dict[str, int]:
+        """Compute total, GPS, Date, and mode-eligible asset counts in a single fast query."""
+        where_sql, params = self._build_filter_clauses(
+            criteria,
+            ignore_location_mode=True,
+            ignore_date_mode=True,
+        )
+        gps_condition = (
+            "a.latitude IS NOT NULL AND a.longitude IS NOT NULL AND NOT ("
+            "abs(a.latitude) < 1e-6 AND abs(a.longitude) < 1e-6"
+            ")"
+        )
+        date_condition = "a.capture_datetime IS NOT NULL"
+        sql = f"""
+            SELECT
+                COUNT(DISTINCT a.id) AS total_count,
+                COUNT(DISTINCT CASE WHEN {gps_condition} THEN a.id END) AS gps_count,
+                COUNT(DISTINCT CASE WHEN {date_condition} THEN a.id END) AS date_count,
+                COUNT(DISTINCT CASE WHEN {gps_condition} AND {date_condition} THEN a.id END) AS both_count
+            FROM assets a
+            WHERE {where_sql}
+        """
+        row = self._db.fetch_one(sql, params)
+        if not row:
+            return {'eligible_count': 0, 'total_count': 0, 'gps_count': 0, 'date_count': 0}
+
+        total_cnt = int(row['total_count'] or 0)
+        gps_cnt = int(row['gps_count'] or 0)
+        date_cnt = int(row['date_count'] or 0)
+        both_cnt = int(row['both_count'] or 0)
+
+        if criteria.location_mode and criteria.date_mode:
+            eligible = both_cnt
+        elif criteria.location_mode:
+            eligible = gps_cnt
+        elif criteria.date_mode:
+            eligible = date_cnt
+        else:
+            eligible = total_cnt
+
+        return {
+            'eligible_count': eligible,
+            'total_count': total_cnt,
+            'gps_count': gps_cnt,
+            'date_count': date_cnt,
+        }
 
     def fetch_candidate_assets(
         self,

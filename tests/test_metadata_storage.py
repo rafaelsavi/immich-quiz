@@ -171,6 +171,14 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert count7 == 1
     assert 'asset-1' in cand7
 
+    # Query 8: get_asset_counts breakdown
+    counts = meta_store.get_asset_counts(AssetFilterCriteria(library_name='family', location_mode=True, date_mode=True, include_shared_albums=True))
+    assert counts['total_count'] == 3
+    assert counts['gps_count'] == 3
+    assert counts['date_count'] == 3
+    assert counts['eligible_count'] == 3
+
+
 
 def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path) -> None:
     assets = [
@@ -645,6 +653,11 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     assert res_preflight.status_code == 200
     data_preflight = res_preflight.json()
     assert data_preflight['eligible_count'] == 1
+    assert data_preflight['total_count'] == 1
+    assert data_preflight['gps_count'] == 1
+    assert data_preflight['date_count'] == 1
+    assert data_preflight['location_mode'] is True
+    assert data_preflight['date_mode'] is True
     assert 'countries' in data_preflight['active_filters']
 
     # Test POST /api/game/setup

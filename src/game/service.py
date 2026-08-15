@@ -76,6 +76,10 @@ class GameService:
         effective_min_date = max(filter(None, [settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
         effective_max_date = min(filter(None, [settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
 
+        total_count: int | None = None
+        gps_count: int | None = None
+        date_count: int | None = None
+
         # 1. Fast indexed SQLite query if metadata store is populated for this library
         if metadata_store is not None and metadata_store.has_synced_assets(setup.library_name):
             criteria = AssetFilterCriteria(
@@ -92,7 +96,11 @@ class GameService:
                 include_shared_albums=settings.include_shared_albums,
                 include_partner_assets=settings.include_partner_assets,
             )
-            eligible_count = metadata_store.count_eligible_assets(criteria)
+            counts = metadata_store.get_asset_counts(criteria)
+            eligible_count = counts['eligible_count']
+            total_count = counts['total_count']
+            gps_count = counts['gps_count']
+            date_count = counts['date_count']
         else:
             # Fallback to paginated HTTP sampling
             query = SearchQuery(
@@ -112,6 +120,8 @@ class GameService:
             max_sample_pages = 10
             seen_asset_ids: set[str] = set()
             eligible_answers: list[AssetAnswer] = []
+            sample_gps_count = 0
+            sample_date_count = 0
 
             try:
                 for page_num in range(1, max_sample_pages + 1):
@@ -128,16 +138,31 @@ class GameService:
                         aid = str(asset.get('id', '') or asset.get('assetId', '')).strip()
                         if aid and aid not in seen_asset_ids:
                             seen_asset_ids.add(aid)
-                            if ImmichClient.is_eligible_asset(
+                            has_gps = ImmichClient.is_eligible_asset(
                                 asset,
-                                setup.location_mode,
-                                setup.date_mode,
+                                location_mode=True,
+                                date_mode=False,
                                 min_date=effective_min_date,
                                 max_date=effective_max_date,
                                 countries=tuple(setup.countries),
                                 cities=tuple(setup.cities),
-                            ):
-                                eligible_answers.append(ImmichClient.extract_answer(asset))
+                            )
+                            has_date = ImmichClient.is_eligible_asset(
+                                asset,
+                                location_mode=False,
+                                date_mode=True,
+                                min_date=effective_min_date,
+                                max_date=effective_max_date,
+                                countries=tuple(setup.countries),
+                                cities=tuple(setup.cities),
+                            )
+                            if has_gps:
+                                sample_gps_count += 1
+                            if has_date:
+                                sample_date_count += 1
+                            if (setup.location_mode and not has_gps) or (setup.date_mode and not has_date):
+                                continue
+                            eligible_answers.append(ImmichClient.extract_answer(asset))
 
                     if len(eligible_answers) >= target_eligible_count or len(raw_assets) == 0:
                         break
@@ -145,6 +170,9 @@ class GameService:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
 
             eligible_count = len(eligible_answers)
+            total_count = len(seen_asset_ids)
+            gps_count = sample_gps_count
+            date_count = sample_date_count
 
         active_filters: list[str] = []
         if setup.location_mode:
@@ -173,6 +201,11 @@ class GameService:
             active_filters=active_filters,
             min_date=effective_min_date,
             max_date=effective_max_date,
+            total_count=total_count,
+            gps_count=gps_count,
+            date_count=date_count,
+            location_mode=setup.location_mode,
+            date_mode=setup.date_mode,
         )
 
     async def setup_game(

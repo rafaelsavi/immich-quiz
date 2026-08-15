@@ -182,6 +182,11 @@ def test_bilingual_i18n_keys_present() -> None:
         'setup.filter_countries',
         'setup.filter_cities',
         'setup.filter_date_range',
+        'setup.preflight_count_both',
+        'setup.preflight_count_gps',
+        'setup.preflight_count_date',
+        'setup.preflight_count_all',
+        'setup.preflight_count_breakdown_tooltip',
     ]
 
     for key in required_keys:

@@ -67,6 +67,12 @@ export const TRANSLATIONS = {
     "setup.not_enough_media": (found, required, filters) =>
       `Cannot start match: only ${found} photo(s) matching criteria found in selected album/library, but ${required} rounds are required.\n\nActive filters: ${filters}`,
     "setup.preflight_count": (n) => `${n} photos available`,
+    "setup.preflight_count_both": (n) => `${n} photos with GPS & date`,
+    "setup.preflight_count_gps": (n) => `${n} photos with GPS`,
+    "setup.preflight_count_date": (n) => `${n} photos with date`,
+    "setup.preflight_count_all": (n) => `${n} photos available`,
+    "setup.preflight_count_breakdown_tooltip": (total, gps, date, both) =>
+      `Total: ${total} | GPS: ${gps} | Date: ${date} | Eligible: ${both}`,
     "setup.filter_location": "Location (GPS required)",
     "setup.filter_date": "Date (timestamp required)",
     "setup.filter_date_range": (minDate, maxDate) => {
@@ -291,6 +297,12 @@ export const TRANSLATIONS = {
     "setup.not_enough_media": (found, required, filters) =>
       `Não é possível iniciar a partida: apenas ${found} foto(s) com os critérios foram encontradas no álbum/biblioteca selecionado, mas são necessárias ${required} rodadas.\n\nFiltros ativos: ${filters}`,
     "setup.preflight_count": (n) => `${n} fotos disponíveis`,
+    "setup.preflight_count_both": (n) => `${n} fotos com GPS e data`,
+    "setup.preflight_count_gps": (n) => `${n} fotos com GPS`,
+    "setup.preflight_count_date": (n) => `${n} fotos com data`,
+    "setup.preflight_count_all": (n) => `${n} fotos disponíveis`,
+    "setup.preflight_count_breakdown_tooltip": (total, gps, date, both) =>
+      `Total: ${total} | GPS: ${gps} | Data: ${date} | Elegíveis: ${both}`,
     "setup.filter_location": "Localização (GPS necessário)",
     "setup.filter_date": "Data (data/hora necessária)",
     "setup.filter_date_range": (minDate, maxDate) => {

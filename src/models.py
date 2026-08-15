@@ -302,3 +302,9 @@ class PreflightResponse(BaseModel):
     active_filters: list[str]
     min_date: date | None = None
     max_date: date | None = None
+    total_count: int | None = None
+    gps_count: int | None = None
+    date_count: int | None = None
+    location_mode: bool = True
+    date_mode: bool = True
+

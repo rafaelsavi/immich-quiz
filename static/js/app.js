@@ -67,6 +67,8 @@ const STORAGE_KEY_PREFIX = "immich_quiz_filters_";
 
 /** Debounce timer handle for live preflight */
 let _preflightDebounceTimer = null;
+/** Last cached preflight response for language refreshes */
+let _lastPreflightData = null;
 
 /* ------------------------------------------------- filter components init */
 
@@ -450,23 +452,68 @@ function hidePreflightWarning() {
   if (warningEl) warningEl.classList.add("hidden");
 }
 
-/** @param {number} count */
-function updatePreflightCount(count) {
+/** 
+ * Updates the preflight count indicator with specific requirement info.
+ * @param {number|Object} preflight - count number or preflight response object
+ */
+function updatePreflightCount(preflight) {
   const el = document.getElementById("preflight-count");
   if (!el) return;
-  if (count === 0) {
+
+  let count, locMode, dtMode, totalCount, gpsCount, dateCount;
+  if (typeof preflight === "number") {
+    count = preflight;
+    const modePayload = getActiveMode().getModePayload();
+    locMode = modePayload.location_mode ?? true;
+    dtMode = modePayload.date_mode ?? true;
+  } else if (preflight && typeof preflight === "object") {
+    count = preflight.eligible_count;
+    locMode = preflight.location_mode ?? true;
+    dtMode = preflight.date_mode ?? true;
+    totalCount = preflight.total_count;
+    gpsCount = preflight.gps_count;
+    dateCount = preflight.date_count;
+  }
+
+  if (count === undefined || count === null || count === 0) {
     el.classList.add("hidden");
+    el.removeAttribute("title");
     return;
   }
+
   const display = Number(count).toLocaleString();
-  el.textContent = t("setup.preflight_count", display);
+  let key = "setup.preflight_count_all";
+  if (locMode && dtMode) {
+    key = "setup.preflight_count_both";
+  } else if (locMode && !dtMode) {
+    key = "setup.preflight_count_gps";
+  } else if (!locMode && dtMode) {
+    key = "setup.preflight_count_date";
+  }
+
+  el.textContent = t(key, display);
+
+  if (totalCount !== undefined && totalCount !== null) {
+    const dispTotal = Number(totalCount).toLocaleString();
+    const dispGps = Number(gpsCount ?? 0).toLocaleString();
+    const dispDate = Number(dateCount ?? 0).toLocaleString();
+    const dispBoth = Number(count).toLocaleString();
+    el.title = t("setup.preflight_count_breakdown_tooltip", dispTotal, dispGps, dispDate, dispBoth);
+  } else {
+    el.removeAttribute("title");
+  }
+
   el.classList.remove("hidden");
   el.classList.toggle("preflight-count--ok", count > 0);
 }
 
 function hidePreflightCount() {
+  _lastPreflightData = null;
   const el = document.getElementById("preflight-count");
-  if (el) el.classList.add("hidden");
+  if (el) {
+    el.classList.add("hidden");
+    el.removeAttribute("title");
+  }
 }
 
 function triggerPreflightDebounced() {
@@ -510,7 +557,13 @@ async function executePreflight() {
       body: JSON.stringify(payload),
     });
 
-    updatePreflightCount(preflight.eligible_count);
+    _lastPreflightData = {
+      ...preflight,
+      location_mode: payload.location_mode,
+      date_mode: payload.date_mode,
+    };
+
+    updatePreflightCount(_lastPreflightData);
 
     if (!preflight.ok) {
       const filterNames = (preflight.active_filters || [])
@@ -1822,6 +1875,7 @@ const settingsContainer = document.getElementById("game-settings-container");
 if (settingsContainer) {
   settingsContainer.addEventListener("change", () => {
     loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+    triggerPreflightDebounced();
   });
 }
 
@@ -1845,6 +1899,9 @@ function refreshActiveScreenLanguage() {
   if (peopleMultiSelect) peopleMultiSelect.updateTriggerUi();
   if (dateRangeSlider) dateRangeSlider.updateVisuals();
   updateFiltersSummaryBadge();
+  if (_lastPreflightData) {
+    updatePreflightCount(_lastPreflightData);
+  }
   if (_lastSyncStatus) {
     renderSyncStatus(_lastSyncStatus);
   }
@@ -2011,6 +2068,7 @@ function initModeButtons() {
       applyLanguage();
     }
     loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+    triggerPreflightDebounced();
   }
 
   buttons.forEach((btn) => {
