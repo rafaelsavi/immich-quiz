@@ -224,6 +224,13 @@
   box-shadow: none;
 }
 
+.multi-select-search:focus,
+.multi-select-search:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: none;
+}
+
 .multi-select-search::placeholder {
   color: #b0b8cc;
 }
@@ -292,7 +299,7 @@
   padding: 0.45rem 0.75rem;
   cursor: pointer;
   font-size: 0.875rem;
-  color: var(--text-dark, #242938);
+  color: var(--ink, #1f2a44);
   transition: background-color 0.1s ease;
 }
 

@@ -219,7 +219,7 @@
 }
 
 .score-rollup.is-rolling {
-  color: #2563eb;
+  color: var(--accent);
   transform: scale(1.18);
   font-weight: 800;
 }
