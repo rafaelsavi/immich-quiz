@@ -261,8 +261,10 @@
   animation: timerFillPulse 0.6s ease-in-out infinite alternate;
 }
 
-/* Game Mode Selection */
-.mode-selection-group {
+/* Game Mode Selection & Setup Groups */
+.mode-selection-group,
+.game-settings-group,
+.match-settings-group {
   margin-top: 0.25rem;
   margin-bottom: 0.25rem;
 }
