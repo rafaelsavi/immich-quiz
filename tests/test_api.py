@@ -261,14 +261,36 @@ def test_custom_scoring_env_parameters_affect_round_and_summary(tmp_path: Path) 
 
 
 def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(10)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(10)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, players=['Alice', 'Bob'], round_count=5)
+    asset_map = {a['id']: a for a in immich.assets}
 
     for _ in range(10):
         question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
         if question['player_name'] == 'Alice':
-            answer_question(client, match_id, question['question_id'])
+            asset = asset_map[question['asset_id']]
+            client.post(
+                '/api/answer',
+                json={
+                    'match_id': match_id,
+                    'question_id': question['question_id'],
+                    'guessed_latitude': asset['exifInfo']['latitude'],
+                    'guessed_longitude': asset['exifInfo']['longitude'],
+                    'guessed_year': 2024,
+                    'guessed_month': 1,
+                },
+            )
         else:
             client.post(
                 '/api/answer',
@@ -308,15 +330,38 @@ def test_repeated_question_request_returns_same_question(client: TestClient, imm
 
 
 def test_answer_replay_is_rejected(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(10)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(10)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, round_count=5)
+    asset_map = {a['id']: a for a in immich.assets}
 
     last_question_id = ''
     for _ in range(5):
         question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
         last_question_id = question['question_id']
-        assert answer_question(client, match_id, last_question_id)['status'] == 200
+        asset = asset_map[question['asset_id']]
+        res = client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': last_question_id,
+                'guessed_latitude': asset['exifInfo']['latitude'],
+                'guessed_longitude': asset['exifInfo']['longitude'],
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
+        )
+        assert res.status_code == 200
 
     assert answer_question(client, match_id, last_question_id)['status'] == 409
 
@@ -330,7 +375,17 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
 
 
 def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(6)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(6)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, round_count=5)
 
@@ -344,7 +399,17 @@ def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> No
 
 
 def test_all_players_in_a_round_share_the_same_photo(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(20)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(20)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, players=['Alice', 'Bob', 'Cara'], round_count=5)
 
@@ -366,7 +431,17 @@ def test_all_players_in_a_round_share_the_same_photo(tmp_path: Path) -> None:
 
 
 def test_players_rotate_within_a_round(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(20)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(20)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, players=['Alice', 'Bob'], round_count=5)
 
@@ -409,7 +484,7 @@ def test_preflight_checks_eligible_asset_count(tmp_path: Path) -> None:
     immich = FakeImmichClient(
         [
             make_asset('photo1', latitude=-27.5, longitude=-48.5, captured='2024-01-01T10:00:00Z'),
-            make_asset('photo2', latitude=-27.5, longitude=-48.5, captured='2024-01-02T10:00:00Z'),
+            make_asset('photo2', latitude=-27.6, longitude=-48.6, captured='2024-01-02T10:00:00Z'),
             make_asset('no-gps', latitude=None, longitude=None, captured='2024-01-03T10:00:00Z'),
         ]
     )
@@ -428,7 +503,15 @@ def test_preflight_checks_eligible_asset_count(tmp_path: Path) -> None:
 
     # 5 rounds requested, with 5 eligible photos -> ok is True
     immich_enough = FakeImmichClient(
-        [make_asset(f'photo_{i}', latitude=-27.5, longitude=-48.5, captured='2024-01-01T10:00:00Z') for i in range(5)]
+        [
+            make_asset(
+                f'photo_{i}',
+                latitude=-27.5 + i * 0.05,
+                longitude=-48.5 + i * 0.05,
+                captured=f'2024-01-0{i + 1}T10:00:00Z',
+            )
+            for i in range(5)
+        ]
     )
     client_enough = build_client(
         tmp_path,
@@ -501,7 +584,15 @@ def test_audio_playground_endpoint(client: TestClient) -> None:
 
 
 def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(30)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(30)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -569,7 +660,15 @@ def test_batch_validation_distance_and_time_constraints() -> None:
 
 
 def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(10)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -600,7 +699,15 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
 
 
 def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(10)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -644,7 +751,15 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
 
 
 def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(10)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -716,8 +831,8 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
 
 def test_question_reselects_asset_when_cached_asset_marked_played(tmp_path: Path) -> None:
     assets = [
-        make_asset('asset-1', captured='2024-01-01T10:00:00Z'),
-        make_asset('asset-2', captured='2024-01-02T10:00:00Z'),
+        make_asset('asset-1', latitude=-27.5969, longitude=-48.5495, captured='2024-01-01T10:00:00Z'),
+        make_asset('asset-2', latitude=-27.6500, longitude=-48.6000, captured='2024-01-02T10:00:00Z'),
     ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
@@ -737,8 +852,8 @@ def test_question_reselects_asset_when_cached_asset_marked_played(tmp_path: Path
 
 def test_all_players_in_same_round_receive_same_photo_even_with_played_asset_ids(tmp_path: Path) -> None:
     assets = [
-        make_asset('asset-1', captured='2024-01-01T10:00:00Z'),
-        make_asset('asset-2', captured='2024-01-02T10:00:00Z'),
+        make_asset('asset-1', latitude=-27.5969, longitude=-48.5495, captured='2024-01-01T10:00:00Z'),
+        make_asset('asset-2', latitude=-27.6500, longitude=-48.6000, captured='2024-01-02T10:00:00Z'),
     ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)

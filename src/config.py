@@ -30,6 +30,9 @@ class AppSettings:
     location_score_decay_km: float
     date_score_decay_days: float
     language: str
+    # Diversity Safeguards (cleanly isolated for future tuning)
+    photo_diversity_min_distance_km: float
+    photo_diversity_min_time_seconds: float
 
 
 def _parse_language(value: str) -> str:
@@ -154,6 +157,16 @@ def load_settings() -> AppSettings:
     )
     language = _parse_language(os.getenv('LANGUAGE', 'EN'))
 
+    try:
+        photo_diversity_min_distance_km = float(os.getenv('PHOTO_DIVERSITY_MIN_DISTANCE_KM', '0.1'))
+    except ValueError:
+        photo_diversity_min_distance_km = 0.1
+
+    try:
+        photo_diversity_min_time_seconds = float(os.getenv('PHOTO_DIVERSITY_MIN_TIME_SECONDS', '60.0'))
+    except ValueError:
+        photo_diversity_min_time_seconds = 60.0
+
     return AppSettings(
         immich_server_url=server_url,
         immich_libraries=libraries,
@@ -170,4 +183,6 @@ def load_settings() -> AppSettings:
         location_score_decay_km=location_score_decay_km,
         date_score_decay_days=date_score_decay_days,
         language=language,
+        photo_diversity_min_distance_km=photo_diversity_min_distance_km,
+        photo_diversity_min_time_seconds=photo_diversity_min_time_seconds,
     )

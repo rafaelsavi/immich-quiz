@@ -108,6 +108,8 @@ def build_client(
     location_score_decay_km: float = 500.0,
     date_score_decay_days: float = 500.0,
     language: str = 'EN',
+    photo_diversity_min_distance_km: float = 0.1,
+    photo_diversity_min_time_seconds: float = 60.0,
 ) -> TestClient:
     settings = AppSettings(
         immich_server_url='https://placeholder.example.com/api',
@@ -125,6 +127,8 @@ def build_client(
         location_score_decay_km=location_score_decay_km,
         date_score_decay_days=date_score_decay_days,
         language=language,
+        photo_diversity_min_distance_km=photo_diversity_min_distance_km,
+        photo_diversity_min_time_seconds=photo_diversity_min_time_seconds,
     )
     app = create_app(settings=settings)
     app.state.immich_client = immich

@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
-from src.game.selector import calculate_match_bounds, load_asset_pool
+from src.game.selector import calculate_match_bounds, filter_diverse_asset_answers, load_asset_pool
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     AnswerRequest,
@@ -99,8 +99,8 @@ class GameService:
             len(raw_assets),
         )
 
-        eligible_count = sum(
-            1
+        eligible_answers = [
+            ImmichClient.extract_answer(asset)
             for asset in raw_assets
             if ImmichClient.is_eligible_asset(
                 asset,
@@ -109,8 +109,17 @@ class GameService:
                 settings.fetch_photos_date_lower_bound,
                 settings.fetch_photos_date_upper_bound,
             )
+        ]
+
+        diverse_answers = filter_diverse_asset_answers(
+            eligible_answers,
+            setup.location_mode,
+            setup.date_mode,
+            min_dist_km=settings.photo_diversity_min_distance_km,
+            min_time_sec=settings.photo_diversity_min_time_seconds,
         )
 
+        eligible_count = len(diverse_answers)
         required = 3 * setup.round_count if setup.game_mode == GameMode.album_shuffle else setup.round_count
         return PreflightResponse(
             eligible_count=eligible_count,

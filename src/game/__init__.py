@@ -8,6 +8,7 @@ from src.game.modes import (
     default_game_mode_registry,
 )
 from src.game.selector import (
+    filter_diverse_asset_answers,
     is_asset_valid_for_batch,
     load_asset_pool,
     select_batch_round_assets,
@@ -22,6 +23,7 @@ __all__ = [
     'GameService',
     'PinpointEngine',
     'default_game_mode_registry',
+    'filter_diverse_asset_answers',
     'is_asset_valid_for_batch',
     'load_asset_pool',
     'select_batch_round_assets',

@@ -93,19 +93,19 @@ async def load_asset_pool(
 
 def is_asset_valid_for_batch(
     candidate_ans: AssetAnswer,
-    selected_assets: list[RoundAsset],
+    selected_answers: list[AssetAnswer] | list[RoundAsset] | list[AssetAnswer | RoundAsset],
     location_mode: bool,
     date_mode: bool,
     min_dist_km: float = 0.1,
     min_time_sec: float = 60.0,
 ) -> bool:
     """
-    Determine if a photo selection is valid.
+    Determine if a candidate photo satisfies diversity separation against selected match photos.
 
-    A photo selection is valid if:
-    - All photos have valid coordinates when location_mode is active
-    - All photos are located more than min_dist_km away from each other when location_mode is active
-    - All photos are captured more than min_time_sec apart from each other when date_mode is active
+    Enforces:
+    - Non-zero valid coordinates when location_mode is active.
+    - Distance separation >= min_dist_km from all selected photos when location_mode is active.
+    - Time separation >= min_time_sec from all selected photos when date_mode is active.
     """
     if location_mode:
         if candidate_ans.latitude is None or candidate_ans.longitude is None:
@@ -113,8 +113,8 @@ def is_asset_valid_for_batch(
         if abs(candidate_ans.latitude) < 1e-6 and abs(candidate_ans.longitude) < 1e-6:
             return False
 
-    for sel in selected_assets:
-        sel_ans = sel.answer
+    for sel in selected_answers:
+        sel_ans = sel.answer if isinstance(sel, RoundAsset) else sel
         if location_mode and (
             candidate_ans.latitude is not None
             and candidate_ans.longitude is not None
@@ -138,6 +138,28 @@ def is_asset_valid_for_batch(
     return True
 
 
+def filter_diverse_asset_answers(
+    eligible_answers: list[AssetAnswer],
+    location_mode: bool,
+    date_mode: bool,
+    min_dist_km: float = 0.1,
+    min_time_sec: float = 60.0,
+) -> list[AssetAnswer]:
+    """Greedily build a diverse subset of asset answers satisfying minimum distance and time constraints."""
+    diverse: list[AssetAnswer] = []
+    for ans in eligible_answers:
+        if is_asset_valid_for_batch(
+            ans,
+            diverse,
+            location_mode,
+            date_mode,
+            min_dist_km=min_dist_km,
+            min_time_sec=min_time_sec,
+        ):
+            diverse.append(ans)
+    return diverse
+
+
 async def select_round_asset(
     state: MatchState,
     immich: ImmichClient,
@@ -146,6 +168,8 @@ async def select_round_asset(
     max_capture_date: date | None,
     include_shared_albums: bool = False,
     include_partner_assets: bool = False,
+    min_dist_km: float = 0.1,
+    min_time_sec: float = 60.0,
 ) -> RoundAsset | None:
     """Draw an unplayed asset, refreshing the pool once if it is exhausted."""
     excluded = state.played_asset_ids | client_excluded
@@ -184,15 +208,21 @@ async def select_round_asset(
         if aid in state.asset_pool
     ]
 
-    # Prefer an asset that is >= 100m away and >= 60s apart from previously played match assets
+    # Select an asset that satisfies distance and time diversity against previously played match assets
     for aid in shuffled:
         ans = state.asset_pool[aid]
-        if is_asset_valid_for_batch(ans, played_assets, state.setup.location_mode, state.setup.date_mode):
+        if is_asset_valid_for_batch(
+            ans,
+            played_assets,
+            state.setup.location_mode,
+            state.setup.date_mode,
+            min_dist_km=min_dist_km,
+            min_time_sec=min_time_sec,
+        ):
             return RoundAsset(asset_id=aid, answer=ans)
 
-    # Fallback if pool is constrained: pick any unplayed candidate
-    asset_id = random.choice(candidates)
-    return RoundAsset(asset_id=asset_id, answer=state.asset_pool[asset_id])
+    # Return None if no diverse candidate is available
+    return None
 
 
 async def select_batch_round_assets(
@@ -204,6 +234,8 @@ async def select_batch_round_assets(
     max_capture_date: date | None,
     include_shared_albums: bool = False,
     include_partner_assets: bool = False,
+    min_dist_km: float = 0.1,
+    min_time_sec: float = 60.0,
 ) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
     excluded = state.played_asset_ids | client_excluded
 
@@ -243,33 +275,23 @@ async def select_batch_round_assets(
         if aid in state.asset_pool
     ]
 
-    # First pass: enforce location distance >= 0.1 km and capture date separation >= 60 seconds
+    # Enforce location distance >= min_dist_km and capture date separation >= min_time_sec
     for aid in shuffled_candidates:
         ans = state.asset_pool[aid]
         if is_asset_valid_for_batch(
-            ans, played_assets + selected_assets, state.setup.location_mode, state.setup.date_mode
+            ans,
+            played_assets + selected_assets,
+            state.setup.location_mode,
+            state.setup.date_mode,
+            min_dist_km=min_dist_km,
+            min_time_sec=min_time_sec,
         ):
             selected_ids.append(aid)
             selected_assets.append(RoundAsset(asset_id=aid, answer=ans))
             if len(selected_assets) == count:
                 break
 
-    # Fallback pass: if pool is constrained, fill remaining slots from available candidates
     if len(selected_assets) < count:
-        for aid in shuffled_candidates:
-            if aid not in selected_ids:
-                ans = state.asset_pool[aid]
-                if state.setup.location_mode:
-                    if ans.latitude is None or ans.longitude is None:
-                        continue
-                    if abs(ans.latitude) < 1e-6 and abs(ans.longitude) < 1e-6:
-                        continue
-                selected_ids.append(aid)
-                selected_assets.append(RoundAsset(asset_id=aid, answer=ans))
-                if len(selected_assets) == count:
-                    break
-
-    if not selected_assets:
         return None
 
     assets = selected_assets
