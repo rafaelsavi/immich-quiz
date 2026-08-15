@@ -309,12 +309,37 @@ class ImmichClient:
             )
         key = self._library_key(library_name)
 
-        payload = query.build_payload(size, page=page)
+        if query.album_ids:
+            pool: dict[str, dict[str, Any]] = {}
+            for album_id in query.album_ids:
+                single_query = SearchQuery(
+                    album_ids=(album_id,),
+                    person_ids=query.person_ids,
+                    people_mode=query.people_mode,
+                    countries=query.countries,
+                    cities=query.cities,
+                    include_shared_albums=query.include_shared_albums,
+                    include_partner_assets=query.include_partner_assets,
+                    min_date=query.min_date,
+                    max_date=query.max_date,
+                )
+                payload = single_query.build_payload(size, page=page)
+                items: list[dict[str, Any]] = []
+                try:
+                    raw = await self._request_json('POST', '/search/metadata', key, json=payload)
+                    items = self._extract_asset_items(raw)
+                except ImmichClientError:
+                    pass
 
-        raw = await self._request_json('POST', '/search/metadata', key, json=payload)
-        items = self._extract_asset_items(raw)
-        if not items and query.album_ids:
-            items = await self._fetch_album_assets(key, query.album_ids[0])
+                if not items:
+                    items = await self._fetch_album_assets(key, album_id)
+
+                self._merge_assets(pool, items)
+            items = list(pool.values())
+        else:
+            payload = query.build_payload(size, page=page)
+            raw = await self._request_json('POST', '/search/metadata', key, json=payload)
+            items = self._extract_asset_items(raw)
 
         if not items or not query.should_filter_by_owner:
             return items
@@ -362,6 +387,10 @@ class ImmichClient:
             for album_id in query.album_ids:
                 single_query = SearchQuery(
                     album_ids=(album_id,),
+                    person_ids=query.person_ids,
+                    people_mode=query.people_mode,
+                    countries=query.countries,
+                    cities=query.cities,
                     include_shared_albums=query.include_shared_albums,
                     include_partner_assets=query.include_partner_assets,
                     min_date=query.min_date,

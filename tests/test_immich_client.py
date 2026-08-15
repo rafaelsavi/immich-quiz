@@ -742,6 +742,24 @@ async def test_search_random_assets_multiple_albums_or_query() -> None:
     assert item_ids == {'photo-album-1', 'photo-album-2'}
 
 
+async def test_search_assets_multiple_albums_or_query() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/metadata'):
+            body = request.read().decode('utf-8')
+            if 'album-1' in body:
+                return httpx.Response(200, json={'assets': [{'id': 'photo-album-1'}]})
+            if 'album-2' in body:
+                return httpx.Response(200, json={'assets': [{'id': 'photo-album-2'}]})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    items = await client.search_assets('family', album_ids=['album-1', 'album-2'])
+    await client.aclose()
+
+    item_ids = set(item['id'] for item in items)
+    assert item_ids == {'photo-album-1', 'photo-album-2'}
+
+
 async def test_search_random_assets_with_date_bounds_uses_metadata_search() -> None:
     recorded_endpoints: list[str] = []
     recorded_payloads: list[dict] = []
