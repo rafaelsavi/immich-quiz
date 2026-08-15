@@ -266,3 +266,19 @@ def test_event_listener_callbacks_are_defined() -> None:
 
     assert not callback_errors, f'Undefined event listener callbacks:\n{chr(10).join(callback_errors)}'
 
+
+def test_map_controls_disable_click_propagation_and_guard_pin_placement() -> None:
+    maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+
+    # maps.js must call disableClickPropagation for controls and buttons
+    assert 'L.DomEvent.disableClickPropagation' in maps_js, 'maps.js must disable click propagation for controls'
+    assert 'L.DomEvent.disableScrollPropagation' in maps_js, 'maps.js must disable scroll propagation for controls'
+
+    # ensureGuessMap must guard click event target against control/button elements
+    assert 'origTarget.closest' in maps_js, 'ensureGuessMap in maps.js must check origTarget.closest to avoid setting pin on control clicks'
+
+    # pinpoint.js must also disable propagation on guessMapFullscreen
+    assert 'L.DomEvent.disableClickPropagation(el.guessMapFullscreen)' in pinpoint_js, 'pinpoint.js must disable click propagation on guessMapFullscreen'
+
+

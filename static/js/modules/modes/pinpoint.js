@@ -572,10 +572,20 @@ export const pinpointMode = {
     initDateDropdowns();
 
     if (el.quizImageFullscreen) {
-      el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
+      el.quizImageFullscreen.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleMapFullscreen(el.mediaFrame);
+      });
     }
     if (el.guessMapFullscreen) {
-      el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
+      if (window.L && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(el.guessMapFullscreen);
+        L.DomEvent.disableScrollPropagation(el.guessMapFullscreen);
+      }
+      el.guessMapFullscreen.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleMapFullscreen(el.guessMapShell);
+      });
     }
   },
 

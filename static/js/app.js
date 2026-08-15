@@ -1648,9 +1648,25 @@ el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart")
 el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 
 
-el.revealMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.revealMapShell));
+if (el.revealMapFullscreen) {
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableClickPropagation(el.revealMapFullscreen);
+    L.DomEvent.disableScrollPropagation(el.revealMapFullscreen);
+  }
+  el.revealMapFullscreen.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMapFullscreen(el.revealMapShell);
+  });
+}
 if (el.journeyMapFullscreen) {
-  el.journeyMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.journeyMapShell));
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableClickPropagation(el.journeyMapFullscreen);
+    L.DomEvent.disableScrollPropagation(el.journeyMapFullscreen);
+  }
+  el.journeyMapFullscreen.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMapFullscreen(el.journeyMapShell);
+  });
 }
 
 document.addEventListener("fullscreenchange", () => {
