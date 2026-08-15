@@ -205,7 +205,6 @@ def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path
     settings = AppSettings(
         immich_server_url='https://example.com/api',
         immich_libraries={'family': 'token'},
-        leaderboard_csv_path=tmp_path / 'leaderboard.csv',
         app_title='Quiz',
         app_tagline='',
         include_shared_albums=False,
@@ -304,7 +303,6 @@ def test_metadata_store_filter_options_ownership_filtering(meta_store: MetadataS
         return AppSettings(
             immich_server_url='https://example.com/api',
             immich_libraries={'family': 'token'},
-            leaderboard_csv_path=tmp_path / 'leaderboard.csv',
             app_title='Quiz',
             app_tagline='',
             include_shared_albums=include_shared_albums,
@@ -392,7 +390,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
     settings_loose_lower = AppSettings(
         immich_server_url='https://example.com/api',
         immich_libraries={'family': 'token'},
-        leaderboard_csv_path=tmp_path / 'leaderboard.csv',
         app_title='Quiz',
         app_tagline='',
         include_shared_albums=False,
@@ -418,7 +415,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
     settings_tight_lower = AppSettings(
         immich_server_url='https://example.com/api',
         immich_libraries={'family': 'token'},
-        leaderboard_csv_path=tmp_path / 'leaderboard.csv',
         app_title='Quiz',
         app_tagline='',
         include_shared_albums=False,
@@ -580,7 +576,6 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     settings = AppSettings(
         immich_server_url='https://example.com/api',
         immich_libraries={'family': 'token'},
-        leaderboard_csv_path=tmp_path / 'leaderboard.csv',
         app_title='Quiz',
         app_tagline='',
         include_shared_albums=False,
@@ -721,7 +716,6 @@ def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: M
     settings = AppSettings(
         immich_server_url='https://example.com/api',
         immich_libraries={'family': 'token'},
-        leaderboard_csv_path=tmp_path / 'leaderboard.csv',
         app_title='Quiz',
         app_tagline='',
         include_shared_albums=False,

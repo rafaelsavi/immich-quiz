@@ -344,6 +344,13 @@ class GameService:
                 date_mode=updated_state.setup.date_mode,
                 game_mode=updated_state.setup.game_mode.value,
                 player_scores=updated_state.scores,
+                album_ids=updated_state.setup.album_ids,
+                person_ids=updated_state.setup.person_ids,
+                people_mode=updated_state.setup.people_mode,
+                countries=updated_state.setup.countries,
+                cities=updated_state.setup.cities,
+                min_date=updated_state.setup.min_date,
+                max_date=updated_state.setup.max_date,
             )
 
         return AnswerResponse(

@@ -14,7 +14,6 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
     for key in (
         'IMMICH_SERVER_URL',
         'IMMICH_LIBRARIES',
-        'LEADERBOARD_CSV_PATH',
         'APP_TITLE',
         'APP_TAGLINE',
         'INCLUDE_SHARED_ALBUMS',

@@ -18,11 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Modern Interactive Player Input**: Tag/chip based player management component with avatar badges, game-matched player colors, duplicate detection, keyboard shortcuts, paste splitting, and touch-screen virtual keyboard optimizations.
 - **Live Preflight Counter**: Live feedback counter displaying eligible photos and breakdown tooltips (GPS, Date, Eligible total) dynamically updating on every filter or game mode change.
 - **Per-Library Filter Persistence**: Active filter selections saved in `localStorage` per library, automatically restoring when switching libraries.
+- **SQLite Leaderboard Storage with Extended Columns**: Migrated leaderboard persistence from flat CSV to indexed SQLite relational schema (`leaderboard_matches`, `leaderboard_entries`). Captures full match filter presets (albums, people, countries, cities, date ranges, match mode), sub-score breakdowns (Location vs Date), player match rankings, winner status, accuracy percentage, and performance awards.
 
 ### Changed
 
 - **Setup Screen Hierarchy**: Reorganized match setup into top-down logical flow: Players, Library & Photo Filters, Game Mode, and Guessing Mode settings.
 - **Preflight & Setup Validation**: Hardened validation to disable start match button and show informative warnings when insufficient matching media is available.
+- **Leaderboard API & Querying**: Updated `/api/leaderboard` endpoint with support for querying by `player_name`, `is_custom_filtered`, and `limit`.
+
+### Removed
+
+- **Legacy CSV Storage**: Removed `LEADERBOARD_CSV_PATH` configuration and CSV-based leaderboard persistence in favor of unified SQLite database management (`METADATA_DB_PATH`).
 
 ## [1.2.1] - 2026-08-15
 

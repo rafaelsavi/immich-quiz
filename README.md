@@ -54,7 +54,7 @@ cp docker-compose.example.yml docker-compose.yml
 docker compose up -d
 ```
 
-Docker Compose reads configuration directly from your `.env` file via `env_file`. Mount the `./data` volume to store the leaderboard CSV file and persist scores across container restarts.
+Docker Compose reads configuration directly from your `.env` file via `env_file`. Mount the `./data` volume to store the SQLite database and persist metadata index and leaderboard scores across container restarts.
 
 ### Environment Variables
 
@@ -76,7 +76,8 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `CITY_BLACKLIST`                   | No       | —                      | Comma-separated list of excluded cities/regions in filters (case-insensitive) |
 | `PEOPLE_WHITELIST`                 | No       | —                      | Comma-separated list of allowed people names in filters (case-insensitive)    |
 | `PEOPLE_BLACKLIST`                 | No       | —                      | Comma-separated list of excluded people names in filters (case-insensitive)   |
-| `LEADERBOARD_CSV_PATH`             | No       | `data/leaderboard.csv` | Path to leaderboard CSV file (relative to working dir or absolute path)       |
+| `METADATA_DB_PATH`                 | No       | `data/metadata.db`     | Path to SQLite database file (stores metadata index and leaderboard)          |
+| `AUTO_SYNC_ON_STARTUP`             | No       | `true`                 | Auto-trigger metadata sync in the background on server startup                |
 | `APP_HOST`                         | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
 | `APP_PORT`                         | No       | `8010`                 | Port the app listens on                                                       |
 | `SCORE_MAX_POINTS`                 | No       | `100`                  | Max points per enabled goal, per turn                                         |

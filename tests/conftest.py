@@ -205,7 +205,6 @@ def build_client(
     settings = AppSettings(
         immich_server_url='https://placeholder.example.com/api',
         immich_libraries={'family': 'token'},
-        leaderboard_csv_path=tmp_path / 'leaderboard.csv',
         app_title=app_title,
         app_tagline=app_tagline,
         include_shared_albums=include_shared_albums,

@@ -16,6 +16,7 @@ from src.models import (
     LibraryFiltersResponse,
     MatchSummaryResponse,
     PersonOption,
+    LeaderboardEntry,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
@@ -199,7 +200,7 @@ async def trigger_sync(
     return sync_engine.get_sync_status(library_name)
 
 
-@router.get('/leaderboard')
+@router.get('/leaderboard', response_model=list[LeaderboardEntry])
 async def leaderboard(
     store: LeaderboardStore = Depends(get_leaderboard_store),
     rounds: int | None = Query(default=None),
@@ -209,8 +210,11 @@ async def leaderboard(
     game_mode: str | None = Query(default=None),
     library: str | None = Query(default=None),
     albums: str | None = Query(default=None),
-) -> list[dict[str, object]]:
-    entries = store.list_entries(
+    player_name: str | None = Query(default=None),
+    is_custom_filtered: bool | None = Query(default=None),
+    limit: int | None = Query(default=None),
+) -> list[LeaderboardEntry]:
+    return store.list_entries(
         rounds=rounds,
         round_length=round_length,
         location_mode=location_mode,
@@ -218,8 +222,10 @@ async def leaderboard(
         game_mode=game_mode,
         library=library,
         albums=albums,
+        player_name=player_name,
+        is_custom_filtered=is_custom_filtered,
+        limit=limit,
     )
-    return [entry.model_dump(mode='json') for entry in entries]
 
 
 @router.post('/game/preflight', response_model=PreflightResponse)

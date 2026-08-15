@@ -24,7 +24,6 @@ def _parse_comma_set(value: str | None) -> frozenset[str]:
 class AppSettings:
     immich_server_url: str
     immich_libraries: dict[str, str]
-    leaderboard_csv_path: Path
     app_title: str
     app_tagline: str
     include_shared_albums: bool
@@ -133,7 +132,6 @@ def load_settings() -> AppSettings:
         raise ConfigError('IMMICH_LIBRARIES is required')
 
     libraries = _parse_library_map(raw_libraries)
-    csv_path = Path(os.getenv('LEADERBOARD_CSV_PATH', 'data/leaderboard.csv')).expanduser().resolve()
     include_shared_albums = _parse_bool(os.getenv('INCLUDE_SHARED_ALBUMS', 'false'), 'INCLUDE_SHARED_ALBUMS')
     include_partner_assets = _parse_bool(os.getenv('INCLUDE_PARTNER_ASSETS', 'false'), 'INCLUDE_PARTNER_ASSETS')
     fetch_photos_date_lower_bound = _parse_optional_date(
@@ -197,7 +195,6 @@ def load_settings() -> AppSettings:
     return AppSettings(
         immich_server_url=server_url,
         immich_libraries=libraries,
-        leaderboard_csv_path=csv_path,
         app_title=app_title,
         app_tagline=app_tagline,
         include_shared_albums=include_shared_albums,

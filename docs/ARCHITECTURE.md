@@ -5,7 +5,7 @@
 - Backend: FastAPI with async endpoints, served by Uvicorn.
 - Frontend: static HTML/CSS/JS with Leaflet (no build step).
 - Session persistence: in-memory for active games.
-- Historical persistence: CSV file for leaderboard rows.
+- Historical persistence: SQLite database for metadata index and leaderboard rows.
 
 ---
 
@@ -43,7 +43,7 @@ immich-quiz/
 │       │                builder, filter options extraction, and asset pruning/invalidation.
 │       ├── sync.py      SyncEngine for asynchronous background indexing from Immich.
 │       ├── session.py   In-memory state. SessionStore holds MatchState objects.
-│       └── leaderboard.py LeaderboardStore appends and reads rows from CSV.
+│       └── leaderboard.py LeaderboardStore appends and reads rows from SQLite.
 └── static/              Vanilla HTML/CSS/JS frontend.
     ├── index.html       Main quiz application HTML.
     ├── audio-playground.html Interactive Web Audio testing playground page.

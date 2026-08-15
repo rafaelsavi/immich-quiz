@@ -93,7 +93,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.metadata_store = metadata_store
     app.state.sync_engine = sync_engine
     app.state.leaderboard_store = LeaderboardStore(
-        settings.leaderboard_csv_path,
+        db_manager,
         score_max_points=settings.score_max_points,
     )
 

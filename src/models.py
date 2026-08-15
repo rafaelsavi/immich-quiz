@@ -264,7 +264,15 @@ class LeaderboardEntry(BaseModel):
     player_name: str
     max_possible_score: int
     total_score: int
-    config: dict
+    location_score: int | None = None
+    date_score: int | None = None
+    accuracy_pct: float = 0.0
+    rank: int = 1
+    is_winner: bool = False
+    awards: list[str] = Field(default_factory=list)
+    filter_summary: str | None = None
+    is_custom_filtered: bool = False
+    config: dict = Field(default_factory=dict)
 
 
 class PreflightRequest(BaseModel):
