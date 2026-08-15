@@ -534,7 +534,7 @@ export const pinpointMode = {
   name: "pinpoint",
 
   renderSettings(containerEl) {
-    renderGuessingModeSettings(containerEl);
+    renderGuessingModeSettings(containerEl, "pinpoint");
   },
 
   getModePayload() {

@@ -432,11 +432,11 @@ function updateFiltersSummaryBadge() {
 
 function showPreflightWarning(message) {
   let warningEl = document.getElementById("preflight-warning");
+  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
   if (!warningEl) {
     warningEl = document.createElement("div");
     warningEl.id = "preflight-warning";
     warningEl.className = "preflight-warning";
-    const submitBtn = document.querySelector("#setup-form button[type=submit]");
     if (submitBtn) {
       submitBtn.insertAdjacentElement("beforebegin", warningEl);
     } else {
@@ -445,11 +445,18 @@ function showPreflightWarning(message) {
   }
   warningEl.textContent = message;
   warningEl.classList.remove("hidden");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+  }
 }
 
 function hidePreflightWarning() {
   const warningEl = document.getElementById("preflight-warning");
   if (warningEl) warningEl.classList.add("hidden");
+  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
+  if (submitBtn) {
+    submitBtn.disabled = false;
+  }
 }
 
 /** 
@@ -566,11 +573,8 @@ async function executePreflight() {
     updatePreflightCount(_lastPreflightData);
 
     if (!preflight.ok) {
-      const filterNames = (preflight.active_filters || [])
-        .map((f) => t(`setup.filter_${f}`, preflight.min_date, preflight.max_date))
-        .join(", ");
       showPreflightWarning(
-        t("setup.not_enough_media", preflight.eligible_count, preflight.required, filterNames)
+        t("setup.not_enough_media", preflight.eligible_count, preflight.required)
       );
     } else {
       hidePreflightWarning();
@@ -951,6 +955,20 @@ function resetGameUi() {
 async function startMatch(event) {
   event.preventDefault();
 
+  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
+  if (submitBtn && submitBtn.disabled) {
+    return;
+  }
+
+  const warningEl = document.getElementById("preflight-warning");
+  if (warningEl && !warningEl.classList.contains("hidden")) {
+    return;
+  }
+
+  if (_lastPreflightData && !_lastPreflightData.ok) {
+    return;
+  }
+
   resetGameUi();
 
   const players = el.players.value
@@ -989,11 +1007,8 @@ async function startMatch(event) {
     });
 
     if (!preflight.ok) {
-      const filterNames = (preflight.active_filters || [])
-        .map((f) => t(`setup.filter_${f}`, preflight.min_date, preflight.max_date))
-        .join(", ");
-      alert(
-        t("setup.not_enough_media", preflight.eligible_count, preflight.required, filterNames)
+      showPreflightWarning(
+        t("setup.not_enough_media", preflight.eligible_count, preflight.required)
       );
       return;
     }
@@ -1102,7 +1117,7 @@ async function fetchAndVerifyQuestion() {
     }
 
     console.warn(
-      `[Media Verification] Failed to load ${failed.length} photo(s) [${failed.map((f) => f.id).join(", ")}]. Requesting replacement photo from server...`
+      `[Media Verification] Failed to load ${failed.length} ${failed.length === 1 ? "photo" : "photos"} [${failed.map((f) => f.id).join(", ")}]. Requesting replacement photo from server...`
     );
 
     for (const f of failed) {
@@ -1867,6 +1882,9 @@ window.addEventListener("resize", () => {
   if (control) {
     control.addEventListener("change", () => {
       loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+      if (control === el.roundCount) {
+        triggerPreflightDebounced();
+      }
     });
   }
 });
@@ -1901,6 +1919,11 @@ function refreshActiveScreenLanguage() {
   updateFiltersSummaryBadge();
   if (_lastPreflightData) {
     updatePreflightCount(_lastPreflightData);
+    if (!_lastPreflightData.ok) {
+      showPreflightWarning(
+        t("setup.not_enough_media", _lastPreflightData.eligible_count, _lastPreflightData.required)
+      );
+    }
   }
   if (_lastSyncStatus) {
     renderSyncStatus(_lastSyncStatus);

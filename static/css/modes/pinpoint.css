@@ -269,6 +269,17 @@
   margin-bottom: 0.25rem;
 }
 
+.field-hint-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent, #0f7c7f);
+  background: rgba(15, 124, 127, 0.08);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
 .mode-buttons {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

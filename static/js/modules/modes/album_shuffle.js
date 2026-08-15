@@ -124,7 +124,7 @@ export const albumShuffleMode = {
   },
 
   renderSettings(containerEl) {
-    renderGuessingModeSettings(containerEl);
+    renderGuessingModeSettings(containerEl, "album_shuffle");
   },
 
   getModePayload() {

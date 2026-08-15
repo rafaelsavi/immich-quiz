@@ -66,6 +66,7 @@ export const el = {
   guessingUi: document.getElementById("guessing-ui"),
   revealUi: document.getElementById("reveal-ui"),
   setupForm: document.getElementById("setup-form"),
+  setupSubmitBtn: document.getElementById("start-match-btn"),
   players: document.getElementById("players"),
   roundCount: document.getElementById("round-count"),
   roundLength: document.getElementById("round-length"),

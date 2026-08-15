@@ -21,8 +21,9 @@ import { t } from "../i18n.js";
  * Renders multi-selection card buttons for Guessing mode (Location & Date).
  * Used across game modes (Pinpoint, Album Shuffle).
  * @param {HTMLElement} containerEl 
+ * @param {string} [modeName="pinpoint"]
  */
-export function renderGuessingModeSettings(containerEl) {
+export function renderGuessingModeSettings(containerEl, modeName = "pinpoint") {
   const existingLocCheckbox = document.getElementById("goal-location");
   const existingDateCheckbox = document.getElementById("goal-date");
   const existingLocCard = document.getElementById("card-goal-location");
@@ -63,10 +64,11 @@ export function renderGuessingModeSettings(containerEl) {
   locTitle.setAttribute("data-i18n", "setup.goal_location");
   locTitle.textContent = t("setup.goal_location");
 
+  const locI18nKey = `mode.${modeName}.goal_location_desc`;
   const locDesc = document.createElement("span");
   locDesc.className = "mode-desc";
-  locDesc.setAttribute("data-i18n", "mode.goal_location_desc");
-  locDesc.textContent = t("mode.goal_location_desc");
+  locDesc.setAttribute("data-i18n", locI18nKey);
+  locDesc.textContent = t(locI18nKey);
 
   locCard.append(locCheckbox, locTitle, locDesc);
 
@@ -92,10 +94,11 @@ export function renderGuessingModeSettings(containerEl) {
   dateTitle.setAttribute("data-i18n", "setup.goal_date");
   dateTitle.textContent = t("setup.goal_date");
 
+  const dateI18nKey = `mode.${modeName}.goal_date_desc`;
   const dateDesc = document.createElement("span");
   dateDesc.className = "mode-desc";
-  dateDesc.setAttribute("data-i18n", "mode.goal_date_desc");
-  dateDesc.textContent = t("mode.goal_date_desc");
+  dateDesc.setAttribute("data-i18n", dateI18nKey);
+  dateDesc.textContent = t(dateI18nKey);
 
   dateCard.append(dateCheckbox, dateTitle, dateDesc);
 
