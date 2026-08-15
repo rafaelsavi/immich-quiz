@@ -4,6 +4,7 @@ from datetime import date
 from src.immich.client import AssetAnswer, ImmichClient, SearchQuery
 from src.models import MapBounds
 from src.scoring import haversine_km
+from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, RoundAsset
 
 # Hardcoded Smart Map Zoom internal safeguards
@@ -65,11 +66,32 @@ async def load_asset_pool(
     max_capture_date: date | None,
     include_shared_albums: bool = False,
     include_partner_assets: bool = False,
+    metadata_store: MetadataStore | None = None,
 ) -> None:
     """Populate the per-match candidate pool once with active filter criteria."""
     effective_min_date = max(filter(None, [min_capture_date, state.setup.min_date]), default=None)
     effective_max_date = min(filter(None, [max_capture_date, state.setup.max_date]), default=None)
 
+    # Use fast indexed SQLite metadata store when available
+    if metadata_store is not None and metadata_store.has_synced_assets(state.setup.library_name):
+        criteria = AssetFilterCriteria(
+            library_name=state.setup.library_name,
+            location_mode=state.setup.location_mode,
+            date_mode=state.setup.date_mode,
+            min_date=effective_min_date,
+            max_date=effective_max_date,
+            countries=tuple(state.setup.countries),
+            cities=tuple(state.setup.cities),
+            person_ids=tuple(state.setup.person_ids),
+            people_mode=state.setup.people_mode,
+            album_ids=tuple(state.setup.album_ids),
+            include_shared_albums=include_shared_albums,
+            include_partner_assets=include_partner_assets,
+        )
+        state.asset_pool = metadata_store.fetch_candidate_assets(criteria, limit=250)
+        return
+
+    # Fallback to Immich API on cold start or when metadata store has no indexed assets
     query = SearchQuery(
         album_ids=tuple(state.setup.album_ids),
         person_ids=tuple(state.setup.person_ids),
@@ -96,8 +118,6 @@ async def load_asset_pool(
             max_date=effective_max_date,
             countries=tuple(state.setup.countries),
             cities=tuple(state.setup.cities),
-            person_ids=tuple(state.setup.person_ids),
-            people_mode=state.setup.people_mode,
         ):
             continue
         asset_id = str(asset.get('id', '')).strip()
@@ -185,6 +205,7 @@ async def select_round_asset(
     include_partner_assets: bool = False,
     min_dist_km: float = 0.1,
     min_time_sec: float = 60.0,
+    metadata_store: MetadataStore | None = None,
 ) -> RoundAsset | None:
     """Draw an unplayed asset, refreshing the pool once if it is exhausted."""
     excluded = state.played_asset_ids | client_excluded
@@ -197,6 +218,7 @@ async def select_round_asset(
             max_capture_date,
             include_shared_albums=include_shared_albums,
             include_partner_assets=include_partner_assets,
+            metadata_store=metadata_store,
         )
     candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
@@ -208,6 +230,7 @@ async def select_round_asset(
             max_capture_date,
             include_shared_albums=include_shared_albums,
             include_partner_assets=include_partner_assets,
+            metadata_store=metadata_store,
         )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
@@ -251,6 +274,7 @@ async def select_batch_round_assets(
     include_partner_assets: bool = False,
     min_dist_km: float = 0.1,
     min_time_sec: float = 60.0,
+    metadata_store: MetadataStore | None = None,
 ) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
     excluded = state.played_asset_ids | client_excluded
 
@@ -262,6 +286,7 @@ async def select_batch_round_assets(
             max_capture_date,
             include_shared_albums=include_shared_albums,
             include_partner_assets=include_partner_assets,
+            metadata_store=metadata_store,
         )
     candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
@@ -273,6 +298,7 @@ async def select_batch_round_assets(
             max_capture_date,
             include_shared_albums=include_shared_albums,
             include_partner_assets=include_partner_assets,
+            metadata_store=metadata_store,
         )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 

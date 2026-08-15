@@ -137,7 +137,7 @@ class FakeImmichClient:
     ) -> list[dict[str, Any]]:
         self.search_calls += 1
         self.last_query = query
-        return self.assets
+        return self._apply_person_filter(self.assets, query)
 
     async def search_random_assets(
         self,
@@ -153,7 +153,31 @@ class FakeImmichClient:
     ) -> list[dict[str, Any]]:
         self.search_calls += 1
         self.last_query = query
-        return self.assets
+        return self._apply_person_filter(self.assets, query)
+
+    def _apply_person_filter(
+        self,
+        assets: list[dict[str, Any]],
+        query: SearchQuery | None,
+    ) -> list[dict[str, Any]]:
+        """Simulate person filtering in test fake (OR: any match; AND: all must match)."""
+        if not query or not query.person_ids:
+            return assets
+        target_ids = set(query.person_ids)
+        is_and = query.people_mode.upper() == 'AND'
+        result = []
+        for asset in assets:
+            asset_people = asset.get('people') or asset.get('faces') or []
+            asset_person_ids = {
+                str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')
+            }
+            if is_and:
+                if target_ids.issubset(asset_person_ids):
+                    result.append(asset)
+            else:
+                if asset_person_ids & target_ids:
+                    result.append(asset)
+        return result
 
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
         return b'fake-jpg', 'image/jpeg'
@@ -196,6 +220,8 @@ def build_client(
         language=language,
         photo_diversity_min_distance_km=photo_diversity_min_distance_km,
         photo_diversity_min_time_seconds=photo_diversity_min_time_seconds,
+        metadata_db_path=tmp_path / 'metadata.db',
+        auto_sync_on_startup=False,
     )
     app = create_app(settings=settings)
     app.state.immich_client = immich

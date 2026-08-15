@@ -30,6 +30,7 @@ from src.scoring import (
     haversine_km,
     location_score,
 )
+from src.storage.metadata import MetadataStore
 from src.storage.session import (
     MatchState,
     QuestionAlreadyAnsweredError,
@@ -86,6 +87,7 @@ class BaseGameModeEngine(ABC):
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
         pass
 
@@ -127,6 +129,7 @@ class PinpointEngine(BaseGameModeEngine):
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
         round_index = state.current_round_index
         selection = state.round_assets.get(round_index)
@@ -142,6 +145,7 @@ class PinpointEngine(BaseGameModeEngine):
                     include_partner_assets=settings.include_partner_assets,
                     min_dist_km=settings.photo_diversity_min_distance_km,
                     min_time_sec=settings.photo_diversity_min_time_seconds,
+                    metadata_store=metadata_store,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -287,6 +291,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
         round_index = state.current_round_index
         batch_selection = state.batch_round_assets.get(round_index)
@@ -305,6 +310,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     include_partner_assets=settings.include_partner_assets,
                     min_dist_km=settings.photo_diversity_min_distance_km,
                     min_time_sec=settings.photo_diversity_min_time_seconds,
+                    metadata_store=metadata_store,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc

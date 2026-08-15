@@ -1,3 +1,5 @@
+from typing import Any
+
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
@@ -22,7 +24,9 @@ from src.models import (
     RoundResultResponse,
 )
 from src.storage.leaderboard import LeaderboardStore
+from src.storage.metadata import MetadataStore
 from src.storage.session import SessionStore
+from src.storage.sync import SyncEngine
 from src.version import APP_VERSION
 
 # 5-minute TTL for filter metadata cache. Change this constant to tune cache lifetime.
@@ -44,6 +48,14 @@ def get_immich_client(request: Request) -> ImmichClient:
 
 def get_leaderboard_store(request: Request) -> LeaderboardStore:
     return request.app.state.leaderboard_store
+
+
+def get_metadata_store(request: Request) -> MetadataStore:
+    return request.app.state.metadata_store
+
+
+def get_sync_engine(request: Request) -> SyncEngine:
+    return request.app.state.sync_engine
 
 
 def get_game_service(request: Request) -> GameService:
@@ -83,9 +95,13 @@ async def albums(
     library_name: str,
     request: Request,
     immich: ImmichClient = Depends(get_immich_client),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> dict[str, list[dict[str, str]]]:
+    settings = request.app.state.settings
+    if metadata_store.has_synced_assets(library_name):
+        return {'albums': metadata_store.get_albums(library_name, include_shared_albums=settings.include_shared_albums)}
+
     try:
-        settings = request.app.state.settings
         result = await immich.list_albums(library_name, include_shared_albums=settings.include_shared_albums)
         return {'albums': result}
     except ImmichClientError as exc:
@@ -97,6 +113,7 @@ async def library_filters(
     library_name: str,
     request: Request,
     immich: ImmichClient = Depends(get_immich_client),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> LibraryFiltersResponse:
     settings: AppSettings = request.app.state.settings
 
@@ -105,8 +122,14 @@ async def library_filters(
     if cached is not None:
         return cached
 
+    # 1. Use fast indexed SQLite metadata store when populated
+    if metadata_store.has_synced_assets(library_name):
+        response = metadata_store.get_filter_options(library_name, settings)
+        _filters_cache[library_name] = response
+        return response
+
+    # 2. Fallback to Immich API on cold start or when metadata store has no indexed assets
     try:
-        # 1. Fetch people from Immich
         people_raw = await immich.list_people(
             library_name,
             whitelist=settings.people_whitelist,
@@ -114,17 +137,24 @@ async def library_filters(
         )
         people = [PersonOption(id=p.id, name=p.name) for p in people_raw]
 
-        # 2. Fetch timeline bounds
         bounds = await immich.get_timeline_bounds(library_name)
-        min_d = settings.fetch_photos_date_lower_bound or bounds.min_date
-        max_d = settings.fetch_photos_date_upper_bound or bounds.max_date
+        min_d = bounds.min_date
+        if min_d and settings.fetch_photos_date_lower_bound:
+            min_d = max(min_d, settings.fetch_photos_date_lower_bound)
+        elif not min_d:
+            min_d = settings.fetch_photos_date_lower_bound
+
+        max_d = bounds.max_date
+        if max_d and settings.fetch_photos_date_upper_bound:
+            max_d = min(max_d, settings.fetch_photos_date_upper_bound)
+        elif not max_d:
+            max_d = settings.fetch_photos_date_upper_bound
 
         date_range = DateRangeOption(
             min_month=min_d.strftime('%Y-%m') if min_d else None,
             max_month=max_d.strftime('%Y-%m') if max_d else None,
         )
 
-        # 3. Fetch countries & cities (with country association)
         countries = await immich.list_countries(
             library_name,
             whitelist=settings.country_whitelist,
@@ -144,12 +174,29 @@ async def library_filters(
             people=people,
         )
 
-        # Store in TTL cache — automatically expires after FILTERS_CACHE_TTL_SECONDS
         _filters_cache[library_name] = response
         return response
 
     except ImmichClientError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get('/sync/status')
+async def sync_status(
+    library_name: str,
+    sync_engine: SyncEngine = Depends(get_sync_engine),
+) -> dict[str, Any]:
+    return sync_engine.get_sync_status(library_name)
+
+
+@router.post('/sync')
+async def trigger_sync(
+    library_name: str,
+    sync_engine: SyncEngine = Depends(get_sync_engine),
+) -> dict[str, Any]:
+    _filters_cache.pop(library_name, None)
+    sync_engine.trigger_sync(library_name)
+    return sync_engine.get_sync_status(library_name)
 
 
 @router.get('/leaderboard')
@@ -181,8 +228,9 @@ async def game_preflight(
     request: Request,
     immich: ImmichClient = Depends(get_immich_client),
     game_service: GameService = Depends(get_game_service),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> PreflightResponse:
-    return await game_service.preflight(setup, request.app.state.settings, immich)
+    return await game_service.preflight(setup, request.app.state.settings, immich, metadata_store=metadata_store)
 
 
 @router.post('/game/setup', response_model=GameSetupResponse)
@@ -192,8 +240,15 @@ async def game_setup(
     store: SessionStore = Depends(get_session_store),
     immich: ImmichClient = Depends(get_immich_client),
     game_service: GameService = Depends(get_game_service),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> GameSetupResponse:
-    return await game_service.setup_game(setup, request.app.state.settings, store, immich)
+    return await game_service.setup_game(
+        setup,
+        request.app.state.settings,
+        store,
+        immich,
+        metadata_store=metadata_store,
+    )
 
 
 @router.post('/question', response_model=QuestionResponse)
@@ -203,8 +258,15 @@ async def question(
     store: SessionStore = Depends(get_session_store),
     immich: ImmichClient = Depends(get_immich_client),
     game_service: GameService = Depends(get_game_service),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> QuestionResponse:
-    return await game_service.get_question(payload, request.app.state.settings, store, immich)
+    return await game_service.get_question(
+        payload,
+        request.app.state.settings,
+        store,
+        immich,
+        metadata_store=metadata_store,
+    )
 
 
 @router.get('/media/{asset_id}')
@@ -213,6 +275,7 @@ async def media(
     library_name: str,
     store: SessionStore = Depends(get_session_store),
     immich: ImmichClient = Depends(get_immich_client),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> Response:
     if not store.is_asset_registered(asset_id):
         raise HTTPException(status_code=404, detail='Unknown asset for any active match')
@@ -220,6 +283,7 @@ async def media(
     try:
         content, content_type = await immich.get_asset_bytes(library_name, asset_id)
     except ImmichClientError as exc:
+        metadata_store.mark_asset_invalid(asset_id)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     return Response(content=content, media_type=content_type)

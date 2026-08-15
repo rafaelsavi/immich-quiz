@@ -103,8 +103,10 @@ def test_diversity_settings_loading(monkeypatch: pytest.MonkeyPatch) -> None:
     assert fallback_settings.photo_diversity_min_time_seconds == 60.0
 
 
-def test_preflight_strict_diversity_rejection(tmp_path: Path) -> None:
-    # 5 photos at almost the exact same coordinate and timestamp (< 100m and < 60s)
+def test_preflight_strict_diversity_clustered(tmp_path: Path) -> None:
+    # 5 photos at almost the exact same coordinate and timestamp (< 100m and < 60s).
+    # With the old preflight behavior (diversity-filtered), eligible_count would be 1.
+    # With the corrected behavior (raw eligible count), all 5 have GPS so all 5 pass.
     clustered_assets = [
         make_asset(
             f'clustered_{i}',
@@ -121,9 +123,12 @@ def test_preflight_strict_diversity_rejection(tmp_path: Path) -> None:
     res = client.post('/api/game/preflight', json=payload)
     assert res.status_code == 200
     body = res.json()
-    assert body['ok'] is False
-    assert body['eligible_count'] == 1
+    # Preflight shows raw eligible count: all 5 have GPS coordinates so all 5 are eligible.
+    # The diversity check (min 100m / 60s apart) is enforced by the game selector
+    # on a much larger pool — not by the preflight 250-sample.
+    assert body['eligible_count'] == 5
     assert body['required'] == 5
+    assert body['ok'] is True  # 5 eligible >= 5 required
 
 
 async def test_selector_strict_rejection_no_loose_fallback() -> None:

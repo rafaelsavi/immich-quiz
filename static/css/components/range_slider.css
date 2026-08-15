@@ -10,6 +10,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.field-head-inline label {
+  margin-bottom: 0;
 }
 
 .slider-value-readout {

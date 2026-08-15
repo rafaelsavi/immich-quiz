@@ -99,8 +99,14 @@
 
 .filters-footer-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
   padding-top: 0.5rem;
+}
+
+#reset-filters-btn {
+  margin-left: auto;
 }
 
 /* People Match Mode Segmented Toggle (OR vs AND) */
@@ -140,3 +146,98 @@
   color: var(--accent, #0f7c7f);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
+
+/* Preflight live count display (inside filters accordion) */
+.preflight-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent, #0f7c7f);
+  text-align: left;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  background: rgba(15, 124, 127, 0.08);
+  border: 1px solid rgba(15, 124, 127, 0.2);
+  transition: opacity 0.25s ease;
+  white-space: nowrap;
+}
+
+.preflight-count.hidden {
+  display: none;
+}
+
+/* Preflight warning (not enough photos) */
+.preflight-warning {
+  font-size: 0.85rem;
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  white-space: pre-wrap;
+}
+
+.preflight-warning.hidden {
+  display: none;
+}
+
+/* Sync Button */
+.sync-library-btn {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: 1px solid #dbe1ee;
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #6c7893;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.sync-library-btn .sync-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.sync-library-btn:hover:not(:disabled) {
+  color: var(--accent, #0f7c7f);
+  border-color: var(--accent, #0f7c7f);
+  background: rgba(15, 124, 127, 0.06);
+}
+
+.sync-library-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(15, 124, 127, 0.2);
+}
+
+.sync-library-btn:disabled:not(.syncing) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sync-library-btn.syncing {
+  color: var(--accent, #0f7c7f);
+  border-color: rgba(15, 124, 127, 0.3);
+  background: rgba(15, 124, 127, 0.05);
+  cursor: default;
+  opacity: 1;
+}
+
+.sync-library-btn.syncing .sync-icon {
+  animation: sync-spin 1s linear infinite;
+  color: var(--accent, #0f7c7f);
+}
+
+@keyframes sync-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+

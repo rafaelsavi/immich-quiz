@@ -223,6 +223,38 @@ class ImmichClient:
         except ImmichClientError:
             return TimelineBounds(min_date=None, max_date=None)
 
+    async def get_asset_count(self, library_name: str) -> int | None:
+        key = self._library_key(library_name)
+        try:
+            stats = await self._request_json('POST', '/search/statistics', key, json={})
+            if isinstance(stats, dict):
+                total = stats.get('total')
+                if isinstance(total, int) and total >= 0:
+                    return total
+                images = stats.get('images') or stats.get('photos') or 0
+                videos = stats.get('videos') or 0
+                if isinstance(images, int) and isinstance(videos, int) and (images + videos) >= 0:
+                    return images + videos
+            logger.warning(
+                'Unexpected response structure from Immich /search/statistics for %s: %s',
+                library_name,
+                stats,
+            )
+        except ImmichClientError as exc:
+            logger.warning(
+                'Failed to fetch asset count from Immich /search/statistics for %s: %s',
+                library_name,
+                exc,
+            )
+        except Exception as exc:
+            logger.warning(
+                'Unexpected error in get_asset_count for %s: %s',
+                library_name,
+                exc,
+            )
+
+        return None
+
     async def list_countries(
         self,
         library_name: str,
@@ -235,7 +267,9 @@ class ImmichClient:
             explore = await self._request_json('GET', '/search/explore', key)
             if isinstance(explore, list):
                 for item in explore:
-                    if isinstance(item, dict) and item.get('fieldName') == 'country':
+                    # Immich returns fieldName as 'country' or 'exifInfo.country' depending on version
+                    field = str(item.get('fieldName', ''))
+                    if isinstance(item, dict) and field in {'country', 'exifInfo.country'}:
                         for val in item.get('items', []):
                             if isinstance(val, dict) and val.get('value'):
                                 countries.add(str(val['value']).strip())
@@ -266,7 +300,9 @@ class ImmichClient:
             explore = await self._request_json('GET', '/search/explore', key)
             if isinstance(explore, list):
                 for item in explore:
-                    if isinstance(item, dict) and item.get('fieldName') in {'city', 'state'}:
+                    # Immich returns fieldName as 'city' or 'exifInfo.city'
+                    field = str(item.get('fieldName', ''))
+                    if isinstance(item, dict) and field in {'city', 'exifInfo.city'}:
                         for val in item.get('items', []):
                             if isinstance(val, dict) and val.get('value'):
                                 c_name = str(val['value']).strip()
@@ -308,38 +344,9 @@ class ImmichClient:
                 max_date=max_date,
             )
         key = self._library_key(library_name)
-
-        if query.album_ids:
-            pool: dict[str, dict[str, Any]] = {}
-            for album_id in query.album_ids:
-                single_query = SearchQuery(
-                    album_ids=(album_id,),
-                    person_ids=query.person_ids,
-                    people_mode=query.people_mode,
-                    countries=query.countries,
-                    cities=query.cities,
-                    include_shared_albums=query.include_shared_albums,
-                    include_partner_assets=query.include_partner_assets,
-                    min_date=query.min_date,
-                    max_date=query.max_date,
-                )
-                payload = single_query.build_payload(size, page=page)
-                items: list[dict[str, Any]] = []
-                try:
-                    raw = await self._request_json('POST', '/search/metadata', key, json=payload)
-                    items = self._extract_asset_items(raw)
-                except ImmichClientError:
-                    pass
-
-                if not items:
-                    items = await self._fetch_album_assets(key, album_id)
-
-                self._merge_assets(pool, items)
-            items = list(pool.values())
-        else:
-            payload = query.build_payload(size, page=page)
-            raw = await self._request_json('POST', '/search/metadata', key, json=payload)
-            items = self._extract_asset_items(raw)
+        items = await self._execute_search_query(
+            key, library_name, query, size, page=page, randomized=False
+        )
 
         if not items or not query.should_filter_by_owner:
             return items
@@ -381,57 +388,9 @@ class ImmichClient:
                 max_date=max_date,
             )
         key = self._library_key(library_name)
-        pool: dict[str, dict[str, Any]] = {}
-
-        if query.album_ids:
-            for album_id in query.album_ids:
-                single_query = SearchQuery(
-                    album_ids=(album_id,),
-                    person_ids=query.person_ids,
-                    people_mode=query.people_mode,
-                    countries=query.countries,
-                    cities=query.cities,
-                    include_shared_albums=query.include_shared_albums,
-                    include_partner_assets=query.include_partner_assets,
-                    min_date=query.min_date,
-                    max_date=query.max_date,
-                )
-                items: list[dict[str, Any]] = []
-                try:
-                    raw = await self._request_json('POST', '/search/random', key, json=single_query.build_payload(size))
-                    items = self._extract_asset_items(raw)
-                except ImmichClientError:
-                    pass
-
-                if not items:
-                    items = await self._search_assets_randomized_fallback(library_name, size, query=single_query)
-
-                if not items:
-                    items = await self._fetch_album_assets(key, album_id)
-
-                self._merge_assets(pool, items)
-        else:
-            payload = query.build_payload(size)
-            if query.min_date or query.max_date:
-                # When date filters are applied, use metadata search with takenAfter/takenBefore
-                # and page sampling to accurately sample from the filtered population.
-                items = await self._search_assets_randomized_fallback(library_name, size, query=query)
-                self._merge_assets(pool, items)
-            else:
-                try:
-                    for _ in range(3):
-                        raw = await self._request_json('POST', '/search/random', key, json=payload)
-                        self._merge_assets(pool, self._extract_asset_items(raw))
-                        if len(pool) >= size:
-                            break
-                except ImmichClientError:
-                    pass
-
-                if not pool:
-                    items = await self._search_assets_randomized_fallback(library_name, size, query=query)
-                    self._merge_assets(pool, items)
-
-        raw_items = list(pool.values())
+        raw_items = await self._execute_search_query(
+            key, library_name, query, size, page=1, randomized=True
+        )
 
         if not raw_items or not query.should_filter_by_owner:
             random.shuffle(raw_items)
@@ -448,13 +407,262 @@ class ImmichClient:
         random.shuffle(filtered)
         return filtered[:size]
 
+    async def _execute_search_query(
+        self,
+        key: str,
+        library_name: str,
+        query: SearchQuery,
+        size: int,
+        *,
+        page: int = 1,
+        randomized: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Decompose multi-select criteria (people, albums, cities, countries) into individual queries.
+
+        Immich's API requires individual queries for OR semantics across multi-selects:
+        - People: 'OR' unions single-person queries; 'AND' intersects them.
+        - Albums: unions single-album queries.
+        - Cities: unions single-city queries.
+        - Countries: unions single-country queries.
+        """
+        # 1. Multi-person filtering
+        if query.person_ids and len(query.person_ids) > 1:
+            if query.people_mode.upper() == 'AND':
+                person_asset_maps: list[dict[str, dict[str, Any]]] = []
+                for pid in query.person_ids:
+                    sub_q = SearchQuery(
+                        album_ids=query.album_ids,
+                        person_ids=(pid,),
+                        people_mode='OR',
+                        countries=query.countries,
+                        cities=query.cities,
+                        include_shared_albums=query.include_shared_albums,
+                        include_partner_assets=query.include_partner_assets,
+                        min_date=query.min_date,
+                        max_date=query.max_date,
+                    )
+                    items = await self._execute_search_query(
+                        key, library_name, sub_q, size, page=page, randomized=randomized
+                    )
+                    p_map: dict[str, dict[str, Any]] = {}
+                    for item in items:
+                        aid = str(item.get('id', '') or item.get('assetId', '')).strip()
+                        if aid:
+                            p_map[aid] = item
+                    person_asset_maps.append(p_map)
+                if not person_asset_maps:
+                    return []
+                common_ids = set(person_asset_maps[0].keys())
+                for p_map in person_asset_maps[1:]:
+                    common_ids &= set(p_map.keys())
+                first_map = person_asset_maps[0]
+                return [first_map[aid] for aid in common_ids if aid in first_map]
+            else:
+                pool: dict[str, dict[str, Any]] = {}
+                for pid in query.person_ids:
+                    sub_q = SearchQuery(
+                        album_ids=query.album_ids,
+                        person_ids=(pid,),
+                        people_mode='OR',
+                        countries=query.countries,
+                        cities=query.cities,
+                        include_shared_albums=query.include_shared_albums,
+                        include_partner_assets=query.include_partner_assets,
+                        min_date=query.min_date,
+                        max_date=query.max_date,
+                    )
+                    items = await self._execute_search_query(
+                        key, library_name, sub_q, size, page=page, randomized=randomized
+                    )
+                    self._merge_assets(pool, items)
+                return list(pool.values())
+
+        # 2. Multi-album filtering (OR union)
+        if query.album_ids and len(query.album_ids) > 1:
+            pool = {}
+            for aid in query.album_ids:
+                sub_q = SearchQuery(
+                    album_ids=(aid,),
+                    person_ids=query.person_ids,
+                    people_mode=query.people_mode,
+                    countries=query.countries,
+                    cities=query.cities,
+                    include_shared_albums=query.include_shared_albums,
+                    include_partner_assets=query.include_partner_assets,
+                    min_date=query.min_date,
+                    max_date=query.max_date,
+                )
+                items = await self._execute_search_query(
+                    key, library_name, sub_q, size, page=page, randomized=randomized
+                )
+                self._merge_assets(pool, items)
+            return list(pool.values())
+
+        # 3. Multi-city filtering (OR union)
+        if query.cities and len(query.cities) > 1:
+            pool = {}
+            for city in query.cities:
+                sub_q = SearchQuery(
+                    album_ids=query.album_ids,
+                    person_ids=query.person_ids,
+                    people_mode=query.people_mode,
+                    countries=query.countries,
+                    cities=(city,),
+                    include_shared_albums=query.include_shared_albums,
+                    include_partner_assets=query.include_partner_assets,
+                    min_date=query.min_date,
+                    max_date=query.max_date,
+                )
+                items = await self._execute_search_query(
+                    key, library_name, sub_q, size, page=page, randomized=randomized
+                )
+                self._merge_assets(pool, items)
+            return list(pool.values())
+
+        # 4. Multi-country filtering (OR union, when cities not specified)
+        if query.countries and len(query.countries) > 1 and not query.cities:
+            pool = {}
+            for country in query.countries:
+                sub_q = SearchQuery(
+                    album_ids=query.album_ids,
+                    person_ids=query.person_ids,
+                    people_mode=query.people_mode,
+                    countries=(country,),
+                    cities=query.cities,
+                    include_shared_albums=query.include_shared_albums,
+                    include_partner_assets=query.include_partner_assets,
+                    min_date=query.min_date,
+                    max_date=query.max_date,
+                )
+                items = await self._execute_search_query(
+                    key, library_name, sub_q, size, page=page, randomized=randomized
+                )
+                self._merge_assets(pool, items)
+            return list(pool.values())
+
+        # Base case: Primitive query (at most 1 person, 1 album, 1 city, 1 country)
+        if randomized:
+            return await self._search_primitive_random_assets(key, library_name, query, size)
+        return await self._search_primitive_metadata_assets(key, library_name, query, size, page=page)
+
+    async def _search_primitive_metadata_assets(
+        self,
+        key: str,
+        library_name: str,
+        query: SearchQuery,
+        size: int,
+        page: int = 1,
+    ) -> list[dict[str, Any]]:
+        payload = query.build_payload(size, page=page)
+        items: list[dict[str, Any]] = []
+        try:
+            raw = await self._request_json('POST', '/search/metadata', key, json=payload)
+            items = self._extract_asset_items(raw)
+        except ImmichClientError:
+            pass
+
+        if not items and query.album_ids:
+            items = await self._fetch_album_assets(key, query.album_ids[0])
+
+        return items
+
+    async def _search_primitive_random_assets(
+        self,
+        key: str,
+        library_name: str,
+        query: SearchQuery,
+        size: int,
+    ) -> list[dict[str, Any]]:
+        pool: dict[str, dict[str, Any]] = {}
+        if query.min_date or query.max_date:
+            items = await self._search_assets_year_bucketed(library_name, size, query=query)
+            self._merge_assets(pool, items)
+        else:
+            payload = query.build_payload(size)
+            try:
+                for _ in range(3):
+                    raw = await self._request_json('POST', '/search/random', key, json=payload)
+                    self._merge_assets(pool, self._extract_asset_items(raw))
+                    if len(pool) >= size:
+                        break
+            except ImmichClientError:
+                pass
+
+            if not pool:
+                items = await self._search_assets_randomized_fallback(library_name, size, query=query)
+                self._merge_assets(pool, items)
+
+            if not pool and query.album_ids:
+                items = await self._fetch_album_assets(key, query.album_ids[0])
+                self._merge_assets(pool, items)
+
+        return list(pool.values())
+
+    async def _search_assets_year_bucketed(
+        self,
+        library_name: str,
+        size: int,
+        query: SearchQuery,
+    ) -> list[dict[str, Any]]:
+        """Sample assets evenly across years in the active date range."""
+        key = self._library_key(library_name)
+        today = date.today()
+        min_year = query.min_date.year if query.min_date else 1900
+        max_year = query.max_date.year if query.max_date else today.year
+        total_years = max(1, max_year - min_year + 1)
+
+        if total_years > 50:
+            bucket_years = 5
+        elif total_years > 20:
+            bucket_years = 2
+        else:
+            bucket_years = 1
+
+        num_buckets = max(1, (total_years + bucket_years - 1) // bucket_years)
+        per_bucket = max(10, (size * 2 + num_buckets - 1) // num_buckets)
+
+        unique_assets: dict[str, dict[str, Any]] = {}
+        year = min_year
+        while year <= max_year:
+            bucket_end_year = min(year + bucket_years - 1, max_year)
+            bucket_min = max(date(year, 1, 1), query.min_date or date.min)
+            bucket_max = min(date(bucket_end_year, 12, 31), query.max_date or today)
+
+            bucket_query = SearchQuery(
+                album_ids=query.album_ids,
+                person_ids=query.person_ids,
+                people_mode=query.people_mode,
+                countries=query.countries,
+                cities=query.cities,
+                include_shared_albums=query.include_shared_albums,
+                include_partner_assets=query.include_partner_assets,
+                min_date=bucket_min,
+                max_date=bucket_max,
+            )
+            try:
+                payload = bucket_query.build_payload(per_bucket, page=1)
+                raw = await self._request_json('POST', '/search/metadata', key, json=payload)
+                self._merge_assets(unique_assets, self._extract_asset_items(raw))
+            except ImmichClientError as exc:
+                logger.warning('Year-bucketed sampling failed for %d–%d: %s', year, bucket_end_year, exc)
+
+            year += bucket_years
+
+        items = list(unique_assets.values())
+        random.shuffle(items)
+        return items[:size]
+
     async def _search_assets_randomized_fallback(
         self,
         library_name: str,
         size: int,
         query: SearchQuery,
     ) -> list[dict[str, Any]]:
-        """Randomize metadata fallback by sampling multiple pages instead of page 1 only."""
+        """Randomize metadata fallback by sampling multiple pages instead of page 1 only.
+
+        Used as a fallback when /search/random is unavailable. When a date range
+        is active, prefer _search_assets_year_bucketed for better temporal spread.
+        """
         key = self._library_key(library_name)
 
         first_page_payload = query.build_payload(size, page=1)
@@ -693,9 +901,8 @@ class ImmichClient:
         # 5. City check (if cities filter specified)
         if cities:
             asset_city = (exif.get('city') or '').strip().lower()
-            asset_state = (exif.get('state') or '').strip().lower()
             allowed_cities = {c.lower() for c in cities}
-            if not (asset_city in allowed_cities or asset_state in allowed_cities):
+            if asset_city not in allowed_cities:
                 return False
 
         # 6. Person check (if person_ids filter specified)

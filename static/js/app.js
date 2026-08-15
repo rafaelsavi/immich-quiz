@@ -190,6 +190,125 @@ function initFilterComponents() {
       triggerPreflightDebounced();
     });
   }
+
+  // Manual Sync Button
+  if (el.syncLibraryBtn) {
+    el.syncLibraryBtn.addEventListener("click", () => {
+      triggerLibrarySync();
+    });
+  }
+}
+
+/* ------------------------------------------------- library metadata sync */
+
+let _syncPollInterval = null;
+let _lastSyncStatus = null;
+
+function formatSyncDate(isoStr) {
+  if (!isoStr) return "";
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return "";
+    const locale = (state && state.language === "PT") ? "pt-BR" : "en-US";
+    return d.toLocaleString(locale, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch (_) {
+    return "";
+  }
+}
+
+function renderSyncStatus(status) {
+  if (!status) return;
+  _lastSyncStatus = status;
+  const isSyncing = status.sync_status === "syncing";
+  if (el.syncLibraryBtn) {
+    el.syncLibraryBtn.classList.toggle("syncing", isSyncing);
+    el.syncLibraryBtn.disabled = isSyncing;
+
+    if (isSyncing) {
+      el.syncLibraryBtn.title = t("setup.syncing_label");
+    } else if (status.last_sync_at) {
+      const formattedDate = formatSyncDate(status.last_sync_at);
+      el.syncLibraryBtn.title = formattedDate
+        ? t("setup.sync_title_with_date", formattedDate)
+        : t("setup.sync_title");
+    } else {
+      el.syncLibraryBtn.title = t("setup.sync_title");
+    }
+  }
+  if (el.syncBtnLabel) {
+    if (isSyncing) {
+      const total = status.total_assets || 0;
+      const synced = status.synced_assets || 0;
+      if (total > 0 && total >= synced) {
+        const pct = Math.min(100, Math.round((synced / total) * 100));
+        el.syncBtnLabel.textContent = `${synced.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
+      } else if (synced > 0) {
+        el.syncBtnLabel.textContent = t("setup.sync_indexed_count", synced);
+      } else {
+        el.syncBtnLabel.textContent = t("setup.syncing_label");
+      }
+    } else {
+      el.syncBtnLabel.textContent = t("setup.sync_label");
+    }
+  }
+}
+
+async function checkSyncStatus(libraryName) {
+  if (!libraryName) return;
+  try {
+    const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
+    if (status.warning) {
+      console.warn(`[Immich Sync Warning] ${status.warning}`);
+    }
+    if (status.sync_error) {
+      console.error(`[Immich Sync Error] ${status.sync_error}`);
+    }
+    renderSyncStatus(status);
+    if (status.sync_status === "syncing") {
+      startSyncPolling(libraryName);
+    }
+  } catch (e) {
+    console.warn("Failed to fetch sync status:", e);
+  }
+}
+
+function startSyncPolling(libraryName) {
+  if (_syncPollInterval) clearInterval(_syncPollInterval);
+  _syncPollInterval = setInterval(async () => {
+    try {
+      const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
+      if (status.warning) {
+        console.warn(`[Immich Sync Warning] ${status.warning}`);
+      }
+      if (status.sync_error) {
+        console.error(`[Immich Sync Error] ${status.sync_error}`);
+      }
+      renderSyncStatus(status);
+      if (status.sync_status !== "syncing") {
+        clearInterval(_syncPollInterval);
+        _syncPollInterval = null;
+        // Sync completed: reload filters to show all newly indexed items!
+        await onLibrarySelected(libraryName);
+      }
+    } catch (e) {
+      console.warn("Error polling sync status:", e);
+    }
+  }, 2000);
+}
+
+async function triggerLibrarySync() {
+  const libraryName = el.library ? el.library.value : null;
+  if (!libraryName) return;
+  try {
+    renderSyncStatus({ sync_status: "syncing", total_assets: 0, synced_assets: 0 });
+    await api(`/api/sync?library_name=${encodeURIComponent(libraryName)}`, { method: "POST" });
+    startSyncPolling(libraryName);
+  } catch (err) {
+    console.error("Failed to trigger sync:", err);
+  }
 }
 
 /* ------------------------------------------------- dependent city filtering */
@@ -331,6 +450,25 @@ function hidePreflightWarning() {
   if (warningEl) warningEl.classList.add("hidden");
 }
 
+/** @param {number} count */
+function updatePreflightCount(count) {
+  const el = document.getElementById("preflight-count");
+  if (!el) return;
+  if (count === 0) {
+    el.classList.add("hidden");
+    return;
+  }
+  const display = Number(count).toLocaleString();
+  el.textContent = t("setup.preflight_count", display);
+  el.classList.remove("hidden");
+  el.classList.toggle("preflight-count--ok", count > 0);
+}
+
+function hidePreflightCount() {
+  const el = document.getElementById("preflight-count");
+  if (el) el.classList.add("hidden");
+}
+
 function triggerPreflightDebounced() {
   if (_preflightDebounceTimer) {
     clearTimeout(_preflightDebounceTimer);
@@ -372,6 +510,8 @@ async function executePreflight() {
       body: JSON.stringify(payload),
     });
 
+    updatePreflightCount(preflight.eligible_count);
+
     if (!preflight.ok) {
       const filterNames = (preflight.active_filters || [])
         .map((f) => t(`setup.filter_${f}`, preflight.min_date, preflight.max_date))
@@ -385,6 +525,7 @@ async function executePreflight() {
   } catch (err) {
     // Network or server errors during live preflight are silently ignored —
     // the submit button still works; hard errors surface at match start.
+    hidePreflightCount();
     console.warn("Live preflight error:", err);
   }
 }
@@ -428,6 +569,7 @@ async function onLibrarySelected(libraryName) {
     updatePeopleModeToggleVisibility();
     updateFiltersSummaryBadge();
     triggerPreflightDebounced();
+    checkSyncStatus(libraryName);
   } catch (err) {
     console.error("Failed to load library filters:", err);
   }
@@ -442,6 +584,10 @@ async function initLibraries() {
     option.value = name;
     option.textContent = name;
     el.library.appendChild(option);
+  });
+
+  el.library.addEventListener("change", () => {
+    onLibrarySelected(el.library.value);
   });
 
   if (data.libraries.length > 0) {
@@ -1699,6 +1845,9 @@ function refreshActiveScreenLanguage() {
   if (peopleMultiSelect) peopleMultiSelect.updateTriggerUi();
   if (dateRangeSlider) dateRangeSlider.updateVisuals();
   updateFiltersSummaryBadge();
+  if (_lastSyncStatus) {
+    renderSyncStatus(_lastSyncStatus);
+  }
 
   if (!el.setupCard.classList.contains("hidden")) {
     const settingsContainer = document.getElementById("game-settings-container");

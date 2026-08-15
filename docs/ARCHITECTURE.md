@@ -38,6 +38,10 @@ immich-quiz/
 │   │                    Provides: validate_access, list_albums, search_assets,
 │   │                    search_random_assets, get_asset_bytes.
 │   └── storage/
+│       ├── db.py        DatabaseManager for SQLite connection lifecycle and WAL mode.
+│       ├── metadata.py  MetadataStore with indexed relational schema, query parity
+│       │                builder, filter options extraction, and asset pruning/invalidation.
+│       ├── sync.py      SyncEngine for asynchronous background indexing from Immich.
 │       ├── session.py   In-memory state. SessionStore holds MatchState objects.
 │       └── leaderboard.py LeaderboardStore appends and reads rows from CSV.
 └── static/              Vanilla HTML/CSS/JS frontend.
@@ -73,25 +77,33 @@ immich-quiz/
 GET /api/ui-config
   └── Returns max image height, language, max score settings to frontend
 
+GET /api/sync/status?library_name={name}
+  └── Returns current synchronization status, total asset count, and synced asset progress
+
+POST /api/sync?library_name={name}
+  └── Triggers background asynchronous metadata sync from Immich to SQLite
+
 GET /api/filters?library_name={name}
-  └── Returns timeline date bounds, countries, cities, and people for library
+  └── Returns timeline date bounds, countries, cities (with country mapping), and people for library
+  └── Queries local SQLite metadata index when populated (instant response); falls back to Immich API
   └── Backed by in-memory TTLCache (5-minute TTL) on the server
   └── Frontend hydrates multi-selects and range slider; restores per-library localStorage
 
 POST /api/game/preflight
   └── Validates asset pool eligibility against active filters (albums, date range, countries, cities, people)
+  └── Evaluates fast indexed SQLite query (or sampling fallback) with identical query clauses
   └── Enforces people matching mode (OR / AND)
-  └── Evaluates spatial (≥100m) and temporal (≥60s) photo diversity constraints
   └── Confirms eligible photo count >= requested round count
 
 POST /api/game/setup
   └── routes.py resolves album names and active filter parameters
   └── Creates MatchState in SessionStore (players, round config, filter criteria, empty rounds)
-  └── Returns match_id and total turns
+  └── Pre-computes match bounding box for smart map auto-zoom
+  └── Returns match_id, total turns, and map_bounds
 
 POST /api/question
   └── routes.py dispatches through GameModeRegistry to active GameMode
-  └── Draws candidate asset(s) using selector.py with diversity constraints:
+  └── Draws candidate asset(s) using selector.py backed by MetadataStore with diversity constraints:
       - Location distance >= 0.1 km (100m) using haversine_km
       - Time separation >= 60 seconds using capture_datetime
   └── Creates QuestionState with full RoundAsset (lat/lon/date) stored server-side
@@ -100,6 +112,7 @@ POST /api/question
 GET /api/media/{asset_id}
   └── routes.py verifies asset_id was issued in a live match (rejects any other)
   └── Calls ImmichClient.get_asset_bytes → proxies preview thumbnail bytes
+  └── If asset fails to load, marks asset invalid in SQLite metadata index
   └── Browser never contacts Immich directly
 
 POST /api/answer

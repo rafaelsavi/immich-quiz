@@ -6,8 +6,8 @@ from fastapi import HTTPException
 
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
-from src.game.selector import calculate_match_bounds, filter_diverse_asset_answers, load_asset_pool
-from src.immich.client import ImmichClient, ImmichClientError, SearchQuery
+from src.game.selector import calculate_match_bounds, load_asset_pool
+from src.immich.client import AssetAnswer, ImmichClient, ImmichClientError, SearchQuery
 from src.models import (
     AnswerRequest,
     AnswerResponse,
@@ -26,6 +26,7 @@ from src.models import (
 )
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.leaderboard import LeaderboardStore
+from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import SessionStore
 
 logger = logging.getLogger(__name__)
@@ -69,31 +70,81 @@ class GameService:
         setup: PreflightRequest,
         settings: AppSettings,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> PreflightResponse:
         # Determine effective date bounds (intersection of env bounds and GUI setup bounds)
         effective_min_date = max(filter(None, [settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
         effective_max_date = min(filter(None, [settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
 
-        query = SearchQuery(
-            album_ids=tuple(setup.album_ids),
-            person_ids=tuple(setup.person_ids),
-            people_mode=setup.people_mode,
-            countries=tuple(setup.countries),
-            cities=tuple(setup.cities),
-            include_shared_albums=settings.include_shared_albums,
-            include_partner_assets=settings.include_partner_assets,
-            min_date=effective_min_date,
-            max_date=effective_max_date,
-        )
-
-        try:
-            raw_assets = await immich.search_assets(
-                setup.library_name,
-                query=query,
-                size=250,
+        # 1. Fast indexed SQLite query if metadata store is populated for this library
+        if metadata_store is not None and metadata_store.has_synced_assets(setup.library_name):
+            criteria = AssetFilterCriteria(
+                library_name=setup.library_name,
+                location_mode=setup.location_mode,
+                date_mode=setup.date_mode,
+                min_date=effective_min_date,
+                max_date=effective_max_date,
+                countries=tuple(setup.countries),
+                cities=tuple(setup.cities),
+                person_ids=tuple(setup.person_ids),
+                people_mode=setup.people_mode,
+                album_ids=tuple(setup.album_ids),
+                include_shared_albums=settings.include_shared_albums,
+                include_partner_assets=settings.include_partner_assets,
             )
-        except ImmichClientError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+            eligible_count = metadata_store.count_eligible_assets(criteria)
+        else:
+            # Fallback to paginated HTTP sampling
+            query = SearchQuery(
+                album_ids=tuple(setup.album_ids),
+                person_ids=tuple(setup.person_ids),
+                people_mode=setup.people_mode,
+                countries=tuple(setup.countries),
+                cities=tuple(setup.cities),
+                include_shared_albums=settings.include_shared_albums,
+                include_partner_assets=settings.include_partner_assets,
+                min_date=effective_min_date,
+                max_date=effective_max_date,
+            )
+
+            # Sample candidate assets to verify availability for selected game mode and filters.
+            target_eligible_count = 250
+            max_sample_pages = 10
+            seen_asset_ids: set[str] = set()
+            eligible_answers: list[AssetAnswer] = []
+
+            try:
+                for page_num in range(1, max_sample_pages + 1):
+                    raw_assets = await immich.search_assets(
+                        setup.library_name,
+                        query=query,
+                        size=100,
+                        page=page_num,
+                    )
+                    if not raw_assets:
+                        break
+
+                    for asset in raw_assets:
+                        aid = str(asset.get('id', '') or asset.get('assetId', '')).strip()
+                        if aid and aid not in seen_asset_ids:
+                            seen_asset_ids.add(aid)
+                            if ImmichClient.is_eligible_asset(
+                                asset,
+                                setup.location_mode,
+                                setup.date_mode,
+                                min_date=effective_min_date,
+                                max_date=effective_max_date,
+                                countries=tuple(setup.countries),
+                                cities=tuple(setup.cities),
+                            ):
+                                eligible_answers.append(ImmichClient.extract_answer(asset))
+
+                    if len(eligible_answers) >= target_eligible_count or len(raw_assets) == 0:
+                        break
+            except ImmichClientError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+            eligible_count = len(eligible_answers)
 
         active_filters: list[str] = []
         if setup.location_mode:
@@ -113,31 +164,6 @@ class GameService:
         if effective_min_date or effective_max_date:
             active_filters.append('date_range')
 
-        eligible_answers = [
-            ImmichClient.extract_answer(asset)
-            for asset in raw_assets
-            if ImmichClient.is_eligible_asset(
-                asset,
-                setup.location_mode,
-                setup.date_mode,
-                min_date=effective_min_date,
-                max_date=effective_max_date,
-                countries=tuple(setup.countries),
-                cities=tuple(setup.cities),
-                person_ids=tuple(setup.person_ids),
-                people_mode=setup.people_mode,
-            )
-        ]
-
-        diverse_candidates = filter_diverse_asset_answers(
-            eligible_answers,
-            setup.location_mode,
-            setup.date_mode,
-            min_dist_km=settings.photo_diversity_min_distance_km,
-            min_time_sec=settings.photo_diversity_min_time_seconds,
-        )
-
-        eligible_count = len(diverse_candidates)
         required = 3 * setup.round_count if setup.game_mode == GameMode.album_shuffle else setup.round_count
 
         return PreflightResponse(
@@ -155,6 +181,7 @@ class GameService:
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> GameSetupResponse:
         setup.album_name = await self.resolve_album_name(
             immich,
@@ -173,6 +200,7 @@ class GameService:
                     max_capture_date=settings.fetch_photos_date_upper_bound,
                     include_shared_albums=settings.include_shared_albums,
                     include_partner_assets=settings.include_partner_assets,
+                    metadata_store=metadata_store,
                 )
                 map_bounds = calculate_match_bounds(state.asset_pool)
             except Exception as exc:
@@ -191,6 +219,7 @@ class GameService:
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> QuestionResponse:
         try:
             state = store.get_match(payload.match_id)
@@ -230,8 +259,12 @@ class GameService:
                     for ba in active.batch_assets:
                         if ba.asset_id in payload.played_asset_ids:
                             state.played_asset_ids.add(ba.asset_id)
+                            if metadata_store is not None:
+                                metadata_store.mark_asset_invalid(ba.asset_id)
                 else:
                     state.played_asset_ids.add(active.asset_id)
+                    if metadata_store is not None:
+                        metadata_store.mark_asset_invalid(active.asset_id)
                 active = None
             else:
                 return engine.build_question_response(state, active)
@@ -242,6 +275,7 @@ class GameService:
             settings,
             store,
             immich,
+            metadata_store=metadata_store,
         )
         return engine.build_question_response(state, question_state)
 

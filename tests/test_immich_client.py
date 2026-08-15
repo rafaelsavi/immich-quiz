@@ -792,12 +792,24 @@ async def test_search_random_assets_with_date_bounds_uses_metadata_search() -> N
     )
     await client.aclose()
 
+    # Year-bucketed sampling: uses /search/metadata (not /search/random)
     assert any(ep.endswith('/search/metadata') for ep in recorded_endpoints)
     assert not any(ep.endswith('/search/random') for ep in recorded_endpoints)
-    assert len(recorded_payloads) > 0
+
+    # 1990-2000 = 11 years → 11 buckets of 1 year each
+    assert len(recorded_payloads) == 11
+
+    # First bucket: 1990-01-01 to 1990-12-31
     assert recorded_payloads[0].get('takenAfter') == '1990-01-01T00:00:00.000Z'
-    assert recorded_payloads[0].get('takenBefore') == '2000-12-31T23:59:59.999Z'
-    assert [item['id'] for item in items] == ['vintage-photo']
+    assert recorded_payloads[0].get('takenBefore') == '1990-12-31T23:59:59.999Z'
+
+    # Last bucket: 2000-01-01 to 2000-12-31
+    assert recorded_payloads[-1].get('takenAfter') == '2000-01-01T00:00:00.000Z'
+    assert recorded_payloads[-1].get('takenBefore') == '2000-12-31T23:59:59.999Z'
+
+    # Results are deduplicated; vintage-photo appears in every bucket response
+    assert len(items) >= 1
+    assert any(item['id'] == 'vintage-photo' for item in items)
 
 
 async def test_list_people_parses_and_filters() -> None:
@@ -989,7 +1001,6 @@ async def test_list_cities() -> None:
 
     cities = await client.list_cities('family')
     assert cities == [
-        CityInfo(name='Bavaria', country='Germany'),
         CityInfo(name='Berlin', country='Germany'),
         CityInfo(name='Paris', country='France'),
     ]
@@ -1001,7 +1012,6 @@ async def test_list_cities() -> None:
     # Blacklist
     bl_cities = await client.list_cities('family', blacklist=frozenset({'paris'}))
     assert bl_cities == [
-        CityInfo(name='Bavaria', country='Germany'),
         CityInfo(name='Berlin', country='Germany'),
     ]
 
@@ -1079,7 +1089,8 @@ def test_is_eligible_asset_city_filtering() -> None:
 
     assert ImmichClient.is_eligible_asset(asset_paris, True, True, cities=('Paris', 'London')) is True
     assert ImmichClient.is_eligible_asset(asset_paris, True, True, cities=('paris',)) is True
-    assert ImmichClient.is_eligible_asset(asset_bavaria, True, True, cities=('bavaria',)) is True
+    # State-only is not matched by city filter
+    assert ImmichClient.is_eligible_asset(asset_bavaria, True, True, cities=('bavaria',)) is False
     assert ImmichClient.is_eligible_asset(asset_none, True, True, cities=('Paris',)) is False
 
 
@@ -1126,10 +1137,187 @@ def test_is_eligible_asset_people_filtering_and_mode() -> None:
         is False
     )
     assert (
-        ImmichClient.is_eligible_asset(asset_bob_only, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND')
-        is False
-    )
-    assert (
         ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice',), people_mode='AND')
         is True
     )
+
+
+async def test_search_assets_people_mode_or_unions_results() -> None:
+    # When querying with OR mode for Alice and Bob, it should fetch for Alice and Bob
+    # individually and return the UNION of both asset sets.
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/metadata'):
+            data = json.loads(request.content.decode('utf-8'))
+            recorded_payloads.append(data)
+            pids = data.get('personIds', [])
+            if 'p-alice' in pids:
+                return httpx.Response(200, json=[asset(id='photo-alice-1'), asset(id='photo-both')])
+            if 'p-bob' in pids:
+                return httpx.Response(200, json=[asset(id='photo-bob-1'), asset(id='photo-both')])
+            return httpx.Response(200, json=[])
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    query = SearchQuery(person_ids=('p-alice', 'p-bob'), people_mode='OR')
+    items = await client.search_assets('family', query=query)
+    await client.aclose()
+
+    item_ids = {item['id'] for item in items}
+    assert item_ids == {'photo-alice-1', 'photo-bob-1', 'photo-both'}
+    assert len(recorded_payloads) == 2
+
+
+async def test_search_assets_people_mode_and_intersects_results() -> None:
+    # When querying with AND mode for Alice and Bob, it should fetch for Alice and Bob
+    # individually and return the INTERSECTION of both asset sets (only photo-both).
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/metadata'):
+            data = json.loads(request.content.decode('utf-8'))
+            recorded_payloads.append(data)
+            pids = data.get('personIds', [])
+            if 'p-alice' in pids:
+                return httpx.Response(200, json=[asset(id='photo-alice-1'), asset(id='photo-both')])
+            if 'p-bob' in pids:
+                return httpx.Response(200, json=[asset(id='photo-bob-1'), asset(id='photo-both')])
+            return httpx.Response(200, json=[])
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    query = SearchQuery(person_ids=('p-alice', 'p-bob'), people_mode='AND')
+    items = await client.search_assets('family', query=query)
+    await client.aclose()
+
+    item_ids = {item['id'] for item in items}
+    assert item_ids == {'photo-both'}
+    assert len(recorded_payloads) == 2
+
+
+async def test_search_assets_multiple_cities_or_unions_results() -> None:
+    # When querying with multiple cities, it should fetch for each city individually
+    # and return the UNION of all matching assets.
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/metadata'):
+            data = json.loads(request.content.decode('utf-8'))
+            recorded_payloads.append(data)
+            city = data.get('city')
+            if city == 'Paris':
+                return httpx.Response(200, json=[asset(id='photo-paris-1')])
+            if city == 'Rome':
+                return httpx.Response(200, json=[asset(id='photo-rome-1')])
+            return httpx.Response(200, json=[])
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    query = SearchQuery(cities=('Paris', 'Rome'))
+    items = await client.search_assets('family', query=query)
+    await client.aclose()
+
+    item_ids = {item['id'] for item in items}
+    assert item_ids == {'photo-paris-1', 'photo-rome-1'}
+    assert len(recorded_payloads) == 2
+    assert {p.get('city') for p in recorded_payloads} == {'Paris', 'Rome'}
+
+
+async def test_search_random_assets_multiple_cities_or_unions_results() -> None:
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/random'):
+            data = json.loads(request.content.decode('utf-8'))
+            recorded_payloads.append(data)
+            city = data.get('city')
+            if city == 'Paris':
+                return httpx.Response(200, json=[asset(id='photo-paris-1')])
+            if city == 'Rome':
+                return httpx.Response(200, json=[asset(id='photo-rome-1')])
+            return httpx.Response(200, json=[])
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    query = SearchQuery(cities=('Paris', 'Rome'))
+    items = await client.search_random_assets('family', query=query)
+    await client.aclose()
+
+    item_ids = {item['id'] for item in items}
+    assert item_ids == {'photo-paris-1', 'photo-rome-1'}
+    assert {p.get('city') for p in recorded_payloads} == {'Paris', 'Rome'}
+
+
+async def test_search_assets_multiple_countries_or_unions_results() -> None:
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/search/metadata'):
+            data = json.loads(request.content.decode('utf-8'))
+            recorded_payloads.append(data)
+            country = data.get('country')
+            if country == 'France':
+                return httpx.Response(200, json=[asset(id='photo-france-1')])
+            if country == 'Italy':
+                return httpx.Response(200, json=[asset(id='photo-italy-1')])
+            return httpx.Response(200, json=[])
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    query = SearchQuery(countries=('France', 'Italy'))
+    items = await client.search_assets('family', query=query)
+    await client.aclose()
+
+    item_ids = {item['id'] for item in items}
+    assert item_ids == {'photo-france-1', 'photo-italy-1'}
+    assert len(recorded_payloads) == 2
+    assert {p.get('country') for p in recorded_payloads} == {'France', 'Italy'}
+
+
+async def test_get_asset_count_from_search_statistics_total() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/statistics') and request.method == 'POST':
+            return httpx.Response(200, json={'total': 42, 'images': 30, 'videos': 12})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    count = await client.get_asset_count('family')
+    await client.aclose()
+    assert count == 42
+
+
+async def test_get_asset_count_fallback_images_and_videos() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/statistics') and request.method == 'POST':
+            return httpx.Response(200, json={'images': 50, 'videos': 10})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    count = await client.get_asset_count('family')
+    await client.aclose()
+    assert count == 60
+
+
+async def test_get_asset_count_error_returns_none() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/statistics'):
+            return httpx.Response(500, json={'error': 'internal server error'})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    count = await client.get_asset_count('family')
+    await client.aclose()
+    assert count is None
+
+

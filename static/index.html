@@ -69,7 +69,15 @@
             <!-- Row 1: Library & Albums -->
             <div class="grid-2">
               <div>
-                <label data-i18n="setup.library_label">Library</label>
+                <div class="field-head-inline">
+                  <label data-i18n="setup.library_label">Library</label>
+                  <button type="button" class="sync-library-btn" id="sync-library-btn" title="Sync library metadata from Immich">
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                    <span id="sync-btn-label">Sync</span>
+                  </button>
+                </div>
                 <select id="library" required></select>
               </div>
               <div class="album-select-group">
@@ -104,7 +112,7 @@
                 <div id="country-multi-select" class="multi-select"></div>
               </div>
               <div>
-                <label data-i18n="setup.cities_label">Cities / Regions</label>
+                <label data-i18n="setup.cities_label">Cities</label>
                 <div id="city-multi-select" class="multi-select"></div>
               </div>
               <div>
@@ -121,6 +129,7 @@
 
             <!-- Filter Actions -->
             <div class="filters-footer-actions">
+              <div id="preflight-count" class="preflight-count hidden" aria-live="polite"></div>
               <button type="button" class="btn-text-action" id="reset-filters-btn" data-i18n="setup.reset_filters">
                 Reset filters
               </button>

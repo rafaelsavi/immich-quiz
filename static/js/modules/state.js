@@ -76,6 +76,8 @@ export const el = {
     return document.getElementById("goal-date");
   },
   library: document.getElementById("library"),
+  syncLibraryBtn: document.getElementById("sync-library-btn"),
+  syncBtnLabel: document.getElementById("sync-btn-label"),
   albumMultiSelect: document.getElementById("album-multi-select"),
   filtersAccordion: document.getElementById("filters-accordion"),
   filtersToggleBtn: document.getElementById("filters-toggle-btn"),

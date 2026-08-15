@@ -13,8 +13,11 @@ from fastapi.staticfiles import StaticFiles
 from src.api.routes import router
 from src.config import AppSettings, ConfigError, load_settings
 from src.immich.client import ImmichClient, ImmichClientError
+from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
+from src.storage.metadata import MetadataStore
 from src.storage.session import SessionStore
+from src.storage.sync import SyncEngine
 from src.version import APP_VERSION
 
 logger = logging.getLogger(__name__)
@@ -38,6 +41,11 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     if settings is None:
         settings = load_settings()
 
+    db_manager = DatabaseManager(settings.metadata_db_path)
+    metadata_store = MetadataStore(db_manager)
+    immich_client = ImmichClient(settings.immich_server_url, settings.immich_libraries)
+    sync_engine = SyncEngine(immich_client, metadata_store)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         immich: ImmichClient = app.state.immich_client
@@ -53,6 +61,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
         app.state.available_libraries = available
         app.state.unavailable_libraries = unavailable
+
+        # Auto-trigger background metadata indexing on startup for available libraries
+        if settings.auto_sync_on_startup:
+            for lib_name in available:
+                logger.info('Scheduling startup metadata sync for library: %s', lib_name)
+                sync_engine.trigger_sync(lib_name)
 
         async def _periodic_cleanup() -> None:
             while True:
@@ -74,7 +88,10 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app = FastAPI(title='Immich Quiz', version=APP_VERSION, lifespan=lifespan)
     app.state.settings = settings
     app.state.session_store = SessionStore()
-    app.state.immich_client = ImmichClient(settings.immich_server_url, settings.immich_libraries)
+    app.state.immich_client = immich_client
+    app.state.db_manager = db_manager
+    app.state.metadata_store = metadata_store
+    app.state.sync_engine = sync_engine
     app.state.leaderboard_store = LeaderboardStore(
         settings.leaderboard_csv_path,
         score_max_points=settings.score_max_points,

@@ -40,6 +40,9 @@ class AppSettings:
     # Diversity Safeguards (cleanly isolated for future tuning)
     photo_diversity_min_distance_km: float
     photo_diversity_min_time_seconds: float
+    # Metadata cache database and sync settings
+    metadata_db_path: Path = Path('data/metadata.db')
+    auto_sync_on_startup: bool = True
     # New filter boundaries & whitelists/blacklists
     country_whitelist: frozenset[str] = frozenset()
     country_blacklist: frozenset[str] = frozenset()
@@ -181,6 +184,9 @@ def load_settings() -> AppSettings:
     except ValueError:
         photo_diversity_min_time_seconds = 60.0
 
+    metadata_db_path = Path(os.getenv('METADATA_DB_PATH', 'data/metadata.db')).expanduser().resolve()
+    auto_sync_on_startup = _parse_bool(os.getenv('AUTO_SYNC_ON_STARTUP', 'true'), 'AUTO_SYNC_ON_STARTUP')
+
     country_whitelist = _parse_comma_set(os.getenv('COUNTRY_WHITELIST'))
     country_blacklist = _parse_comma_set(os.getenv('COUNTRY_BLACKLIST'))
     city_whitelist = _parse_comma_set(os.getenv('CITY_WHITELIST'))
@@ -206,6 +212,8 @@ def load_settings() -> AppSettings:
         language=language,
         photo_diversity_min_distance_km=photo_diversity_min_distance_km,
         photo_diversity_min_time_seconds=photo_diversity_min_time_seconds,
+        metadata_db_path=metadata_db_path,
+        auto_sync_on_startup=auto_sync_on_startup,
         country_whitelist=country_whitelist,
         country_blacklist=country_blacklist,
         city_whitelist=city_whitelist,
