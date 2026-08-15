@@ -338,23 +338,32 @@ class ImmichClient:
 
     @staticmethod
     def _is_shared_album(album: dict[str, Any], current_user_id: str | None = None) -> bool:
-        if album.get('shared') is True or album.get('isShared') is True:
-            return True
-        if album.get('shared') is False or album.get('isShared') is False:
-            owner_id = ImmichClient._extract_owner_id(album)
-            return bool(owner_id and current_user_id and owner_id != current_user_id)
+        """Return True if the album was shared with the user by someone else.
+
+        Albums owned by the current user (whether private or shared with others)
+        return False so they are retained when include_shared_albums is False.
+        """
+        owner_id = ImmichClient._extract_owner_id(album)
+        if owner_id and current_user_id:
+            return owner_id != current_user_id
 
         album_users = album.get('albumUsers')
-        if isinstance(album_users, list):
-            if len(album_users) > 1:
-                return True
-            if len(album_users) == 1 and current_user_id:
-                owner_id = ImmichClient._extract_owner_id(album)
-                if owner_id and owner_id != current_user_id:
-                    return True
+        if isinstance(album_users, list) and current_user_id:
+            for u in album_users:
+                if isinstance(u, dict):
+                    user_obj = u.get('user')
+                    uid = str(
+                        (user_obj.get('id') if isinstance(user_obj, dict) else None)
+                        or u.get('userId')
+                        or ''
+                    ).strip()
+                    if uid == current_user_id:
+                        return u.get('role') != 'owner'
 
-        owner_id = ImmichClient._extract_owner_id(album)
-        if owner_id and current_user_id and owner_id != current_user_id:
+        if album.get('shared') is False or album.get('isShared') is False:
+            return False
+
+        if album.get('shared') is True or album.get('isShared') is True:
             return True
 
         return bool(album.get('sharedUsers') or album.get('sharedWith'))

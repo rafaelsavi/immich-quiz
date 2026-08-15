@@ -212,7 +212,11 @@ async def test_list_albums_excludes_shared_albums() -> None:
 
 
 async def test_list_albums_excludes_modern_shared_albums() -> None:
-    """Modern Immich payloads use shared: bool and albumUsers instead of top-level ownerId."""
+    """Modern Immich payloads use shared: bool and albumUsers instead of top-level ownerId.
+
+    Shared albums owned by the user should be included, while albums shared with the user
+    by someone else should be excluded when include_shared_albums=False.
+    """
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith('/users/me'):
@@ -253,8 +257,9 @@ async def test_list_albums_excludes_modern_shared_albums() -> None:
     albums = await client.list_albums('family', include_shared_albums=False)
     await client.aclose()
 
-    # Only private album should be returned
+    # Private albums and shared albums owned by me should be returned; albums shared by others are excluded
     assert albums == [
+        {'id': 'album-shared-by-me', 'name': 'My Album Shared To Family'},
         {'id': 'album-private', 'name': 'Private Trip'},
     ]
 
@@ -282,6 +287,15 @@ async def test_list_albums_includes_modern_shared_albums_when_true() -> None:
                             {'role': 'viewer', 'userId': 'me-user'},
                         ],
                     },
+                    {
+                        'id': 'album-shared-by-me',
+                        'albumName': 'My Album Shared To Family',
+                        'shared': True,
+                        'albumUsers': [
+                            {'role': 'owner', 'userId': 'me-user'},
+                            {'role': 'editor', 'userId': 'other-user'},
+                        ],
+                    },
                 ],
             )
         return httpx.Response(404, json={'error': 'not found'})
@@ -292,6 +306,7 @@ async def test_list_albums_includes_modern_shared_albums_when_true() -> None:
 
     assert albums == [
         {'id': 'album-shared-with-me', 'name': 'Family Shared By Bob'},
+        {'id': 'album-shared-by-me', 'name': 'My Album Shared To Family'},
         {'id': 'album-private', 'name': 'Private Trip'},
     ]
 
@@ -343,6 +358,42 @@ async def test_list_albums_includes_shared_albums_when_true() -> None:
     assert albums == [
         {'id': 'album-1', 'name': 'Mine'},
         {'id': 'album-2', 'name': 'Shared'},
+    ]
+
+
+async def test_list_albums_shared_by_user_retained_when_shared_false_and_top_level_owner() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/users/me'):
+            return httpx.Response(200, json={'id': 'me-user'})
+        if request.url.path.endswith('/albums'):
+            return httpx.Response(
+                200,
+                json=[
+                    {'id': 'album-1', 'albumName': 'My Shared Album', 'ownerId': 'me-user', 'isShared': True},
+                    {'id': 'album-2', 'albumName': 'Other Shared Album', 'ownerId': 'other-user', 'isShared': True},
+                    {
+                        'id': 'album-3',
+                        'albumName': 'My Nested Owner Album',
+                        'owner': {'id': 'me-user'},
+                        'shared': True,
+                    },
+                    {
+                        'id': 'album-4',
+                        'albumName': 'Other Nested Owner Album',
+                        'owner': {'id': 'other-user'},
+                        'shared': True,
+                    },
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    albums = await client.list_albums('family', include_shared_albums=False)
+    await client.aclose()
+
+    assert albums == [
+        {'id': 'album-3', 'name': 'My Nested Owner Album'},
+        {'id': 'album-1', 'name': 'My Shared Album'},
     ]
 
 
