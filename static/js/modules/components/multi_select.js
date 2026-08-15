@@ -22,7 +22,7 @@ export class MultiSelect {
     this.searchPlaceholderKey = config.searchPlaceholderKey || "setup.search_placeholder";
     this.noResultsKey = config.noResultsKey || "setup.no_results_found";
     this.summaryFormatter = config.summaryFormatter || ((count) => `${count} selected`);
-    this.onChange = config.onChange || (() => {});
+    this.onChange = config.onChange || (() => { });
 
     this.items = [];
     this.selectedMap = new Map(); // id -> name
@@ -70,8 +70,8 @@ export class MultiSelect {
           </button>
         </div>
         <div class="multi-select-actions">
-          <button type="button" class="btn-text-action select-all-btn" data-i18n="setup.select_all">Select All</button>
-          <button type="button" class="btn-text-action deselect-all-btn" data-i18n="setup.deselect_all">Deselect All</button>
+          <button type="button" class="btn-text-action select-all-btn" data-i18n="setup.select_all">All</button>
+          <button type="button" class="btn-text-action deselect-all-btn" data-i18n="setup.deselect_all">None</button>
         </div>
         <div class="multi-select-options"></div>
       </div>
@@ -269,8 +269,8 @@ export class MultiSelect {
     const selectedNames = Array.from(this.selectedMap.values());
     const allNamesList = selectedNames.length > 0
       ? (selectedNames.length > 1
-          ? `Selected (${selectedNames.length}):\n• ` + selectedNames.join("\n• ")
-          : selectedNames[0])
+        ? `Selected (${selectedNames.length}):\n• ` + selectedNames.join("\n• ")
+        : selectedNames[0])
       : "";
 
     if (this.selectedMap.size === 0) {
