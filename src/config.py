@@ -13,6 +13,13 @@ class ConfigError(ValueError):
     pass
 
 
+def _parse_comma_set(value: str | None) -> frozenset[str]:
+    """Parse comma-separated string into a normalized lowercase set."""
+    if not value or not value.strip():
+        return frozenset()
+    return frozenset(item.strip().lower() for item in value.split(',') if item.strip())
+
+
 @dataclass(frozen=True)
 class AppSettings:
     immich_server_url: str
@@ -33,6 +40,13 @@ class AppSettings:
     # Diversity Safeguards (cleanly isolated for future tuning)
     photo_diversity_min_distance_km: float
     photo_diversity_min_time_seconds: float
+    # New filter boundaries & whitelists/blacklists
+    country_whitelist: frozenset[str] = frozenset()
+    country_blacklist: frozenset[str] = frozenset()
+    city_whitelist: frozenset[str] = frozenset()
+    city_blacklist: frozenset[str] = frozenset()
+    people_whitelist: frozenset[str] = frozenset()
+    people_blacklist: frozenset[str] = frozenset()
 
 
 def _parse_language(value: str) -> str:
@@ -167,6 +181,13 @@ def load_settings() -> AppSettings:
     except ValueError:
         photo_diversity_min_time_seconds = 60.0
 
+    country_whitelist = _parse_comma_set(os.getenv('COUNTRY_WHITELIST'))
+    country_blacklist = _parse_comma_set(os.getenv('COUNTRY_BLACKLIST'))
+    city_whitelist = _parse_comma_set(os.getenv('CITY_WHITELIST'))
+    city_blacklist = _parse_comma_set(os.getenv('CITY_BLACKLIST'))
+    people_whitelist = _parse_comma_set(os.getenv('PEOPLE_WHITELIST'))
+    people_blacklist = _parse_comma_set(os.getenv('PEOPLE_BLACKLIST'))
+
     return AppSettings(
         immich_server_url=server_url,
         immich_libraries=libraries,
@@ -185,4 +206,10 @@ def load_settings() -> AppSettings:
         language=language,
         photo_diversity_min_distance_km=photo_diversity_min_distance_km,
         photo_diversity_min_time_seconds=photo_diversity_min_time_seconds,
+        country_whitelist=country_whitelist,
+        country_blacklist=country_blacklist,
+        city_whitelist=city_whitelist,
+        city_blacklist=city_blacklist,
+        people_whitelist=people_whitelist,
+        people_blacklist=people_blacklist,
     )

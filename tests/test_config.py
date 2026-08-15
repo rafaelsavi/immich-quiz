@@ -27,8 +27,17 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'LOCATION_SCORE_DECAY_KM',
         'DATE_SCORE_DECAY_DAYS',
         'LANGUAGE',
+        'PHOTO_DIVERSITY_MIN_DISTANCE_KM',
+        'PHOTO_DIVERSITY_MIN_TIME_SECONDS',
+        'COUNTRY_WHITELIST',
+        'COUNTRY_BLACKLIST',
+        'CITY_WHITELIST',
+        'CITY_BLACKLIST',
+        'PEOPLE_WHITELIST',
+        'PEOPLE_BLACKLIST',
     ):
         monkeypatch.delenv(key, raising=False)
+
 
 
 def test_missing_server_url(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -234,3 +243,56 @@ def test_language_setting_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> No
 
     with pytest.raises(ConfigError, match='LANGUAGE'):
         load_settings()
+
+
+@pytest.mark.parametrize(
+    'raw_val, expected',
+    [
+        (None, frozenset()),
+        ('', frozenset()),
+        ('   ', frozenset()),
+        ('Brazil', frozenset({'brazil'})),
+        ('Brazil, France, Germany', frozenset({'brazil', 'france', 'germany'})),
+        ('  brazil  ,  FRANCE , Germany ', frozenset({'brazil', 'france', 'germany'})),
+        (' , alice , , Bob, ', frozenset({'alice', 'bob'})),
+    ],
+)
+def test_parse_comma_set(raw_val: str | None, expected: frozenset[str]) -> None:
+    from src.config import _parse_comma_set
+
+    assert _parse_comma_set(raw_val) == expected
+
+
+def test_default_whitelists_and_blacklists_are_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+
+    settings = load_settings()
+
+    assert settings.country_whitelist == frozenset()
+    assert settings.country_blacklist == frozenset()
+    assert settings.city_whitelist == frozenset()
+    assert settings.city_blacklist == frozenset()
+    assert settings.people_whitelist == frozenset()
+    assert settings.people_blacklist == frozenset()
+
+
+def test_custom_whitelists_and_blacklists_parsed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('COUNTRY_WHITELIST', 'Brazil, Argentina')
+    monkeypatch.setenv('COUNTRY_BLACKLIST', 'Chile')
+    monkeypatch.setenv('CITY_WHITELIST', 'Rio de Janeiro, Florianopolis')
+    monkeypatch.setenv('CITY_BLACKLIST', 'Curitiba')
+    monkeypatch.setenv('PEOPLE_WHITELIST', 'Alice, Bob Smith')
+    monkeypatch.setenv('PEOPLE_BLACKLIST', 'Charlie')
+
+    settings = load_settings()
+
+    assert settings.country_whitelist == frozenset({'brazil', 'argentina'})
+    assert settings.country_blacklist == frozenset({'chile'})
+    assert settings.city_whitelist == frozenset({'rio de janeiro', 'florianopolis'})
+    assert settings.city_blacklist == frozenset({'curitiba'})
+    assert settings.people_whitelist == frozenset({'alice', 'bob smith'})
+    assert settings.people_blacklist == frozenset({'charlie'})
+

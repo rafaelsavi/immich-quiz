@@ -367,8 +367,9 @@ def is_eligible_asset(
 ---
 
 ## 3. Acceptance Criteria
-- [ ] `_parse_comma_set` properly handles empty values, spaces, and case-insensitivity.
-- [ ] `ImmichClient.list_people` queries `GET /people` and filters correctly.
-- [ ] `ImmichClient.get_timeline_bounds` extracts min/max dates without downloading photos.
-- [ ] `ImmichClient.is_eligible_asset` verifies country, city, and people criteria accurately in both `OR` and `AND` modes.
-- [ ] All new logic has corresponding unit tests in `tests/test_config.py` and `tests/test_immich_client.py`.
+- [x] `_parse_comma_set` properly handles empty values, spaces, and case-insensitivity.
+- [x] `ImmichClient.list_people` queries `GET /people` and filters correctly.
+- [x] `ImmichClient.get_timeline_bounds` extracts min/max dates without downloading photos.
+- [x] `ImmichClient.is_eligible_asset` verifies country, city, and people criteria accurately in both `OR` and `AND` modes.
+- [x] All new logic has corresponding unit tests in `tests/test_config.py` and `tests/test_immich_client.py`.
+

@@ -6,7 +6,8 @@ from datetime import date
 import httpx
 import pytest
 
-from src.immich.client import ImmichClient, ImmichClientError
+from src.immich.client import CityInfo, ImmichClient, ImmichClientError, PersonInfo, SearchQuery, TimelineBounds
+
 
 
 def build_client(handler) -> ImmichClient:
@@ -780,3 +781,298 @@ async def test_search_random_assets_with_date_bounds_uses_metadata_search() -> N
     assert recorded_payloads[0].get('takenAfter') == '1990-01-01T00:00:00.000Z'
     assert recorded_payloads[0].get('takenBefore') == '2000-12-31T23:59:59.999Z'
     assert [item['id'] for item in items] == ['vintage-photo']
+
+
+async def test_list_people_parses_and_filters() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/people'):
+            return httpx.Response(
+                200,
+                json={
+                    'people': [
+                        {'id': 'p1', 'name': 'Charlie', 'isHidden': False},
+                        {'id': 'p2', 'name': 'Alice', 'isHidden': False},
+                        {'id': 'p3', 'name': 'Bob', 'isHidden': False},
+                        {'id': 'p4', 'name': 'Secret Agent', 'isHidden': True},
+                        {'id': 'p5', 'name': '', 'isHidden': False},
+                        {'id': '', 'name': 'No ID', 'isHidden': False},
+                    ]
+                },
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+
+    # All unhidden people, sorted alphabetically
+    people = await client.list_people('family')
+    assert people == [
+        PersonInfo(id='p2', name='Alice'),
+        PersonInfo(id='p3', name='Bob'),
+        PersonInfo(id='p1', name='Charlie'),
+    ]
+
+    # Whitelist filtering
+    wl_people = await client.list_people('family', whitelist=frozenset({'alice', 'charlie'}))
+    assert wl_people == [
+        PersonInfo(id='p2', name='Alice'),
+        PersonInfo(id='p1', name='Charlie'),
+    ]
+
+    # Blacklist filtering
+    bl_people = await client.list_people('family', blacklist=frozenset({'bob'}))
+    assert bl_people == [
+        PersonInfo(id='p2', name='Alice'),
+        PersonInfo(id='p1', name='Charlie'),
+    ]
+
+    # Whitelist and blacklist combined
+    combo_people = await client.list_people(
+        'family',
+        whitelist=frozenset({'alice', 'bob'}),
+        blacklist=frozenset({'bob'}),
+    )
+    assert combo_people == [
+        PersonInfo(id='p2', name='Alice'),
+    ]
+
+    await client.aclose()
+
+
+async def test_list_people_handles_direct_list_response() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/people'):
+            return httpx.Response(
+                200,
+                json=[
+                    {'id': 'p1', 'name': 'Dave', 'isHidden': False},
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    people = await client.list_people('family')
+    await client.aclose()
+
+    assert people == [PersonInfo(id='p1', name='Dave')]
+
+
+async def test_get_timeline_bounds() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if 'buckets' in request.url.path:
+            return httpx.Response(
+                200,
+                json=[
+                    {'timeBucket': '2021-03-01T00:00:00.000Z', 'count': 10},
+                    {'timeBucket': '2019-06-01T00:00:00.000Z', 'count': 5},
+                    {'timeBucket': '2023-11-01T00:00:00.000Z', 'count': 20},
+                    {'timeBucket': 'invalid-date', 'count': 1},
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    bounds = await client.get_timeline_bounds('family')
+    await client.aclose()
+
+    assert bounds.min_date == date(2019, 6, 1)
+    assert bounds.max_date == date(2023, 11, 1)
+
+
+async def test_get_timeline_bounds_empty_or_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if 'buckets' in request.url.path:
+            return httpx.Response(500, json={'error': 'server error'})
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    bounds = await client.get_timeline_bounds('family')
+    await client.aclose()
+
+    assert bounds.min_date is None
+    assert bounds.max_date is None
+
+
+async def test_list_countries() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/explore'):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        'fieldName': 'country',
+                        'items': [
+                            {'value': 'Brazil'},
+                            {'value': 'Germany'},
+                            {'value': 'France'},
+                            {'value': 'Italy'},
+                        ],
+                    },
+                    {
+                        'fieldName': 'city',
+                        'items': [{'value': 'Paris'}],
+                    },
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+
+    # All countries, sorted
+    countries = await client.list_countries('family')
+    assert countries == ['Brazil', 'France', 'Germany', 'Italy']
+
+    # Whitelist filtering
+    wl_countries = await client.list_countries('family', whitelist=frozenset({'brazil', 'france'}))
+    assert wl_countries == ['Brazil', 'France']
+
+    # Blacklist filtering
+    bl_countries = await client.list_countries('family', blacklist=frozenset({'germany'}))
+    assert bl_countries == ['Brazil', 'France', 'Italy']
+
+    await client.aclose()
+
+
+async def test_list_countries_whitelist_fallback_on_empty_explore() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/explore'):
+            return httpx.Response(200, json=[])
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    countries = await client.list_countries('family', whitelist=frozenset({'brazil', 'japan'}))
+    await client.aclose()
+
+    assert countries == ['Brazil', 'Japan']
+
+
+async def test_list_cities() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/explore'):
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        'fieldName': 'city',
+                        'items': [
+                            {'value': 'Paris', 'country': 'France'},
+                            {'value': 'Berlin', 'country': 'Germany'},
+                        ],
+                    },
+                    {
+                        'fieldName': 'state',
+                        'items': [
+                            {'value': 'Bavaria', 'country': 'Germany'},
+                        ],
+                    },
+                ],
+            )
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+
+    cities = await client.list_cities('family')
+    assert cities == [
+        CityInfo(name='Bavaria', country='Germany'),
+        CityInfo(name='Berlin', country='Germany'),
+        CityInfo(name='Paris', country='France'),
+    ]
+
+    # Whitelist
+    wl_cities = await client.list_cities('family', whitelist=frozenset({'berlin'}))
+    assert wl_cities == [CityInfo(name='Berlin', country='Germany')]
+
+    # Blacklist
+    bl_cities = await client.list_cities('family', blacklist=frozenset({'paris'}))
+    assert bl_cities == [
+        CityInfo(name='Bavaria', country='Germany'),
+        CityInfo(name='Berlin', country='Germany'),
+    ]
+
+    await client.aclose()
+
+
+async def test_list_cities_whitelist_fallback_on_empty_explore() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith('/search/explore'):
+            return httpx.Response(200, json=[])
+        return httpx.Response(404, json={'error': 'not found'})
+
+    client = build_client(handler)
+    cities = await client.list_cities('family', whitelist=frozenset({'tokyo', 'london'}))
+    await client.aclose()
+
+    assert cities == [
+        CityInfo(name='London', country=None),
+        CityInfo(name='Tokyo', country=None),
+    ]
+
+
+def test_search_query_geo_and_people_payload() -> None:
+    # Single country and single city are passed directly to payload
+    q_single = SearchQuery(
+        countries=('France',),
+        cities=('Paris',),
+        person_ids=('p1', 'p2'),
+    )
+    p_single = q_single.build_payload(size=100)
+    assert p_single['country'] == 'France'
+    assert p_single['city'] == 'Paris'
+    assert p_single['personIds'] == ['p1', 'p2']
+
+    # Multiple countries and multiple cities are omitted from API payload (handled post-fetch)
+    q_multi = SearchQuery(
+        countries=('France', 'Germany'),
+        cities=('Paris', 'Berlin'),
+        person_ids=('p1',),
+    )
+    p_multi = q_multi.build_payload(size=100)
+    assert 'country' not in p_multi
+    assert 'city' not in p_multi
+    assert p_multi['personIds'] == ['p1']
+
+
+def test_is_eligible_asset_country_filtering() -> None:
+    asset_fr = asset(exifInfo={'latitude': 48.85, 'longitude': 2.35, 'country': 'France', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+    asset_de = asset(exifInfo={'latitude': 52.52, 'longitude': 13.40, 'country': 'Germany', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+    asset_none = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+
+    assert ImmichClient.is_eligible_asset(asset_fr, True, True, countries=('France', 'Italy')) is True
+    assert ImmichClient.is_eligible_asset(asset_fr, True, True, countries=('france',)) is True
+    assert ImmichClient.is_eligible_asset(asset_de, True, True, countries=('France', 'Italy')) is False
+    assert ImmichClient.is_eligible_asset(asset_none, True, True, countries=('France',)) is False
+
+
+def test_is_eligible_asset_city_filtering() -> None:
+    asset_paris = asset(exifInfo={'latitude': 48.85, 'longitude': 2.35, 'city': 'Paris', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+    asset_bavaria = asset(exifInfo={'latitude': 48.13, 'longitude': 11.58, 'state': 'Bavaria', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+    asset_none = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+
+    assert ImmichClient.is_eligible_asset(asset_paris, True, True, cities=('Paris', 'London')) is True
+    assert ImmichClient.is_eligible_asset(asset_paris, True, True, cities=('paris',)) is True
+    assert ImmichClient.is_eligible_asset(asset_bavaria, True, True, cities=('bavaria',)) is True
+    assert ImmichClient.is_eligible_asset(asset_none, True, True, cities=('Paris',)) is False
+
+
+def test_is_eligible_asset_people_filtering_or_mode() -> None:
+    asset_alice_bob = asset(people=[{'id': 'p-alice', 'name': 'Alice'}, {'id': 'p-bob', 'name': 'Bob'}])
+    asset_charlie = asset(faces=[{'id': 'p-charlie', 'name': 'Charlie'}])
+    asset_nobody = asset()
+
+    # OR mode: Matches if ANY target person is present
+    assert ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice', 'p-charlie'), people_mode='OR') is True
+    assert ImmichClient.is_eligible_asset(asset_charlie, False, False, person_ids=('p-alice', 'p-charlie'), people_mode='OR') is True
+    assert ImmichClient.is_eligible_asset(asset_nobody, False, False, person_ids=('p-alice',), people_mode='OR') is False
+    assert ImmichClient.is_eligible_asset(asset_charlie, False, False, person_ids=('p-bob',), people_mode='OR') is False
+
+
+def test_is_eligible_asset_people_filtering_and_mode() -> None:
+    asset_alice_bob = asset(people=[{'id': 'p-alice', 'name': 'Alice'}, {'id': 'p-bob', 'name': 'Bob'}])
+    asset_alice_only = asset(people=[{'id': 'p-alice', 'name': 'Alice'}])
+    asset_bob_only = asset(people=[{'id': 'p-bob', 'name': 'Bob'}])
+
+    # AND mode: Matches ONLY if ALL target people are present
+    assert ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND') is True
+    assert ImmichClient.is_eligible_asset(asset_alice_only, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND') is False
+    assert ImmichClient.is_eligible_asset(asset_bob_only, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND') is False
+    assert ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice',), people_mode='AND') is True
+
