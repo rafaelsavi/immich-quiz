@@ -7,6 +7,12 @@
   font-size: 1rem;
 }
 
+.multi-select.open,
+.multi-select:focus-within,
+.multi-select:has(.multi-select-trigger[aria-expanded="true"]) {
+  z-index: 50;
+}
+
 /* Trigger button (closed state) */
 .multi-select-trigger {
   display: flex;

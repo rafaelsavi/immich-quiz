@@ -4,7 +4,7 @@
   border-radius: 12px;
   border: 1px solid #dbe1ee;
   background: #fbfcfe;
-  overflow: hidden;
+  position: relative;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -20,12 +20,18 @@
   padding: 0.75rem 1rem;
   background: transparent;
   border: none;
+  border-radius: 11px;
   cursor: pointer;
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--text-dark, #242938);
   user-select: none;
+  transition: border-radius 0.2s ease;
+}
+
+.filters-accordion-header[aria-expanded="true"] {
+  border-radius: 11px 11px 0 0;
 }
 
 .accordion-title-wrap {
@@ -78,6 +84,7 @@
   flex-direction: column;
   gap: 1rem;
   border-top: 1px solid #edf1f7;
+  border-radius: 0 0 11px 11px;
 }
 
 .filters-accordion-content.hidden {

@@ -150,6 +150,7 @@ export class MultiSelect {
     document.removeEventListener("click", this._boundOnDocClick);
     document.removeEventListener("keydown", this._boundOnDocKeydown);
     if (this.container) {
+      this.container.classList.remove("open");
       this.container.innerHTML = "";
     }
   }
@@ -230,6 +231,7 @@ export class MultiSelect {
 
   open() {
     this.isOpen = true;
+    if (this.container) this.container.classList.add("open");
     this.triggerEl.setAttribute("aria-expanded", "true");
     this.dropdownEl.classList.remove("hidden");
     if (this.searchInputEl) {
@@ -242,6 +244,7 @@ export class MultiSelect {
 
   close() {
     this.isOpen = false;
+    if (this.container) this.container.classList.remove("open");
     this.triggerEl.setAttribute("aria-expanded", "false");
     this.dropdownEl.classList.add("hidden");
   }
