@@ -10,12 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def get_app_version() -> str:
-    """Retrieve application version from package metadata or pyproject.toml."""
-    try:
-        return importlib.metadata.version('immich-quiz')
-    except Exception:
-        pass
-
+    """Retrieve application version from pyproject.toml or package metadata."""
     pyproject_path = Path(__file__).parent.parent / 'pyproject.toml'
     if pyproject_path.exists():
         try:
@@ -26,6 +21,11 @@ def get_app_version() -> str:
                     return str(version)
         except Exception as exc:
             logger.warning('Failed to parse version from pyproject.toml: %s', exc)
+
+    try:
+        return importlib.metadata.version('immich-quiz')
+    except Exception:
+        pass
 
     return ''
 
