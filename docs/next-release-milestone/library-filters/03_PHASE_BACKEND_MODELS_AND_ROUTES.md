@@ -15,13 +15,16 @@ class PersonOption(BaseModel):
     id: str
     name: str
 
+
 class CityOption(BaseModel):
     name: str
     country: str | None = None
 
+
 class DateRangeOption(BaseModel):
     min_month: str | None = None  # Format: "YYYY-MM"
     max_month: str | None = None  # Format: "YYYY-MM"
+
 
 class LibraryFiltersResponse(BaseModel):
     date_range: DateRangeOption
@@ -33,6 +36,7 @@ class LibraryFiltersResponse(BaseModel):
 #### B. Updated `PreflightRequest` & `GameSetupRequest`
 ```python
 from typing import Literal
+
 
 class PreflightRequest(BaseModel):
     players: list[str] = Field(default_factory=list)
@@ -49,6 +53,7 @@ class PreflightRequest(BaseModel):
     cities: list[str] = Field(default_factory=list)
     min_date: date | None = None
     max_date: date | None = None
+
 
 class GameSetupRequest(BaseModel):
     # Existing fields...

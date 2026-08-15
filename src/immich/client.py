@@ -353,9 +353,7 @@ class ImmichClient:
                 if isinstance(u, dict):
                     user_obj = u.get('user')
                     uid = str(
-                        (user_obj.get('id') if isinstance(user_obj, dict) else None)
-                        or u.get('userId')
-                        or ''
+                        (user_obj.get('id') if isinstance(user_obj, dict) else None) or u.get('userId') or ''
                     ).strip()
                     if uid == current_user_id:
                         return u.get('role') != 'owner'

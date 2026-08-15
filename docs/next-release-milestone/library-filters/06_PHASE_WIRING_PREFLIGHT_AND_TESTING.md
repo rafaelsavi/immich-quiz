@@ -310,9 +310,9 @@ async function executePreflight() {
 ```python
 def test_parse_comma_set():
     assert _parse_comma_set(None) == frozenset()
-    assert _parse_comma_set("") == frozenset()
-    assert _parse_comma_set("  ") == frozenset()
-    assert _parse_comma_set("France, Germany, brazil ") == frozenset({"france", "germany", "brazil"})
+    assert _parse_comma_set('') == frozenset()
+    assert _parse_comma_set('  ') == frozenset()
+    assert _parse_comma_set('France, Germany, brazil ') == frozenset({'france', 'germany', 'brazil'})
 ```
 
 ### B. Immich Client Tests: `tests/test_immich_client.py`
@@ -321,42 +321,43 @@ def test_parse_comma_set():
 async def test_list_people_filtering(client: ImmichClient):
     # Mock /people response with named, unnamed, and hidden people
     people = await client.list_people(
-        "test_lib",
-        whitelist=frozenset(["alice"]),
-        blacklist=frozenset(["bob"]),
+        'test_lib',
+        whitelist=frozenset(['alice']),
+        blacklist=frozenset(['bob']),
     )
     assert len(people) == 1
-    assert people[0].name == "Alice"
+    assert people[0].name == 'Alice'
+
 
 def test_is_eligible_asset_with_people_or_and_modes():
     asset_single = {
-        "id": "1",
-        "type": "IMAGE",
-        "exifInfo": {"latitude": 48.85, "longitude": 2.35, "country": "France", "city": "Paris"},
-        "fileCreatedAt": "2020-05-15T12:00:00Z",
-        "people": [{"id": "p1", "name": "Alice"}],
+        'id': '1',
+        'type': 'IMAGE',
+        'exifInfo': {'latitude': 48.85, 'longitude': 2.35, 'country': 'France', 'city': 'Paris'},
+        'fileCreatedAt': '2020-05-15T12:00:00Z',
+        'people': [{'id': 'p1', 'name': 'Alice'}],
     }
     asset_group = {
-        "id": "2",
-        "type": "IMAGE",
-        "exifInfo": {"latitude": 48.85, "longitude": 2.35, "country": "France", "city": "Paris"},
-        "fileCreatedAt": "2020-05-15T12:00:00Z",
-        "people": [{"id": "p1", "name": "Alice"}, {"id": "p2", "name": "Bob"}],
+        'id': '2',
+        'type': 'IMAGE',
+        'exifInfo': {'latitude': 48.85, 'longitude': 2.35, 'country': 'France', 'city': 'Paris'},
+        'fileCreatedAt': '2020-05-15T12:00:00Z',
+        'people': [{'id': 'p1', 'name': 'Alice'}, {'id': 'p2', 'name': 'Bob'}],
     }
 
     # OR mode: asset with only Alice matches (p1, p2)
     assert ImmichClient.is_eligible_asset(
-        asset_single, location_mode=True, date_mode=True, person_ids=("p1", "p2"), people_mode="OR"
+        asset_single, location_mode=True, date_mode=True, person_ids=('p1', 'p2'), people_mode='OR'
     )
 
     # AND mode: asset with only Alice FAILS (p1, p2)
     assert not ImmichClient.is_eligible_asset(
-        asset_single, location_mode=True, date_mode=True, person_ids=("p1", "p2"), people_mode="AND"
+        asset_single, location_mode=True, date_mode=True, person_ids=('p1', 'p2'), people_mode='AND'
     )
 
     # AND mode: asset with BOTH Alice and Bob SUCCEEDS (p1, p2)
     assert ImmichClient.is_eligible_asset(
-        asset_group, location_mode=True, date_mode=True, person_ids=("p1", "p2"), people_mode="AND"
+        asset_group, location_mode=True, date_mode=True, person_ids=('p1', 'p2'), people_mode='AND'
     )
 ```
 
@@ -364,49 +365,51 @@ def test_is_eligible_asset_with_people_or_and_modes():
 ```python
 @pytest.mark.asyncio
 async def test_filters_endpoint(async_client):
-    res = await async_client.get("/api/filters?library_name=test_lib")
+    res = await async_client.get('/api/filters?library_name=test_lib')
     assert res.status_code == 200
     data = res.json()
-    assert "date_range" in data
-    assert "countries" in data
-    assert "cities" in data
-    assert isinstance(data["cities"], list)
-    if data["cities"]:
-        assert "name" in data["cities"][0]
-        assert "country" in data["cities"][0]
-    assert "people" in data
+    assert 'date_range' in data
+    assert 'countries' in data
+    assert 'cities' in data
+    assert isinstance(data['cities'], list)
+    if data['cities']:
+        assert 'name' in data['cities'][0]
+        assert 'country' in data['cities'][0]
+    assert 'people' in data
+
 
 @pytest.mark.asyncio
 async def test_preflight_people_and_mode(async_client):
     res = await async_client.post(
-        "/api/game/preflight",
+        '/api/game/preflight',
         json={
-            "library_name": "test_lib",
-            "person_ids": ["p1", "p2"],
-            "people_mode": "AND",
-            "round_count": 5,
+            'library_name': 'test_lib',
+            'person_ids': ['p1', 'p2'],
+            'people_mode': 'AND',
+            'round_count': 5,
         },
     )
     assert res.status_code == 200
     data = res.json()
-    assert "people_all" in data.get("active_filters", [])
+    assert 'people_all' in data.get('active_filters', [])
+
 
 @pytest.mark.asyncio
 async def test_preflight_strict_diversity_rejection(async_client):
     # If candidate photos are within 50m of each other, strict preflight fails
     res = await async_client.post(
-        "/api/game/preflight",
+        '/api/game/preflight',
         json={
-            "library_name": "test_dense_photos_lib",
-            "location_mode": True,
-            "round_count": 5,
+            'library_name': 'test_dense_photos_lib',
+            'location_mode': True,
+            'round_count': 5,
         },
     )
     assert res.status_code == 200
     data = res.json()
     # Fails if 5 diverse photos cannot be found
-    if data["eligible_count"] < 5:
-        assert data["ok"] is False
+    if data['eligible_count'] < 5:
+        assert data['ok'] is False
 ```
 
 ---

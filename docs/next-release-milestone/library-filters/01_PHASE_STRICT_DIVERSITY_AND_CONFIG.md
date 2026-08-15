@@ -190,24 +190,38 @@ import pytest
 from src.immich.client import AssetAnswer
 from src.game.selector import is_asset_valid_for_batch, filter_diverse_asset_answers
 
+
 def test_distance_diversity_rejection():
     # Asset 1 at Paris Eiffel Tower (48.8584, 2.2945)
-    a1 = AssetAnswer(latitude=48.8584, longitude=2.2945, capture_datetime=datetime(2022, 5, 1, 12, 0, 0, tzinfo=timezone.utc))
+    a1 = AssetAnswer(
+        latitude=48.8584, longitude=2.2945, capture_datetime=datetime(2022, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+    )
     # Asset 2 only 20m away (48.8585, 2.2946)
-    a2 = AssetAnswer(latitude=48.8585, longitude=2.2946, capture_datetime=datetime(2022, 5, 1, 14, 0, 0, tzinfo=timezone.utc))
+    a2 = AssetAnswer(
+        latitude=48.8585, longitude=2.2946, capture_datetime=datetime(2022, 5, 1, 14, 0, 0, tzinfo=timezone.utc)
+    )
     # Asset 3 in Lyon (> 300km away)
-    a3 = AssetAnswer(latitude=45.7640, longitude=4.8357, capture_datetime=datetime(2022, 5, 1, 16, 0, 0, tzinfo=timezone.utc))
+    a3 = AssetAnswer(
+        latitude=45.7640, longitude=4.8357, capture_datetime=datetime(2022, 5, 1, 16, 0, 0, tzinfo=timezone.utc)
+    )
 
     assert not is_asset_valid_for_batch(a2, [a1], location_mode=True, date_mode=False, min_dist_km=0.1)
     assert is_asset_valid_for_batch(a3, [a1], location_mode=True, date_mode=False, min_dist_km=0.1)
 
+
 def test_time_diversity_rejection():
     # Asset 1 at 12:00:00
-    a1 = AssetAnswer(latitude=48.8584, longitude=2.2945, capture_datetime=datetime(2022, 5, 1, 12, 0, 0, tzinfo=timezone.utc))
+    a1 = AssetAnswer(
+        latitude=48.8584, longitude=2.2945, capture_datetime=datetime(2022, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
+    )
     # Asset 2 at 12:00:30 (30 seconds later)
-    a2 = AssetAnswer(latitude=45.7640, longitude=4.8357, capture_datetime=datetime(2022, 5, 1, 12, 0, 30, tzinfo=timezone.utc))
+    a2 = AssetAnswer(
+        latitude=45.7640, longitude=4.8357, capture_datetime=datetime(2022, 5, 1, 12, 0, 30, tzinfo=timezone.utc)
+    )
     # Asset 3 at 12:10:00 (10 minutes later)
-    a3 = AssetAnswer(latitude=45.7640, longitude=4.8357, capture_datetime=datetime(2022, 5, 1, 12, 10, 0, tzinfo=timezone.utc))
+    a3 = AssetAnswer(
+        latitude=45.7640, longitude=4.8357, capture_datetime=datetime(2022, 5, 1, 12, 10, 0, tzinfo=timezone.utc)
+    )
 
     assert not is_asset_valid_for_batch(a2, [a1], location_mode=False, date_mode=True, min_time_sec=60.0)
     assert is_asset_valid_for_batch(a3, [a1], location_mode=False, date_mode=True, min_time_sec=60.0)

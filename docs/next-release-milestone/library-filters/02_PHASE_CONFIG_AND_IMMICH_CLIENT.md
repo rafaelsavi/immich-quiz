@@ -37,6 +37,7 @@ def _parse_comma_set(value: str | None) -> frozenset[str]:
         return frozenset()
     return frozenset(item.strip().lower() for item in value.split(',') if item.strip())
 
+
 @dataclass(frozen=True)
 class AppSettings:
     immich_server_url: str
@@ -88,10 +89,12 @@ class PersonInfo:
     id: str
     name: str
 
+
 @dataclass(frozen=True)
 class CityInfo:
     name: str
     country: str | None = None
+
 
 @dataclass(frozen=True)
 class TimelineBounds:
@@ -192,7 +195,8 @@ async def list_countries(
         countries = {c.title() for c in whitelist}
 
     filtered = [
-        c for c in countries
+        c
+        for c in countries
         if (not whitelist or c.lower() in whitelist) and (not blacklist or c.lower() not in blacklist)
     ]
     filtered.sort(key=str.lower)
@@ -346,11 +350,7 @@ def is_eligible_asset(
     # 6. Person check (if person_ids filter specified)
     if person_ids:
         asset_people = asset.get('people') or asset.get('faces') or []
-        asset_person_ids = {
-            str(p.get('id', '')).strip()
-            for p in asset_people
-            if isinstance(p, dict) and p.get('id')
-        }
+        asset_person_ids = {str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')}
         target_person_ids = set(person_ids)
         if people_mode.upper() == 'AND':
             # 'AND' mode: All selected people must be present in this photo
