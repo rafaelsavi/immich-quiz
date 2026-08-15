@@ -4,7 +4,7 @@
   position: relative;
   width: 100%;
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
 /* Trigger button (closed state) */
@@ -13,18 +13,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
-  padding: 0.45rem 0.6rem 0.45rem 0.75rem;
-  border: 1px solid #d1d5e0;
-  border-radius: 8px;
+  padding: 0.65rem 0.6rem 0.65rem 0.75rem;
+  border: 1px solid #c7ccd8;
+  border-radius: 10px;
   background: #ffffff;
   cursor: pointer;
-  min-height: 38px;
+  min-height: 44px;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   user-select: none;
 }
 
 .multi-select-trigger:hover {
-  border-color: #a0aabf;
+  border-color: #94a3b8;
 }
 
 .multi-select-trigger:focus-visible {
@@ -146,7 +146,7 @@
   right: 0;
   z-index: 100;
   background: #ffffff;
-  border: 1px solid #d1d5e0;
+  border: 1px solid #c7ccd8;
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
   overflow: hidden;
