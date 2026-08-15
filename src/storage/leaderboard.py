@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.models import GameSetupRequest, LeaderboardEntry
+from src.models import LeaderboardEntry
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.db import DatabaseManager
 
@@ -270,7 +270,7 @@ class LeaderboardStore:
             clauses.append('m.is_custom_filtered = ?')
             params.append(1 if is_custom_filtered else 0)
 
-        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+        where_sql = f'WHERE {" AND ".join(clauses)}' if clauses else ''
         limit_sql = f'LIMIT {int(limit)}' if limit is not None and limit > 0 else ''
 
         query = f"""
