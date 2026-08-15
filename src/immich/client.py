@@ -344,9 +344,7 @@ class ImmichClient:
                 max_date=max_date,
             )
         key = self._library_key(library_name)
-        items = await self._execute_search_query(
-            key, library_name, query, size, page=page, randomized=False
-        )
+        items = await self._execute_search_query(key, library_name, query, size, page=page, randomized=False)
 
         if not items or not query.should_filter_by_owner:
             return items
@@ -388,9 +386,7 @@ class ImmichClient:
                 max_date=max_date,
             )
         key = self._library_key(library_name)
-        raw_items = await self._execute_search_query(
-            key, library_name, query, size, page=1, randomized=True
-        )
+        raw_items = await self._execute_search_query(key, library_name, query, size, page=1, randomized=True)
 
         if not raw_items or not query.should_filter_by_owner:
             random.shuffle(raw_items)

@@ -276,10 +276,14 @@ def test_map_controls_disable_click_propagation_and_guard_pin_placement() -> Non
     assert 'L.DomEvent.disableScrollPropagation' in maps_js, 'maps.js must disable scroll propagation for controls'
 
     # ensureGuessMap must guard click event target against control/button elements
-    assert 'origTarget.closest' in maps_js, 'ensureGuessMap in maps.js must check origTarget.closest to avoid setting pin on control clicks'
+    assert 'origTarget.closest' in maps_js, (
+        'ensureGuessMap in maps.js must check origTarget.closest to avoid setting pin on control clicks'
+    )
 
     # pinpoint.js must also disable propagation on guessMapFullscreen
-    assert 'L.DomEvent.disableClickPropagation(el.guessMapFullscreen)' in pinpoint_js, 'pinpoint.js must disable click propagation on guessMapFullscreen'
+    assert 'L.DomEvent.disableClickPropagation(el.guessMapFullscreen)' in pinpoint_js, (
+        'pinpoint.js must disable click propagation on guessMapFullscreen'
+    )
 
 
 def test_preflight_warning_disables_start_button_and_guards_submission() -> None:
@@ -302,5 +306,3 @@ def test_preflight_warning_disables_start_button_and_guards_submission() -> None
     # startMatch must guard against starting if button is disabled or preflight warning is visible
     assert 'async function startMatch' in app_js
     assert 'submitBtn.disabled' in app_js, 'startMatch must check submitBtn.disabled'
-
-

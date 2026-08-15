@@ -1121,7 +1121,7 @@ def test_is_eligible_asset_people_filtering_or_mode() -> None:
 def test_is_eligible_asset_people_filtering_and_mode() -> None:
     asset_alice_bob = asset(people=[{'id': 'p-alice', 'name': 'Alice'}, {'id': 'p-bob', 'name': 'Bob'}])
     asset_alice_only = asset(people=[{'id': 'p-alice', 'name': 'Alice'}])
-    asset_bob_only = asset(people=[{'id': 'p-bob', 'name': 'Bob'}])
+    asset(people=[{'id': 'p-bob', 'name': 'Bob'}])
 
     # AND mode: Matches ONLY if ALL target people are present
     assert (
@@ -1319,5 +1319,3 @@ async def test_get_asset_count_error_returns_none() -> None:
     count = await client.get_asset_count('family')
     await client.aclose()
     assert count is None
-
-

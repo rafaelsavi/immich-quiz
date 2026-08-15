@@ -408,11 +408,11 @@ class MetadataStore:
             ignore_date_mode=True,
         )
         gps_condition = (
-            "a.latitude IS NOT NULL AND a.longitude IS NOT NULL AND NOT ("
-            "abs(a.latitude) < 1e-6 AND abs(a.longitude) < 1e-6"
-            ")"
+            'a.latitude IS NOT NULL AND a.longitude IS NOT NULL AND NOT ('
+            'abs(a.latitude) < 1e-6 AND abs(a.longitude) < 1e-6'
+            ')'
         )
-        date_condition = "a.capture_datetime IS NOT NULL"
+        date_condition = 'a.capture_datetime IS NOT NULL'
         sql = f"""
             SELECT
                 COUNT(DISTINCT a.id) AS total_count,

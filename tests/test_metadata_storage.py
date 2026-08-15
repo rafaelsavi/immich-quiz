@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import asyncio
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -9,9 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.config import AppSettings
-from src.immich.client import AssetAnswer, ImmichClient
 from src.main import create_app
-from src.models import PreflightRequest
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.sync import SyncEngine
@@ -30,7 +27,7 @@ def meta_store(db_mgr: DatabaseManager) -> MetadataStore:
 def test_db_manager_init(db_mgr: DatabaseManager) -> None:
     assert db_mgr.db_path.exists()
     with db_mgr.connection() as conn:
-        cursor = conn.execute("PRAGMA journal_mode;")
+        cursor = conn.execute('PRAGMA journal_mode;')
         row = cursor.fetchone()
         assert row[0].lower() == 'wal'
 
@@ -172,12 +169,13 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert 'asset-1' in cand7
 
     # Query 8: get_asset_counts breakdown
-    counts = meta_store.get_asset_counts(AssetFilterCriteria(library_name='family', location_mode=True, date_mode=True, include_shared_albums=True))
+    counts = meta_store.get_asset_counts(
+        AssetFilterCriteria(library_name='family', location_mode=True, date_mode=True, include_shared_albums=True)
+    )
     assert counts['total_count'] == 3
     assert counts['gps_count'] == 3
     assert counts['date_count'] == 3
     assert counts['eligible_count'] == 3
-
 
 
 def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path) -> None:
@@ -578,7 +576,6 @@ async def test_sync_engine_warns_when_asset_count_fails(tmp_path: Path) -> None:
     assert '/search/statistics' in status['warning']
 
 
-
 def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     settings = AppSettings(
         immich_server_url='https://example.com/api',
@@ -684,7 +681,7 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     assert data_q['asset_id'] == 'api-asset-1'
 
     # Test asset invalidation on /media failure
-    res_media_fail = client.get(f'/api/media/api-asset-1?library_name=family')
+    client.get('/api/media/api-asset-1?library_name=family')
     # Since Immich mock client fails get_asset_bytes in this raw client test or returns 400,
     # verify that metadata_store invalidates the asset
     assert meta_store.count_eligible_assets(AssetFilterCriteria(library_name='family')) == 0

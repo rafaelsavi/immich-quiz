@@ -454,4 +454,3 @@ def test_preflight_multiple_cities_or_mode(tmp_path: Path) -> None:
     assert data['eligible_count'] == 2
     assert data['ok'] is False  # 2 < 5 required
     assert data['required'] == 5
-

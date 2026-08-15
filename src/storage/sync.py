@@ -143,7 +143,7 @@ class SyncEngine:
             if total_reported is None:
                 msg = (
                     f"Immich /search/statistics did not return an asset count for library '{library_name}'. "
-                    "Sync will proceed without total progress estimate."
+                    'Sync will proceed without total progress estimate.'
                 )
                 logger.warning(msg)
                 self._sync_warnings[library_name] = msg

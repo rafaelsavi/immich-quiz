@@ -307,4 +307,3 @@ class PreflightResponse(BaseModel):
     date_count: int | None = None
     location_mode: bool = True
     date_mode: bool = True
-
