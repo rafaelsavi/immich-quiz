@@ -134,7 +134,7 @@ Follow the implementation steps, run the pytest suite in tests/test_filters_api.
 
 ```text
 Please implement Phase 4 of the Library Filters milestone according to the specification in docs/next-release-milestone/library-filters/04_PHASE_REUSABLE_MULTISELECT.md.
-Build static/js/modules/components/multi_select.js, wire unit DOM tests if applicable, and verify all acceptance criteria.
+Build static/js/modules/components/multi_select.js and static/css/components/multi_select.css, wire unit DOM tests if applicable, and verify all acceptance criteria.
 ```
 
 #### Prompt for Phase 5

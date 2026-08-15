@@ -238,6 +238,9 @@ async def list_cities(
 
 #### F. Extended `SearchQuery` & `is_eligible_asset`
 Update `SearchQuery`:
+
+> **Design Note — Multi-value Geography**: Immich's `/search/metadata` API accepts only a **single string** for `country` and `city` (not arrays). When multiple countries or cities are selected, `build_payload` intentionally sends **no** geo filter to the Immich API, relying entirely on `is_eligible_asset` for post-fetch filtering. This is the correct and intentional behavior — do **not** change it.
+
 ```python
 @dataclass(frozen=True)
 class SearchQuery:
@@ -265,6 +268,9 @@ class SearchQuery:
             payload['albumIds'] = list(self.album_ids)
         if self.person_ids:
             payload['personIds'] = list(self.person_ids)
+        # Immich API accepts only a single string for 'country'/'city'.
+        # Pass the value only when exactly one is selected; multi-value
+        # filtering is handled post-fetch by is_eligible_asset.
         if self.countries and len(self.countries) == 1:
             payload['country'] = self.countries[0]
         if self.cities and len(self.cities) == 1:

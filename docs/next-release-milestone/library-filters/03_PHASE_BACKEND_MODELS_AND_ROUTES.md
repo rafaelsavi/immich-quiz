@@ -77,6 +77,21 @@ class GameSetupRequest(BaseModel):
 
 ### File: `src/api/routes.py`
 
+#### Cache Setup
+Add the following at the **module level** (top of `routes.py`, after imports):
+
+```python
+from cachetools import TTLCache
+
+# 5-minute TTL for filter metadata cache. Change this constant to tune cache lifetime.
+FILTERS_CACHE_TTL_SECONDS: int = 300
+
+# Module-level cache shared across all requests: library_name -> LibraryFiltersResponse
+_filters_cache: TTLCache = TTLCache(maxsize=64, ttl=FILTERS_CACHE_TTL_SECONDS)
+```
+
+> **Dependency**: Add `cachetools` to your project dependencies (`uv add cachetools`).
+
 #### Endpoint: `GET /api/filters`
 ```python
 @router.get('/filters', response_model=LibraryFiltersResponse)
@@ -87,12 +102,8 @@ async def library_filters(
 ) -> LibraryFiltersResponse:
     settings: AppSettings = request.app.state.settings
 
-    # Initialize cache if needed
-    if not hasattr(request.app.state, 'filters_cache'):
-        request.app.state.filters_cache = {}
-
-    # Check cache first
-    cached = request.app.state.filters_cache.get(library_name)
+    # Check TTL cache first (evicts automatically after FILTERS_CACHE_TTL_SECONDS)
+    cached = _filters_cache.get(library_name)
     if cached is not None:
         return cached
 
@@ -109,7 +120,7 @@ async def library_filters(
         bounds = await immich.get_timeline_bounds(library_name)
         min_d = settings.fetch_photos_date_lower_bound or bounds.min_date
         max_d = settings.fetch_photos_date_upper_bound or bounds.max_date
-        
+
         date_range = DateRangeOption(
             min_month=min_d.strftime('%Y-%m') if min_d else None,
             max_month=max_d.strftime('%Y-%m') if max_d else None,
@@ -135,8 +146,8 @@ async def library_filters(
             people=people,
         )
 
-        # Store in cache
-        request.app.state.filters_cache[library_name] = response
+        # Store in TTL cache — automatically expires after FILTERS_CACHE_TTL_SECONDS
+        _filters_cache[library_name] = response
         return response
 
     except ImmichClientError as exc:
@@ -290,7 +301,9 @@ async def load_asset_pool(
 ---
 
 ## 4. Acceptance Criteria
-- [ ] `GET /api/filters?library_name=...` returns populated lists in < 50ms on first call and < 1ms on cached calls, with cities carrying parent country metadata.
+- [ ] `cachetools` is added as a project dependency and `_filters_cache` uses `TTLCache(maxsize=64, ttl=FILTERS_CACHE_TTL_SECONDS)` with `FILTERS_CACHE_TTL_SECONDS = 300` as a named constant at module level.
+- [ ] `GET /api/filters?library_name=...` returns populated lists in < 50ms on first call and ≤ 1ms on cached calls, with cities carrying parent country metadata.
+- [ ] Cache entries automatically expire after 5 minutes without any manual cleanup.
 - [ ] `PreflightRequest` validates with custom `person_ids`, `people_mode` ('OR' | 'AND'), `countries`, `cities`, and date boundaries.
 - [ ] Preflight strictly verifies that candidate photos meet diversity criteria ($\ge 100\text{m}$ / $\ge 60\text{s}$) without loose fallbacks.
 - [ ] Candidate pool selection in `selector.py` respects all active filters and strict diversity constraints.
