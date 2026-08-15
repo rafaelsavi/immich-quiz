@@ -226,7 +226,16 @@ export class MultiSelect {
   }
 
   deselectAll() {
-    this.clear();
+    const query = this.searchInputEl ? this.searchInputEl.value.trim().toLowerCase() : "";
+    if (query) {
+      const filtered = this.items.filter((item) => item.name.toLowerCase().includes(query));
+      filtered.forEach((item) => this.selectedMap.delete(item.id));
+    } else {
+      this.selectedMap.clear();
+    }
+    this.renderOptions();
+    this.updateTriggerUi();
+    this._notifyChange();
   }
 
   open() {
