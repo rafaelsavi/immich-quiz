@@ -20,6 +20,13 @@ export const state = {
   currentQuestion: null,
   guessedLatLng: null,
   mapBounds: null,
+  filters: {
+    albumMultiSelect: null,
+    countryMultiSelect: null,
+    cityMultiSelect: null,
+    peopleMultiSelect: null,
+    dateRangeSlider: null,
+  },
   albumShuffleState: {
     selectedPhotoId: null,
     assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
@@ -69,7 +76,6 @@ export const el = {
     return document.getElementById("goal-date");
   },
   library: document.getElementById("library"),
-  album: document.getElementById("album"),
   albumMultiSelect: document.getElementById("album-multi-select"),
   filtersAccordion: document.getElementById("filters-accordion"),
   filtersToggleBtn: document.getElementById("filters-toggle-btn"),

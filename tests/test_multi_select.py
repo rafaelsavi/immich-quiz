@@ -35,7 +35,6 @@ def test_multi_select_has_required_methods() -> None:
         'toggle',
         'updateTriggerUi',
         'renderOptions',
-        '_syncNativeSelect',
         '_notifyChange',
     ]
     for method in required_methods:

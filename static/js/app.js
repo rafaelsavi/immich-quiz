@@ -73,7 +73,6 @@ let _preflightDebounceTimer = null;
 function initFilterComponents() {
   albumMultiSelect = new MultiSelect({
     container: document.getElementById("album-multi-select"),
-    nativeSelect: document.getElementById("album"),
     placeholderKey: "setup.all_photos",
     searchPlaceholderKey: "setup.album_search_placeholder",
     noResultsKey: "setup.no_albums_found",
@@ -82,6 +81,7 @@ function initFilterComponents() {
       saveCurrentLibraryFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
+      loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
     },
   });
 
@@ -140,6 +140,14 @@ function initFilterComponents() {
       triggerPreflightDebounced();
     },
   });
+
+  if (state.filters) {
+    state.filters.albumMultiSelect = albumMultiSelect;
+    state.filters.countryMultiSelect = countryMultiSelect;
+    state.filters.cityMultiSelect = cityMultiSelect;
+    state.filters.peopleMultiSelect = peopleMultiSelect;
+    state.filters.dateRangeSlider = dateRangeSlider;
+  }
 
   // People Mode Segmented Toggle (OR / AND)
   const peopleModeToggleEl = document.getElementById("people-mode-toggle");
@@ -394,27 +402,6 @@ async function onLibrarySelected(libraryName) {
 
     cachedRawCities = filtersRes.cities || [];
 
-    // Populate album native select for leaderboard filter compat
-    if (el.album) {
-      const allPhotos = document.createElement("option");
-      allPhotos.value = "";
-      allPhotos.setAttribute("data-i18n", "setup.all_photos");
-      allPhotos.textContent = t("setup.all_photos");
-      el.album.replaceChildren(allPhotos);
-      const albums = [...(albumsRes.albums || [])].sort((a, b) => {
-        const na = (a.name || "").toLowerCase();
-        const nb = (b.name || "").toLowerCase();
-        if (na !== nb) return na.localeCompare(nb);
-        return (a.id || "").localeCompare(b.id || "");
-      });
-      albums.forEach((album) => {
-        const option = document.createElement("option");
-        option.value = album.id;
-        option.textContent = album.name;
-        el.album.appendChild(option);
-      });
-    }
-
     if (albumMultiSelect) albumMultiSelect.setItems(albumsRes.albums || []);
     if (countryMultiSelect) countryMultiSelect.setItems((filtersRes.countries || []).map((c) => ({ id: c, name: c })));
     if (cityMultiSelect) cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name })));
@@ -468,7 +455,6 @@ function initWheelScrolls() {
   bindSelectWheelScroll(el.roundCount, false);
   bindSelectWheelScroll(el.roundLength, false);
   bindSelectWheelScroll(el.library, false);
-  bindSelectWheelScroll(el.album, false);
 }
 
 async function initUiConfig() {
@@ -1610,10 +1596,6 @@ el.library.addEventListener("change", () => {
   onLibrarySelected(el.library.value)
     .then(() => loadLeaderboard())
     .catch((err) => showAlert(err.message));
-});
-
-el.album.addEventListener("change", () => {
-  loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
 });
 
 el.readyBtn.addEventListener("click", () => {

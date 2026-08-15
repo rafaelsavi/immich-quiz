@@ -10,7 +10,6 @@ export class MultiSelect {
   /**
    * @param {Object} config
    * @param {HTMLElement} config.container - Root .multi-select wrapper element
-   * @param {HTMLSelectElement} [config.nativeSelect] - Hidden native select for form serialization
    * @param {string} [config.placeholderKey] - i18n key for empty placeholder (e.g. "setup.all_photos")
    * @param {string} [config.searchPlaceholderKey] - i18n key for search input placeholder
    * @param {string} [config.noResultsKey] - i18n key for empty search results
@@ -19,7 +18,6 @@ export class MultiSelect {
    */
   constructor(config) {
     this.container = config.container;
-    this.nativeSelect = config.nativeSelect || null;
     this.placeholderKey = config.placeholderKey || "setup.all_photos";
     this.searchPlaceholderKey = config.searchPlaceholderKey || "setup.search_placeholder";
     this.noResultsKey = config.noResultsKey || "setup.no_results_found";
@@ -175,7 +173,6 @@ export class MultiSelect {
     }
     this.renderOptions();
     this.updateTriggerUi();
-    this._syncNativeSelect();
   }
 
   getSelectedIds() {
@@ -196,7 +193,6 @@ export class MultiSelect {
     });
     this.renderOptions();
     this.updateTriggerUi();
-    this._syncNativeSelect();
   }
 
   clear() {
@@ -205,7 +201,6 @@ export class MultiSelect {
     this._updateSearchClearVisibility();
     this.renderOptions();
     this.updateTriggerUi();
-    this._syncNativeSelect();
     this._notifyChange();
   }
 
@@ -217,7 +212,6 @@ export class MultiSelect {
     }
     this.renderOptions();
     this.updateTriggerUi();
-    this._syncNativeSelect();
     this._notifyChange();
   }
 
@@ -227,7 +221,6 @@ export class MultiSelect {
     filtered.forEach((item) => this.selectedMap.set(item.id, item.name));
     this.renderOptions();
     this.updateTriggerUi();
-    this._syncNativeSelect();
     this._notifyChange();
   }
 
@@ -355,19 +348,6 @@ export class MultiSelect {
 
       this.optionsListEl.appendChild(optEl);
     });
-  }
-
-  _syncNativeSelect() {
-    if (!this.nativeSelect) return;
-    const selectedIds = new Set(this.selectedMap.keys());
-    Array.from(this.nativeSelect.options).forEach((opt) => {
-      if (opt.value === "") {
-        opt.selected = selectedIds.size === 0;
-      } else {
-        opt.selected = selectedIds.has(opt.value);
-      }
-    });
-    this.nativeSelect.dispatchEvent(new Event("change", { bubbles: true }));
   }
 
   _notifyChange() {
