@@ -39,7 +39,6 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(key, raising=False)
 
 
-
 def test_missing_server_url(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
     with pytest.raises(ConfigError, match='IMMICH_SERVER_URL'):
@@ -295,4 +294,3 @@ def test_custom_whitelists_and_blacklists_parsed(monkeypatch: pytest.MonkeyPatch
     assert settings.city_blacklist == frozenset({'curitiba'})
     assert settings.people_whitelist == frozenset({'alice', 'bob smith'})
     assert settings.people_blacklist == frozenset({'charlie'})
-

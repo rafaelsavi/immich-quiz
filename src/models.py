@@ -2,8 +2,31 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+
+class PersonOption(BaseModel):
+    id: str
+    name: str
+
+
+class CityOption(BaseModel):
+    name: str
+    country: str | None = None
+
+
+class DateRangeOption(BaseModel):
+    min_month: str | None = None  # Format: "YYYY-MM"
+    max_month: str | None = None  # Format: "YYYY-MM"
+
+
+class LibraryFiltersResponse(BaseModel):
+    date_range: DateRangeOption
+    countries: list[str]
+    cities: list[CityOption]
+    people: list[PersonOption]
 
 
 class RoundLength(str, Enum):
@@ -55,6 +78,13 @@ class GameSetupRequest(BaseModel):
     library_name: str = Field(min_length=1)
     album_ids: list[str] = Field(default_factory=list)
     album_name: str | None = None
+    # New filter criteria
+    person_ids: list[str] = Field(default_factory=list)
+    people_mode: Literal['OR', 'AND'] = 'OR'  # 'OR' (any) | 'AND' (all together)
+    countries: list[str] = Field(default_factory=list)
+    cities: list[str] = Field(default_factory=list)
+    min_date: date | None = None
+    max_date: date | None = None
 
     @model_validator(mode='after')
     def validate_modes_and_rounds(self) -> GameSetupRequest:
@@ -245,6 +275,13 @@ class PreflightRequest(BaseModel):
     game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
     album_ids: list[str] = Field(default_factory=list)
+    # New filter criteria
+    person_ids: list[str] = Field(default_factory=list)
+    people_mode: Literal['OR', 'AND'] = 'OR'  # 'OR' (any) | 'AND' (all together)
+    countries: list[str] = Field(default_factory=list)
+    cities: list[str] = Field(default_factory=list)
+    min_date: date | None = None
+    max_date: date | None = None
 
     @model_validator(mode='after')
     def validate_modes_and_rounds(self) -> PreflightRequest:

@@ -93,7 +93,6 @@ class SearchQuery:
         return payload
 
 
-
 class ImmichClient:
     def __init__(
         self,
@@ -673,7 +672,9 @@ class ImmichClient:
         # 6. Person check (if person_ids filter specified)
         if person_ids:
             asset_people = asset.get('people') or asset.get('faces') or []
-            asset_person_ids = {str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')}
+            asset_person_ids = {
+                str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')
+            }
             target_person_ids = set(person_ids)
             if people_mode.upper() == 'AND':
                 # 'AND' mode: All selected people must be present in this photo

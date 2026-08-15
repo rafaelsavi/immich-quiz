@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.config import AppSettings
+from src.immich.client import CityInfo, PersonInfo, SearchQuery, TimelineBounds
 from src.main import create_app
 
 
@@ -46,11 +47,30 @@ def setup_payload(**overrides: Any) -> dict[str, Any]:
 
 
 class FakeImmichClient:
-    def __init__(self, assets: list[dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self,
+        assets: list[dict[str, Any]] | None = None,
+        people: list[PersonInfo] | None = None,
+        timeline_bounds: TimelineBounds | None = None,
+        countries: list[str] | None = None,
+        cities: list[CityInfo] | None = None,
+    ) -> None:
         self.assets = assets if assets is not None else [make_asset('asset-1')]
+        self.people = people if people is not None else [PersonInfo(id='p1', name='Alice')]
+        self.timeline_bounds = timeline_bounds or TimelineBounds(min_date=date(2020, 1, 1), max_date=date(2024, 12, 31))
+        self.countries = countries if countries is not None else ['Brazil', 'France']
+        self.cities = (
+            cities
+            if cities is not None
+            else [
+                CityInfo(name='Florianopolis', country='Brazil'),
+                CityInfo(name='Paris', country='France'),
+            ]
+        )
         self.search_calls = 0
         self.closed = False
         self.last_include_shared_albums = False
+        self.last_query: SearchQuery | None = None
 
     def list_libraries(self) -> list[str]:
         return ['family']
@@ -62,17 +82,61 @@ class FakeImmichClient:
         self.last_include_shared_albums = include_shared_albums
         return [{'id': 'album-1', 'name': 'Holidays'}]
 
+    async def list_people(
+        self,
+        library_name: str,
+        whitelist: frozenset[str] = frozenset(),
+        blacklist: frozenset[str] = frozenset(),
+    ) -> list[PersonInfo]:
+        filtered = [
+            p
+            for p in self.people
+            if (not whitelist or p.name.lower() in whitelist) and (not blacklist or p.name.lower() not in blacklist)
+        ]
+        return filtered
+
+    async def get_timeline_bounds(self, library_name: str) -> TimelineBounds:
+        return self.timeline_bounds
+
+    async def list_countries(
+        self,
+        library_name: str,
+        whitelist: frozenset[str] = frozenset(),
+        blacklist: frozenset[str] = frozenset(),
+    ) -> list[str]:
+        filtered = [
+            c
+            for c in self.countries
+            if (not whitelist or c.lower() in whitelist) and (not blacklist or c.lower() not in blacklist)
+        ]
+        return filtered
+
+    async def list_cities(
+        self,
+        library_name: str,
+        whitelist: frozenset[str] = frozenset(),
+        blacklist: frozenset[str] = frozenset(),
+    ) -> list[CityInfo]:
+        filtered = [
+            c
+            for c in self.cities
+            if (not whitelist or c.name.lower() in whitelist) and (not blacklist or c.name.lower() not in blacklist)
+        ]
+        return filtered
+
     async def search_assets(
         self,
         library_name: str,
         album_ids: list[str] | None = None,
         *,
+        query: SearchQuery | None = None,
         include_shared_albums: bool = False,
         include_partner_assets: bool = False,
         size: int = 250,
         page: int = 1,
     ) -> list[dict[str, Any]]:
         self.search_calls += 1
+        self.last_query = query
         return self.assets
 
     async def search_random_assets(
@@ -82,10 +146,13 @@ class FakeImmichClient:
         size: int = 250,
         include_shared_albums: bool = False,
         include_partner_assets: bool = False,
+        *,
+        query: SearchQuery | None = None,
         min_date: date | None = None,
         max_date: date | None = None,
     ) -> list[dict[str, Any]]:
         self.search_calls += 1
+        self.last_query = query
         return self.assets
 
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:

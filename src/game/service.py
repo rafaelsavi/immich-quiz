@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, filter_diverse_asset_answers, load_asset_pool
-from src.immich.client import ImmichClient, ImmichClientError
+from src.immich.client import ImmichClient, ImmichClientError, SearchQuery
 from src.models import (
     AnswerRequest,
     AnswerResponse,
@@ -70,14 +70,27 @@ class GameService:
         settings: AppSettings,
         immich: ImmichClient,
     ) -> PreflightResponse:
+        # Determine effective date bounds (intersection of env bounds and GUI setup bounds)
+        effective_min_date = max(filter(None, [settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
+        effective_max_date = min(filter(None, [settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
+
+        query = SearchQuery(
+            album_ids=tuple(setup.album_ids),
+            person_ids=tuple(setup.person_ids),
+            people_mode=setup.people_mode,
+            countries=tuple(setup.countries),
+            cities=tuple(setup.cities),
+            include_shared_albums=settings.include_shared_albums,
+            include_partner_assets=settings.include_partner_assets,
+            min_date=effective_min_date,
+            max_date=effective_max_date,
+        )
+
         try:
-            raw_assets = await immich.search_random_assets(
+            raw_assets = await immich.search_assets(
                 setup.library_name,
-                album_ids=setup.album_ids,
-                include_shared_albums=settings.include_shared_albums,
-                include_partner_assets=settings.include_partner_assets,
-                min_date=settings.fetch_photos_date_lower_bound,
-                max_date=settings.fetch_photos_date_upper_bound,
+                query=query,
+                size=250,
             )
         except ImmichClientError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -87,17 +100,18 @@ class GameService:
             active_filters.append('location')
         if setup.date_mode:
             active_filters.append('date')
-        if settings.fetch_photos_date_lower_bound or settings.fetch_photos_date_upper_bound:
+        if setup.album_ids:
+            active_filters.append('albums')
+        if setup.person_ids:
+            active_filters.append(
+                'people_all' if setup.people_mode == 'AND' and len(setup.person_ids) > 1 else 'people'
+            )
+        if setup.countries:
+            active_filters.append('countries')
+        if setup.cities:
+            active_filters.append('cities')
+        if effective_min_date or effective_max_date:
             active_filters.append('date_range')
-
-        logger.debug(
-            'preflight: album_ids=%s, library=%s, location_mode=%s, date_mode=%s, raw_assets_count=%d',
-            setup.album_ids,
-            setup.library_name,
-            setup.location_mode,
-            setup.date_mode,
-            len(raw_assets),
-        )
 
         eligible_answers = [
             ImmichClient.extract_answer(asset)
@@ -106,12 +120,16 @@ class GameService:
                 asset,
                 setup.location_mode,
                 setup.date_mode,
-                settings.fetch_photos_date_lower_bound,
-                settings.fetch_photos_date_upper_bound,
+                min_date=effective_min_date,
+                max_date=effective_max_date,
+                countries=tuple(setup.countries),
+                cities=tuple(setup.cities),
+                person_ids=tuple(setup.person_ids),
+                people_mode=setup.people_mode,
             )
         ]
 
-        diverse_answers = filter_diverse_asset_answers(
+        diverse_candidates = filter_diverse_asset_answers(
             eligible_answers,
             setup.location_mode,
             setup.date_mode,
@@ -119,15 +137,16 @@ class GameService:
             min_time_sec=settings.photo_diversity_min_time_seconds,
         )
 
-        eligible_count = len(diverse_answers)
+        eligible_count = len(diverse_candidates)
         required = 3 * setup.round_count if setup.game_mode == GameMode.album_shuffle else setup.round_count
+
         return PreflightResponse(
             eligible_count=eligible_count,
             required=required,
             ok=eligible_count >= required,
             active_filters=active_filters,
-            min_date=settings.fetch_photos_date_lower_bound,
-            max_date=settings.fetch_photos_date_upper_bound,
+            min_date=effective_min_date,
+            max_date=effective_max_date,
         )
 
     async def setup_game(

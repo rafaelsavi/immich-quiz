@@ -6,8 +6,7 @@ from datetime import date
 import httpx
 import pytest
 
-from src.immich.client import CityInfo, ImmichClient, ImmichClientError, PersonInfo, SearchQuery, TimelineBounds
-
+from src.immich.client import CityInfo, ImmichClient, ImmichClientError, PersonInfo, SearchQuery
 
 
 def build_client(handler) -> ImmichClient:
@@ -1032,8 +1031,17 @@ def test_search_query_geo_and_people_payload() -> None:
 
 
 def test_is_eligible_asset_country_filtering() -> None:
-    asset_fr = asset(exifInfo={'latitude': 48.85, 'longitude': 2.35, 'country': 'France', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
-    asset_de = asset(exifInfo={'latitude': 52.52, 'longitude': 13.40, 'country': 'Germany', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+    asset_fr = asset(
+        exifInfo={'latitude': 48.85, 'longitude': 2.35, 'country': 'France', 'dateTimeOriginal': '2024-01-01T10:00:00Z'}
+    )
+    asset_de = asset(
+        exifInfo={
+            'latitude': 52.52,
+            'longitude': 13.40,
+            'country': 'Germany',
+            'dateTimeOriginal': '2024-01-01T10:00:00Z',
+        }
+    )
     asset_none = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
 
     assert ImmichClient.is_eligible_asset(asset_fr, True, True, countries=('France', 'Italy')) is True
@@ -1043,8 +1051,12 @@ def test_is_eligible_asset_country_filtering() -> None:
 
 
 def test_is_eligible_asset_city_filtering() -> None:
-    asset_paris = asset(exifInfo={'latitude': 48.85, 'longitude': 2.35, 'city': 'Paris', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
-    asset_bavaria = asset(exifInfo={'latitude': 48.13, 'longitude': 11.58, 'state': 'Bavaria', 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
+    asset_paris = asset(
+        exifInfo={'latitude': 48.85, 'longitude': 2.35, 'city': 'Paris', 'dateTimeOriginal': '2024-01-01T10:00:00Z'}
+    )
+    asset_bavaria = asset(
+        exifInfo={'latitude': 48.13, 'longitude': 11.58, 'state': 'Bavaria', 'dateTimeOriginal': '2024-01-01T10:00:00Z'}
+    )
     asset_none = asset(exifInfo={'latitude': 10.0, 'longitude': 20.0, 'dateTimeOriginal': '2024-01-01T10:00:00Z'})
 
     assert ImmichClient.is_eligible_asset(asset_paris, True, True, cities=('Paris', 'London')) is True
@@ -1059,9 +1071,21 @@ def test_is_eligible_asset_people_filtering_or_mode() -> None:
     asset_nobody = asset()
 
     # OR mode: Matches if ANY target person is present
-    assert ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice', 'p-charlie'), people_mode='OR') is True
-    assert ImmichClient.is_eligible_asset(asset_charlie, False, False, person_ids=('p-alice', 'p-charlie'), people_mode='OR') is True
-    assert ImmichClient.is_eligible_asset(asset_nobody, False, False, person_ids=('p-alice',), people_mode='OR') is False
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_alice_bob, False, False, person_ids=('p-alice', 'p-charlie'), people_mode='OR'
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_charlie, False, False, person_ids=('p-alice', 'p-charlie'), people_mode='OR'
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(asset_nobody, False, False, person_ids=('p-alice',), people_mode='OR') is False
+    )
     assert ImmichClient.is_eligible_asset(asset_charlie, False, False, person_ids=('p-bob',), people_mode='OR') is False
 
 
@@ -1071,8 +1095,23 @@ def test_is_eligible_asset_people_filtering_and_mode() -> None:
     asset_bob_only = asset(people=[{'id': 'p-bob', 'name': 'Bob'}])
 
     # AND mode: Matches ONLY if ALL target people are present
-    assert ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND') is True
-    assert ImmichClient.is_eligible_asset(asset_alice_only, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND') is False
-    assert ImmichClient.is_eligible_asset(asset_bob_only, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND') is False
-    assert ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice',), people_mode='AND') is True
-
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_alice_bob, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND'
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_alice_only, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND'
+        )
+        is False
+    )
+    assert (
+        ImmichClient.is_eligible_asset(asset_bob_only, False, False, person_ids=('p-alice', 'p-bob'), people_mode='AND')
+        is False
+    )
+    assert (
+        ImmichClient.is_eligible_asset(asset_alice_bob, False, False, person_ids=('p-alice',), people_mode='AND')
+        is True
+    )

@@ -1,7 +1,7 @@
 import random
 from datetime import date
 
-from src.immich.client import AssetAnswer, ImmichClient
+from src.immich.client import AssetAnswer, ImmichClient, SearchQuery
 from src.models import MapBounds
 from src.scoring import haversine_km
 from src.storage.session import MatchState, RoundAsset
@@ -66,14 +66,25 @@ async def load_asset_pool(
     include_shared_albums: bool = False,
     include_partner_assets: bool = False,
 ) -> None:
-    """Populate the per-match candidate pool once instead of searching every round."""
-    raw_assets = await immich.search_random_assets(
-        state.setup.library_name,
-        album_ids=state.setup.album_ids,
+    """Populate the per-match candidate pool once with active filter criteria."""
+    effective_min_date = max(filter(None, [min_capture_date, state.setup.min_date]), default=None)
+    effective_max_date = min(filter(None, [max_capture_date, state.setup.max_date]), default=None)
+
+    query = SearchQuery(
+        album_ids=tuple(state.setup.album_ids),
+        person_ids=tuple(state.setup.person_ids),
+        people_mode=state.setup.people_mode,
+        countries=tuple(state.setup.countries),
+        cities=tuple(state.setup.cities),
         include_shared_albums=include_shared_albums,
         include_partner_assets=include_partner_assets,
-        min_date=min_capture_date,
-        max_date=max_capture_date,
+        min_date=effective_min_date,
+        max_date=effective_max_date,
+    )
+
+    raw_assets = await immich.search_random_assets(
+        state.setup.library_name,
+        query=query,
     )
     pool: dict[str, AssetAnswer] = {}
     for asset in raw_assets:
@@ -81,8 +92,12 @@ async def load_asset_pool(
             asset,
             state.setup.location_mode,
             state.setup.date_mode,
-            min_capture_date,
-            max_capture_date,
+            min_date=effective_min_date,
+            max_date=effective_max_date,
+            countries=tuple(state.setup.countries),
+            cities=tuple(state.setup.cities),
+            person_ids=tuple(state.setup.person_ids),
+            people_mode=state.setup.people_mode,
         ):
             continue
         asset_id = str(asset.get('id', '')).strip()
