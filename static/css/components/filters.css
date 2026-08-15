@@ -1,0 +1,135 @@
+/* Filters Accordion Component */
+.filters-accordion {
+  margin-top: 1rem;
+  border-radius: 12px;
+  border: 1px solid #dbe1ee;
+  background: #fbfcfe;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filters-accordion:hover {
+  border-color: #c7ccd8;
+}
+
+.filters-accordion-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-dark, #242938);
+  user-select: none;
+}
+
+.accordion-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.accordion-icon {
+  display: inline-flex;
+  color: var(--accent, #0f7c7f);
+}
+
+.accordion-meta-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filters-summary-badge {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #6c7893;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(108, 120, 147, 0.12);
+  transition: all 0.2s ease;
+}
+
+.filters-summary-badge.has-active {
+  color: var(--accent, #0f7c7f);
+  background: rgba(15, 124, 127, 0.14);
+  font-weight: 600;
+}
+
+.accordion-arrow {
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #8c97ad;
+}
+
+.filters-accordion-header[aria-expanded="true"] .accordion-arrow {
+  transform: rotate(180deg);
+}
+
+.filters-accordion-content {
+  padding: 0.25rem 1rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-top: 1px solid #edf1f7;
+}
+
+.filters-accordion-content.hidden {
+  display: none;
+}
+
+.filters-sub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.filters-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+}
+
+/* People Match Mode Segmented Toggle (OR vs AND) */
+.people-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #edf1f7;
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+  transition: opacity 0.2s ease;
+}
+
+.people-mode-toggle.hidden {
+  display: none !important;
+}
+
+.people-mode-btn {
+  border: none;
+  background: transparent;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6c7893;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.people-mode-btn:hover {
+  color: var(--text-dark, #242938);
+}
+
+.people-mode-btn.active {
+  background: #ffffff;
+  color: var(--accent, #0f7c7f);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}

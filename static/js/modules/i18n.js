@@ -30,6 +30,33 @@ export const TRANSLATIONS = {
     "setup.deselect_all": "Deselect All",
     "setup.no_albums_found": "No albums found",
     "setup.albums_selected": (count) => `${count} albums selected`,
+    "setup.filters_heading": "Library & Photo Filters",
+    "setup.filters_summary_default": "All media",
+    "setup.filters_active_count": (count) => `${count} filter${count > 1 ? "s" : ""} active`,
+    "setup.reset_filters": "Reset all filters",
+    "setup.date_range_label": "Date Range",
+    "setup.all_dates": "All Time",
+    "setup.countries_label": "Countries",
+    "setup.all_countries": "-",
+    "setup.country_search_placeholder": "Search countries...",
+    "setup.no_countries_found": "No countries found",
+    "setup.countries_selected": (count) => `${count} countries selected`,
+    "setup.cities_label": "Cities / Regions",
+    "setup.all_cities": "-",
+    "setup.city_search_placeholder": "Search cities...",
+    "setup.no_cities_found": "No cities found",
+    "setup.cities_selected": (count) => `${count} cities selected`,
+    "setup.people_label": "People",
+    "setup.all_people": "-",
+    "setup.people_search_placeholder": "Search people...",
+    "setup.no_people_found": "No people found",
+    "setup.people_selected": (count) => `${count} people selected`,
+    "setup.people_mode_or": "Any",
+    "setup.people_mode_and": "All",
+    "setup.filter_people": "People (Any)",
+    "setup.filter_people_all": "People (All together)",
+    "setup.filter_countries": "Countries",
+    "setup.filter_cities": "Cities",
     "setup.start_btn": "Start Match",
     "setup.not_enough_media": (found, required, filters) =>
       `Cannot start match: only ${found} photo(s) matching criteria found in selected album/library, but ${required} rounds are required.\n\nActive filters: ${filters}`,
@@ -45,7 +72,7 @@ export const TRANSLATIONS = {
       if (maxDate) {
         return `Date range limit (until ${maxDate})`;
       }
-      return "Date range limit";
+      return "Date Range";
     },
     // Game card
     "game.ready_btn": "I'm Ready",
@@ -220,6 +247,33 @@ export const TRANSLATIONS = {
     "setup.deselect_all": "Desmarcar todos",
     "setup.no_albums_found": "Nenhum álbum encontrado",
     "setup.albums_selected": (count) => `${count} álbuns selecionados`,
+    "setup.filters_heading": "Filtros de Biblioteca e Fotos",
+    "setup.filters_summary_default": "Todas as fotos",
+    "setup.filters_active_count": (count) => `${count} filtro${count > 1 ? "s" : ""} ativo${count > 1 ? "s" : ""}`,
+    "setup.reset_filters": "Redefinir filtros",
+    "setup.date_range_label": "Intervalo de Datas",
+    "setup.all_dates": "Todo o período",
+    "setup.countries_label": "Países",
+    "setup.all_countries": "-",
+    "setup.country_search_placeholder": "Buscar países...",
+    "setup.no_countries_found": "Nenhum país encontrado",
+    "setup.countries_selected": (count) => `${count} países selecionados`,
+    "setup.cities_label": "Cidades / Regiões",
+    "setup.all_cities": "-",
+    "setup.city_search_placeholder": "Buscar cidades...",
+    "setup.no_cities_found": "Nenhuma cidade encontrada",
+    "setup.cities_selected": (count) => `${count} cidades selecionadas`,
+    "setup.people_label": "Pessoas",
+    "setup.all_people": "-",
+    "setup.people_search_placeholder": "Buscar pessoas...",
+    "setup.no_people_found": "Nenhuma pessoa encontrada",
+    "setup.people_selected": (count) => `${count} pessoas selecionadas`,
+    "setup.people_mode_or": "Qualquer um",
+    "setup.people_mode_and": "Todos juntos",
+    "setup.filter_people": "Pessoas (Qualquer uma)",
+    "setup.filter_people_all": "Pessoas (Todas juntas)",
+    "setup.filter_countries": "Países",
+    "setup.filter_cities": "Cidades",
     "setup.start_btn": "Iniciar Partida",
     "setup.not_enough_media": (found, required, filters) =>
       `Não é possível iniciar a partida: apenas ${found} foto(s) com os critérios foram encontradas no álbum/biblioteca selecionado, mas são necessárias ${required} rodadas.\n\nFiltros ativos: ${filters}`,
@@ -235,7 +289,7 @@ export const TRANSLATIONS = {
       if (maxDate) {
         return `Limite de intervalo de datas (até ${maxDate})`;
       }
-      return "Limite de intervalo de datas";
+      return "Intervalo de Datas";
     },
     // Game card
     "game.ready_btn": "Estou Pronto",

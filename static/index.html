@@ -44,58 +44,90 @@
         <label data-i18n="setup.players_label">Players (comma separated)</label>
         <input id="players" required placeholder="" />
 
-        <div class="grid-2">
-          <div>
-            <label data-i18n="setup.library_label">Library</label>
-            <select id="library" required></select>
-          </div>
-          <div class="album-select-group">
-            <label id="album-select-label" data-i18n="setup.album_label">Album</label>
-            <div id="album-multi-select" class="multi-select" aria-expanded="false" role="combobox" aria-haspopup="listbox">
-              <div class="multi-select-trigger" tabindex="0" id="album-select-trigger">
-                <div class="multi-select-value" id="album-select-value">
-                  <span class="placeholder" data-i18n="setup.all_photos">-</span>
-                </div>
-                <div class="multi-select-controls">
-                  <button type="button" class="multi-select-clear hidden" id="album-select-clear" title="Clear selection" aria-label="Clear selection">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                  <span class="select-arrow multi-select-arrow" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                  </span>
-                </div>
+        <!-- Expandable Media & Library Filters Section -->
+        <div class="filters-accordion" id="filters-accordion">
+          <button type="button" class="filters-accordion-header" id="filters-toggle-btn" aria-expanded="false">
+            <div class="accordion-title-wrap">
+              <span class="accordion-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+              </span>
+              <span class="accordion-title" data-i18n="setup.filters_heading">Library & Photo Filters</span>
+            </div>
+            <div class="accordion-meta-wrap">
+              <span class="filters-summary-badge" id="filters-summary-badge" data-i18n="setup.filters_summary_default">All media</span>
+              <span class="select-arrow accordion-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </div>
+          </button>
+
+          <div class="filters-accordion-content hidden" id="filters-accordion-content">
+            <!-- Row 1: Library & Albums -->
+            <div class="grid-2">
+              <div>
+                <label data-i18n="setup.library_label">Library</label>
+                <select id="library" required></select>
               </div>
-              <div class="multi-select-dropdown hidden" id="album-select-dropdown" role="listbox">
-                <div class="multi-select-search-wrap">
-                  <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                  <input type="text" class="multi-select-search" id="album-search-input" placeholder="Search albums..." data-i18n-placeholder="setup.album_search_placeholder" autocomplete="off" />
-                  <button type="button" class="search-clear-btn hidden" id="album-search-clear" title="Clear search" aria-label="Clear search" data-i18n-title="setup.clear_search" data-i18n-aria-label="setup.clear_search">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                </div>
-                <div class="multi-select-actions">
-                  <button type="button" class="btn-text-action" id="album-select-all" data-i18n="setup.select_all">Select All</button>
-                  <button type="button" class="btn-text-action" id="album-deselect-all" data-i18n="setup.deselect_all">Deselect All</button>
-                </div>
-                <div class="multi-select-options" id="album-options-list">
-                  <!-- Dynamically populated options -->
-                </div>
+              <div class="album-select-group">
+                <label data-i18n="setup.album_label">Album</label>
+                <div id="album-multi-select" class="multi-select"></div>
+                <select id="album" class="hidden-select" multiple tabindex="-1" aria-hidden="true">
+                  <option value="" selected data-i18n="setup.all_photos">-</option>
+                </select>
               </div>
             </div>
-            <select id="album" class="hidden-select" multiple tabindex="-1" aria-hidden="true">
-              <option value="" selected data-i18n="setup.all_photos">-</option>
-            </select>
+
+            <!-- Row 2: Date Range Slider -->
+            <div class="form-group date-slider-group">
+              <div class="field-head-inline">
+                <label data-i18n="setup.date_range_label">Date Range</label>
+                <span class="slider-value-readout" id="date-slider-readout">All Time</span>
+              </div>
+              <div class="range-slider-wrap" id="date-range-slider">
+                <div class="range-slider-track">
+                  <div class="range-slider-fill" id="date-slider-fill"></div>
+                </div>
+                <input type="range" class="range-thumb thumb-min" id="date-slider-min" min="0" max="100" value="0" />
+                <input type="range" class="range-thumb thumb-max" id="date-slider-max" min="0" max="100" value="100" />
+              </div>
+              <div class="range-slider-ticks">
+                <span id="date-slider-bound-min">-</span>
+                <span id="date-slider-bound-max">-</span>
+              </div>
+            </div>
+
+            <!-- Row 3: Geographic & People Filters -->
+            <div class="grid-3 filters-sub-grid">
+              <div>
+                <label data-i18n="setup.countries_label">Countries</label>
+                <div id="country-multi-select" class="multi-select"></div>
+              </div>
+              <div>
+                <label data-i18n="setup.cities_label">Cities / Regions</label>
+                <div id="city-multi-select" class="multi-select"></div>
+              </div>
+              <div>
+                <div class="field-head-inline">
+                  <label data-i18n="setup.people_label">People</label>
+                  <div class="people-mode-toggle hidden" id="people-mode-toggle" title="Match mode for selected people">
+                    <button type="button" class="people-mode-btn active" data-people-mode="OR" data-i18n="setup.people_mode_or">Any</button>
+                    <button type="button" class="people-mode-btn" data-people-mode="AND" data-i18n="setup.people_mode_and">All</button>
+                  </div>
+                </div>
+                <div id="people-multi-select" class="multi-select"></div>
+              </div>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filters-footer-actions">
+              <button type="button" class="btn-text-action" id="reset-filters-btn" data-i18n="setup.reset_filters">
+                Reset filters
+              </button>
+            </div>
           </div>
         </div>
 

@@ -10,6 +10,8 @@
 @import "./components/leaderboard.css";
 @import "./components/modals.css";
 @import "./components/multi_select.css";
+@import "./components/filters.css";
+@import "./components/range_slider.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";
