@@ -48,8 +48,14 @@
     <section id="setup-card" class="card">
       <h2 data-i18n="setup.heading">Game Setup</h2>
       <form id="setup-form">
-        <label data-i18n="setup.players_label">Players (comma separated)</label>
-        <input id="players" required placeholder="" />
+        <div class="form-group player-input-group">
+          <div class="field-head-inline">
+            <label data-i18n="setup.players_label">Players</label>
+            <span class="player-count-badge" id="player-count-badge">1 player (Solo)</span>
+          </div>
+          <div id="player-input-root" class="player-input-root"></div>
+          <input type="hidden" id="players" name="players" value="" />
+        </div>
 
         <!-- Expandable Media & Library Filters Section -->
         <div class="filters-accordion" id="filters-accordion">

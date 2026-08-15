@@ -22,6 +22,7 @@ import { api } from "./modules/api.js";
 import { formatPlace, formatMonth, buildCell, playerNameCell, renderRoundMeta } from "./modules/formatters.js";
 import { MultiSelect } from "./modules/components/multi_select.js";
 import { DateRangeSlider } from "./modules/components/range_slider.js";
+import { PlayerInput } from "./modules/components/player_input.js";
 import {
   updateSubmitState,
   renderJourneyMap,
@@ -59,6 +60,10 @@ let cityMultiSelect = null;
 let peopleMultiSelect = null;
 /** @type {DateRangeSlider|null} */
 let dateRangeSlider = null;
+/** @type {PlayerInput|null} */
+let playerInput = null;
+
+const PLAYERS_STORAGE_KEY = "immich_quiz_saved_players";
 
 /** Raw city objects from last /api/filters response: [{name, country}, ...] */
 let cachedRawCities = [];
@@ -69,6 +74,41 @@ const STORAGE_KEY_PREFIX = "immich_quiz_filters_";
 let _preflightDebounceTimer = null;
 /** Last cached preflight response for language refreshes */
 let _lastPreflightData = null;
+
+/* ------------------------------------------------- player input init */
+
+function initPlayerInput() {
+  const root = document.getElementById("player-input-root");
+  if (!root) return;
+
+  let savedPlayers = null;
+  try {
+    const raw = localStorage.getItem(PLAYERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        savedPlayers = parsed;
+      }
+    }
+  } catch (e) {
+    console.warn("Failed to load saved players from localStorage:", e);
+  }
+
+  playerInput = new PlayerInput({
+    container: root,
+    hiddenInput: el.players,
+    countBadge: document.getElementById("player-count-badge"),
+    initialPlayers: savedPlayers || [],
+    onChange: (players) => {
+      try {
+        localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(players));
+      } catch (e) {
+        console.warn("Failed to save players to localStorage:", e);
+      }
+      triggerPreflightDebounced();
+    },
+  });
+}
 
 /* ------------------------------------------------- filter components init */
 
@@ -542,7 +582,11 @@ async function executePreflight() {
   const modePayload = activeMode.getModePayload();
 
   const payload = {
-    players: el.players ? el.players.value.split(",").map((n) => n.trim()).filter(Boolean) : ["Player 1"],
+    players: playerInput
+      ? playerInput.getPlayers()
+      : el.players
+        ? el.players.value.split(",").map((n) => n.trim()).filter(Boolean)
+        : [],
     round_count: el.roundCount ? parseInt(el.roundCount.value, 10) : 10,
     location_mode: modePayload.location_mode ?? true,
     date_mode: modePayload.date_mode ?? true,
@@ -971,10 +1015,21 @@ async function startMatch(event) {
 
   resetGameUi();
 
-  const players = el.players.value
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
+  const players = playerInput
+    ? playerInput.getPlayers()
+    : el.players.value
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean);
+
+  if (players.length === 0) {
+    if (playerInput) {
+      playerInput.showEmptyError();
+    } else {
+      showAlert(t("setup.players_empty_error"));
+    }
+    return;
+  }
 
   const activeMode = getActiveMode();
   const modePayload = activeMode.getModePayload();
@@ -1911,6 +1966,7 @@ function refreshActiveScreenLanguage() {
   updateMapLayerControls(getShuffleMaps());
 
   // Refresh filter component trigger labels on language change
+  if (playerInput) playerInput.updateLanguage();
   if (albumMultiSelect) albumMultiSelect.updateTriggerUi();
   if (countryMultiSelect) countryMultiSelect.updateTriggerUi();
   if (cityMultiSelect) cityMultiSelect.updateTriggerUi();
@@ -2105,6 +2161,7 @@ function initModeButtons() {
 
 
 (async function bootstrap() {
+  initPlayerInput();
   refreshActiveScreenLanguage();
   initWheelScrolls();
   initModeButtons();
