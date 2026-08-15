@@ -1,14 +1,14 @@
-# Phase 1: Backend Config & Immich Client Integration
+# Phase 2: Filter Whitelists & Immich Client Endpoints
 
 ## Objective
-Update `.env` configuration parsing in `src/config.py` and extend `src/immich/client.py` to fetch people, timeline date bounds, and places without downloading individual photos.
+Update `.env` configuration parsing for geographic & people whitelists/blacklists in `src/config.py` and extend `src/immich/client.py` to fetch people, timeline date bounds, and places without downloading individual photos.
 
 ---
 
 ## 1. Environment Configuration
 
 ### File: `.env.example`
-Add the following optional variables:
+Add the following optional filter whitelist/blacklist variables:
 
 ```env
 # Comma-separated list of allowed countries (empty = allow all available)
@@ -54,6 +54,8 @@ class AppSettings:
     location_score_decay_km: float
     date_score_decay_days: float
     language: str
+    photo_diversity_min_distance_km: float
+    photo_diversity_min_time_seconds: float
     # New filter boundaries & whitelists/blacklists
     country_whitelist: frozenset[str]
     country_blacklist: frozenset[str]
@@ -85,6 +87,11 @@ Inside `load_settings()`:
 class PersonInfo:
     id: str
     name: str
+
+@dataclass(frozen=True)
+class CityInfo:
+    name: str
+    country: str | None = None
 
 @dataclass(frozen=True)
 class TimelineBounds:
@@ -192,8 +199,8 @@ async def list_countries(
     return filtered
 ```
 
-#### E. Method: `list_cities(self, library_name: str, whitelist: frozenset[str], blacklist: frozenset[str]) -> list[str]`
-- **Endpoint**: `GET /search/explore` or `GET /search/cities`
+#### E. Method: `list_cities(self, library_name: str, whitelist: frozenset[str], blacklist: frozenset[str]) -> list[CityInfo]`
+- **Endpoint**: `GET /search/explore`
 - **Implementation**:
 ```python
 async def list_cities(
@@ -201,9 +208,9 @@ async def list_cities(
     library_name: str,
     whitelist: frozenset[str] = frozenset(),
     blacklist: frozenset[str] = frozenset(),
-) -> list[str]:
+) -> list[CityInfo]:
     key = self._library_key(library_name)
-    cities: set[str] = set()
+    city_map: dict[str, str | None] = {}  # city_name -> country_name
     try:
         explore = await self._request_json('GET', '/search/explore', key)
         if isinstance(explore, list):
@@ -211,18 +218,21 @@ async def list_cities(
                 if isinstance(item, dict) and item.get('fieldName') in {'city', 'state'}:
                     for val in item.get('items', []):
                         if isinstance(val, dict) and val.get('value'):
-                            cities.add(str(val['value']).strip())
+                            c_name = str(val['value']).strip()
+                            country = str(val.get('country', '')).strip() or None
+                            city_map[c_name] = country
     except ImmichClientError:
         pass
 
-    if whitelist and not cities:
-        cities = {c.title() for c in whitelist}
+    if whitelist and not city_map:
+        city_map = {c.title(): None for c in whitelist}
 
     filtered = [
-        c for c in cities
+        CityInfo(name=c, country=country)
+        for c, country in city_map.items()
         if (not whitelist or c.lower() in whitelist) and (not blacklist or c.lower() not in blacklist)
     ]
-    filtered.sort(key=str.lower)
+    filtered.sort(key=lambda item: item.name.lower())
     return filtered
 ```
 
@@ -233,6 +243,7 @@ Update `SearchQuery`:
 class SearchQuery:
     album_ids: tuple[str, ...] = ()
     person_ids: tuple[str, ...] = ()
+    people_mode: str = 'OR'  # 'OR' (any) | 'AND' (all together)
     countries: tuple[str, ...] = ()
     cities: tuple[str, ...] = ()
     include_shared_albums: bool = False
@@ -277,6 +288,7 @@ def is_eligible_asset(
     countries: tuple[str, ...] = (),
     cities: tuple[str, ...] = (),
     person_ids: tuple[str, ...] = (),
+    people_mode: str = 'OR',
 ) -> bool:
     # 1. Reject videos
     if asset.get('type') == 'VIDEO':
@@ -333,8 +345,15 @@ def is_eligible_asset(
             for p in asset_people
             if isinstance(p, dict) and p.get('id')
         }
-        if not asset_person_ids.intersection(set(person_ids)):
-            return False
+        target_person_ids = set(person_ids)
+        if people_mode.upper() == 'AND':
+            # 'AND' mode: All selected people must be present in this photo
+            if not target_person_ids.issubset(asset_person_ids):
+                return False
+        else:
+            # 'OR' mode: At least one selected person must be present in this photo
+            if not asset_person_ids.intersection(target_person_ids):
+                return False
 
     return True
 ```
@@ -345,5 +364,5 @@ def is_eligible_asset(
 - [ ] `_parse_comma_set` properly handles empty values, spaces, and case-insensitivity.
 - [ ] `ImmichClient.list_people` queries `GET /people` and filters correctly.
 - [ ] `ImmichClient.get_timeline_bounds` extracts min/max dates without downloading photos.
-- [ ] `ImmichClient.is_eligible_asset` verifies country and people criteria accurately.
+- [ ] `ImmichClient.is_eligible_asset` verifies country, city, and people criteria accurately in both `OR` and `AND` modes.
 - [ ] All new logic has corresponding unit tests in `tests/test_config.py` and `tests/test_immich_client.py`.

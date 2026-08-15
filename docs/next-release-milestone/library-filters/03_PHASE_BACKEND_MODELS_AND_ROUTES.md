@@ -1,4 +1,4 @@
-# Phase 2: Backend Models, Caching & API Routes
+# Phase 3: Backend Models, Caching & API Routes
 
 ## Objective
 Implement Pydantic request/response models in `src/models.py`, build the `GET /api/filters` endpoint with server-side in-memory caching in `src/api/routes.py`, and update `GameService` and `selector.py`.
@@ -15,6 +15,10 @@ class PersonOption(BaseModel):
     id: str
     name: str
 
+class CityOption(BaseModel):
+    name: str
+    country: str | None = None
+
 class DateRangeOption(BaseModel):
     min_month: str | None = None  # Format: "YYYY-MM"
     max_month: str | None = None  # Format: "YYYY-MM"
@@ -22,12 +26,14 @@ class DateRangeOption(BaseModel):
 class LibraryFiltersResponse(BaseModel):
     date_range: DateRangeOption
     countries: list[str]
-    cities: list[str]
+    cities: list[CityOption]
     people: list[PersonOption]
 ```
 
 #### B. Updated `PreflightRequest` & `GameSetupRequest`
 ```python
+from typing import Literal
+
 class PreflightRequest(BaseModel):
     players: list[str] = Field(default_factory=list)
     round_count: int = Field(default=10)
@@ -38,6 +44,7 @@ class PreflightRequest(BaseModel):
     album_ids: list[str] = Field(default_factory=list)
     # New filter criteria
     person_ids: list[str] = Field(default_factory=list)
+    people_mode: Literal['OR', 'AND'] = 'OR'  # 'OR' (any) | 'AND' (all together)
     countries: list[str] = Field(default_factory=list)
     cities: list[str] = Field(default_factory=list)
     min_date: date | None = None
@@ -57,6 +64,7 @@ class GameSetupRequest(BaseModel):
     album_name: str | None = None
     # New filter criteria
     person_ids: list[str] = Field(default_factory=list)
+    people_mode: Literal['OR', 'AND'] = 'OR'  # 'OR' (any) | 'AND' (all together)
     countries: list[str] = Field(default_factory=list)
     cities: list[str] = Field(default_factory=list)
     min_date: date | None = None
@@ -107,17 +115,18 @@ async def library_filters(
             max_month=max_d.strftime('%Y-%m') if max_d else None,
         )
 
-        # 3. Fetch countries & cities
+        # 3. Fetch countries & cities (with country association)
         countries = await immich.list_countries(
             library_name,
             whitelist=settings.country_whitelist,
             blacklist=settings.country_blacklist,
         )
-        cities = await immich.list_cities(
+        cities_raw = await immich.list_cities(
             library_name,
             whitelist=settings.city_whitelist,
             blacklist=settings.city_blacklist,
         )
+        cities = [CityOption(name=c.name, country=c.country) for c in cities_raw]
 
         response = LibraryFiltersResponse(
             date_range=date_range,
@@ -139,7 +148,7 @@ async def library_filters(
 ## 3. Game Service & Candidate Selector Updates
 
 ### File: `src/game/service.py`
-Update `preflight` to query with custom criteria and compute `effective_min_date` and `effective_max_date`:
+Update `preflight` to query with custom criteria and compute `effective_min_date` and `effective_max_date` while enforcing diversity:
 
 ```python
 async def preflight(
@@ -155,6 +164,7 @@ async def preflight(
     query = SearchQuery(
         album_ids=tuple(setup.album_ids),
         person_ids=tuple(setup.person_ids),
+        people_mode=setup.people_mode,
         countries=tuple(setup.countries),
         cities=tuple(setup.cities),
         include_shared_albums=settings.include_shared_albums,
@@ -180,7 +190,7 @@ async def preflight(
     if setup.album_ids:
         active_filters.append('albums')
     if setup.person_ids:
-        active_filters.append('people')
+        active_filters.append('people_all' if setup.people_mode == 'AND' and len(setup.person_ids) > 1 else 'people')
     if setup.countries:
         active_filters.append('countries')
     if setup.cities:
@@ -188,8 +198,8 @@ async def preflight(
     if effective_min_date or effective_max_date:
         active_filters.append('date_range')
 
-    eligible_count = sum(
-        1
+    eligible_answers = [
+        ImmichClient.extract_answer(asset)
         for asset in raw_assets
         if ImmichClient.is_eligible_asset(
             asset,
@@ -200,10 +210,21 @@ async def preflight(
             countries=tuple(setup.countries),
             cities=tuple(setup.cities),
             person_ids=tuple(setup.person_ids),
+            people_mode=setup.people_mode,
         )
+    ]
+
+    diverse_candidates = filter_diverse_asset_answers(
+        eligible_answers,
+        setup.location_mode,
+        setup.date_mode,
+        min_dist_km=settings.photo_diversity_min_distance_km,
+        min_time_sec=settings.photo_diversity_min_time_seconds,
     )
 
+    eligible_count = len(diverse_candidates)
     required = 3 * setup.round_count if setup.game_mode == GameMode.album_shuffle else setup.round_count
+
     return PreflightResponse(
         eligible_count=eligible_count,
         required=required,
@@ -233,6 +254,7 @@ async def load_asset_pool(
     query = SearchQuery(
         album_ids=tuple(state.setup.album_ids),
         person_ids=tuple(state.setup.person_ids),
+        people_mode=state.setup.people_mode,
         countries=tuple(state.setup.countries),
         cities=tuple(state.setup.cities),
         include_shared_albums=include_shared_albums,
@@ -256,6 +278,7 @@ async def load_asset_pool(
             countries=tuple(state.setup.countries),
             cities=tuple(state.setup.cities),
             person_ids=tuple(state.setup.person_ids),
+            people_mode=state.setup.people_mode,
         ):
             continue
         asset_id = str(asset.get('id', '')).strip()
@@ -267,8 +290,8 @@ async def load_asset_pool(
 ---
 
 ## 4. Acceptance Criteria
-- [ ] `GET /api/filters?library_name=...` returns populated lists in < 50ms on first call and < 1ms on cached calls.
-- [ ] `PreflightRequest` validates with custom `person_ids`, `countries`, `cities`, and date boundaries.
-- [ ] Active filter tags appear correctly in `PreflightResponse.active_filters`.
-- [ ] Candidate pool selection in `selector.py` respects all active filters.
+- [ ] `GET /api/filters?library_name=...` returns populated lists in < 50ms on first call and < 1ms on cached calls, with cities carrying parent country metadata.
+- [ ] `PreflightRequest` validates with custom `person_ids`, `people_mode` ('OR' | 'AND'), `countries`, `cities`, and date boundaries.
+- [ ] Preflight strictly verifies that candidate photos meet diversity criteria ($\ge 100\text{m}$ / $\ge 60\text{s}$) without loose fallbacks.
+- [ ] Candidate pool selection in `selector.py` respects all active filters and strict diversity constraints.
 - [ ] Automated route tests added in `tests/test_filters_api.py`.

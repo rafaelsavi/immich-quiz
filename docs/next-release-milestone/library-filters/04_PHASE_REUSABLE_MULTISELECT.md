@@ -1,7 +1,7 @@
-# Phase 3: Reusable MultiSelect JavaScript Component
+# Phase 4: Reusable MultiSelect JavaScript Component
 
 ## Objective
-Refactor the custom album dropdown in `static/js/app.js` into a reusable, class-based `MultiSelect` component (`static/js/modules/components/multi_select.js`) that powers **Albums**, **Countries**, **Cities**, and **People** with identical UX, styling, keyboard accessibility, and search capabilities.
+Refactor the custom album dropdown in `static/js/app.js` into a reusable, class-based `MultiSelect` component (`static/js/modules/components/multi_select.js`) that powers **Albums**, **Countries**, **Cities**, and **People** with identical UX, styling, keyboard accessibility, dynamic updates (`setItems`), and search capabilities.
 
 ---
 

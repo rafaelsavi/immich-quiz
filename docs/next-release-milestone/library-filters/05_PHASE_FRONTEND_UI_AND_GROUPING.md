@@ -1,4 +1,4 @@
-# Phase 4: Frontend UI, Range Slider & Settings Grouping
+# Phase 5: Frontend UI, Range Slider & Settings Grouping
 
 ## Objective
 Build the expandable "Library & Photo Filters" accordion section in `static/index.html`, implement the custom dual-handle Year-Month `DateRangeSlider` component, add CSS styling, and add complete bilingual i18n support in `static/js/modules/i18n.js`.
@@ -7,7 +7,7 @@ Build the expandable "Library & Photo Filters" accordion section in `static/inde
 
 ## 1. HTML Layout Structure
 
-### File: `static/index.html` (inside `#setup-form`)
+### File: `static/index.html` (inside `#setup-form`, placed *above* Game Mode)
 
 ```html
 <!-- Expandable Media & Library Filters Section -->
@@ -74,7 +74,13 @@ Build the expandable "Library & Photo Filters" accordion section in `static/inde
         <div id="city-multi-select" class="multi-select"></div>
       </div>
       <div>
-        <label data-i18n="setup.people_label">People</label>
+        <div class="field-head-inline">
+          <label data-i18n="setup.people_label">People</label>
+          <div class="people-mode-toggle hidden" id="people-mode-toggle" title="Match mode for selected people">
+            <button type="button" class="people-mode-btn active" data-people-mode="OR" data-i18n="setup.people_mode_or">Any</button>
+            <button type="button" class="people-mode-btn" data-people-mode="AND" data-i18n="setup.people_mode_and">All</button>
+          </div>
+        </div>
         <div id="people-multi-select" class="multi-select"></div>
       </div>
     </div>
@@ -188,6 +194,15 @@ export class DateRangeSlider {
     if (this.boundMinEl) this.boundMinEl.textContent = this._formatMonth(minMonth);
     if (this.boundMaxEl) this.boundMaxEl.textContent = this._formatMonth(maxMonth);
 
+    this.updateVisuals();
+  }
+
+  setSelectedRange(minMonth, maxMonth) {
+    if (!this.allMonths.length) return;
+    const minIdx = this.allMonths.indexOf(minMonth);
+    const maxIdx = this.allMonths.indexOf(maxMonth);
+    if (minIdx !== -1) this.minThumb.value = String(minIdx);
+    if (maxIdx !== -1) this.maxThumb.value = String(maxIdx);
     this.updateVisuals();
   }
 
@@ -357,6 +372,44 @@ export class DateRangeSlider {
   justify-content: flex-end;
   padding-top: 0.5rem;
 }
+
+/* People Match Mode Segmented Toggle (OR vs AND) */
+.people-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: #edf1f7;
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+  transition: opacity 0.2s ease;
+}
+
+.people-mode-toggle.hidden {
+  display: none !important;
+}
+
+.people-mode-btn {
+  border: none;
+  background: transparent;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6c7893;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.people-mode-btn:hover {
+  color: var(--text-dark, #242938);
+}
+
+.people-mode-btn.active {
+  background: #ffffff;
+  color: var(--accent, #0f7c7f);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
 ```
 
 ### File: `static/css/components/range_slider.css`
@@ -491,7 +544,10 @@ export class DateRangeSlider {
 "setup.people_search_placeholder": "Search people...",
 "setup.no_people_found": "No people found",
 "setup.people_selected": (count) => `${count} people selected`,
-"setup.filter_people": "People",
+"setup.people_mode_or": "Any",
+"setup.people_mode_and": "All",
+"setup.filter_people": "People (Any)",
+"setup.filter_people_all": "People (All together)",
 "setup.filter_countries": "Countries",
 "setup.filter_cities": "Cities",
 "setup.filter_date_range": "Date Range",
@@ -518,7 +574,10 @@ export class DateRangeSlider {
 "setup.people_search_placeholder": "Buscar pessoas...",
 "setup.no_people_found": "Nenhuma pessoa encontrada",
 "setup.people_selected": (count) => `${count} pessoas selecionadas`,
-"setup.filter_people": "Pessoas",
+"setup.people_mode_or": "Qualquer um",
+"setup.people_mode_and": "Todos juntos",
+"setup.filter_people": "Pessoas (Qualquer uma)",
+"setup.filter_people_all": "Pessoas (Todas juntas)",
 "setup.filter_countries": "Países",
 "setup.filter_cities": "Cidades",
 "setup.filter_date_range": "Intervalo de Datas",
@@ -530,5 +589,6 @@ export class DateRangeSlider {
 - [ ] Clicking the accordion header smoothly expands/collapses the filter options.
 - [ ] The summary badge dynamically updates (e.g. `"All media"` -> `"3 filters active"`).
 - [ ] The dual-handle slider prevents thumb cross-overs and updates the live readout accurately.
-- [ ] Reset button restores all 4 filter menus (Albums, Date, Countries, Cities, People) to defaults.
+- [ ] When $\ge 2$ people are selected, the Any / All match mode toggle appears and updates the filter criteria dynamically.
+- [ ] Reset button restores all 4 filter menus (Albums, Date, Countries, Cities, People) and the people match mode to defaults.
 - [ ] Switching between `EN` and `PT` translates all new labels immediately.
