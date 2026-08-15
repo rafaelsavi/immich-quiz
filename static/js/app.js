@@ -20,6 +20,8 @@ import {
 } from "./modules/audio.js";
 import { api } from "./modules/api.js";
 import { formatPlace, formatMonth, buildCell, playerNameCell, renderRoundMeta } from "./modules/formatters.js";
+import { MultiSelect } from "./modules/components/multi_select.js";
+import { DateRangeSlider } from "./modules/components/range_slider.js";
 import {
   updateSubmitState,
   renderJourneyMap,
@@ -43,276 +45,409 @@ function getActiveMode() {
   return GAME_MODES[state.gameMode] || pinpointMode;
 }
 
-
-const EARLIEST_YEAR = 1950;
 const DEFAULT_MAP_WIDTH_PCT = 67;
 
-/* ------------------------------------------------ album multi-select UI */
+/* ------------------------------------------------- filter component instances */
 
-let availableAlbums = [];
-const selectedAlbumMap = new Map();
-let albumUiInitialized = false;
+/** @type {MultiSelect|null} */
+let albumMultiSelect = null;
+/** @type {MultiSelect|null} */
+let countryMultiSelect = null;
+/** @type {MultiSelect|null} */
+let cityMultiSelect = null;
+/** @type {MultiSelect|null} */
+let peopleMultiSelect = null;
+/** @type {DateRangeSlider|null} */
+let dateRangeSlider = null;
 
-function syncNativeAlbumSelect() {
-  if (!el.album) return;
-  const selectedIds = new Set(selectedAlbumMap.keys());
-  Array.from(el.album.options).forEach((opt) => {
-    if (opt.value === "") {
-      opt.selected = selectedIds.size === 0;
-    } else {
-      opt.selected = selectedIds.has(opt.value);
-    }
+/** Raw city objects from last /api/filters response: [{name, country}, ...] */
+let cachedRawCities = [];
+
+const STORAGE_KEY_PREFIX = "immich_quiz_filters_";
+
+/** Debounce timer handle for live preflight */
+let _preflightDebounceTimer = null;
+
+/* ------------------------------------------------- filter components init */
+
+function initFilterComponents() {
+  albumMultiSelect = new MultiSelect({
+    container: document.getElementById("album-multi-select"),
+    nativeSelect: document.getElementById("album"),
+    placeholderKey: "setup.all_photos",
+    searchPlaceholderKey: "setup.album_search_placeholder",
+    noResultsKey: "setup.no_albums_found",
+    summaryFormatter: (count) => t("setup.albums_selected", count),
+    onChange: () => {
+      saveCurrentLibraryFilters();
+      updateFiltersSummaryBadge();
+      triggerPreflightDebounced();
+    },
   });
-  el.album.dispatchEvent(new Event("change", { bubbles: true }));
-}
 
-function getSelectedAlbumIds() {
-  return Array.from(selectedAlbumMap.keys());
-}
+  countryMultiSelect = new MultiSelect({
+    container: document.getElementById("country-multi-select"),
+    placeholderKey: "setup.all_countries",
+    searchPlaceholderKey: "setup.country_search_placeholder",
+    noResultsKey: "setup.no_countries_found",
+    summaryFormatter: (count) => t("setup.countries_selected", count),
+    onChange: () => {
+      const selectedCountries = countryMultiSelect.getSelectedIds();
+      updateDependentCities(selectedCountries);
+      saveCurrentLibraryFilters();
+      updateFiltersSummaryBadge();
+      triggerPreflightDebounced();
+    },
+  });
 
-function getSelectedAlbumNames() {
-  return Array.from(selectedAlbumMap.values());
-}
+  cityMultiSelect = new MultiSelect({
+    container: document.getElementById("city-multi-select"),
+    placeholderKey: "setup.all_cities",
+    searchPlaceholderKey: "setup.city_search_placeholder",
+    noResultsKey: "setup.no_cities_found",
+    summaryFormatter: (count) => t("setup.cities_selected", count),
+    onChange: () => {
+      saveCurrentLibraryFilters();
+      updateFiltersSummaryBadge();
+      triggerPreflightDebounced();
+    },
+  });
 
-function updateAlbumTriggerUi() {
-  if (!el.albumSelectValue) return;
-  el.albumSelectValue.replaceChildren();
+  peopleMultiSelect = new MultiSelect({
+    container: document.getElementById("people-multi-select"),
+    placeholderKey: "setup.all_people",
+    searchPlaceholderKey: "setup.people_search_placeholder",
+    noResultsKey: "setup.no_people_found",
+    summaryFormatter: (count) => t("setup.people_selected", count),
+    onChange: () => {
+      updatePeopleModeToggleVisibility();
+      saveCurrentLibraryFilters();
+      updateFiltersSummaryBadge();
+      triggerPreflightDebounced();
+    },
+  });
 
-  const selectedNames = Array.from(selectedAlbumMap.values());
-  const allNamesList = selectedNames.length > 0
-    ? (selectedNames.length > 1
-        ? `Selected albums (${selectedNames.length}):\n• ` + selectedNames.join("\n• ")
-        : selectedNames[0])
-    : "";
+  dateRangeSlider = new DateRangeSlider({
+    minThumb: document.getElementById("date-slider-min"),
+    maxThumb: document.getElementById("date-slider-max"),
+    fillEl: document.getElementById("date-slider-fill"),
+    readoutEl: document.getElementById("date-slider-readout"),
+    boundMinEl: document.getElementById("date-slider-bound-min"),
+    boundMaxEl: document.getElementById("date-slider-bound-max"),
+    onChange: () => {
+      saveCurrentLibraryFilters();
+      updateFiltersSummaryBadge();
+      triggerPreflightDebounced();
+    },
+  });
 
-  if (selectedAlbumMap.size === 0) {
-    const placeholder = document.createElement("span");
-    placeholder.className = "placeholder";
-    placeholder.setAttribute("data-i18n", "setup.all_photos");
-    placeholder.textContent = t("setup.all_photos");
-    el.albumSelectValue.appendChild(placeholder);
-    if (el.albumSelectClear) el.albumSelectClear.classList.add("hidden");
-    if (el.albumSelectTrigger) el.albumSelectTrigger.removeAttribute("title");
-  } else if (selectedAlbumMap.size <= 3) {
-    if (el.albumSelectTrigger) {
-      el.albumSelectTrigger.title = allNamesList;
-    }
-    selectedAlbumMap.forEach((name, id) => {
-      const tag = document.createElement("span");
-      tag.className = "multi-select-tag";
-      tag.title = name;
-
-      const label = document.createElement("span");
-      label.className = "tag-label";
-      label.textContent = name;
-
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button";
-      removeBtn.className = "tag-remove";
-      removeBtn.setAttribute("aria-label", `Remove ${name}`);
-      removeBtn.title = `Remove ${name}`;
-      removeBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      `;
-      removeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleAlbumSelection(id, name);
+  // People Mode Segmented Toggle (OR / AND)
+  const peopleModeToggleEl = document.getElementById("people-mode-toggle");
+  if (peopleModeToggleEl) {
+    peopleModeToggleEl.querySelectorAll(".people-mode-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        peopleModeToggleEl.querySelectorAll(".people-mode-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        saveCurrentLibraryFilters();
+        triggerPreflightDebounced();
       });
-      tag.appendChild(label);
-      tag.appendChild(removeBtn);
-      el.albumSelectValue.appendChild(tag);
     });
-    if (el.albumSelectClear) el.albumSelectClear.classList.remove("hidden");
+  }
+
+  // Accordion Toggle
+  const toggleBtn = document.getElementById("filters-toggle-btn");
+  const contentEl = document.getElementById("filters-accordion-content");
+  if (toggleBtn && contentEl) {
+    toggleBtn.addEventListener("click", () => {
+      const isExpanded = toggleBtn.getAttribute("aria-expanded") === "true";
+      toggleBtn.setAttribute("aria-expanded", String(!isExpanded));
+      contentEl.classList.toggle("hidden", isExpanded);
+    });
+  }
+
+  // Reset Filters Button
+  const resetBtn = document.getElementById("reset-filters-btn");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      if (albumMultiSelect) albumMultiSelect.clear();
+      if (countryMultiSelect) countryMultiSelect.clear();
+      updateDependentCities([]);
+      if (cityMultiSelect) cityMultiSelect.clear();
+      if (peopleMultiSelect) peopleMultiSelect.clear();
+      if (dateRangeSlider) dateRangeSlider.reset();
+      resetPeopleMode();
+      updatePeopleModeToggleVisibility();
+      clearSavedLibraryFilters(el.library ? el.library.value : null);
+      updateFiltersSummaryBadge();
+      triggerPreflightDebounced();
+    });
+  }
+}
+
+/* ------------------------------------------------- dependent city filtering */
+
+function updateDependentCities(selectedCountryNames) {
+  if (!cityMultiSelect) return;
+  if (!selectedCountryNames || selectedCountryNames.length === 0) {
+    cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name })));
   } else {
-    if (el.albumSelectTrigger) {
-      el.albumSelectTrigger.title = allNamesList;
-    }
-    const summary = document.createElement("span");
-    summary.className = "multi-select-summary";
-    summary.title = allNamesList;
-    summary.textContent = t("setup.albums_selected", selectedAlbumMap.size);
-    el.albumSelectValue.appendChild(summary);
-    if (el.albumSelectClear) el.albumSelectClear.classList.remove("hidden");
+    const filtered = cachedRawCities.filter((c) => !c.country || selectedCountryNames.includes(c.country));
+    cityMultiSelect.setItems(filtered.map((c) => ({ id: c.name, name: c.name })));
   }
 }
 
-function updateSearchClearVisibility() {
-  if (!el.albumSearchClear || !el.albumSearchInput) return;
-  if (el.albumSearchInput.value.length > 0) {
-    el.albumSearchClear.classList.remove("hidden");
+/* ------------------------------------------------- localStorage persistence */
+
+function saveCurrentLibraryFilters() {
+  const libraryName = el.library ? el.library.value : null;
+  if (!libraryName) return;
+  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
+  const filterState = {
+    album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
+    countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
+    cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
+    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+    people_mode: getSelectedPeopleMode(),
+    min_month: minDate ? minDate.slice(0, 7) : null,
+    max_month: maxDate ? maxDate.slice(0, 7) : null,
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY_PREFIX + libraryName, JSON.stringify(filterState));
+  } catch (e) {
+    console.warn("Failed to persist library filters to localStorage", e);
+  }
+}
+
+function restoreLibraryFilters(libraryName) {
+  if (!libraryName) return;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + libraryName);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    if (saved.album_ids && albumMultiSelect) albumMultiSelect.setSelectedIds(saved.album_ids);
+    if (saved.countries && countryMultiSelect) {
+      countryMultiSelect.setSelectedIds(saved.countries);
+      updateDependentCities(saved.countries);
+    }
+    if (saved.cities && cityMultiSelect) cityMultiSelect.setSelectedIds(saved.cities);
+    if (saved.person_ids && peopleMultiSelect) peopleMultiSelect.setSelectedIds(saved.person_ids);
+    if (saved.people_mode) setPeopleMode(saved.people_mode);
+    if (dateRangeSlider && saved.min_month && saved.max_month) {
+      dateRangeSlider.setSelectedRange(saved.min_month, saved.max_month);
+    }
+  } catch (e) {
+    console.warn("Failed to restore library filters from localStorage", e);
+  }
+}
+
+function clearSavedLibraryFilters(libraryName) {
+  if (!libraryName) return;
+  try {
+    localStorage.removeItem(STORAGE_KEY_PREFIX + libraryName);
+  } catch (e) {
+    console.warn("Failed to clear library filters from localStorage", e);
+  }
+}
+
+/* ------------------------------------------------- people mode helpers */
+
+function getSelectedPeopleMode() {
+  const activeBtn = document.querySelector("#people-mode-toggle .people-mode-btn.active");
+  return activeBtn ? activeBtn.getAttribute("data-people-mode") || "OR" : "OR";
+}
+
+function setPeopleMode(mode) {
+  const toggleEl = document.getElementById("people-mode-toggle");
+  if (toggleEl) {
+    toggleEl.querySelectorAll(".people-mode-btn").forEach((b) => {
+      b.classList.toggle("active", b.getAttribute("data-people-mode") === mode);
+    });
+  }
+}
+
+function resetPeopleMode() {
+  setPeopleMode("OR");
+}
+
+function updatePeopleModeToggleVisibility() {
+  const toggleEl = document.getElementById("people-mode-toggle");
+  if (!toggleEl) return;
+  const selectedCount = peopleMultiSelect ? peopleMultiSelect.getSelectedIds().length : 0;
+  toggleEl.classList.toggle("hidden", selectedCount < 2);
+}
+
+/* ------------------------------------------------- filter summary badge */
+
+function updateFiltersSummaryBadge() {
+  const badge = el.filtersSummaryBadge;
+  if (!badge) return;
+
+  let count = 0;
+  if (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0) count++;
+  if (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0) count++;
+  if (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0) count++;
+  if (peopleMultiSelect && peopleMultiSelect.getSelectedIds().length > 0) count++;
+  if (dateRangeSlider) {
+    const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
+    if (minDate || maxDate) count++;
+  }
+
+  if (count === 0) {
+    badge.textContent = t("setup.filters_summary_default");
   } else {
-    el.albumSearchClear.classList.add("hidden");
+    badge.textContent = t("setup.filters_active_count", count);
   }
 }
 
-function clearAlbumSearch() {
-  if (!el.albumSearchInput) return;
-  el.albumSearchInput.value = "";
-  renderAlbumOptions();
-  el.albumSearchInput.focus();
-}
+/* ------------------------------------------------- live preflight */
 
-function renderAlbumOptions() {
-  updateSearchClearVisibility();
-  if (!el.albumOptionsList) return;
-  el.albumOptionsList.replaceChildren();
-
-  const query = el.albumSearchInput ? el.albumSearchInput.value.trim().toLowerCase() : "";
-  const filtered = availableAlbums.filter((a) => a.name.toLowerCase().includes(query));
-
-  if (filtered.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "multi-select-empty";
-    empty.textContent = t("setup.no_albums_found");
-    el.albumOptionsList.appendChild(empty);
-    return;
-  }
-
-  filtered.forEach((album) => {
-    const isSelected = selectedAlbumMap.has(album.id);
-    const item = document.createElement("div");
-    item.className = `multi-select-option ${isSelected ? "selected" : ""}`;
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = isSelected;
-    checkbox.id = `album-opt-${album.id}`;
-
-    const label = document.createElement("span");
-    label.className = "multi-select-option-label";
-    label.textContent = album.name;
-
-    item.appendChild(checkbox);
-    item.appendChild(label);
-
-    item.addEventListener("click", (e) => {
-      e.stopPropagation();
-      toggleAlbumSelection(album.id, album.name);
-    });
-
-    el.albumOptionsList.appendChild(item);
-  });
-}
-
-function toggleAlbumSelection(id, name) {
-  if (selectedAlbumMap.has(id)) {
-    selectedAlbumMap.delete(id);
-  } else {
-    selectedAlbumMap.set(id, name);
-  }
-  syncNativeAlbumSelect();
-  updateAlbumTriggerUi();
-  renderAlbumOptions();
-}
-
-function selectAllAlbums() {
-  const query = el.albumSearchInput ? el.albumSearchInput.value.trim().toLowerCase() : "";
-  const filtered = availableAlbums.filter((a) => a.name.toLowerCase().includes(query));
-  filtered.forEach((a) => selectedAlbumMap.set(a.id, a.name));
-  syncNativeAlbumSelect();
-  updateAlbumTriggerUi();
-  renderAlbumOptions();
-}
-
-function clearAlbumSelection() {
-  selectedAlbumMap.clear();
-  if (el.albumSearchInput) el.albumSearchInput.value = "";
-  syncNativeAlbumSelect();
-  updateAlbumTriggerUi();
-  renderAlbumOptions();
-}
-
-function toggleAlbumDropdown(forceState) {
-  if (!el.albumSelectDropdown) return;
-  const isExpanded = el.albumMultiSelect.getAttribute("aria-expanded") === "true";
-  const newState = forceState !== undefined ? forceState : !isExpanded;
-
-  el.albumMultiSelect.setAttribute("aria-expanded", String(newState));
-  if (newState) {
-    el.albumSelectDropdown.classList.remove("hidden");
-    if (el.albumSearchInput) {
-      el.albumSearchInput.focus();
+function showPreflightWarning(message) {
+  let warningEl = document.getElementById("preflight-warning");
+  if (!warningEl) {
+    warningEl = document.createElement("div");
+    warningEl.id = "preflight-warning";
+    warningEl.className = "preflight-warning";
+    const submitBtn = document.querySelector("#setup-form button[type=submit]");
+    if (submitBtn) {
+      submitBtn.insertAdjacentElement("beforebegin", warningEl);
+    } else {
+      document.getElementById("setup-form")?.appendChild(warningEl);
     }
-  } else {
-    el.albumSelectDropdown.classList.add("hidden");
   }
+  warningEl.textContent = message;
+  warningEl.classList.remove("hidden");
 }
 
-function closeAlbumDropdown() {
-  toggleAlbumDropdown(false);
+function hidePreflightWarning() {
+  const warningEl = document.getElementById("preflight-warning");
+  if (warningEl) warningEl.classList.add("hidden");
 }
 
-function initAlbumMultiSelectUi() {
-  if (albumUiInitialized || !el.albumSelectTrigger) return;
-  albumUiInitialized = true;
+function triggerPreflightDebounced() {
+  if (_preflightDebounceTimer) {
+    clearTimeout(_preflightDebounceTimer);
+  }
+  _preflightDebounceTimer = setTimeout(() => {
+    _preflightDebounceTimer = null;
+    executePreflight().catch((err) => {
+      console.warn("Preflight check failed:", err);
+    });
+  }, 500);
+}
 
-  el.albumSelectTrigger.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleAlbumDropdown();
-  });
+async function executePreflight() {
+  if (!el.library || !el.library.value) return;
+  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
+  const activeMode = getActiveMode();
+  const modePayload = activeMode.getModePayload();
 
-  el.albumSelectTrigger.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
-      e.preventDefault();
-      toggleAlbumDropdown(true);
-    } else if (e.key === "Escape") {
-      closeAlbumDropdown();
+  const payload = {
+    players: el.players ? el.players.value.split(",").map((n) => n.trim()).filter(Boolean) : ["Player 1"],
+    round_count: el.roundCount ? parseInt(el.roundCount.value, 10) : 10,
+    location_mode: modePayload.location_mode ?? true,
+    date_mode: modePayload.date_mode ?? true,
+    game_mode: activeMode.name,
+    library_name: el.library.value,
+    album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
+    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+    people_mode: getSelectedPeopleMode(),
+    countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
+    cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
+    min_date: minDate,
+    max_date: maxDate,
+  };
+
+  try {
+    const preflight = await api("/api/game/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!preflight.ok) {
+      const filterNames = (preflight.active_filters || [])
+        .map((f) => t(`setup.filter_${f}`, preflight.min_date, preflight.max_date))
+        .join(", ");
+      showPreflightWarning(
+        t("setup.not_enough_media", preflight.eligible_count, preflight.required, filterNames)
+      );
+    } else {
+      hidePreflightWarning();
     }
-  });
-
-  if (el.albumSearchInput) {
-    el.albumSearchInput.addEventListener("input", () => {
-      renderAlbumOptions();
-    });
-    el.albumSearchInput.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        closeAlbumDropdown();
-      }
-    });
+  } catch (err) {
+    // Network or server errors during live preflight are silently ignored —
+    // the submit button still works; hard errors surface at match start.
+    console.warn("Live preflight error:", err);
   }
-
-  if (el.albumSearchClear) {
-    el.albumSearchClear.addEventListener("click", (e) => {
-      e.stopPropagation();
-      clearAlbumSearch();
-    });
-  }
-
-  if (el.albumSelectClear) {
-    el.albumSelectClear.addEventListener("click", (e) => {
-      e.stopPropagation();
-      clearAlbumSelection();
-    });
-  }
-
-  if (el.albumSelectAll) {
-    el.albumSelectAll.addEventListener("click", (e) => {
-      e.stopPropagation();
-      selectAllAlbums();
-    });
-  }
-
-  if (el.albumDeselectAll) {
-    el.albumDeselectAll.addEventListener("click", (e) => {
-      e.stopPropagation();
-      clearAlbumSelection();
-    });
-  }
-
-  document.addEventListener("click", (e) => {
-    if (el.albumMultiSelect && !el.albumMultiSelect.contains(e.target)) {
-      closeAlbumDropdown();
-    }
-  });
 }
 
 /* -------------------------------------------------------- setup + lookups */
 
+async function onLibrarySelected(libraryName) {
+  if (!libraryName) return;
+
+  try {
+    const [albumsRes, filtersRes] = await Promise.all([
+      api(`/api/albums?library_name=${encodeURIComponent(libraryName)}`),
+      api(`/api/filters?library_name=${encodeURIComponent(libraryName)}`),
+    ]);
+
+    cachedRawCities = filtersRes.cities || [];
+
+    // Populate album native select for leaderboard filter compat
+    if (el.album) {
+      const allPhotos = document.createElement("option");
+      allPhotos.value = "";
+      allPhotos.setAttribute("data-i18n", "setup.all_photos");
+      allPhotos.textContent = t("setup.all_photos");
+      el.album.replaceChildren(allPhotos);
+      const albums = [...(albumsRes.albums || [])].sort((a, b) => {
+        const na = (a.name || "").toLowerCase();
+        const nb = (b.name || "").toLowerCase();
+        if (na !== nb) return na.localeCompare(nb);
+        return (a.id || "").localeCompare(b.id || "");
+      });
+      albums.forEach((album) => {
+        const option = document.createElement("option");
+        option.value = album.id;
+        option.textContent = album.name;
+        el.album.appendChild(option);
+      });
+    }
+
+    if (albumMultiSelect) albumMultiSelect.setItems(albumsRes.albums || []);
+    if (countryMultiSelect) countryMultiSelect.setItems((filtersRes.countries || []).map((c) => ({ id: c, name: c })));
+    if (cityMultiSelect) cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name })));
+    if (peopleMultiSelect) peopleMultiSelect.setItems(filtersRes.people || []);
+
+    if (dateRangeSlider) {
+      if (filtersRes.date_range && filtersRes.date_range.min_month && filtersRes.date_range.max_month) {
+        dateRangeSlider.setBounds(filtersRes.date_range.min_month, filtersRes.date_range.max_month);
+      } else {
+        dateRangeSlider.setBounds(null, null);
+      }
+    }
+
+    // Reset current UI state then restore saved filters for this library
+    if (albumMultiSelect) albumMultiSelect.clear();
+    if (countryMultiSelect) countryMultiSelect.clear();
+    if (cityMultiSelect) cityMultiSelect.clear();
+    if (peopleMultiSelect) peopleMultiSelect.clear();
+    if (dateRangeSlider) dateRangeSlider.reset();
+    resetPeopleMode();
+
+    restoreLibraryFilters(libraryName);
+
+    updatePeopleModeToggleVisibility();
+    updateFiltersSummaryBadge();
+    triggerPreflightDebounced();
+  } catch (err) {
+    console.error("Failed to load library filters:", err);
+  }
+}
+
 async function initLibraries() {
-  initAlbumMultiSelectUi();
+  initFilterComponents();
   const data = await api("/api/libraries");
   el.library.replaceChildren();
   data.libraries.forEach((name) => {
@@ -323,36 +458,8 @@ async function initLibraries() {
   });
 
   if (data.libraries.length > 0) {
-    await initAlbums(data.libraries[0]);
+    await onLibrarySelected(data.libraries[0]);
   }
-}
-
-async function initAlbums(libraryName) {
-  const data = await api(`/api/albums?library_name=${encodeURIComponent(libraryName)}`);
-  const allPhotos = document.createElement("option");
-  allPhotos.value = "";
-  allPhotos.setAttribute("data-i18n", "setup.all_photos");
-  allPhotos.textContent = t("setup.all_photos");
-  el.album.replaceChildren(allPhotos);
-  const albums = [...data.albums].sort((a, b) => {
-    const na = (a.name || "").toLowerCase();
-    const nb = (b.name || "").toLowerCase();
-    if (na !== nb) return na.localeCompare(nb);
-    return (a.id || "").localeCompare(b.id || "");
-  });
-  availableAlbums = albums;
-  selectedAlbumMap.clear();
-
-  albums.forEach((album) => {
-    const option = document.createElement("option");
-    option.value = album.id;
-    option.textContent = album.name;
-    el.album.appendChild(option);
-  });
-
-  if (el.albumSearchInput) el.albumSearchInput.value = "";
-  updateAlbumTriggerUi();
-  renderAlbumOptions();
 }
 
 /* ------------------------------------------------- select wheel scroll */
@@ -581,7 +688,7 @@ function resetGameUi() {
 
   try {
     getActiveMode().unmount();
-  } catch (_) {}
+  } catch (_) { }
 
   if (el.roundMeta) el.roundMeta.replaceChildren();
   if (el.passOverlay) el.passOverlay.classList.add("hidden");
@@ -615,7 +722,7 @@ function resetGameUi() {
     state.revealLayers.forEach((l) => {
       try {
         if (state.revealMap) state.revealMap.removeLayer(l);
-      } catch (_) {}
+      } catch (_) { }
     });
     state.revealLayers = [];
   }
@@ -623,7 +730,7 @@ function resetGameUi() {
     try {
       unregisterActiveMap(state.revealMap);
       state.revealMap.remove();
-    } catch (_) {}
+    } catch (_) { }
     state.revealMap = null;
   }
 
@@ -631,7 +738,7 @@ function resetGameUi() {
     state.journeyLayers.forEach((l) => {
       try {
         if (state.journeyMap) state.journeyMap.removeLayer(l);
-      } catch (_) {}
+      } catch (_) { }
     });
     state.journeyLayers = [];
   }
@@ -639,7 +746,7 @@ function resetGameUi() {
     try {
       unregisterActiveMap(state.journeyMap);
       state.journeyMap.remove();
-    } catch (_) {}
+    } catch (_) { }
     state.journeyMap = null;
   }
   if (el.journeyMapShell) el.journeyMapShell.classList.add("hidden");
@@ -669,10 +776,10 @@ async function startMatch(event) {
   const activeMode = getActiveMode();
   const modePayload = activeMode.getModePayload();
 
-  const selectedAlbumIds = getSelectedAlbumIds();
-  const selectedAlbumNames = getSelectedAlbumNames();
-  const albumIds = selectedAlbumIds;
-  const albumName = selectedAlbumNames.length > 0 ? selectedAlbumNames.join(", ") : "-";
+  const albumIds = albumMultiSelect ? albumMultiSelect.getSelectedIds() : [];
+  const albumNames = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((i) => i.name) : [];
+  const albumName = albumNames.length > 0 ? albumNames.join(", ") : "-";
+  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
 
   const payload = {
     players,
@@ -681,6 +788,12 @@ async function startMatch(event) {
     library_name: el.library.value,
     album_ids: albumIds,
     album_name: albumName,
+    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+    people_mode: getSelectedPeopleMode(),
+    countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
+    cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
+    min_date: minDate,
+    max_date: maxDate,
     ...modePayload,
   };
 
@@ -1079,7 +1192,7 @@ function renderSummaryContent(summary) {
       row.appendChild(buildCell(String(player.date_score ?? 0)));
     }
     row.appendChild(buildCell(`${player.total_score}/${player.max_possible_score}`));
-    
+
     const accCell = buildCell(`${player.accuracy_pct}%`);
     accCell.className = "col-accuracy hide-on-mobile";
     row.appendChild(accCell);
@@ -1113,8 +1226,8 @@ function renderPolaroidGallery(roundHistory) {
   const defaultLibrary = state.lastSummary
     ? state.lastSummary.library_name
     : state.currentQuestion
-    ? state.currentQuestion.library_name
-    : "";
+      ? state.currentQuestion.library_name
+      : "";
 
   (roundHistory || []).forEach((round) => {
     if (round.batch_reveal && Array.isArray(round.batch_reveal) && round.batch_reveal.length > 0) {
@@ -1494,7 +1607,7 @@ el.setupForm.addEventListener("submit", (event) => {
 });
 
 el.library.addEventListener("change", () => {
-  initAlbums(el.library.value)
+  onLibrarySelected(el.library.value)
     .then(() => loadLeaderboard())
     .catch((err) => showAlert(err.message));
 });
@@ -1580,6 +1693,14 @@ function refreshActiveScreenLanguage() {
   applyLanguage();
   syncFullscreenButtons();
   updateMapLayerControls(getShuffleMaps());
+
+  // Refresh filter component trigger labels on language change
+  if (albumMultiSelect) albumMultiSelect.updateTriggerUi();
+  if (countryMultiSelect) countryMultiSelect.updateTriggerUi();
+  if (cityMultiSelect) cityMultiSelect.updateTriggerUi();
+  if (peopleMultiSelect) peopleMultiSelect.updateTriggerUi();
+  if (dateRangeSlider) dateRangeSlider.updateVisuals();
+  updateFiltersSummaryBadge();
 
   if (!el.setupCard.classList.contains("hidden")) {
     const settingsContainer = document.getElementById("game-settings-container");

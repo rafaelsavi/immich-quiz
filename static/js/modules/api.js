@@ -56,7 +56,7 @@ export function setupFilterParams() {
   const dateCard = document.getElementById("card-goal-date");
   const locationMode = locEl ? Boolean(locEl.checked) : (locCard ? locCard.classList.contains("active") : true);
   const dateMode = dateEl ? Boolean(dateEl.checked) : (dateCard ? dateCard.classList.contains("active") : true);
-  const gameMode = (state && state.gameMode) || (el.gameModeSelect ? el.gameModeSelect.value : "pinpoint");
+  const gameMode = (state && state.gameMode) || "pinpoint";
   const params = new URLSearchParams({
     rounds: el.roundCount ? el.roundCount.value : "10",
     round_length: el.roundLength ? el.roundLength.value : "1m",

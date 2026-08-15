@@ -12,6 +12,7 @@ DYNAMIC_IDS = frozenset(
         'goal-location',
         'photo-lightbox',
         'photo-lightbox-img',
+        'preflight-warning',
         'reveal-shuffle-map-shell',
         'shuffle-cards-list',
         'shuffle-map-shell',
@@ -241,3 +242,27 @@ def test_app_js_does_not_reference_template_owned_el_properties() -> None:
             violations.append(f'app.js directly references template-owned el.{prop_name}')
 
     assert not violations, f'Direct references to template-owned el properties in app.js: {violations}'
+
+
+def test_event_listener_callbacks_are_defined() -> None:
+    js_files = list(JS_DIR.rglob('*.js'))
+    callback_errors: list[str] = []
+
+    listener_pattern = re.compile(r'addEventListener\(\s*["\'][^"\']+["\']\s*,\s*([a-zA-Z0-9_$]+)\s*[,)]')
+
+    for js_file in js_files:
+        content = js_file.read_text(encoding='utf-8')
+        for match in listener_pattern.finditer(content):
+            cb_name = match.group(1)
+            has_import = bool(re.search(rf'\bimport\s+[^;]*\b{re.escape(cb_name)}\b[^;]*from', content, re.DOTALL))
+            has_fn_def = bool(re.search(rf'\bfunction\s+{re.escape(cb_name)}\b', content))
+            has_var_def = bool(
+                re.search(rf'\b(?:const|let|var)\s+.*?(\b{re.escape(cb_name)}\b)\s*[:=,]', content, re.DOTALL)
+            )
+            has_param = bool(re.search(rf'function[^(]*\([^)]*\b{re.escape(cb_name)}\b[^)]*\)', content, re.DOTALL))
+            if not (has_import or has_fn_def or has_var_def or has_param):
+                rel_path = js_file.relative_to(STATIC_DIR)
+                callback_errors.append(f"Callback '{cb_name}' in {rel_path} is neither imported nor defined")
+
+    assert not callback_errors, f'Undefined event listener callbacks:\n{chr(10).join(callback_errors)}'
+

@@ -14,6 +14,7 @@ Immich Quiz is a pass-and-play trivia game that generates rounds from your Immic
 
 - Start the app in your browser after launching the server.
 - Select players, choose a game mode (**Pinpoint** or **Album Shuffle**), rounds, round length, guess mode, and library.
+- Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching).
 - Take turns guessing photo locations, capture dates, or both.
 - Review end-of-match performance awards and the leaderboard when the game ends.
 
@@ -57,23 +58,31 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 
 ### Environment Variables
 
-| Variable                        | Required | Default                | Notes                                                                         |
-|---------------------------------|----------|------------------------|-------------------------------------------------------------------------------|
-| `IMMICH_SERVER_URL`             | Yes      | —                      | Full URL to the Immich API, e.g. `https://photos.example.com/api`             |
-| `IMMICH_LIBRARIES`              | Yes      | —                      | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`    |
-| `APP_TITLE`                     | No       | `Immich Quiz`          | Browser tab title and main heading shown on the landing page                  |
-| `APP_TAGLINE`                   | No       |                        | Optional tagline shown below the main heading on the landing page             |
-| `INCLUDE_SHARED_ALBUMS`         | No       | `false`                | Set to `true` to show albums shared with you in the album picker              |
-| `INCLUDE_PARTNER_ASSETS`        | No       | `false`                | Set to `true` to include photos from Immich partner libraries in quiz rounds  |
-| `FETCH_PHOTOS_DATE_LOWER_BOUND` | No       | —                      | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
-| `FETCH_PHOTOS_DATE_UPPER_BOUND` | No       | —                      | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
-| `LEADERBOARD_CSV_PATH`          | No       | `data/leaderboard.csv` | Path to leaderboard CSV file (relative to working dir or absolute path)       |
-| `APP_HOST`                      | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
-| `APP_PORT`                      | No       | `8010`                 | Port the app listens on                                                       |
-| `SCORE_MAX_POINTS`              | No       | `100`                  | Max points per enabled goal, per turn                                         |
-| `LOCATION_SCORE_DECAY_KM`       | No       | `500`                  | Location decay constant in km for `exp(-distance/decay)`                      |
-| `DATE_SCORE_DECAY_DAYS`         | No       | `500`                  | Date decay constant in days for `exp(-delta_days/decay)`                      |
-| `LANGUAGE`                      | No       | `EN`                   | UI language (`EN` for English, `PT` for Brazilian Portuguese)                 |
+| Variable                           | Required | Default                | Notes                                                                         |
+|------------------------------------|----------|------------------------|-------------------------------------------------------------------------------|
+| `IMMICH_SERVER_URL`                | Yes      | —                      | Full URL to the Immich API, e.g. `https://photos.example.com/api`             |
+| `IMMICH_LIBRARIES`                 | Yes      | —                      | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`    |
+| `APP_TITLE`                        | No       | `Immich Quiz`          | Browser tab title and main heading shown on the landing page                  |
+| `APP_TAGLINE`                      | No       |                        | Optional tagline shown below the main heading on the landing page             |
+| `INCLUDE_SHARED_ALBUMS`            | No       | `false`                | Set to `true` to show albums shared with you in the album picker              |
+| `INCLUDE_PARTNER_ASSETS`           | No       | `false`                | Set to `true` to include photos from Immich partner libraries in quiz rounds  |
+| `FETCH_PHOTOS_DATE_LOWER_BOUND`    | No       | —                      | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
+| `FETCH_PHOTOS_DATE_UPPER_BOUND`    | No       | —                      | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
+| `PHOTO_DIVERSITY_MIN_DISTANCE_KM`  | No       | `0.1`                  | Minimum distance separation in km between round photos (default: 100m)        |
+| `PHOTO_DIVERSITY_MIN_TIME_SECONDS` | No       | `60.0`                 | Minimum time separation in seconds between round photos (default: 60s)        |
+| `COUNTRY_WHITELIST`                | No       | —                      | Comma-separated list of allowed countries in filters (case-insensitive)       |
+| `COUNTRY_BLACKLIST`                | No       | —                      | Comma-separated list of excluded countries in filters (case-insensitive)      |
+| `CITY_WHITELIST`                   | No       | —                      | Comma-separated list of allowed cities/regions in filters (case-insensitive)  |
+| `CITY_BLACKLIST`                   | No       | —                      | Comma-separated list of excluded cities/regions in filters (case-insensitive) |
+| `PEOPLE_WHITELIST`                 | No       | —                      | Comma-separated list of allowed people names in filters (case-insensitive)    |
+| `PEOPLE_BLACKLIST`                 | No       | —                      | Comma-separated list of excluded people names in filters (case-insensitive)   |
+| `LEADERBOARD_CSV_PATH`             | No       | `data/leaderboard.csv` | Path to leaderboard CSV file (relative to working dir or absolute path)       |
+| `APP_HOST`                         | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
+| `APP_PORT`                         | No       | `8010`                 | Port the app listens on                                                       |
+| `SCORE_MAX_POINTS`                 | No       | `100`                  | Max points per enabled goal, per turn                                         |
+| `LOCATION_SCORE_DECAY_KM`          | No       | `500`                  | Location decay constant in km for `exp(-distance/decay)`                      |
+| `DATE_SCORE_DECAY_DAYS`            | No       | `500`                  | Date decay constant in days for `exp(-delta_days/decay)`                      |
+| `LANGUAGE`                         | No       | `EN`                   | UI language (`EN` for English, `PT` for Brazilian Portuguese)                 |
 
 ### Immich API Token Permissions
 

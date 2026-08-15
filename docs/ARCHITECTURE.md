@@ -46,11 +46,14 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css, multi_select.css, range_slider.css, filters.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application controller & UI router.
     ├── js/audio-playground.js Playground controller & visualizer logic.
     └── js/modules/      Modular ES modules:
+        ├── components/  Reusable UI components:
+        │   ├── multi_select.js Searchable tag-based multi-select with select-all/clear.
+        │   └── range_slider.js Dual-handle Year-Month range slider.
         ├── modes/       Game mode UI controllers (pinpoint.js, album_shuffle.js, common.js).
         ├── api.js       API HTTP request client.
         ├── audio.js     Zero-dependency Web Audio sound synthesizer engine.
@@ -70,13 +73,20 @@ immich-quiz/
 GET /api/ui-config
   └── Returns max image height, language, max score settings to frontend
 
+GET /api/filters?library_name={name}
+  └── Returns timeline date bounds, countries, cities, and people for library
+  └── Backed by in-memory TTLCache (5-minute TTL) on the server
+  └── Frontend hydrates multi-selects and range slider; restores per-library localStorage
+
 POST /api/game/preflight
-  └── Validates asset pool eligibility (location/date/date-range requirements)
+  └── Validates asset pool eligibility against active filters (albums, date range, countries, cities, people)
+  └── Enforces people matching mode (OR / AND)
+  └── Evaluates spatial (≥100m) and temporal (≥60s) photo diversity constraints
   └── Confirms eligible photo count >= requested round count
 
 POST /api/game/setup
-  └── routes.py resolves album name from ImmichClient
-  └── Creates MatchState in SessionStore (players, round config, empty rounds)
+  └── routes.py resolves album names and active filter parameters
+  └── Creates MatchState in SessionStore (players, round config, filter criteria, empty rounds)
   └── Returns match_id and total turns
 
 POST /api/question
