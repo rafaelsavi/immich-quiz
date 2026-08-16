@@ -103,7 +103,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
-  margin-top: -0.25rem;
+  margin-top: 0.5rem;
 }
 
 .filter-source-pill {

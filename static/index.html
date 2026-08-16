@@ -95,19 +95,18 @@
                   </button>
                 </div>
                 <select id="library" required></select>
+                <!-- Photo Sources / Ownership -->
+                <div class="filter-sources-row">
+                  <label class="filter-source-pill" id="label-include-shared" for="include-shared-checkbox">
+                    <input type="checkbox" id="include-shared-checkbox" />
+                    <span data-i18n="setup.include_shared_photos">Include shared photos</span>
+                  </label>
+                </div>
               </div>
               <div class="album-select-group">
                 <label data-i18n="setup.album_label">Album</label>
                 <div id="album-multi-select" class="multi-select"></div>
               </div>
-            </div>
-
-            <!-- Row 1.5: Photo Sources / Ownership -->
-            <div class="filter-sources-row">
-              <label class="filter-source-pill" id="label-include-shared" for="include-shared-checkbox">
-                <input type="checkbox" id="include-shared-checkbox" />
-                <span data-i18n="setup.include_shared_photos">Include shared photos</span>
-              </label>
             </div>
 
             <!-- Row 2: Date Range Slider -->
