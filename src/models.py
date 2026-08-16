@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -22,6 +21,18 @@ class RoundLength(str, Enum):
 class GameMode(str, Enum):
     pinpoint = 'pinpoint'
     album_shuffle = 'album_shuffle'
+
+
+class PeopleMode(str, Enum):
+    ANY = 'ANY'
+    ALL = 'ALL'
+
+
+class SyncStatus(str, Enum):
+    idle = 'idle'
+    syncing = 'syncing'
+    error = 'error'
+    never_synced = 'never_synced'
 
 
 class MapBounds(BaseModel):
@@ -93,7 +104,7 @@ class BaseGameConfig(BaseModel):
     game_mode: GameMode = GameMode.pinpoint
     album_ids: list[str] = Field(default_factory=list)
     person_ids: list[str] = Field(default_factory=list)
-    people_mode: Literal['OR', 'AND'] = 'OR'  # 'OR' (any) | 'AND' (all together)
+    people_mode: PeopleMode = PeopleMode.ANY
     countries: list[str] = Field(default_factory=list)
     cities: list[str] = Field(default_factory=list)
     min_date: date | None = None
@@ -143,6 +154,8 @@ class PreflightResponse(BaseModel):
     location_mode: bool = True
     date_mode: bool = True
     facet_counts: FacetCounts | None = None
+    is_synced: bool = True
+    sync_status: SyncStatus = SyncStatus.idle
 
 
 class GameSetupRequest(BaseGameConfig):

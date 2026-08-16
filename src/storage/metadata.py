@@ -7,14 +7,16 @@ from datetime import date, datetime
 from typing import Any
 
 from src.config import AppSettings
-from src.immich.client import AssetAnswer, SearchQuery
+from src.immich.client import AssetAnswer
 from src.models import (
     BaseGameConfig,
     CityOption,
     DateRangeOption,
     FacetCounts,
     LibraryFiltersResponse,
+    PeopleMode,
     PersonOption,
+    SyncStatus,
 )
 from src.storage.db import DatabaseManager
 
@@ -93,7 +95,7 @@ class AssetFilterCriteria:
     countries: tuple[str, ...] = ()
     cities: tuple[str, ...] = ()
     person_ids: tuple[str, ...] = ()
-    people_mode: str = 'OR'
+    people_mode: PeopleMode = PeopleMode.ANY
     album_ids: tuple[str, ...] = ()
     include_shared: bool = False
     # Layer 1 Config Safeguards
@@ -104,24 +106,11 @@ class AssetFilterCriteria:
     people_whitelist: frozenset[str] = frozenset()
     people_blacklist: frozenset[str] = frozenset()
 
-    def to_search_query(self) -> SearchQuery:
-        """Convert filter criteria to an Immich SearchQuery."""
-        return SearchQuery(
-            album_ids=self.album_ids,
-            person_ids=self.person_ids,
-            people_mode=self.people_mode,
-            countries=self.countries,
-            cities=self.cities,
-            include_shared=self.include_shared,
-            min_date=self.min_date,
-            max_date=self.max_date,
-        )
-
     @classmethod
     def from_setup(cls, setup: BaseGameConfig, settings: AppSettings | None = None) -> AssetFilterCriteria:
         """Create unified filter criteria combining user setup and global settings."""
-        eff_min = getattr(setup, 'min_date', None)
-        eff_max = getattr(setup, 'max_date', None)
+        eff_min = setup.min_date
+        eff_max = setup.max_date
         if settings is not None:
             if settings.date_lower_bound:
                 eff_min = max(filter(None, [settings.date_lower_bound, eff_min]), default=None)
@@ -130,16 +119,16 @@ class AssetFilterCriteria:
 
         return cls(
             library_name=setup.library_name,
-            location_mode=bool(getattr(setup, 'location_mode', True)),
-            date_mode=bool(getattr(setup, 'date_mode', True)),
+            location_mode=setup.location_mode,
+            date_mode=setup.date_mode,
             min_date=eff_min,
             max_date=eff_max,
-            countries=tuple(setup.countries) if getattr(setup, 'countries', None) else (),
-            cities=tuple(setup.cities) if getattr(setup, 'cities', None) else (),
-            person_ids=tuple(setup.person_ids) if getattr(setup, 'person_ids', None) else (),
-            people_mode=getattr(setup, 'people_mode', 'OR'),
-            album_ids=tuple(setup.album_ids) if getattr(setup, 'album_ids', None) else (),
-            include_shared=bool(getattr(setup, 'include_shared', False)),
+            countries=tuple(setup.countries) if setup.countries else (),
+            cities=tuple(setup.cities) if setup.cities else (),
+            person_ids=tuple(setup.person_ids) if setup.person_ids else (),
+            people_mode=setup.people_mode,
+            album_ids=tuple(setup.album_ids) if setup.album_ids else (),
+            include_shared=setup.include_shared,
             country_whitelist=settings.country_whitelist if settings else frozenset(),
             country_blacklist=settings.country_blacklist if settings else frozenset(),
             city_whitelist=settings.city_whitelist if settings else frozenset(),
@@ -188,7 +177,7 @@ class MetadataStore:
         return {
             'library_name': library_name,
             'last_sync_at': None,
-            'sync_status': 'idle',
+            'sync_status': SyncStatus.idle.value,
             'sync_error': None,
             'total_assets': 0,
             'synced_assets': 0,
@@ -198,7 +187,7 @@ class MetadataStore:
         self,
         library_name: str,
         *,
-        status: str,
+        status: SyncStatus,
         total_assets: int | None = None,
         synced_assets: int | None = None,
         error: str | None = None,
@@ -227,7 +216,7 @@ class MetadataStore:
                     total_assets = excluded.total_assets,
                     synced_assets = excluded.synced_assets
                 """,
-                (library_name, last_sync, status, error, tot, sync_cnt),
+                (library_name, last_sync, status.value, error, tot, sync_cnt),
             )
 
     def upsert_people(self, library_name: str, people: list[dict[str, str]]) -> None:
@@ -499,9 +488,9 @@ class MetadataStore:
             clauses.append(f'LOWER(a.city) IN ({city_placeholders})')
             params.extend(c.lower() for c in criteria.cities)
 
-        # 13. User people filter (OR union vs AND intersection)
+        # 13. User people filter (ANY union vs ALL intersection)
         if criteria.person_ids:
-            if criteria.people_mode.upper() == 'AND' and len(criteria.person_ids) > 1:
+            if criteria.people_mode == PeopleMode.ALL and len(criteria.person_ids) > 1:
                 placeholders = ', '.join('?' for _ in criteria.person_ids)
                 clauses.append(
                     f"""a.id IN (

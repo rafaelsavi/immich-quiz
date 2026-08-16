@@ -10,12 +10,22 @@ from cachetools import TTLCache
 
 from src.api.routes import FILTERS_CACHE_TTL_SECONDS, _filters_cache
 from src.game.selector import load_asset_pool, select_round_asset
-from src.immich.client import CityInfo, ImmichClient, ImmichClientError, PersonInfo, TimelineBounds
+from src.immich.client import ImmichClient
 from src.models import (
     GameSetupRequest,
 )
+from src.storage.db import DatabaseManager
+from src.storage.metadata import MetadataStore
 from src.storage.session import MatchState
-from tests.conftest import FakeImmichClient, build_client
+from tests.conftest import (
+    CityInfo,
+    FakeImmichClient,
+    PersonInfo,
+    TimelineBounds,
+    build_client,
+    seed_test_metadata,
+    setup_payload,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -128,18 +138,17 @@ def test_get_filters_env_date_bounds_override(tmp_path: Path) -> None:
     assert data['date_range'] == {'min_month': '2021-05', 'max_month': '2022-12'}
 
 
-def test_get_filters_error_handling(tmp_path: Path) -> None:
+def test_get_filters_empty_library_returns_empty_options(tmp_path: Path) -> None:
     immich = FakeImmichClient()
-
-    async def failing_list_people(library_name: str, **kwargs: Any) -> list[PersonInfo]:
-        raise ImmichClientError(f'Unknown library "{library_name}"')
-
-    immich.list_people = failing_list_people  # type: ignore[assignment]
     client = build_client(tmp_path, immich)
 
-    response = client.get('/api/filters?library_name=invalid_lib')
-    assert response.status_code == 400
-    assert 'Unknown library' in response.json()['detail']
+    response = client.get('/api/filters?library_name=unindexed_lib')
+    assert response.status_code == 200
+    data = response.json()
+    assert data['countries'] == []
+    assert data['cities'] == []
+    assert data['people'] == []
+    assert data['date_range'] == {'min_month': None, 'max_month': None}
 
 
 def test_preflight_custom_filters_validation(tmp_path: Path) -> None:
@@ -164,14 +173,14 @@ def test_preflight_custom_filters_validation(tmp_path: Path) -> None:
     )
     client = build_client(tmp_path, immich)
 
-    # 1. Preflight with OR mode
+    # 1. Preflight with ANY mode
     payload = {
         'library_name': 'family',
         'round_count': 5,
         'location_mode': True,
         'date_mode': True,
         'person_ids': ['p1', 'p2'],
-        'people_mode': 'OR',
+        'people_mode': 'ANY',
         'countries': ['Brazil', 'France'],
         'cities': ['Florianopolis', 'Paris'],
         'min_date': '2022-01-01',
@@ -185,8 +194,8 @@ def test_preflight_custom_filters_validation(tmp_path: Path) -> None:
     assert res_data['min_date'] == '2022-01-01'
     assert res_data['max_date'] == '2024-01-01'
 
-    # 2. Preflight with AND mode
-    payload['people_mode'] = 'AND'
+    # 2. Preflight with ALL mode
+    payload['people_mode'] = 'ALL'
     response_and = client.post('/api/game/preflight', json=payload)
     assert response_and.status_code == 200
     res_and_data = response_and.json()
@@ -254,26 +263,25 @@ def test_preflight_diversity_enforcement(tmp_path: Path) -> None:
     assert data['ok'] is False  # 3 eligible < 5 required
 
 
-def test_preflight_immich_error(tmp_path: Path) -> None:
+def test_preflight_and_setup_unsynced_library(tmp_path: Path) -> None:
     immich = FakeImmichClient()
+    client = build_client(tmp_path, immich, auto_seed=False)
 
-    async def failing_search_assets(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
-        raise ImmichClientError('Immich API search connection failed')
+    # 1. Preflight on unindexed library returns is_synced=False and ok=False
+    preflight_res = client.post('/api/game/preflight', json={'library_name': 'family', 'round_count': 5})
+    assert preflight_res.status_code == 200
+    data = preflight_res.json()
+    assert data['is_synced'] is False
+    assert data['ok'] is False
+    assert data['eligible_count'] == 0
 
-    immich.search_assets = failing_search_assets  # type: ignore[method-assign]
-    client = build_client(tmp_path, immich)
-
-    payload = {
-        'library_name': 'family',
-        'round_count': 5,
-    }
-    response = client.post('/api/game/preflight', json=payload)
-    assert response.status_code == 400
-    assert 'search connection failed' in response.json()['detail']
+    # 2. Starting game on unindexed library returns 400 with helpful message
+    setup_res = client.post('/api/game/setup', json=setup_payload(library_name='family'))
+    assert setup_res.status_code == 400
+    assert 'not been synced yet' in setup_res.json()['detail']
 
 
-@pytest.mark.asyncio
-async def test_selector_load_asset_pool_filters() -> None:
+def test_selector_load_asset_pool_filters(tmp_path: Path) -> None:
     asset_match = make_filter_asset(
         'a1', country='Brazil', city='Florianopolis', people_ids=['p1'], captured='2022-05-10T10:00:00Z'
     )
@@ -288,6 +296,9 @@ async def test_selector_load_asset_pool_filters() -> None:
     )
 
     immich = FakeImmichClient(assets=[asset_match, asset_wrong_country, asset_wrong_person, asset_wrong_date])
+    db_mgr = DatabaseManager(tmp_path / 'metadata.db')
+    metadata_store = MetadataStore(db_mgr)
+    seed_test_metadata(metadata_store, 'family', immich)
 
     setup = GameSetupRequest(
         players=['Player 1'],
@@ -296,7 +307,7 @@ async def test_selector_load_asset_pool_filters() -> None:
         date_mode=True,
         library_name='family',
         person_ids=['p1'],
-        people_mode='OR',
+        people_mode='ANY',
         countries=['Brazil'],
         cities=['Florianopolis'],
         min_date=date(2021, 1, 1),
@@ -304,16 +315,10 @@ async def test_selector_load_asset_pool_filters() -> None:
     )
 
     state = MatchState(match_id='test-match', setup=setup)
-    await load_asset_pool(state, cast(ImmichClient, immich), min_capture_date=None, max_capture_date=None)
+    load_asset_pool(state, metadata_store)
 
     # Only asset_match meets all filter criteria
     assert set(state.asset_pool.keys()) == {'a1'}
-    assert immich.last_query is not None
-    assert immich.last_query.person_ids == ('p1',)
-    assert immich.last_query.countries == ('Brazil',)
-    assert immich.last_query.cities == ('Florianopolis',)
-    assert immich.last_query.min_date == date(2021, 1, 1)
-    assert immich.last_query.max_date == date(2023, 1, 1)
 
 
 @pytest.mark.asyncio
@@ -375,7 +380,7 @@ def test_game_setup_accepts_filter_criteria(tmp_path: Path) -> None:
         'library_name': 'family',
         'album_ids': [],
         'person_ids': ['p1'],
-        'people_mode': 'AND',
+        'people_mode': 'ALL',
         'countries': ['Brazil'],
         'cities': ['Florianopolis'],
         'min_date': '2022-01-01',
@@ -387,7 +392,7 @@ def test_game_setup_accepts_filter_criteria(tmp_path: Path) -> None:
     assert 'match_id' in data
 
 
-def test_preflight_people_mode_or_vs_and(tmp_path: Path) -> None:
+def test_preflight_people_mode_any_vs_all(tmp_path: Path) -> None:
     # a1 has person p1 only, a2 has person p2 only, a3 has both p1 and p2
     a1 = make_filter_asset('a1', people_ids=['p1'])
     a2 = make_filter_asset('a2', people_ids=['p2'])
@@ -396,8 +401,8 @@ def test_preflight_people_mode_or_vs_and(tmp_path: Path) -> None:
     immich = FakeImmichClient(assets=[a1, a2, a3])
     client = build_client(tmp_path, immich)
 
-    # OR mode: all 3 photos match (a1, a2, a3)
-    res_or = client.post(
+    # ANY mode: all 3 photos match (a1, a2, a3)
+    res_any = client.post(
         '/api/game/preflight',
         json={
             'library_name': 'family',
@@ -405,15 +410,15 @@ def test_preflight_people_mode_or_vs_and(tmp_path: Path) -> None:
             'location_mode': True,
             'date_mode': False,
             'person_ids': ['p1', 'p2'],
-            'people_mode': 'OR',
+            'people_mode': 'ANY',
         },
     )
-    assert res_or.status_code == 200
-    assert res_or.json()['eligible_count'] == 3
-    assert res_or.json()['ok'] is False  # 3 < 5 required
+    assert res_any.status_code == 200
+    assert res_any.json()['eligible_count'] == 3
+    assert res_any.json()['ok'] is False  # 3 < 5 required
 
-    # AND mode: only 1 photo matches (a3)
-    res_and = client.post(
+    # ALL mode: only 1 photo matches (a3)
+    res_all = client.post(
         '/api/game/preflight',
         json={
             'library_name': 'family',
@@ -421,12 +426,12 @@ def test_preflight_people_mode_or_vs_and(tmp_path: Path) -> None:
             'location_mode': True,
             'date_mode': False,
             'person_ids': ['p1', 'p2'],
-            'people_mode': 'AND',
+            'people_mode': 'ALL',
         },
     )
-    assert res_and.status_code == 200
-    assert res_and.json()['eligible_count'] == 1
-    assert res_and.json()['ok'] is False  # 1 < 5 required
+    assert res_all.status_code == 200
+    assert res_all.json()['eligible_count'] == 1
+    assert res_all.json()['ok'] is False  # 1 < 5 required
 
 
 def test_preflight_multiple_cities_or_mode(tmp_path: Path) -> None:
@@ -456,11 +461,30 @@ def test_preflight_multiple_cities_or_mode(tmp_path: Path) -> None:
     assert data['required'] == 5
 
 
-def test_preflight_passes_dynamic_partner_and_shared_flags_to_search_query(tmp_path: Path) -> None:
-    immich = FakeImmichClient(assets=[make_filter_asset('a1')])
+def test_preflight_include_shared_photos_filter(tmp_path: Path) -> None:
+    asset_owned = make_filter_asset('a1')
+    asset_shared = make_filter_asset('a2')
+    asset_shared['isShared'] = True
+
+    immich = FakeImmichClient(assets=[asset_owned, asset_shared])
     client = build_client(tmp_path, immich)
 
-    res = client.post(
+    # 1. include_shared=False -> only owned asset is returned
+    res_private = client.post(
+        '/api/game/preflight',
+        json={
+            'library_name': 'family',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': False,
+            'include_shared': False,
+        },
+    )
+    assert res_private.status_code == 200
+    assert res_private.json()['eligible_count'] == 1
+
+    # 2. include_shared=True -> both assets are returned
+    res_shared = client.post(
         '/api/game/preflight',
         json={
             'library_name': 'family',
@@ -470,9 +494,8 @@ def test_preflight_passes_dynamic_partner_and_shared_flags_to_search_query(tmp_p
             'include_shared': True,
         },
     )
-    assert res.status_code == 200
-    assert immich.last_query is not None
-    assert immich.last_query.include_shared is True
+    assert res_shared.status_code == 200
+    assert res_shared.json()['eligible_count'] == 2
 
 
 def test_models_date_order_validation(tmp_path: Path) -> None:

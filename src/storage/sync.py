@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from src.immich.client import ImmichClient, ImmichClientError
+from src.models import SyncStatus
 from src.storage.metadata import MetadataStore
 
 logger = logging.getLogger(__name__)
@@ -44,8 +45,8 @@ class SyncEngine:
     def get_sync_status(self, library_name: str) -> dict[str, Any]:
         state = self._metadata_store.get_sync_state(library_name)
         # If task has completed or failed, ensure status reflects accurately
-        if state.get('sync_status') == 'syncing' and not self.is_syncing(library_name):
-            state['sync_status'] = 'idle'
+        if state.get('sync_status') == SyncStatus.syncing and not self.is_syncing(library_name):
+            state['sync_status'] = SyncStatus.idle
         if library_name in self._sync_warnings:
             state['warning'] = self._sync_warnings[library_name]
         return state
@@ -74,7 +75,7 @@ class SyncEngine:
         logger.info('Starting metadata sync for library: %s', library_name)
         self._metadata_store.set_sync_state(
             library_name,
-            status='syncing',
+            status=SyncStatus.syncing,
             error=None,
             synced_assets=0,
         )
@@ -260,7 +261,7 @@ class SyncEngine:
                 total_target = total_reported if (total_reported is not None and total_reported >= synced_count) else 0
                 self._metadata_store.set_sync_state(
                     library_name,
-                    status='syncing',
+                    status=SyncStatus.syncing,
                     synced_assets=synced_count,
                     total_assets=total_target,
                 )
@@ -299,7 +300,7 @@ class SyncEngine:
             total_final = len(seen_asset_ids)
             self._metadata_store.set_sync_state(
                 library_name,
-                status='idle',
+                status=SyncStatus.idle,
                 last_sync_at=now_iso,
                 synced_assets=total_final,
                 total_assets=total_final,
@@ -317,7 +318,7 @@ class SyncEngine:
             logger.error('Error during metadata sync for %s: %s', library_name, exc, exc_info=True)
             self._metadata_store.set_sync_state(
                 library_name,
-                status='error',
+                status=SyncStatus.error,
                 error=str(exc),
             )
             raise

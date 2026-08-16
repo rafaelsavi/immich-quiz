@@ -191,7 +191,7 @@ function initFilterComponents() {
     state.filters.dateRangeSlider = dateRangeSlider;
   }
 
-  // People Mode Segmented Toggle (OR / AND)
+  // People Mode Segmented Toggle (ANY / ALL)
   const peopleModeToggleEl = document.getElementById("people-mode-toggle");
   if (peopleModeToggleEl) {
     peopleModeToggleEl.querySelectorAll(".people-mode-btn").forEach((btn) => {
@@ -283,12 +283,17 @@ function renderSyncStatus(status) {
   if (!status) return;
   _lastSyncStatus = status;
   const isSyncing = status.sync_status === "syncing";
+  const neverSynced = !status.last_sync_at && (status.synced_assets || 0) === 0 && !isSyncing;
+
   if (el.syncLibraryBtn) {
     el.syncLibraryBtn.classList.toggle("syncing", isSyncing);
+    el.syncLibraryBtn.classList.toggle("needs-sync", neverSynced);
     el.syncLibraryBtn.disabled = isSyncing;
 
     if (isSyncing) {
       el.syncLibraryBtn.title = t("setup.syncing_label");
+    } else if (neverSynced) {
+      el.syncLibraryBtn.title = t("setup.sync_title_never_synced");
     } else if (status.last_sync_at) {
       const formattedDate = formatSyncDate(status.last_sync_at);
       el.syncLibraryBtn.title = formattedDate
@@ -306,10 +311,12 @@ function renderSyncStatus(status) {
         const pct = Math.min(100, Math.round((synced / total) * 100));
         el.syncBtnLabel.textContent = `${synced.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
       } else if (synced > 0) {
-        el.syncBtnLabel.textContent = t("setup.sync_indexed_count", synced);
+        el.syncBtnLabel.textContent = t("setup.sync_count", synced);
       } else {
         el.syncBtnLabel.textContent = t("setup.syncing_label");
       }
+    } else if (neverSynced) {
+      el.syncBtnLabel.textContent = t("setup.sync_label_never_synced");
     } else {
       el.syncBtnLabel.textContent = t("setup.sync_label");
     }
@@ -456,7 +463,7 @@ function clearSavedLibraryFilters(libraryName) {
 
 function getSelectedPeopleMode() {
   const activeBtn = document.querySelector("#people-mode-toggle .people-mode-btn.active");
-  return activeBtn ? activeBtn.getAttribute("data-people-mode") || "OR" : "OR";
+  return activeBtn ? activeBtn.getAttribute("data-people-mode") || "ANY" : "ANY";
 }
 
 function setPeopleMode(mode) {
@@ -469,7 +476,7 @@ function setPeopleMode(mode) {
 }
 
 function resetPeopleMode() {
-  setPeopleMode("OR");
+  setPeopleMode("ANY");
 }
 
 function updatePeopleModeToggleVisibility() {
@@ -660,9 +667,13 @@ async function executePreflight() {
     }
 
     if (!preflight.ok) {
-      showPreflightWarning(
-        t("setup.not_enough_media", preflight.eligible_count, preflight.required)
-      );
+      if (preflight.is_synced === false || preflight.sync_status === "never_synced") {
+        showPreflightWarning(t("setup.library_not_synced_warning"));
+      } else {
+        showPreflightWarning(
+          t("setup.not_enough_media", preflight.eligible_count, preflight.required)
+        );
+      }
     } else {
       hidePreflightWarning();
     }

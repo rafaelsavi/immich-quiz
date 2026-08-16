@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from src.config import AppSettings
 from src.main import create_app
-from src.models import CityOption
+from src.models import CityOption, PeopleMode, SyncStatus
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.sync import SyncEngine
@@ -36,17 +36,17 @@ def test_db_manager_init(db_mgr: DatabaseManager) -> None:
 def test_metadata_store_schema_and_sync_state(meta_store: MetadataStore) -> None:
     assert not meta_store.has_synced_assets('family')
     state = meta_store.get_sync_state('family')
-    assert state['sync_status'] == 'idle'
+    assert state['sync_status'] == SyncStatus.idle.value
     assert state['total_assets'] == 0
 
     meta_store.set_sync_state(
         'family',
-        status='syncing',
+        status=SyncStatus.syncing,
         total_assets=100,
         synced_assets=25,
     )
     state = meta_store.get_sync_state('family')
-    assert state['sync_status'] == 'syncing'
+    assert state['sync_status'] == SyncStatus.syncing.value
     assert state['total_assets'] == 100
     assert state['synced_assets'] == 25
 
@@ -141,15 +141,15 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert count3 == 1
     assert 'asset-1' in cand3
 
-    # Query 4: People filter with AND mode (both p1 and p2)
-    c4 = AssetFilterCriteria(library_name='family', person_ids=('p1', 'p2'), people_mode='AND')
+    # Query 4: People filter with ALL mode (both p1 and p2)
+    c4 = AssetFilterCriteria(library_name='family', person_ids=('p1', 'p2'), people_mode=PeopleMode.ALL)
     count4 = meta_store.count_eligible_assets(c4)
     cand4 = meta_store.fetch_candidate_assets(c4)
     assert count4 == 1
     assert 'asset-1' in cand4
 
-    # Query 5: People filter with OR mode (p1 or p2)
-    c5 = AssetFilterCriteria(library_name='family', person_ids=('p1', 'p2'), people_mode='OR')
+    # Query 5: People filter with ANY mode (p1 or p2)
+    c5 = AssetFilterCriteria(library_name='family', person_ids=('p1', 'p2'), people_mode=PeopleMode.ANY)
     count5 = meta_store.count_eligible_assets(c5)
     cand5 = meta_store.fetch_candidate_assets(c5)
     assert count5 == 2

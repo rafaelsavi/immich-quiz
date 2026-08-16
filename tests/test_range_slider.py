@@ -145,8 +145,8 @@ def test_index_html_contains_accordion_and_filter_containers() -> None:
 
     # Accessibility & Mode buttons
     assert 'aria-expanded="false"' in content
-    assert 'data-people-mode="OR"' in content
-    assert 'data-people-mode="AND"' in content
+    assert 'data-people-mode="ANY"' in content
+    assert 'data-people-mode="ALL"' in content
 
 
 def test_bilingual_i18n_keys_present() -> None:
@@ -175,8 +175,8 @@ def test_bilingual_i18n_keys_present() -> None:
         'setup.people_search_placeholder',
         'setup.no_people_found',
         'setup.people_selected',
-        'setup.people_mode_or',
-        'setup.people_mode_and',
+        'setup.people_mode_any',
+        'setup.people_mode_all',
         'setup.filter_people',
         'setup.filter_people_all',
         'setup.filter_countries',

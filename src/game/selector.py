@@ -94,72 +94,24 @@ def calculate_match_bounds(
     )
 
 
-async def load_asset_pool(
+def load_asset_pool(
     state: MatchState,
-    immich: ImmichClient,
-    min_capture_date: date | None = None,
-    max_capture_date: date | None = None,
-    metadata_store: MetadataStore | None = None,
+    metadata_store: MetadataStore,
     settings: Any | None = None,
 ) -> None:
     """Populate the per-match candidate pool once with active filter criteria.
 
-    Attempts to query the fast indexed local SQLite metadata store first. If the metadata store
-    is unavailable or lacks indexed assets for the selected library, falls back to querying the
-    Immich REST API directly.
-
-    Clamps match setup dates against global configuration date boundaries (`min_capture_date`,
-    `max_capture_date`). Mutates `state.asset_pool` in place.
+    Queries the fast indexed local SQLite metadata store. Clamps match setup dates against
+    global configuration date boundaries. Mutates `state.asset_pool` in place.
 
     Args:
         state: Active match state containing setup filters and pool storage.
-        immich: Immich API client used as fallback when local metadata cache is empty.
-        min_capture_date: Global server minimum capture date boundary, if configured.
-        max_capture_date: Global server maximum capture date boundary, if configured.
-        metadata_store: Optional local SQLite metadata store for fast indexed querying.
+        metadata_store: Local SQLite metadata store for fast indexed querying.
         settings: Optional application settings for global whitelist/blacklist enforcement.
 
     """
     criteria = AssetFilterCriteria.from_setup(state.setup, settings)
-    effective_min_date = criteria.min_date
-    effective_max_date = criteria.max_date
-
-    # Use fast indexed SQLite metadata store when available
-    if metadata_store is not None and metadata_store.has_synced_assets(state.setup.library_name):
-        state.asset_pool = metadata_store.fetch_candidate_assets(criteria, limit=250)
-        return
-
-    # Fallback to Immich API on cold start or when metadata store has no indexed assets
-    query = criteria.to_search_query()
-
-    raw_assets = await immich.search_random_assets(
-        state.setup.library_name,
-        query=query,
-    )
-    pool: dict[str, AssetAnswer] = {}
-    for asset in raw_assets:
-        if not ImmichClient.is_eligible_asset(
-            asset,
-            state.setup.location_mode,
-            state.setup.date_mode,
-            min_date=effective_min_date,
-            max_date=effective_max_date,
-            countries=tuple(state.setup.countries),
-            cities=tuple(state.setup.cities),
-            person_ids=tuple(state.setup.person_ids),
-            people_mode=state.setup.people_mode,
-            country_whitelist=criteria.country_whitelist,
-            country_blacklist=criteria.country_blacklist,
-            city_whitelist=criteria.city_whitelist,
-            city_blacklist=criteria.city_blacklist,
-            people_whitelist=criteria.people_whitelist,
-            people_blacklist=criteria.people_blacklist,
-        ):
-            continue
-        asset_id = str(asset.get('id', '')).strip()
-        if asset_id:
-            pool[asset_id] = ImmichClient.extract_answer(asset)
-    state.asset_pool = pool
+    state.asset_pool = metadata_store.fetch_candidate_assets(criteria, limit=250)
 
 
 def is_asset_valid_for_batch(
@@ -354,24 +306,18 @@ async def _select_diverse_assets(
     """
     excluded = state.played_asset_ids | client_excluded
 
-    if not state.asset_pool:
-        await load_asset_pool(
+    if not state.asset_pool and metadata_store is not None:
+        load_asset_pool(
             state,
-            immich,
-            min_capture_date,
-            max_capture_date,
-            metadata_store=metadata_store,
+            metadata_store,
             settings=settings,
         )
     candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
-    if len(candidates) < count:
-        await load_asset_pool(
+    if len(candidates) < count and metadata_store is not None:
+        load_asset_pool(
             state,
-            immich,
-            min_capture_date,
-            max_capture_date,
-            metadata_store=metadata_store,
+            metadata_store,
             settings=settings,
         )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]

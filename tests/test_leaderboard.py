@@ -1,6 +1,7 @@
 from datetime import date
 from pathlib import Path
 
+from src.models import GameMode, PeopleMode, RoundLength
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore, format_filter_summary
 
@@ -48,14 +49,14 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
         library_name='family',
         album_name='-',
         rounds_played=5,
-        round_length='1m',
+        round_length=RoundLength.minute_1,
         location_mode=True,
         date_mode=True,
-        game_mode='pinpoint',
+        game_mode=GameMode.pinpoint,
         player_scores={'Alice': {'location': 400, 'date': 450, 'total': 850}},
         album_ids=[],
         person_ids=['p1', 'p2'],
-        people_mode='AND',
+        people_mode=PeopleMode.ALL,
         countries=['Japan'],
         cities=['Tokyo'],
         min_date=date(2023, 1, 1),
@@ -89,7 +90,7 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     assert entry.config['game_mode'] == 'pinpoint'
     assert entry.config['library'] == 'family'
     assert entry.config['person_ids'] == ['p1', 'p2']
-    assert entry.config['people_mode'] == 'AND'
+    assert entry.config['people_mode'] == 'ALL'
     assert entry.config['countries'] == ['Japan']
     assert entry.config['cities'] == ['Tokyo']
     assert entry.config['min_date'] == '2023-01-01'
@@ -105,10 +106,10 @@ def test_leaderboard_multiplayer_ranking_and_winner(tmp_path: Path) -> None:
         library_name='family',
         album_name='-',
         rounds_played=10,
-        round_length='1m',
+        round_length=RoundLength.minute_1,
         location_mode=True,
         date_mode=False,
-        game_mode='pinpoint',
+        game_mode=GameMode.pinpoint,
         player_scores={
             'Bob': {'location': 700, 'total': 700},
             'Alice': {'location': 900, 'total': 900},
@@ -151,10 +152,10 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
         library_name='family',
         album_name='-',
         rounds_played=10,
-        round_length='1m',
+        round_length=RoundLength.minute_1,
         location_mode=True,
         date_mode=True,
-        game_mode='pinpoint',
+        game_mode=GameMode.pinpoint,
         player_scores={'Alice': {'total': 800}},
     )
 
@@ -164,22 +165,22 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
         library_name='family',
         album_name='Holidays',
         rounds_played=5,
-        round_length='30s',
+        round_length=RoundLength.seconds_30,
         location_mode=False,
         date_mode=True,
-        game_mode='album_shuffle',
+        game_mode=GameMode.album_shuffle,
         player_scores={'Bob': {'total': 400}},
         album_ids=['alb-1'],
         countries=['France'],
     )
 
     # Filter by rounds and round_length
-    res = store.list_entries(rounds=10, round_length='1m')
+    res = store.list_entries(rounds=10, round_length=RoundLength.minute_1)
     assert len(res) == 1
     assert res[0].match_id == 'm1'
 
     # Filter by game_mode
-    res = store.list_entries(game_mode='album_shuffle')
+    res = store.list_entries(game_mode=GameMode.album_shuffle)
     assert len(res) == 1
     assert res[0].match_id == 'm2'
 

@@ -160,7 +160,7 @@
   margin-left: auto;
 }
 
-/* People Match Mode Segmented Toggle (OR vs AND) */
+/* People Match Mode Segmented Toggle (ANY vs ALL) */
 .people-mode-toggle {
   display: inline-flex;
   align-items: center;
@@ -287,8 +287,15 @@
   color: var(--accent, #0f7c7f);
 }
 
-@keyframes sync-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.sync-library-btn.needs-sync {
+  color: var(--accent, #0f7c7f);
+  border-color: var(--accent, #0f7c7f);
+  background: rgba(15, 124, 127, 0.08);
+  box-shadow: 0 0 0 1px rgba(15, 124, 127, 0.15);
+  font-weight: 700;
+}
+
+.sync-library-btn.needs-sync:hover {
+  background: rgba(15, 124, 127, 0.15);
 }
 

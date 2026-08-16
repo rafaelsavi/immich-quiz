@@ -125,7 +125,7 @@ Request:
   "players": ["Alice", "Bob"],
   "album_ids": ["album-uuid-1"],
   "person_ids": ["person-uuid-1"],
-  "people_mode": "OR",
+  "people_mode": "ANY",
   "countries": ["France"],
   "cities": ["Paris"],
   "min_date": "2020-01-01",
@@ -173,7 +173,7 @@ Request:
   "players": ["Alice", "Bob"],
   "album_ids": ["album-uuid-1"],
   "person_ids": [],
-  "people_mode": "OR",
+  "people_mode": "ANY",
   "countries": [],
   "cities": [],
   "min_date": null,
@@ -186,7 +186,7 @@ Request:
 - `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
 - `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
 - `album_name` is resolved server-side from `album_ids`.
-- `people_mode` supports `"OR"` (Any person) or `"AND"` (All selected people together).
+- `people_mode` supports `"ANY"` (Any person) or `"ALL"` (All selected people together).
 
 Response:
 ```json

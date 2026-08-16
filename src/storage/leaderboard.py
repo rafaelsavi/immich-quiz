@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.models import LeaderboardEntry
+from src.models import GameMode, LeaderboardEntry, PeopleMode, RoundLength
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.db import DatabaseManager
 
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS leaderboard_matches (
     album_name TEXT,
     album_ids_json TEXT,
     person_ids_json TEXT,
-    people_mode TEXT DEFAULT 'OR',
+    people_mode TEXT DEFAULT 'ANY',
     countries_json TEXT,
     cities_json TEXT,
     min_date TEXT,
@@ -115,15 +115,15 @@ class LeaderboardStore:
         library_name: str,
         album_name: str,
         rounds_played: int,
-        round_length: str,
+        round_length: RoundLength,
         location_mode: bool,
         date_mode: bool,
-        game_mode: str,
+        game_mode: GameMode,
         player_scores: dict[str, dict[str, int]],
         *,
         album_ids: list[str] | None = None,
         person_ids: list[str] | None = None,
-        people_mode: str = 'OR',
+        people_mode: PeopleMode = PeopleMode.ANY,
         countries: list[str] | None = None,
         cities: list[str] | None = None,
         min_date: date | None = None,
@@ -170,15 +170,15 @@ class LeaderboardStore:
                     match_id,
                     played_at,
                     library_name,
-                    game_mode,
+                    game_mode.value,
                     rounds_played,
-                    round_length,
+                    round_length.value,
                     1 if location_mode else 0,
                     1 if date_mode else 0,
                     album_name or '-',
                     json.dumps(album_ids) if album_ids else None,
                     json.dumps(person_ids) if person_ids else None,
-                    people_mode,
+                    people_mode.value,
                     json.dumps(countries) if countries else None,
                     json.dumps(cities) if cities else None,
                     min_date.isoformat() if min_date else None,
@@ -229,10 +229,10 @@ class LeaderboardStore:
         self,
         *,
         rounds: int | None = None,
-        round_length: str | None = None,
+        round_length: RoundLength | None = None,
         location_mode: bool | None = None,
         date_mode: bool | None = None,
-        game_mode: str | None = None,
+        game_mode: GameMode | None = None,
         library: str | None = None,
         albums: str | None = None,
         player_name: str | None = None,
@@ -247,7 +247,7 @@ class LeaderboardStore:
             params.append(rounds)
         if round_length is not None:
             clauses.append('m.round_length = ?')
-            params.append(round_length)
+            params.append(round_length.value)
         if location_mode is not None:
             clauses.append('m.location_mode = ?')
             params.append(1 if location_mode else 0)
@@ -256,7 +256,7 @@ class LeaderboardStore:
             params.append(1 if date_mode else 0)
         if game_mode is not None:
             clauses.append('m.game_mode = ?')
-            params.append(game_mode)
+            params.append(game_mode.value)
         if library is not None and library != '':
             clauses.append('m.library_name = ?')
             params.append(library)
@@ -313,11 +313,11 @@ class LeaderboardStore:
         entries: list[LeaderboardEntry] = []
 
         for row in rows:
-            album_ids = json.loads(row['album_ids_json']) if row.get('album_ids_json') else []
-            person_ids = json.loads(row['person_ids_json']) if row.get('person_ids_json') else []
-            countries = json.loads(row['countries_json']) if row.get('countries_json') else []
-            cities = json.loads(row['cities_json']) if row.get('cities_json') else []
-            awards = json.loads(row['awards_json']) if row.get('awards_json') else []
+            album_ids = json.loads(row['album_ids_json']) if row['album_ids_json'] else []
+            person_ids = json.loads(row['person_ids_json']) if row['person_ids_json'] else []
+            countries = json.loads(row['countries_json']) if row['countries_json'] else []
+            cities = json.loads(row['cities_json']) if row['cities_json'] else []
+            awards = json.loads(row['awards_json']) if row['awards_json'] else []
 
             config = {
                 'rounds': row['rounds'],
@@ -329,11 +329,11 @@ class LeaderboardStore:
                 'albums': row['album_name'] or '-',
                 'album_ids': album_ids,
                 'person_ids': person_ids,
-                'people_mode': row.get('people_mode', 'OR'),
+                'people_mode': row['people_mode'] or 'ANY',
                 'countries': countries,
                 'cities': cities,
-                'min_date': row.get('min_date'),
-                'max_date': row.get('max_date'),
+                'min_date': row['min_date'],
+                'max_date': row['max_date'],
             }
 
             entries.append(
@@ -349,7 +349,7 @@ class LeaderboardStore:
                     rank=int(row['rank']),
                     is_winner=bool(row['is_winner']),
                     awards=awards,
-                    filter_summary=row.get('filter_summary'),
+                    filter_summary=row['filter_summary'],
                     is_custom_filtered=bool(row['is_custom_filtered']),
                     config=config,
                 )

@@ -20,8 +20,8 @@ Expand the **Library & Photo Filters** accordion to customize your photo pool. A
 - **Date Range**: Use the dual-handle interactive timeline slider to restrict photos to a specific year/month span.
 - **Countries & Cities**: Searchable multi-select dropdowns for geographic filtering. Selecting a country dynamically narrows the available cities to that country.
 - **People / Faces**: Filter by recognized people. When selecting multiple people, choose between:
-  - **Any (OR)**: Photos containing at least one of the selected individuals.
-  - **All (AND)**: Photos where all selected individuals appear together in the same photo.
+  - **Any (ANY)**: Photos containing at least one of the selected individuals.
+  - **All (ALL)**: Photos where all selected individuals appear together in the same photo.
 - **Shared & Partner Media**: Checkbox toggles to dynamically include or exclude shared albums and partner photos.
 
 ### 3. Game & Guessing Mode

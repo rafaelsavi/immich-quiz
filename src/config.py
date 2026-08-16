@@ -26,25 +26,26 @@ class AppSettings:
     immich_libraries: dict[str, str]
     app_title: str
     app_tagline: str
-    date_lower_bound: date | None
-    date_upper_bound: date | None
     app_host: str
     app_port: int
     score_max_points: int
     location_score_decay_km: float
     date_score_decay_days: float
     language: str
-    # Data folder and storage settings
-    data_path: Path = Path('data')
-    auto_sync_on_startup: bool = True
 
-    # New filter boundaries & whitelists/blacklists
+    # Library filters
+    date_lower_bound: date | None = None
+    date_upper_bound: date | None = None
     country_whitelist: frozenset[str] = frozenset()
     country_blacklist: frozenset[str] = frozenset()
     city_whitelist: frozenset[str] = frozenset()
     city_blacklist: frozenset[str] = frozenset()
     people_whitelist: frozenset[str] = frozenset()
     people_blacklist: frozenset[str] = frozenset()
+
+    # Data folder and storage settings
+    data_path: Path = Path('data')
+    auto_sync_on_startup: bool = True
 
     @property
     def metadata_db_path(self) -> Path:

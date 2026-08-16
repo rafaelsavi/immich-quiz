@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -8,8 +9,27 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.config import AppSettings
-from src.immich.client import CityInfo, PersonInfo, SearchQuery, TimelineBounds
 from src.main import create_app
+from src.models import SyncStatus
+from src.storage.metadata import MetadataStore
+
+
+@dataclass(frozen=True)
+class PersonInfo:
+    id: str
+    name: str
+
+
+@dataclass(frozen=True)
+class CityInfo:
+    name: str
+    country: str | None = None
+
+
+@dataclass(frozen=True)
+class TimelineBounds:
+    min_date: date | None
+    max_date: date | None
 
 
 def make_asset(
@@ -55,22 +75,16 @@ class FakeImmichClient:
         countries: list[str] | None = None,
         cities: list[CityInfo] | None = None,
     ) -> None:
+        self.assets_explicit = assets is not None
         self.assets = assets if assets is not None else [make_asset('asset-1')]
         self.people = people if people is not None else [PersonInfo(id='p1', name='Alice')]
-        self.timeline_bounds = timeline_bounds or TimelineBounds(min_date=date(2020, 1, 1), max_date=date(2024, 12, 31))
-        self.countries = countries if countries is not None else ['Brazil', 'France']
-        self.cities = (
-            cities
-            if cities is not None
-            else [
-                CityInfo(name='Florianopolis', country='Brazil'),
-                CityInfo(name='Paris', country='France'),
-            ]
-        )
+        self.timeline_bounds = timeline_bounds
+        self.countries = countries
+        self.cities = cities
         self.search_calls = 0
         self.closed = False
         self.last_include_shared = False
-        self.last_query: SearchQuery | None = None
+        self.last_query = None
 
     def list_libraries(self) -> list[str]:
         return ['family']
@@ -82,119 +96,180 @@ class FakeImmichClient:
         self.last_include_shared = include_shared
         return [{'id': 'album-1', 'name': 'Holidays'}]
 
-    async def list_people(
-        self,
-        library_name: str,
-        whitelist: frozenset[str] = frozenset(),
-        blacklist: frozenset[str] = frozenset(),
-    ) -> list[PersonInfo]:
-        filtered = [
-            p
-            for p in self.people
-            if (not whitelist or p.name.lower() in whitelist) and (not blacklist or p.name.lower() not in blacklist)
-        ]
-        return filtered
-
-    async def get_timeline_bounds(self, library_name: str) -> TimelineBounds:
-        return self.timeline_bounds
-
-    async def list_countries(
-        self,
-        library_name: str,
-        whitelist: frozenset[str] = frozenset(),
-        blacklist: frozenset[str] = frozenset(),
-    ) -> list[str]:
-        filtered = [
-            c
-            for c in self.countries
-            if (not whitelist or c.lower() in whitelist) and (not blacklist or c.lower() not in blacklist)
-        ]
-        return filtered
-
-    async def list_cities(
-        self,
-        library_name: str,
-        whitelist: frozenset[str] = frozenset(),
-        blacklist: frozenset[str] = frozenset(),
-        country_whitelist: frozenset[str] = frozenset(),
-        country_blacklist: frozenset[str] = frozenset(),
-    ) -> list[CityInfo]:
-        filtered: list[CityInfo] = []
-        for c in self.cities:
-            c_lower = c.name.lower()
-            if whitelist and c_lower not in whitelist:
-                continue
-            if blacklist and c_lower in blacklist:
-                continue
-            if c.country:
-                co_lower = c.country.lower()
-                if country_whitelist and co_lower not in country_whitelist:
-                    continue
-                if country_blacklist and co_lower in country_blacklist:
-                    continue
-            elif country_whitelist:
-                continue
-            filtered.append(c)
-        return filtered
-
-    async def search_assets(
-        self,
-        library_name: str,
-        album_ids: list[str] | None = None,
-        *,
-        query: SearchQuery | None = None,
-        include_shared: bool = False,
-        size: int = 250,
-        page: int = 1,
-    ) -> list[dict[str, Any]]:
-        self.search_calls += 1
-        self.last_query = query
-        return self._apply_person_filter(self.assets, query)
-
-    async def search_random_assets(
-        self,
-        library_name: str,
-        album_ids: list[str] | None = None,
-        size: int = 250,
-        include_shared: bool = False,
-        *,
-        query: SearchQuery | None = None,
-        min_date: date | None = None,
-        max_date: date | None = None,
-    ) -> list[dict[str, Any]]:
-        self.search_calls += 1
-        self.last_query = query
-        return self._apply_person_filter(self.assets, query)
-
-    def _apply_person_filter(
-        self,
-        assets: list[dict[str, Any]],
-        query: SearchQuery | None,
-    ) -> list[dict[str, Any]]:
-        """Simulate person filtering in test fake (OR: any match; AND: all must match)."""
-        if not query or not query.person_ids:
-            return assets
-        target_ids = set(query.person_ids)
-        is_and = query.people_mode.upper() == 'AND'
-        result = []
-        for asset in assets:
-            asset_people = asset.get('people') or asset.get('faces') or []
-            asset_person_ids = {
-                str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')
-            }
-            if is_and:
-                if target_ids.issubset(asset_person_ids):
-                    result.append(asset)
-            else:
-                if asset_person_ids & target_ids:
-                    result.append(asset)
-        return result
-
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
         return b'fake-jpg', 'image/jpeg'
 
     async def aclose(self) -> None:
         self.closed = True
+
+
+def seed_test_metadata(
+    store: MetadataStore,
+    library_name: str,
+    immich: FakeImmichClient,
+) -> None:
+    # 1. Upsert people (merging from immich.people and any asset people)
+    people_map: dict[str, str] = {p.id: p.name for p in immich.people}
+    for a in (immich.assets or []):
+        p_list = a.get('people') or a.get('faces') or []
+        for p in p_list:
+            pid = str(p.get('id', '')) if isinstance(p, dict) else str(p)
+            pname = (p.get('name', f'Person {pid}') if isinstance(p, dict) else f'Person {pid}') or f'Person {pid}'
+            if pid and pid not in people_map:
+                people_map[pid] = pname
+
+    people_data = [{'id': pid, 'name': pname} for pid, pname in people_map.items()]
+    store.upsert_people(library_name, people_data)
+
+    # 2. Upsert albums
+    store.upsert_albums(library_name, [{'id': 'album-1', 'name': 'Holidays', 'isShared': 0}])
+
+    # 3. Upsert assets batch
+    asset_records: list[dict[str, Any]] = []
+    asset_people: list[tuple[str, str]] = []
+    asset_albums: list[tuple[str, str]] = []
+
+    if immich.assets_explicit or (not immich.cities and not immich.countries and not immich.timeline_bounds):
+        for a in immich.assets:
+            aid = str(a.get('id', '')).strip()
+            if not aid:
+                continue
+            exif = a.get('exifInfo') or a.get('exif') or {}
+            lat = exif.get('latitude')
+            lon = exif.get('longitude')
+            country = exif.get('country')
+            city = exif.get('city')
+            captured = exif.get('dateTimeOriginal') or a.get('fileCreatedAt') or a.get('createdAt')
+
+            asset_records.append({
+                'id': aid,
+                'is_shared': 1 if a.get('isShared') or a.get('is_shared') else 0,
+                'is_partner': 1 if a.get('isPartner') or a.get('is_partner') else 0,
+                'file_type': a.get('type', 'IMAGE'),
+                'latitude': float(lat) if lat is not None else None,
+                'longitude': float(lon) if lon is not None else None,
+                'country': country,
+                'city': city,
+                'capture_datetime': captured,
+            })
+
+            p_list = a.get('people') or a.get('faces') or []
+            for p in p_list:
+                pid = str(p.get('id', '')) if isinstance(p, dict) else str(p)
+                if pid:
+                    asset_people.append((aid, pid))
+
+            alb_list = a.get('albums')
+            if alb_list is not None:
+                for alb in alb_list:
+                    albid = str(alb.get('id', '')) if isinstance(alb, dict) else str(alb)
+                    if albid:
+                        asset_albums.append((aid, albid))
+            else:
+                asset_albums.append((aid, 'album-1'))
+    else:
+        extra_idx = 1
+        tb = immich.timeline_bounds
+        min_date_str = tb.min_date.isoformat() if tb and tb.min_date else '2018-03-01'
+        max_date_str = tb.max_date.isoformat() if tb and tb.max_date else '2023-11-30'
+
+        if immich.cities:
+            for i, c in enumerate(immich.cities):
+                aid = f'filter-asset-{extra_idx}'
+                extra_idx += 1
+                dt_str = min_date_str if i == 0 else (max_date_str if i == len(immich.cities) - 1 else '2020-06-15')
+                asset_records.append({
+                    'id': aid,
+                    'is_shared': 0,
+                    'is_partner': 0,
+                    'file_type': 'IMAGE',
+                    'latitude': -27.59,
+                    'longitude': -48.54,
+                    'country': c.country,
+                    'city': c.name,
+                    'capture_datetime': f'{dt_str}T12:00:00Z',
+                })
+                asset_albums.append((aid, 'album-1'))
+
+        if immich.countries:
+            existing_countries = {r['country'] for r in asset_records if r.get('country')}
+            for co in immich.countries:
+                if co not in existing_countries:
+                    aid = f'filter-asset-{extra_idx}'
+                    extra_idx += 1
+                    asset_records.append({
+                        'id': aid,
+                        'is_shared': 0,
+                        'is_partner': 0,
+                        'file_type': 'IMAGE',
+                        'latitude': -27.59,
+                        'longitude': -48.54,
+                        'country': co,
+                        'city': None,
+                        'capture_datetime': f'{max_date_str}T12:00:00Z',
+                    })
+                    asset_albums.append((aid, 'album-1'))
+
+        if immich.timeline_bounds:
+            if not any(r.get('capture_datetime', '')[:7] == min_date_str[:7] for r in asset_records):
+                aid = f'filter-asset-{extra_idx}'
+                extra_idx += 1
+                asset_records.append({
+                    'id': aid,
+                    'is_shared': 0,
+                    'is_partner': 0,
+                    'file_type': 'IMAGE',
+                    'latitude': -27.59,
+                    'longitude': -48.54,
+                    'country': 'Brazil',
+                    'city': 'Florianopolis',
+                    'capture_datetime': f'{min_date_str}T12:00:00Z',
+                })
+                asset_albums.append((aid, 'album-1'))
+            if not any(r.get('capture_datetime', '')[:7] == max_date_str[:7] for r in asset_records):
+                aid = f'filter-asset-{extra_idx}'
+                extra_idx += 1
+                asset_records.append({
+                    'id': aid,
+                    'is_shared': 0,
+                    'is_partner': 0,
+                    'file_type': 'IMAGE',
+                    'latitude': -27.59,
+                    'longitude': -48.54,
+                    'country': 'Brazil',
+                    'city': 'Florianopolis',
+                    'capture_datetime': f'{max_date_str}T12:00:00Z',
+                })
+                asset_albums.append((aid, 'album-1'))
+
+        if immich.people:
+            for i, p in enumerate(immich.people):
+                if i < len(asset_records):
+                    asset_people.append((asset_records[i]['id'], p.id))
+                else:
+                    aid = f'filter-asset-{extra_idx}'
+                    extra_idx += 1
+                    asset_records.append({
+                        'id': aid,
+                        'is_shared': 0,
+                        'is_partner': 0,
+                        'file_type': 'IMAGE',
+                        'latitude': -27.59,
+                        'longitude': -48.54,
+                        'country': 'Brazil',
+                        'city': 'Florianopolis',
+                        'capture_datetime': f'{min_date_str}T12:00:00Z',
+                    })
+                    asset_people.append((aid, p.id))
+                    asset_albums.append((aid, 'album-1'))
+
+    store.upsert_assets_batch(library_name, asset_records, asset_people, asset_albums)
+    store.set_sync_state(
+        library_name,
+        status=SyncStatus.idle,
+        total_assets=len(asset_records),
+        synced_assets=len(asset_records),
+    )
 
 
 def build_client(
@@ -214,6 +289,7 @@ def build_client(
     city_blacklist: frozenset[str] = frozenset(),
     people_whitelist: frozenset[str] = frozenset(),
     people_blacklist: frozenset[str] = frozenset(),
+    auto_seed: bool = True,
 ) -> TestClient:
     settings = AppSettings(
         immich_server_url='https://placeholder.example.com/api',
@@ -239,6 +315,8 @@ def build_client(
     )
     app = create_app(settings=settings)
     app.state.immich_client = immich
+    if auto_seed and hasattr(app.state, 'metadata_store'):
+        seed_test_metadata(app.state.metadata_store, 'family', immich)
     return TestClient(app)
 
 

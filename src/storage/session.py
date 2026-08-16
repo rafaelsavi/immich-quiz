@@ -70,7 +70,7 @@ class MatchState:
         if not self.scores:
             self.scores = {player: {'location': 0, 'date': 0, 'total': 0} for player in self.setup.players}
         now = time.time()
-        if not hasattr(self, 'created_at') or self.created_at == 0:
+        if not self.created_at:
             self.created_at = now
         self.last_activity_at = now
 

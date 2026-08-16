@@ -113,6 +113,8 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.sync_engine = sync_engine
     app.state.leaderboard_store = leaderboard_store
     app.state.game_service = game_service
+    app.state.available_libraries = None
+    app.state.unavailable_libraries = {}
 
     @app.middleware('http')
     async def add_security_headers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

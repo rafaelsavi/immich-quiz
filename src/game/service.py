@@ -7,23 +7,24 @@ from fastapi import HTTPException
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, load_asset_pool
-from src.immich.client import AssetAnswer, ImmichClient, ImmichClientError
+from src.immich.client import ImmichClient
 from src.models import (
     AnswerRequest,
     AnswerResponse,
-    FacetCounts,
     GameMode,
     GameSetupRequest,
     GameSetupResponse,
     MapBounds,
     MatchSummaryPlayer,
     MatchSummaryResponse,
+    PeopleMode,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
     QuestionResponse,
     RoundResultRequest,
     RoundResultResponse,
+    SyncStatus,
 )
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.leaderboard import LeaderboardStore
@@ -59,11 +60,7 @@ class GameService:
         if not album_ids:
             return '-'
 
-        try:
-            albums = await self.immich.list_albums(library_name, include_shared=True)
-        except ImmichClientError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
+        albums = self.metadata_store.get_albums(library_name, include_shared=True)
         album_map = {
             str(album.get('id', '')).strip(): str(album.get('name', '-')).strip()
             for album in albums
@@ -83,97 +80,17 @@ class GameService:
         effective_min_date = criteria.min_date
         effective_max_date = criteria.max_date
 
-        total_count: int | None = None
-        gps_count: int | None = None
-        date_count: int | None = None
-        facet_counts: FacetCounts | None = None
+        is_synced = self.metadata_store.has_synced_assets(setup.library_name)
+        sync_state = self.metadata_store.get_sync_state(setup.library_name)
+        raw_status = sync_state.get('sync_status', SyncStatus.idle.value)
+        sync_status = SyncStatus(raw_status) if raw_status in SyncStatus._value2member_map_ else SyncStatus.idle
 
-        # 1. Fast indexed SQLite query if metadata store is populated for this library
-        if self.metadata_store.has_synced_assets(setup.library_name):
-            counts = self.metadata_store.get_asset_counts(criteria)
-            eligible_count = counts['eligible_count']
-            total_count = counts['total_count']
-            gps_count = counts['gps_count']
-            date_count = counts['date_count']
-            facet_counts = self.metadata_store.get_facet_counts(criteria)
-        else:
-            # Fallback to paginated HTTP sampling
-            query = criteria.to_search_query()
-
-            # Sample candidate assets to verify availability for selected game mode and filters.
-            target_eligible_count = 250
-            max_sample_pages = 10
-            seen_asset_ids: set[str] = set()
-            eligible_answers: list[AssetAnswer] = []
-            sample_gps_count = 0
-            sample_date_count = 0
-
-            try:
-                for page_num in range(1, max_sample_pages + 1):
-                    raw_assets = await self.immich.search_assets(
-                        setup.library_name,
-                        query=query,
-                        size=100,
-                        page=page_num,
-                    )
-                    if not raw_assets:
-                        break
-
-                    for asset in raw_assets:
-                        aid = str(asset.get('id', '') or asset.get('assetId', '')).strip()
-                        if aid and aid not in seen_asset_ids:
-                            seen_asset_ids.add(aid)
-                            has_gps = ImmichClient.is_eligible_asset(
-                                asset,
-                                location_mode=True,
-                                date_mode=False,
-                                min_date=effective_min_date,
-                                max_date=effective_max_date,
-                                countries=tuple(setup.countries),
-                                cities=tuple(setup.cities),
-                                person_ids=tuple(setup.person_ids),
-                                people_mode=setup.people_mode,
-                                country_whitelist=criteria.country_whitelist,
-                                country_blacklist=criteria.country_blacklist,
-                                city_whitelist=criteria.city_whitelist,
-                                city_blacklist=criteria.city_blacklist,
-                                people_whitelist=criteria.people_whitelist,
-                                people_blacklist=criteria.people_blacklist,
-                            )
-                            has_date = ImmichClient.is_eligible_asset(
-                                asset,
-                                location_mode=False,
-                                date_mode=True,
-                                min_date=effective_min_date,
-                                max_date=effective_max_date,
-                                countries=tuple(setup.countries),
-                                cities=tuple(setup.cities),
-                                person_ids=tuple(setup.person_ids),
-                                people_mode=setup.people_mode,
-                                country_whitelist=criteria.country_whitelist,
-                                country_blacklist=criteria.country_blacklist,
-                                city_whitelist=criteria.city_whitelist,
-                                city_blacklist=criteria.city_blacklist,
-                                people_whitelist=criteria.people_whitelist,
-                                people_blacklist=criteria.people_blacklist,
-                            )
-                            if has_gps:
-                                sample_gps_count += 1
-                            if has_date:
-                                sample_date_count += 1
-                            if (setup.location_mode and not has_gps) or (setup.date_mode and not has_date):
-                                continue
-                            eligible_answers.append(ImmichClient.extract_answer(asset))
-
-                    if len(eligible_answers) >= target_eligible_count or len(raw_assets) == 0:
-                        break
-            except ImmichClientError as exc:
-                raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-            eligible_count = len(eligible_answers)
-            total_count = len(seen_asset_ids)
-            gps_count = sample_gps_count
-            date_count = sample_date_count
+        counts = self.metadata_store.get_asset_counts(criteria)
+        eligible_count = counts['eligible_count']
+        total_count = counts['total_count']
+        gps_count = counts['gps_count']
+        date_count = counts['date_count']
+        facet_counts = self.metadata_store.get_facet_counts(criteria)
 
         active_filters: list[str] = []
         if setup.location_mode:
@@ -184,7 +101,7 @@ class GameService:
             active_filters.append('albums')
         if setup.person_ids:
             active_filters.append(
-                'people_all' if setup.people_mode == 'AND' and len(setup.person_ids) > 1 else 'people'
+                'people_all' if setup.people_mode == PeopleMode.ALL and len(setup.person_ids) > 1 else 'people'
             )
         if setup.countries:
             active_filters.append('countries')
@@ -208,9 +125,17 @@ class GameService:
             location_mode=setup.location_mode,
             date_mode=setup.date_mode,
             facet_counts=facet_counts,
+            is_synced=is_synced,
+            sync_status=sync_status,
         )
 
     async def setup_game(self, setup: GameSetupRequest) -> GameSetupResponse:
+        if not self.metadata_store.has_synced_assets(setup.library_name):
+            raise HTTPException(
+                status_code=400,
+                detail='This library has not been synced yet. Please sync the library before starting a match.',
+            )
+
         if self.settings.date_lower_bound:
             setup.min_date = max(filter(None, [self.settings.date_lower_bound, setup.min_date]), default=None)
         if self.settings.date_upper_bound:
@@ -225,10 +150,9 @@ class GameService:
         map_bounds: MapBounds | None = None
         if setup.location_mode and setup.game_mode == GameMode.pinpoint:
             try:
-                await load_asset_pool(
+                load_asset_pool(
                     state,
-                    self.immich,
-                    metadata_store=self.metadata_store,
+                    self.metadata_store,
                     settings=self.settings,
                 )
                 map_bounds = calculate_match_bounds(state.asset_pool)
@@ -322,10 +246,10 @@ class GameService:
                 library_name=updated_state.setup.library_name,
                 album_name=updated_state.setup.album_name or '-',
                 rounds_played=updated_state.setup.round_count,
-                round_length=updated_state.setup.round_length.value,
+                round_length=updated_state.setup.round_length,
                 location_mode=updated_state.setup.location_mode,
                 date_mode=updated_state.setup.date_mode,
-                game_mode=updated_state.setup.game_mode.value,
+                game_mode=updated_state.setup.game_mode,
                 player_scores=updated_state.scores,
                 album_ids=updated_state.setup.album_ids,
                 person_ids=updated_state.setup.person_ids,

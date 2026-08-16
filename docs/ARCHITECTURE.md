@@ -92,7 +92,7 @@ GET /api/filters?library_name={name}
 POST /api/game/preflight
   └── Validates asset pool eligibility against active filters (albums, date range, countries, cities, people)
   └── Evaluates fast indexed SQLite query (or sampling fallback) with identical query clauses
-  └── Enforces people matching mode (OR / AND)
+  └── Enforces people matching mode (ANY / ALL)
   └── Confirms eligible photo count >= requested round count
 
 POST /api/game/setup

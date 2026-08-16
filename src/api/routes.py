@@ -9,18 +9,17 @@ from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     AnswerRequest,
     AnswerResponse,
-    CityOption,
-    DateRangeOption,
+    GameMode,
     GameSetupRequest,
     GameSetupResponse,
     LeaderboardEntry,
     LibraryFiltersResponse,
     MatchSummaryResponse,
-    PersonOption,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
     QuestionResponse,
+    RoundLength,
     RoundResultRequest,
     RoundResultResponse,
 )
@@ -96,8 +95,8 @@ async def ui_config(request: Request) -> dict[str, object]:
 @router.get('/libraries')
 async def libraries(request: Request, immich: ImmichClient = Depends(get_immich_client)) -> dict[str, object]:
     names = immich.list_libraries()
-    available = getattr(request.app.state, 'available_libraries', None)
-    unavailable = getattr(request.app.state, 'unavailable_libraries', {})
+    available = request.app.state.available_libraries
+    unavailable = request.app.state.unavailable_libraries
     return {
         'libraries': names if available is None else available,
         'unavailable': unavailable,
@@ -107,24 +106,15 @@ async def libraries(request: Request, immich: ImmichClient = Depends(get_immich_
 @router.get('/albums')
 async def albums(
     library_name: str,
-    immich: ImmichClient = Depends(get_immich_client),
     metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> dict[str, list[dict[str, str]]]:
-    if metadata_store.has_synced_assets(library_name):
-        return {'albums': metadata_store.get_albums(library_name, include_shared=True)}
-
-    try:
-        result = await immich.list_albums(library_name, include_shared=True)
-        return {'albums': result}
-    except ImmichClientError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {'albums': metadata_store.get_albums(library_name, include_shared=True)}
 
 
 @router.get('/filters', response_model=LibraryFiltersResponse)
 async def library_filters(
     library_name: str,
     request: Request,
-    immich: ImmichClient = Depends(get_immich_client),
     metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> LibraryFiltersResponse:
     settings: AppSettings = request.app.state.settings
@@ -134,65 +124,9 @@ async def library_filters(
     if cached is not None:
         return cached
 
-    # 1. Use fast indexed SQLite metadata store when populated
-    if metadata_store.has_synced_assets(library_name):
-        response = metadata_store.get_filter_options(library_name, settings)
-        _filters_cache[library_name] = response
-        return response
-
-    # 2. Fallback to Immich API on cold start or when metadata store has no indexed assets
-    try:
-        people_raw = await immich.list_people(
-            library_name,
-            whitelist=settings.people_whitelist,
-            blacklist=settings.people_blacklist,
-        )
-        people = [PersonOption(id=p.id, name=p.name) for p in people_raw]
-
-        bounds = await immich.get_timeline_bounds(library_name)
-        min_d = bounds.min_date
-        if min_d and settings.date_lower_bound:
-            min_d = max(min_d, settings.date_lower_bound)
-        elif not min_d:
-            min_d = settings.date_lower_bound
-
-        max_d = bounds.max_date
-        if max_d and settings.date_upper_bound:
-            max_d = min(max_d, settings.date_upper_bound)
-        elif not max_d:
-            max_d = settings.date_upper_bound
-
-        date_range = DateRangeOption(
-            min_month=min_d.strftime('%Y-%m') if min_d else None,
-            max_month=max_d.strftime('%Y-%m') if max_d else None,
-        )
-
-        countries = await immich.list_countries(
-            library_name,
-            whitelist=settings.country_whitelist,
-            blacklist=settings.country_blacklist,
-        )
-        cities_raw = await immich.list_cities(
-            library_name,
-            whitelist=settings.city_whitelist,
-            blacklist=settings.city_blacklist,
-            country_whitelist=settings.country_whitelist,
-            country_blacklist=settings.country_blacklist,
-        )
-        cities = [CityOption(name=c.name, country=c.country) for c in cities_raw]
-
-        response = LibraryFiltersResponse(
-            date_range=date_range,
-            countries=countries,
-            cities=cities,
-            people=people,
-        )
-
-        _filters_cache[library_name] = response
-        return response
-
-    except ImmichClientError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    response = metadata_store.get_filter_options(library_name, settings)
+    _filters_cache[library_name] = response
+    return response
 
 
 @router.get('/sync/status')
@@ -217,10 +151,10 @@ async def trigger_sync(
 async def leaderboard(
     store: LeaderboardStore = Depends(get_leaderboard_store),
     rounds: int | None = Query(default=None),
-    round_length: str | None = Query(default=None),
+    round_length: RoundLength | None = Query(default=None),
     location_mode: bool | None = Query(default=None),
     date_mode: bool | None = Query(default=None),
-    game_mode: str | None = Query(default=None),
+    game_mode: GameMode | None = Query(default=None),
     library: str | None = Query(default=None),
     albums: str | None = Query(default=None),
     player_name: str | None = Query(default=None),
