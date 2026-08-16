@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS assets (
     longitude REAL,
     country TEXT,
     city TEXT,
-    capture_datetime TEXT
+    capture_datetime TEXT,
+    times_played INTEGER NOT NULL DEFAULT 0,
+    last_played_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_assets_lib_country ON assets(library_name, country);
@@ -99,6 +101,18 @@ class MetadataStore:
 
     def init_schema(self) -> None:
         self._db.execute_script(SCHEMA_SQL)
+        self._migrate_schema()
+
+    def _migrate_schema(self) -> None:
+        """Safely apply incremental migrations to existing metadata databases."""
+        with self._db.connection() as conn:
+            cursor = conn.execute('PRAGMA table_info(assets)')
+            existing_columns = {row['name'] for row in cursor.fetchall()}
+            if 'times_played' not in existing_columns:
+                conn.execute('ALTER TABLE assets ADD COLUMN times_played INTEGER NOT NULL DEFAULT 0')
+            if 'last_played_at' not in existing_columns:
+                conn.execute('ALTER TABLE assets ADD COLUMN last_played_at TEXT')
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_assets_lib_times_played ON assets(library_name, times_played)')
 
     def has_synced_assets(self, library_name: str) -> bool:
         count = self._db.fetch_val(
@@ -217,8 +231,9 @@ class MetadataStore:
                     """
                     INSERT INTO assets (
                         id, library_name, is_shared, is_partner, file_type,
-                        latitude, longitude, country, city, capture_datetime
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        latitude, longitude, country, city, capture_datetime,
+                        times_played, last_played_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
                     ON CONFLICT(id) DO UPDATE SET
                         library_name = excluded.library_name,
                         is_shared = excluded.is_shared,
@@ -289,6 +304,27 @@ class MetadataStore:
         """Delete or invalidate a missing/corrupt asset on-the-fly during gameplay."""
         with self._db.connection() as conn:
             conn.execute('DELETE FROM assets WHERE id = ?', (asset_id,))
+
+    def record_asset_played(self, asset_id: str, played_at: datetime | None = None) -> None:
+        """Increment play count and record timestamp for a played asset."""
+        self.record_assets_played([asset_id], played_at=played_at)
+
+    def record_assets_played(self, asset_ids: list[str], played_at: datetime | None = None) -> None:
+        """Increment play count and record timestamp for multiple played assets."""
+        if not asset_ids:
+            return
+        ts = (played_at or datetime.now()).isoformat()
+        with self._db.connection() as conn:
+            for aid in asset_ids:
+                conn.execute(
+                    """
+                    UPDATE assets
+                    SET times_played = times_played + 1,
+                        last_played_at = ?
+                    WHERE id = ?
+                    """,
+                    (ts, aid),
+                )
 
     def _build_filter_clauses(
         self,
@@ -458,7 +494,7 @@ class MetadataStore:
             SELECT a.id, a.latitude, a.longitude, a.capture_datetime, a.city, a.country
             FROM assets a
             WHERE {where_sql}
-            ORDER BY RANDOM()
+            ORDER BY a.times_played ASC, RANDOM()
             LIMIT ?
         """
         rows = self._db.fetch_all(sql, (*params, limit))

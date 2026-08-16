@@ -151,6 +151,8 @@ class PinpointEngine(BaseGameModeEngine):
             if selection is None:
                 raise HTTPException(status_code=404, detail='No eligible assets available')
             state.round_assets[round_index] = selection
+            if metadata_store is not None:
+                metadata_store.record_asset_played(selection.asset_id)
 
         return store.register_question(
             state.match_id,
@@ -316,6 +318,8 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             batch_selection, batch_pins = res
             state.batch_round_assets[round_index] = batch_selection
             state.batch_round_pins[round_index] = batch_pins
+            if metadata_store is not None:
+                metadata_store.record_assets_played([ra.asset_id for ra in batch_selection])
 
         return store.register_question(
             state.match_id,

@@ -761,3 +761,106 @@ def test_upsert_assets_batch_foreign_key_safety(db_mgr: DatabaseManager, meta_st
     album_links = db_mgr.fetch_all("SELECT * FROM asset_albums WHERE asset_id = 'asset-fk-1'")
     assert len(album_links) == 1
     assert album_links[0]['album_id'] == 'known-a1'
+
+
+def test_times_played_tracking_and_sync_preservation(meta_store: MetadataStore, db_mgr: DatabaseManager) -> None:
+    # 1. Insert assets
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            {'id': 'tp-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE'},
+            {'id': 'tp-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE'},
+        ],
+        [],
+        [],
+    )
+
+    # Verify initial defaults: times_played=0, last_played_at=None
+    row1 = db_mgr.fetch_one("SELECT times_played, last_played_at FROM assets WHERE id = 'tp-1'")
+    assert row1['times_played'] == 0
+    assert row1['last_played_at'] is None
+
+    # 2. Record asset play
+    meta_store.record_asset_played('tp-1')
+    row1_played = db_mgr.fetch_one("SELECT times_played, last_played_at FROM assets WHERE id = 'tp-1'")
+    assert row1_played['times_played'] == 1
+    assert row1_played['last_played_at'] is not None
+
+    # Record batch plays
+    meta_store.record_assets_played(['tp-1', 'tp-2'])
+    row1_second = db_mgr.fetch_one("SELECT times_played FROM assets WHERE id = 'tp-1'")
+    row2_first = db_mgr.fetch_one("SELECT times_played FROM assets WHERE id = 'tp-2'")
+    assert row1_second['times_played'] == 2
+    assert row2_first['times_played'] == 1
+
+    # 3. Re-running sync (upsert_assets_batch) MUST preserve times_played and last_played_at
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            {'id': 'tp-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'city': 'New City'},
+            {'id': 'tp-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'city': 'New City 2'},
+        ],
+        [],
+        [],
+    )
+
+    row1_synced = db_mgr.fetch_one("SELECT times_played, last_played_at, city FROM assets WHERE id = 'tp-1'")
+    assert row1_synced['times_played'] == 2
+    assert row1_synced['last_played_at'] is not None
+    assert row1_synced['city'] == 'New City'
+
+
+def test_fetch_candidate_assets_prioritizes_least_played(meta_store: MetadataStore) -> None:
+    # Insert 3 assets
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            {'id': 'fresh-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE'},
+            {'id': 'played-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE'},
+            {'id': 'played-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE'},
+        ],
+        [],
+        [],
+    )
+
+    # Mark played-1 and played-2 as played
+    meta_store.record_assets_played(['played-1', 'played-1', 'played-2'])
+
+    # Fetching candidates with limit 1 should prioritize fresh-1 (times_played = 0)
+    candidates = meta_store.fetch_candidate_assets(AssetFilterCriteria(library_name='family'), limit=1)
+    assert len(candidates) == 1
+    assert 'fresh-1' in candidates
+
+
+def test_metadata_schema_migration_adds_times_played_column(tmp_path: Path) -> None:
+    db_file = tmp_path / 'legacy_schema.db'
+    db = DatabaseManager(db_file)
+
+    # Create a legacy assets table missing times_played and last_played_at
+    with db.connection() as conn:
+        conn.execute(
+            """
+            CREATE TABLE assets (
+                id TEXT PRIMARY KEY,
+                library_name TEXT NOT NULL,
+                is_shared INTEGER NOT NULL DEFAULT 0,
+                is_partner INTEGER NOT NULL DEFAULT 0,
+                file_type TEXT NOT NULL DEFAULT 'IMAGE',
+                latitude REAL,
+                longitude REAL,
+                country TEXT,
+                city TEXT,
+                capture_datetime TEXT
+            );
+            """
+        )
+        conn.execute("INSERT INTO assets (id, library_name) VALUES ('legacy-1', 'family')")
+
+    # Initializing MetadataStore should run _migrate_schema seamlessly
+    store = MetadataStore(db)
+    cols = {row['name'] for row in db.fetch_all('PRAGMA table_info(assets)')}
+    assert 'times_played' in cols
+    assert 'last_played_at' in cols
+
+    row = db.fetch_one("SELECT times_played FROM assets WHERE id = 'legacy-1'")
+    assert row['times_played'] == 0

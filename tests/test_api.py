@@ -1113,3 +1113,49 @@ def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: 
     )
     assert res.status_code == 200
     assert res.json()['eligible_count'] == 3
+
+
+def test_question_endpoint_records_times_played(tmp_path: Path) -> None:
+    asset = make_asset('q-test-1', latitude=48.8584, longitude=2.2945, captured='2024-01-01T12:00:00Z')
+    immich = FakeImmichClient([asset])
+    client = build_client(tmp_path, immich)
+
+    # Populate metadata.db with this asset
+    meta_store: MetadataStore = client.app.state.metadata_store
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            {
+                'id': 'q-test-1',
+                'is_shared': 0,
+                'is_partner': 0,
+                'file_type': 'IMAGE',
+                'latitude': 48.8584,
+                'longitude': 2.2945,
+                'capture_datetime': '2024-01-01T12:00:00',
+            }
+        ],
+        [],
+        [],
+    )
+
+    # Setup match
+    payload = setup_payload(players=['Player 1'], round_count=5, library_name='family')
+    setup_res = client.post('/api/game/setup', json=payload)
+    assert setup_res.status_code == 200
+    match_id = setup_res.json()['match_id']
+
+    # Initial play count is 0
+    row_before = meta_store._db.fetch_one("SELECT times_played FROM assets WHERE id = 'q-test-1'")
+    assert row_before['times_played'] == 0
+
+    # Fetch question for round 1
+    q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    assert q_res.status_code == 200
+    assert q_res.json()['asset_id'] == 'q-test-1'
+
+    # Verify play count is incremented to 1
+    row_after = meta_store._db.fetch_one("SELECT times_played, last_played_at FROM assets WHERE id = 'q-test-1'")
+    assert row_after['times_played'] == 1
+    assert row_after['last_played_at'] is not None
+
