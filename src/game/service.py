@@ -72,9 +72,9 @@ class GameService:
         immich: ImmichClient,
         metadata_store: MetadataStore | None = None,
     ) -> PreflightResponse:
-        # Determine effective date bounds (intersection of env bounds and GUI setup bounds)
-        effective_min_date = max(filter(None, [settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
-        effective_max_date = min(filter(None, [settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
+        criteria = AssetFilterCriteria.from_setup(setup, settings)
+        effective_min_date = criteria.min_date
+        effective_max_date = criteria.max_date
 
         total_count: int | None = None
         gps_count: int | None = None
@@ -82,20 +82,6 @@ class GameService:
 
         # 1. Fast indexed SQLite query if metadata store is populated for this library
         if metadata_store is not None and metadata_store.has_synced_assets(setup.library_name):
-            criteria = AssetFilterCriteria(
-                library_name=setup.library_name,
-                location_mode=setup.location_mode,
-                date_mode=setup.date_mode,
-                min_date=effective_min_date,
-                max_date=effective_max_date,
-                countries=tuple(setup.countries),
-                cities=tuple(setup.cities),
-                person_ids=tuple(setup.person_ids),
-                people_mode=setup.people_mode,
-                album_ids=tuple(setup.album_ids),
-                include_shared_albums=setup.include_shared_albums,
-                include_partner_assets=setup.include_partner_assets,
-            )
             counts = metadata_store.get_asset_counts(criteria)
             eligible_count = counts['eligible_count']
             total_count = counts['total_count']
@@ -146,6 +132,14 @@ class GameService:
                                 max_date=effective_max_date,
                                 countries=tuple(setup.countries),
                                 cities=tuple(setup.cities),
+                                person_ids=tuple(setup.person_ids),
+                                people_mode=setup.people_mode,
+                                country_whitelist=criteria.country_whitelist,
+                                country_blacklist=criteria.country_blacklist,
+                                city_whitelist=criteria.city_whitelist,
+                                city_blacklist=criteria.city_blacklist,
+                                people_whitelist=criteria.people_whitelist,
+                                people_blacklist=criteria.people_blacklist,
                             )
                             has_date = ImmichClient.is_eligible_asset(
                                 asset,
@@ -155,6 +149,14 @@ class GameService:
                                 max_date=effective_max_date,
                                 countries=tuple(setup.countries),
                                 cities=tuple(setup.cities),
+                                person_ids=tuple(setup.person_ids),
+                                people_mode=setup.people_mode,
+                                country_whitelist=criteria.country_whitelist,
+                                country_blacklist=criteria.country_blacklist,
+                                city_whitelist=criteria.city_whitelist,
+                                city_blacklist=criteria.city_blacklist,
+                                people_whitelist=criteria.people_whitelist,
+                                people_blacklist=criteria.people_blacklist,
                             )
                             if has_gps:
                                 sample_gps_count += 1
@@ -216,6 +218,11 @@ class GameService:
         immich: ImmichClient,
         metadata_store: MetadataStore | None = None,
     ) -> GameSetupResponse:
+        if settings.fetch_photos_date_lower_bound:
+            setup.min_date = max(filter(None, [settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
+        if settings.fetch_photos_date_upper_bound:
+            setup.max_date = min(filter(None, [settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
+
         setup.album_name = await self.resolve_album_name(
             immich,
             setup.library_name,
@@ -229,9 +236,8 @@ class GameService:
                 await load_asset_pool(
                     state,
                     immich,
-                    min_capture_date=settings.fetch_photos_date_lower_bound,
-                    max_capture_date=settings.fetch_photos_date_upper_bound,
                     metadata_store=metadata_store,
+                    settings=settings,
                 )
                 map_bounds = calculate_match_bounds(state.asset_pool)
             except Exception as exc:

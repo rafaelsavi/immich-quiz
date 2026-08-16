@@ -197,6 +197,12 @@ def build_client(
     location_score_decay_km: float = 500.0,
     date_score_decay_days: float = 500.0,
     language: str = 'EN',
+    country_whitelist: frozenset[str] = frozenset(),
+    country_blacklist: frozenset[str] = frozenset(),
+    city_whitelist: frozenset[str] = frozenset(),
+    city_blacklist: frozenset[str] = frozenset(),
+    people_whitelist: frozenset[str] = frozenset(),
+    people_blacklist: frozenset[str] = frozenset(),
 ) -> TestClient:
     settings = AppSettings(
         immich_server_url='https://placeholder.example.com/api',
@@ -213,6 +219,12 @@ def build_client(
         language=language,
         data_path=tmp_path,
         auto_sync_on_startup=False,
+        country_whitelist=country_whitelist,
+        country_blacklist=country_blacklist,
+        city_whitelist=city_whitelist,
+        city_blacklist=city_blacklist,
+        people_whitelist=people_whitelist,
+        people_blacklist=people_blacklist,
     )
     app = create_app(settings=settings)
     app.state.immich_client = immich

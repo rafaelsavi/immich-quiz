@@ -142,6 +142,7 @@ class PinpointEngine(BaseGameModeEngine):
                     settings.fetch_photos_date_lower_bound,
                     settings.fetch_photos_date_upper_bound,
                     metadata_store=metadata_store,
+                    settings=settings,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -305,6 +306,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     settings.fetch_photos_date_lower_bound,
                     settings.fetch_photos_date_upper_bound,
                     metadata_store=metadata_store,
+                    settings=settings,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc

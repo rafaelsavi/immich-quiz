@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import random
 from datetime import date
+from typing import Any
 
 from src.immich.client import AssetAnswer, ImmichClient, SearchQuery
 from src.models import MapBounds
@@ -99,6 +100,7 @@ async def load_asset_pool(
     min_capture_date: date | None = None,
     max_capture_date: date | None = None,
     metadata_store: MetadataStore | None = None,
+    settings: Any | None = None,
 ) -> None:
     """Populate the per-match candidate pool once with active filter criteria.
 
@@ -115,27 +117,44 @@ async def load_asset_pool(
         min_capture_date: Global server minimum capture date boundary, if configured.
         max_capture_date: Global server maximum capture date boundary, if configured.
         metadata_store: Optional local SQLite metadata store for fast indexed querying.
+        settings: Optional application settings for global whitelist/blacklist enforcement.
 
     """
-    effective_min_date = max(filter(None, [min_capture_date, state.setup.min_date]), default=None)
-    effective_max_date = min(filter(None, [max_capture_date, state.setup.max_date]), default=None)
+    criteria = AssetFilterCriteria.from_setup(state.setup, settings)
+
+    effective_min_date = max(
+        filter(None, [criteria.min_date, min_capture_date]),
+        default=None,
+    )
+    effective_max_date = min(
+        filter(None, [criteria.max_date, max_capture_date]),
+        default=None,
+    )
+
+    if effective_min_date != criteria.min_date or effective_max_date != criteria.max_date:
+        criteria = AssetFilterCriteria(
+            library_name=criteria.library_name,
+            location_mode=criteria.location_mode,
+            date_mode=criteria.date_mode,
+            min_date=effective_min_date,
+            max_date=effective_max_date,
+            countries=criteria.countries,
+            cities=criteria.cities,
+            person_ids=criteria.person_ids,
+            people_mode=criteria.people_mode,
+            album_ids=criteria.album_ids,
+            include_shared_albums=criteria.include_shared_albums,
+            include_partner_assets=criteria.include_partner_assets,
+            country_whitelist=criteria.country_whitelist,
+            country_blacklist=criteria.country_blacklist,
+            city_whitelist=criteria.city_whitelist,
+            city_blacklist=criteria.city_blacklist,
+            people_whitelist=criteria.people_whitelist,
+            people_blacklist=criteria.people_blacklist,
+        )
 
     # Use fast indexed SQLite metadata store when available
     if metadata_store is not None and metadata_store.has_synced_assets(state.setup.library_name):
-        criteria = AssetFilterCriteria(
-            library_name=state.setup.library_name,
-            location_mode=state.setup.location_mode,
-            date_mode=state.setup.date_mode,
-            min_date=effective_min_date,
-            max_date=effective_max_date,
-            countries=tuple(state.setup.countries),
-            cities=tuple(state.setup.cities),
-            person_ids=tuple(state.setup.person_ids),
-            people_mode=state.setup.people_mode,
-            album_ids=tuple(state.setup.album_ids),
-            include_shared_albums=state.setup.include_shared_albums,
-            include_partner_assets=state.setup.include_partner_assets,
-        )
         state.asset_pool = metadata_store.fetch_candidate_assets(criteria, limit=250)
         return
 
@@ -166,6 +185,14 @@ async def load_asset_pool(
             max_date=effective_max_date,
             countries=tuple(state.setup.countries),
             cities=tuple(state.setup.cities),
+            person_ids=tuple(state.setup.person_ids),
+            people_mode=state.setup.people_mode,
+            country_whitelist=criteria.country_whitelist,
+            country_blacklist=criteria.country_blacklist,
+            city_whitelist=criteria.city_whitelist,
+            city_blacklist=criteria.city_blacklist,
+            people_whitelist=criteria.people_whitelist,
+            people_blacklist=criteria.people_blacklist,
         ):
             continue
         asset_id = str(asset.get('id', '')).strip()
@@ -334,6 +361,7 @@ async def _select_diverse_assets(
     min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
     min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
     metadata_store: MetadataStore | None = None,
+    settings: Any | None = None,
 ) -> list[RoundAsset] | None:
     """Core candidate selection routine: draws up to `count` unplayed, diverse assets with fallback.
 
@@ -356,6 +384,7 @@ async def _select_diverse_assets(
         min_dist_km: Minimum distance threshold in kilometers. Defaults to 0.1 km.
         min_time_sec: Minimum temporal threshold in seconds. Defaults to 60.0 seconds.
         metadata_store: Optional local SQLite metadata store.
+        settings: Optional application settings for global whitelist/blacklist enforcement.
 
     Returns:
         List of `RoundAsset` instances of length `count`, or `None` if fewer than `count`
@@ -371,6 +400,7 @@ async def _select_diverse_assets(
             min_capture_date,
             max_capture_date,
             metadata_store=metadata_store,
+            settings=settings,
         )
     candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
@@ -381,6 +411,7 @@ async def _select_diverse_assets(
             min_capture_date,
             max_capture_date,
             metadata_store=metadata_store,
+            settings=settings,
         )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
@@ -439,6 +470,7 @@ async def select_round_asset(
     min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
     min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
     metadata_store: MetadataStore | None = None,
+    settings: Any | None = None,
 ) -> RoundAsset | None:
     """Draw an unplayed asset, prioritizing diverse assets but falling back to any unplayed candidate.
 
@@ -453,6 +485,7 @@ async def select_round_asset(
         min_dist_km: Minimum distance separation in km. Defaults to 0.1 km.
         min_time_sec: Minimum time separation in seconds. Defaults to 60.0 seconds.
         metadata_store: Optional local SQLite metadata store.
+        settings: Optional application settings.
 
     Returns:
         A `RoundAsset` containing the selected asset ID and answer metadata, or `None` if no
@@ -469,6 +502,7 @@ async def select_round_asset(
         min_dist_km=min_dist_km,
         min_time_sec=min_time_sec,
         metadata_store=metadata_store,
+        settings=settings,
     )
     return assets[0] if assets else None
 
@@ -483,6 +517,7 @@ async def select_batch_round_assets(
     min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
     min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
     metadata_store: MetadataStore | None = None,
+    settings: Any | None = None,
 ) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
     """Select a batch of diverse round assets and generate randomized map pins.
 
@@ -500,6 +535,7 @@ async def select_batch_round_assets(
         min_dist_km: Minimum distance threshold in kilometers. Defaults to 0.1 km.
         min_time_sec: Minimum temporal threshold in seconds. Defaults to 60.0 seconds.
         metadata_store: Optional local SQLite metadata store.
+        settings: Optional application settings.
 
     Returns:
         A tuple of `(selected_assets, pins_data)` where `selected_assets` is a list of `RoundAsset`
@@ -517,6 +553,7 @@ async def select_batch_round_assets(
         min_dist_km=min_dist_km,
         min_time_sec=min_time_sec,
         metadata_store=metadata_store,
+        settings=settings,
     )
     if not assets:
         return None

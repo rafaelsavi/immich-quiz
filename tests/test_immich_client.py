@@ -1319,3 +1319,128 @@ async def test_get_asset_count_error_returns_none() -> None:
     count = await client.get_asset_count('family')
     await client.aclose()
     assert count is None
+
+
+def test_is_eligible_asset_config_whitelists_and_blacklists() -> None:
+    asset_brazil = {
+        'id': 'a-1',
+        'type': 'IMAGE',
+        'fileCreatedAt': '2023-01-01T12:00:00Z',
+        'exifInfo': {'latitude': -22.9, 'longitude': -43.1, 'country': 'Brazil', 'city': 'Rio de Janeiro'},
+        'people': [{'id': 'p-1', 'name': 'Alice'}],
+    }
+    asset_germany = {
+        'id': 'a-2',
+        'type': 'IMAGE',
+        'fileCreatedAt': '2023-02-01T12:00:00Z',
+        'exifInfo': {'latitude': 52.5, 'longitude': 13.4, 'country': 'Germany', 'city': 'Berlin'},
+        'people': [{'id': 'p-2', 'name': 'Charlie'}],
+    }
+    asset_landscape = {
+        'id': 'a-3',
+        'type': 'IMAGE',
+        'fileCreatedAt': '2023-03-01T12:00:00Z',
+        'exifInfo': {'latitude': 35.6, 'longitude': 139.6, 'country': 'Japan', 'city': 'Tokyo'},
+        'people': [],
+    }
+
+    # Base checks: all eligible when no whitelists/blacklists active
+    assert ImmichClient.is_eligible_asset(asset_brazil, location_mode=True, date_mode=True) is True
+    assert ImmichClient.is_eligible_asset(asset_germany, location_mode=True, date_mode=True) is True
+    assert ImmichClient.is_eligible_asset(asset_landscape, location_mode=True, date_mode=True) is True
+
+    # Country blacklist
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            country_blacklist=frozenset({'germany'}),
+        )
+        is False
+    )
+
+    # City blacklist
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            city_blacklist=frozenset({'berlin'}),
+        )
+        is False
+    )
+
+    # People blacklist by name
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            people_blacklist=frozenset({'charlie'}),
+        )
+        is False
+    )
+
+    # People blacklist by ID
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            people_blacklist=frozenset({'p-2'}),
+        )
+        is False
+    )
+
+    # Country whitelist (only Japan)
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_brazil,
+            location_mode=True,
+            date_mode=True,
+            country_whitelist=frozenset({'japan'}),
+        )
+        is False
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_landscape,
+            location_mode=True,
+            date_mode=True,
+            country_whitelist=frozenset({'japan'}),
+        )
+        is True
+    )
+
+    # People whitelist (only Alice)
+    # asset_brazil (Alice) -> True
+    # asset_germany (Charlie) -> False
+    # asset_landscape (no people) -> True
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_brazil,
+            location_mode=True,
+            date_mode=True,
+            people_whitelist=frozenset({'alice'}),
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            people_whitelist=frozenset({'alice'}),
+        )
+        is False
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_landscape,
+            location_mode=True,
+            date_mode=True,
+            people_whitelist=frozenset({'alice'}),
+        )
+        is True
+    )

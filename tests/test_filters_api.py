@@ -536,3 +536,48 @@ def test_preflight_allows_empty_players_while_setup_requires_players(tmp_path: P
         },
     )
     assert res_setup_blank.status_code == 422
+
+
+def test_preflight_and_setup_enforce_whitelists_and_blacklists(tmp_path: Path) -> None:
+    asset_brazil = make_filter_asset('a1', country='Brazil', city='Rio', people_ids=['p1'])
+    asset_germany = make_filter_asset('a2', country='Germany', city='Berlin', people_ids=['p2'])
+    asset_japan = make_filter_asset('a3', country='Japan', city='Tokyo', people_ids=[])
+
+    immich = FakeImmichClient(assets=[asset_brazil, asset_germany, asset_japan])
+
+    # Build client with country_blacklist and people_blacklist configured
+    client = build_client(
+        tmp_path,
+        immich,
+        country_blacklist=frozenset({'germany'}),
+        people_blacklist=frozenset({'p2', 'person p2'}),
+    )
+
+    # 1. Preflight with empty filters -> Germany (a2) is excluded by blacklist, leaving 2 eligible
+    res_preflight = client.post(
+        '/api/game/preflight',
+        json={
+            'library_name': 'family',
+            'countries': [],
+            'cities': [],
+            'person_ids': [],
+            'round_count': 5,
+        },
+    )
+    assert res_preflight.status_code == 200
+    data = res_preflight.json()
+    assert data['eligible_count'] == 2
+
+    # 2. Setup game with empty filters
+    res_setup = client.post(
+        '/api/game/setup',
+        json={
+            'library_name': 'family',
+            'players': ['Alice'],
+            'countries': [],
+            'cities': [],
+            'person_ids': [],
+            'round_count': 5,
+        },
+    )
+    assert res_setup.status_code == 200

@@ -854,6 +854,12 @@ class ImmichClient:
         cities: tuple[str, ...] = (),
         person_ids: tuple[str, ...] = (),
         people_mode: str = 'OR',
+        country_whitelist: frozenset[str] = frozenset(),
+        country_blacklist: frozenset[str] = frozenset(),
+        city_whitelist: frozenset[str] = frozenset(),
+        city_blacklist: frozenset[str] = frozenset(),
+        people_whitelist: frozenset[str] = frozenset(),
+        people_blacklist: frozenset[str] = frozenset(),
     ) -> bool:
         # 1. Reject videos
         if asset.get('type') == 'VIDEO':
@@ -888,25 +894,80 @@ class ImmichClient:
             if max_date is not None and c_date > max_date:
                 return False
 
-        # 4. Country check (if countries filter specified)
-        if countries:
-            asset_country = (exif.get('country') or '').strip().lower()
-            if not asset_country or asset_country not in {c.lower() for c in countries}:
-                return False
+        # Extract asset metadata for config safeguards
+        asset_country = (exif.get('country') or '').strip().lower()
+        asset_city = (exif.get('city') or '').strip().lower()
 
-        # 5. City check (if cities filter specified)
+        asset_people = asset.get('people') or asset.get('faces') or []
+        asset_person_ids = {
+            str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')
+        }
+        asset_person_names = {
+            str(p.get('name', '')).strip().lower() for p in asset_people if isinstance(p, dict) and p.get('name')
+        }
+
+        # -------------------------------------------------------------------
+        # LAYER 1: Hard Server Configuration Safeguards (Always Enforced)
+        # -------------------------------------------------------------------
+
+        # Country blacklist
+        if country_blacklist and asset_country and asset_country in {c.lower() for c in country_blacklist}:
+            return False
+
+        # City blacklist
+        if city_blacklist and asset_city and asset_city in {c.lower() for c in city_blacklist}:
+            return False
+
+        # People blacklist (by name or by ID)
+        if people_blacklist:
+            for bl_item in people_blacklist:
+                bl_lower = bl_item.lower()
+                if bl_lower in asset_person_names or bl_item in asset_person_ids:
+                    return False
+
+        # Country whitelist baseline (when user didn't specify countries)
+        if (
+            country_whitelist
+            and not countries
+            and (not asset_country or asset_country not in {c.lower() for c in country_whitelist})
+        ):
+            return False
+
+        # City whitelist baseline (when user didn't specify cities)
+        if (
+            city_whitelist
+            and not cities
+            and (not asset_city or asset_city not in {c.lower() for c in city_whitelist})
+        ):
+            return False
+
+        # People whitelist baseline (when user didn't specify person_ids)
+        # Excludes photos containing non-whitelisted recognized people, while allowing photos with no tagged people
+        if people_whitelist and not person_ids:
+            wl_lower = {w.lower() for w in people_whitelist}
+            for p_name in asset_person_names:
+                if p_name and p_name not in wl_lower:
+                    return False
+            for pid in asset_person_ids:
+                if pid and pid not in people_whitelist and not any(p_name in wl_lower for p_name in asset_person_names):
+                    return False
+
+        # -------------------------------------------------------------------
+        # LAYER 2: User Match Setup Rules (Applied on top)
+        # -------------------------------------------------------------------
+
+        # User Country check (if countries filter specified)
+        if countries and (not asset_country or asset_country not in {c.lower() for c in countries}):
+            return False
+
+        # User City check (if cities filter specified)
         if cities:
-            asset_city = (exif.get('city') or '').strip().lower()
             allowed_cities = {c.lower() for c in cities}
             if asset_city not in allowed_cities:
                 return False
 
-        # 6. Person check (if person_ids filter specified)
+        # User Person check (if person_ids filter specified)
         if person_ids:
-            asset_people = asset.get('people') or asset.get('faces') or []
-            asset_person_ids = {
-                str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')
-            }
             target_person_ids = set(person_ids)
             if people_mode.upper() == 'AND':
                 # 'AND' mode: All selected people must be present in this photo

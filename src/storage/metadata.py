@@ -90,6 +90,45 @@ class AssetFilterCriteria:
     album_ids: tuple[str, ...] = ()
     include_shared_albums: bool = False
     include_partner_assets: bool = False
+    # Layer 1 Config Safeguards
+    country_whitelist: frozenset[str] = frozenset()
+    country_blacklist: frozenset[str] = frozenset()
+    city_whitelist: frozenset[str] = frozenset()
+    city_blacklist: frozenset[str] = frozenset()
+    people_whitelist: frozenset[str] = frozenset()
+    people_blacklist: frozenset[str] = frozenset()
+
+    @classmethod
+    def from_setup(cls, setup: Any, settings: AppSettings | None = None) -> AssetFilterCriteria:
+        """Create unified filter criteria combining user setup and global settings."""
+        eff_min = getattr(setup, 'min_date', None)
+        eff_max = getattr(setup, 'max_date', None)
+        if settings is not None:
+            if settings.fetch_photos_date_lower_bound:
+                eff_min = max(filter(None, [settings.fetch_photos_date_lower_bound, eff_min]), default=None)
+            if settings.fetch_photos_date_upper_bound:
+                eff_max = min(filter(None, [settings.fetch_photos_date_upper_bound, eff_max]), default=None)
+
+        return cls(
+            library_name=setup.library_name,
+            location_mode=bool(getattr(setup, 'location_mode', True)),
+            date_mode=bool(getattr(setup, 'date_mode', True)),
+            min_date=eff_min,
+            max_date=eff_max,
+            countries=tuple(setup.countries) if getattr(setup, 'countries', None) else (),
+            cities=tuple(setup.cities) if getattr(setup, 'cities', None) else (),
+            person_ids=tuple(setup.person_ids) if getattr(setup, 'person_ids', None) else (),
+            people_mode=getattr(setup, 'people_mode', 'OR'),
+            album_ids=tuple(setup.album_ids) if getattr(setup, 'album_ids', None) else (),
+            include_shared_albums=bool(getattr(setup, 'include_shared_albums', False)),
+            include_partner_assets=bool(getattr(setup, 'include_partner_assets', False)),
+            country_whitelist=settings.country_whitelist if settings else frozenset(),
+            country_blacklist=settings.country_blacklist if settings else frozenset(),
+            city_whitelist=settings.city_whitelist if settings else frozenset(),
+            city_blacklist=settings.city_blacklist if settings else frozenset(),
+            people_whitelist=settings.people_whitelist if settings else frozenset(),
+            people_blacklist=settings.people_blacklist if settings else frozenset(),
+        )
 
 
 class MetadataStore:
@@ -336,6 +375,10 @@ class MetadataStore:
         clauses: list[str] = ['a.library_name = ?', "a.file_type != 'VIDEO'"]
         params: list[Any] = [criteria.library_name]
 
+        # -------------------------------------------------------------------
+        # LAYER 1: Hard Server Configuration Safeguards (Always Enforced)
+        # -------------------------------------------------------------------
+
         # 1. Location mode: non-zero lat/lon
         if criteria.location_mode and not ignore_location_mode:
             clauses.append(
@@ -356,7 +399,66 @@ class MetadataStore:
             clauses.append('a.capture_datetime <= ?')
             params.append(f'{criteria.max_date.isoformat()}T23:59:59.999')
 
-        # 4. Ownership flags
+        # 4. Country blacklist (exclude matching countries)
+        if criteria.country_blacklist:
+            placeholders = ', '.join('?' for _ in criteria.country_blacklist)
+            clauses.append(f'(a.country IS NULL OR LOWER(a.country) NOT IN ({placeholders}))')
+            params.extend(c.lower() for c in criteria.country_blacklist)
+
+        # 5. City blacklist (exclude matching cities)
+        if criteria.city_blacklist:
+            placeholders = ', '.join('?' for _ in criteria.city_blacklist)
+            clauses.append(f'(a.city IS NULL OR LOWER(a.city) NOT IN ({placeholders}))')
+            params.extend(c.lower() for c in criteria.city_blacklist)
+
+        # 6. People blacklist (exclude matching people by name or ID)
+        if criteria.people_blacklist:
+            name_placeholders = ', '.join('?' for _ in criteria.people_blacklist)
+            id_placeholders = ', '.join('?' for _ in criteria.people_blacklist)
+            clauses.append(
+                f"""a.id NOT IN (
+                    SELECT ap.asset_id
+                    FROM asset_people ap
+                    JOIN people p ON ap.person_id = p.id
+                    WHERE LOWER(p.name) IN ({name_placeholders}) OR ap.person_id IN ({id_placeholders})
+                )"""
+            )
+            params.extend(p.lower() for p in criteria.people_blacklist)
+            params.extend(p for p in criteria.people_blacklist)
+
+        # 7. Country whitelist baseline (if active and user didn't specify countries)
+        if criteria.country_whitelist and not criteria.countries:
+            placeholders = ', '.join('?' for _ in criteria.country_whitelist)
+            clauses.append(f'(a.country IS NOT NULL AND LOWER(a.country) IN ({placeholders}))')
+            params.extend(c.lower() for c in criteria.country_whitelist)
+
+        # 8. City whitelist baseline (if active and user didn't specify cities)
+        if criteria.city_whitelist and not criteria.cities:
+            placeholders = ', '.join('?' for _ in criteria.city_whitelist)
+            clauses.append(f'(a.city IS NOT NULL AND LOWER(a.city) IN ({placeholders}))')
+            params.extend(c.lower() for c in criteria.city_whitelist)
+
+        # 9. People whitelist baseline (if active and user didn't specify people)
+        # Excludes photos containing non-whitelisted recognized people, while allowing photos with no tagged people
+        if criteria.people_whitelist and not criteria.person_ids:
+            name_placeholders = ', '.join('?' for _ in criteria.people_whitelist)
+            id_placeholders = ', '.join('?' for _ in criteria.people_whitelist)
+            clauses.append(
+                f"""a.id NOT IN (
+                    SELECT ap.asset_id
+                    FROM asset_people ap
+                    JOIN people p ON ap.person_id = p.id
+                    WHERE LOWER(p.name) NOT IN ({name_placeholders}) AND ap.person_id NOT IN ({id_placeholders})
+                )"""
+            )
+            params.extend(p.lower() for p in criteria.people_whitelist)
+            params.extend(p for p in criteria.people_whitelist)
+
+        # -------------------------------------------------------------------
+        # LAYER 2: User Match Setup Rules (Applied on top)
+        # -------------------------------------------------------------------
+
+        # 10. Ownership flags
         has_selected_albums = bool(criteria.album_ids)
         if not has_selected_albums:
             if not criteria.include_shared_albums and not criteria.include_partner_assets:
@@ -376,19 +478,19 @@ class MetadataStore:
             elif not criteria.include_partner_assets:
                 clauses.append('a.is_partner = 0')
 
-        # 5. Countries filter (case-insensitive)
+        # 11. User countries filter (case-insensitive)
         if criteria.countries:
             placeholders = ', '.join('?' for _ in criteria.countries)
             clauses.append(f'LOWER(a.country) IN ({placeholders})')
             params.extend(c.lower() for c in criteria.countries)
 
-        # 6. Cities filter (case-insensitive)
+        # 12. User cities filter (case-insensitive)
         if criteria.cities:
             city_placeholders = ', '.join('?' for _ in criteria.cities)
             clauses.append(f'LOWER(a.city) IN ({city_placeholders})')
             params.extend(c.lower() for c in criteria.cities)
 
-        # 7. People filter (OR union vs AND intersection)
+        # 13. User people filter (OR union vs AND intersection)
         if criteria.person_ids:
             if criteria.people_mode.upper() == 'AND' and len(criteria.person_ids) > 1:
                 placeholders = ', '.join('?' for _ in criteria.person_ids)
@@ -414,7 +516,7 @@ class MetadataStore:
                 )
                 params.extend(criteria.person_ids)
 
-        # 8. Albums filter (OR union)
+        # 14. User albums filter (OR union)
         if criteria.album_ids:
             placeholders = ', '.join('?' for _ in criteria.album_ids)
             clauses.append(

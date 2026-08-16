@@ -814,3 +814,166 @@ def test_metadata_schema_migration_adds_times_played_column(tmp_path: Path) -> N
 
     row = db.fetch_one("SELECT times_played FROM assets WHERE id = 'legacy-1'")
     assert row['times_played'] == 0
+
+
+def test_whitelist_and_blacklist_enforcement_in_metadata_store(meta_store: MetadataStore) -> None:
+    # Seed people
+    meta_store.upsert_people(
+        'family',
+        [
+            {'id': 'p-alice', 'name': 'Alice'},
+            {'id': 'p-bob', 'name': 'Bob'},
+            {'id': 'p-charlie', 'name': 'Charlie'},
+        ],
+    )
+
+    # Seed assets with varying countries, cities, and people
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            # Asset 1: Brazil, Rio, Alice
+            {
+                'id': 'a1',
+                'is_shared': 0,
+                'is_partner': 0,
+                'file_type': 'IMAGE',
+                'country': 'Brazil',
+                'city': 'Rio',
+                'latitude': -22.9,
+                'longitude': -43.1,
+                'capture_datetime': '2023-01-01T10:00:00',
+            },
+            # Asset 2: Germany, Berlin, Charlie
+            {
+                'id': 'a2',
+                'is_shared': 0,
+                'is_partner': 0,
+                'file_type': 'IMAGE',
+                'country': 'Germany',
+                'city': 'Berlin',
+                'latitude': 52.5,
+                'longitude': 13.4,
+                'capture_datetime': '2023-02-01T10:00:00',
+            },
+            # Asset 3: Japan, Tokyo, Bob
+            {
+                'id': 'a3',
+                'is_shared': 0,
+                'is_partner': 0,
+                'file_type': 'IMAGE',
+                'country': 'Japan',
+                'city': 'Tokyo',
+                'latitude': 35.6,
+                'longitude': 139.6,
+                'capture_datetime': '2023-03-01T10:00:00',
+            },
+            # Asset 4: Japan, Kyoto, No tagged people (landscape)
+            {
+                'id': 'a4',
+                'is_shared': 0,
+                'is_partner': 0,
+                'file_type': 'IMAGE',
+                'country': 'Japan',
+                'city': 'Kyoto',
+                'latitude': 35.0,
+                'longitude': 135.7,
+                'capture_datetime': '2023-04-01T10:00:00',
+            },
+        ],
+        [
+            ('a1', 'p-alice'),
+            ('a2', 'p-charlie'),
+            ('a3', 'p-bob'),
+        ],
+        [],
+    )
+
+    # 1. Unfiltered query with no blacklists/whitelists -> all 4 assets
+    c_base = AssetFilterCriteria(library_name='family')
+    assert meta_store.count_eligible_assets(c_base) == 4
+
+    # 2. Country Blacklist: Germany excluded -> a1, a3, a4 (3 assets)
+    c_country_bl = AssetFilterCriteria(library_name='family', country_blacklist=frozenset({'germany'}))
+    assert meta_store.count_eligible_assets(c_country_bl) == 3
+    assert 'a2' not in meta_store.fetch_candidate_assets(c_country_bl)
+
+    # 3. City Blacklist: Berlin excluded -> a1, a3, a4 (3 assets)
+    c_city_bl = AssetFilterCriteria(library_name='family', city_blacklist=frozenset({'berlin'}))
+    assert meta_store.count_eligible_assets(c_city_bl) == 3
+    assert 'a2' not in meta_store.fetch_candidate_assets(c_city_bl)
+
+    # 4. People Blacklist by Name: "Charlie" excluded -> a1, a3, a4 (3 assets)
+    c_people_bl_name = AssetFilterCriteria(library_name='family', people_blacklist=frozenset({'charlie'}))
+    assert meta_store.count_eligible_assets(c_people_bl_name) == 3
+    assert 'a2' not in meta_store.fetch_candidate_assets(c_people_bl_name)
+
+    # 5. People Blacklist by ID: "p-charlie" excluded -> a1, a3, a4 (3 assets)
+    c_people_bl_id = AssetFilterCriteria(library_name='family', people_blacklist=frozenset({'p-charlie'}))
+    assert meta_store.count_eligible_assets(c_people_bl_id) == 3
+    assert 'a2' not in meta_store.fetch_candidate_assets(c_people_bl_id)
+
+    # 6. Country Whitelist: only Japan -> a3, a4 (2 assets)
+    c_country_wl = AssetFilterCriteria(library_name='family', country_whitelist=frozenset({'japan'}))
+    assert meta_store.count_eligible_assets(c_country_wl) == 2
+    candidates_wl = meta_store.fetch_candidate_assets(c_country_wl)
+    assert set(candidates_wl.keys()) == {'a3', 'a4'}
+
+    # 7. City Whitelist: only Rio -> a1 (1 asset)
+    c_city_wl = AssetFilterCriteria(library_name='family', city_whitelist=frozenset({'rio'}))
+    assert meta_store.count_eligible_assets(c_city_wl) == 1
+    assert 'a1' in meta_store.fetch_candidate_assets(c_city_wl)
+
+    # 8. People Whitelist: Alice and Bob -> a1 (Alice), a3 (Bob), and a4 (landscape without people)
+    # a2 (Charlie) is excluded because Charlie is not whitelisted.
+    c_people_wl = AssetFilterCriteria(library_name='family', people_whitelist=frozenset({'alice', 'bob'}))
+    assert meta_store.count_eligible_assets(c_people_wl) == 3
+    candidates_people_wl = meta_store.fetch_candidate_assets(c_people_wl)
+    assert set(candidates_people_wl.keys()) == {'a1', 'a3', 'a4'}
+
+
+def test_asset_filter_criteria_from_setup_factory() -> None:
+    from src.config import AppSettings
+    from src.models import GameSetupRequest
+
+    settings = AppSettings(
+        immich_server_url='http://immich.local',
+        immich_libraries={'family': 'key'},
+        app_title='Immich Quiz',
+        app_tagline='Tagline',
+        fetch_photos_date_lower_bound=date(2020, 1, 1),
+        fetch_photos_date_upper_bound=date(2024, 12, 31),
+        app_host='127.0.0.1',
+        app_port=8010,
+        score_max_points=100,
+        location_score_decay_km=500.0,
+        date_score_decay_days=500.0,
+        language='EN',
+        country_whitelist=frozenset({'brazil'}),
+        country_blacklist=frozenset({'germany'}),
+        city_whitelist=frozenset({'rio'}),
+        city_blacklist=frozenset({'berlin'}),
+        people_whitelist=frozenset({'alice'}),
+        people_blacklist=frozenset({'bob'}),
+    )
+
+    setup = GameSetupRequest(
+        library_name='family',
+        players=['Player 1'],
+        round_count=5,
+        location_mode=True,
+        date_mode=True,
+        min_date=date(2015, 1, 1),  # earlier than settings lower bound (2020-01-01)
+        max_date=date(2025, 1, 1),  # later than settings upper bound (2024-12-31)
+    )
+
+    criteria = AssetFilterCriteria.from_setup(setup, settings)
+    assert criteria.library_name == 'family'
+    assert criteria.min_date == date(2020, 1, 1)  # clamped to settings lower bound
+    assert criteria.max_date == date(2024, 12, 31)  # clamped to settings upper bound
+    assert criteria.country_whitelist == frozenset({'brazil'})
+    assert criteria.country_blacklist == frozenset({'germany'})
+    assert criteria.city_whitelist == frozenset({'rio'})
+    assert criteria.city_blacklist == frozenset({'berlin'})
+    assert criteria.people_whitelist == frozenset({'alice'})
+    assert criteria.people_blacklist == frozenset({'bob'})
+
