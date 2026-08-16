@@ -661,7 +661,6 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
         'date_mode': True,
         'library_name': 'family',
         'album_ids': [],
-        'smart_map_zoom': True,
         'game_mode': 'pinpoint',
     }
     res_setup = client.post('/api/game/setup', json=setup_payload)

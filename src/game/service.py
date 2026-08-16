@@ -224,7 +224,7 @@ class GameService:
         state = store.create_match(setup)
 
         map_bounds: MapBounds | None = None
-        if setup.location_mode and setup.smart_map_zoom and setup.game_mode == GameMode.pinpoint:
+        if setup.location_mode and setup.game_mode == GameMode.pinpoint:
             try:
                 await load_asset_pool(
                     state,

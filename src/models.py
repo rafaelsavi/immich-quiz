@@ -73,12 +73,10 @@ class GameSetupRequest(BaseModel):
     round_length: RoundLength = RoundLength.minute_1
     location_mode: bool = True
     date_mode: bool = True
-    smart_map_zoom: bool = True
     game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
     album_ids: list[str] = Field(default_factory=list)
     album_name: str | None = None
-    # New filter criteria
     person_ids: list[str] = Field(default_factory=list)
     people_mode: Literal['OR', 'AND'] = 'OR'  # 'OR' (any) | 'AND' (all together)
     countries: list[str] = Field(default_factory=list)
@@ -285,7 +283,6 @@ class PreflightRequest(BaseModel):
     game_mode: GameMode = GameMode.pinpoint
     library_name: str = Field(min_length=1)
     album_ids: list[str] = Field(default_factory=list)
-    # New filter criteria
     person_ids: list[str] = Field(default_factory=list)
     people_mode: Literal['OR', 'AND'] = 'OR'  # 'OR' (any) | 'AND' (all together)
     countries: list[str] = Field(default_factory=list)

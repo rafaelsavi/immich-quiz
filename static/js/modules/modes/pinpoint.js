@@ -25,7 +25,6 @@ import {
 import { playChime } from "../audio.js";
 
 const EARLIEST_YEAR = 1930;
-const SMART_MAP_ZOOM_ENABLED = true;
 const SMART_MAP_MAX_INITIAL_ZOOM = 9;
 
 function stepSelectOption(selectEl, direction) {
@@ -550,7 +549,6 @@ export const pinpointMode = {
       game_mode: "pinpoint",
       location_mode: locationMode,
       date_mode: dateMode,
-      smart_map_zoom: SMART_MAP_ZOOM_ENABLED,
     };
   },
 
@@ -661,7 +659,7 @@ export const pinpointMode = {
     }
 
     if (state.guessMap) {
-      if (SMART_MAP_ZOOM_ENABLED && state.mapBounds) {
+      if (state.mapBounds) {
         const bounds = L.latLngBounds(
           [state.mapBounds.min_lat, state.mapBounds.min_lng],
           [state.mapBounds.max_lat, state.mapBounds.max_lng]
@@ -684,7 +682,7 @@ export const pinpointMode = {
     }
     if (questionData && questionData.location_mode) {
       ensureGuessMap();
-      if (state.guessMap && SMART_MAP_ZOOM_ENABLED && state.mapBounds) {
+      if (state.guessMap && state.mapBounds) {
         const bounds = L.latLngBounds(
           [state.mapBounds.min_lat, state.mapBounds.min_lng],
           [state.mapBounds.max_lat, state.mapBounds.max_lng]

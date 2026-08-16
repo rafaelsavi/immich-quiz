@@ -913,7 +913,6 @@ def test_setup_returns_smart_map_bounds_for_regional_album(tmp_path: Path) -> No
         game_mode='pinpoint',
         location_mode=True,
         date_mode=True,
-        smart_map_zoom=True,
     )
     res = client.post('/api/game/setup', json=payload)
     assert res.status_code == 200
@@ -927,25 +926,6 @@ def test_setup_returns_smart_map_bounds_for_regional_album(tmp_path: Path) -> No
     assert bounds['max_lng'] >= 11.3308
 
 
-def test_setup_smart_map_zoom_disabled_returns_none(tmp_path: Path) -> None:
-    assets = [
-        make_asset('photo-1', latitude=43.7696, longitude=11.2558),
-        make_asset('photo-2', latitude=43.7228, longitude=10.4017),
-    ]
-    immich = FakeImmichClient(assets)
-    client = build_client(tmp_path, immich)
-
-    payload = setup_payload(
-        game_mode='pinpoint',
-        location_mode=True,
-        date_mode=True,
-        smart_map_zoom=False,
-    )
-    res = client.post('/api/game/setup', json=payload)
-    assert res.status_code == 200
-    assert res.json()['map_bounds'] is None
-
-
 def test_setup_smart_map_zoom_disabled_when_location_mode_false(tmp_path: Path) -> None:
     assets = [make_asset('photo-1', latitude=43.7696, longitude=11.2558)]
     immich = FakeImmichClient(assets)
@@ -955,7 +935,6 @@ def test_setup_smart_map_zoom_disabled_when_location_mode_false(tmp_path: Path) 
         game_mode='pinpoint',
         location_mode=False,
         date_mode=True,
-        smart_map_zoom=True,
     )
     res = client.post('/api/game/setup', json=payload)
     assert res.status_code == 200
@@ -971,7 +950,6 @@ def test_setup_smart_map_zoom_disabled_for_album_shuffle(tmp_path: Path) -> None
         game_mode='album_shuffle',
         location_mode=True,
         date_mode=True,
-        smart_map_zoom=True,
     )
     res = client.post('/api/game/setup', json=payload)
     assert res.status_code == 200
