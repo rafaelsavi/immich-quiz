@@ -14,7 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic Date Range Slider**: Dual-handle interactive range slider with year-month resolution, live readouts, and automatic Immich timeline bucket boundary discovery.
 - **Geographic Granularity (Countries & Dependent Cities)**: Searchable multi-select dropdowns for countries and cities with cascading dependencies (selecting a country dynamically filters the available cities).
 - **Face Recognition / People Filter with Match Modes**: Searchable multi-select dropdown for recognized people with support for both `OR` (Any person) and `AND` (All people together in the same photo).
-- **Strict Diversity Safeguards**: Strict candidate separation enforcement (`PHOTO_DIVERSITY_MIN_DISTANCE_KM` and `PHOTO_DIVERSITY_MIN_TIME_SECONDS`) and preflight rejection when diversity cannot be guaranteed.
+- **Smart Photo Diversity Downsampling**: Soft prioritization sampling strategy in candidate photo selection that prioritizes photos with spatial (>= 100m) and temporal (>= 60s) separation against previously played match photos, while gracefully falling back to unplayed candidates when playing clustered single-event or local albums (preventing premature 404 match aborts).
+- **Dynamic Shared & Partner Library Toggles**: Added setup filter toggles to dynamically include or exclude shared albums and partner assets per-match without restarting the server.
 - **Modern Interactive Player Input**: Tag/chip based player management component with avatar badges, game-matched player colors, duplicate detection, keyboard shortcuts, paste splitting, and touch-screen virtual keyboard optimizations.
 - **Live Preflight Counter**: Live feedback counter displaying eligible photos and breakdown tooltips (GPS, Date, Eligible total) dynamically updating on every filter or game mode change.
 - **Per-Library Filter Persistence**: Active filter selections saved in `localStorage` per library, automatically restoring when switching libraries.
@@ -22,12 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Photo Diversity Decoupling**: Decoupled candidate diversity checks from global configuration parameters into internal defaults within the sampling engine, ensuring Preflight filtering remains the single source of truth for photo eligibility.
 - **Setup Screen Hierarchy**: Reorganized match setup into top-down logical flow: Players, Library & Photo Filters, Game Mode, and Guessing Mode settings.
 - **Preflight & Setup Validation**: Hardened validation to disable start match button and show informative warnings when insufficient matching media is available.
 - **Leaderboard API & Querying**: Updated `/api/leaderboard` endpoint with support for querying by `player_name`, `is_custom_filtered`, and `limit`.
 
 ### Removed
 
+- **Photo Diversity Configuration**: Removed `PHOTO_DIVERSITY_MIN_DISTANCE_KM` and `PHOTO_DIVERSITY_MIN_TIME_SECONDS` configuration parameters from `AppSettings` and `.env` in favor of internal sampling parameters.
+- **Smart Map Zoom Config**: Removed `SMART_MAP_ZOOM` environment toggle in favor of built-in internal safeguards.
 - **Legacy CSV Storage**: Removed `LEADERBOARD_CSV_PATH` configuration and CSV-based leaderboard persistence in favor of dedicated SQLite storage under `DATA_PATH` (`metadata.db` and `leaderboard.db`).
 
 ## [1.2.1] - 2026-08-15

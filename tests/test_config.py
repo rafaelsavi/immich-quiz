@@ -27,8 +27,6 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'LOCATION_SCORE_DECAY_KM',
         'DATE_SCORE_DECAY_DAYS',
         'LANGUAGE',
-        'PHOTO_DIVERSITY_MIN_DISTANCE_KM',
-        'PHOTO_DIVERSITY_MIN_TIME_SECONDS',
         'DATA_PATH',
         'DATA_DIR',
         'COUNTRY_WHITELIST',

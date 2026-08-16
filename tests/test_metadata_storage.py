@@ -217,8 +217,6 @@ def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
-        photo_diversity_min_distance_km=0.1,
-        photo_diversity_min_time_seconds=60.0,
         data_path=tmp_path,
         auto_sync_on_startup=False,
         country_whitelist=frozenset({'japan'}),  # Whitelist only Japan
@@ -315,8 +313,6 @@ def test_metadata_store_filter_options_ownership_filtering(meta_store: MetadataS
             location_score_decay_km=500.0,
             date_score_decay_days=500.0,
             language='EN',
-            photo_diversity_min_distance_km=0.1,
-            photo_diversity_min_time_seconds=60.0,
             data_path=tmp_path,
             auto_sync_on_startup=False,
         )
@@ -402,8 +398,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
-        photo_diversity_min_distance_km=0.1,
-        photo_diversity_min_time_seconds=60.0,
         data_path=tmp_path,
         auto_sync_on_startup=False,
     )
@@ -427,8 +421,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
-        photo_diversity_min_distance_km=0.1,
-        photo_diversity_min_time_seconds=60.0,
         data_path=tmp_path,
         auto_sync_on_startup=False,
     )
@@ -588,8 +580,6 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
-        photo_diversity_min_distance_km=0.1,
-        photo_diversity_min_time_seconds=60.0,
         data_path=tmp_path,
         auto_sync_on_startup=False,
     )
@@ -727,8 +717,6 @@ def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: M
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
-        photo_diversity_min_distance_km=0.1,
-        photo_diversity_min_time_seconds=60.0,
         data_path=tmp_path,
         auto_sync_on_startup=False,
     )

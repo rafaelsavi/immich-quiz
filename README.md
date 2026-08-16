@@ -68,8 +68,6 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `INCLUDE_PARTNER_ASSETS`           | No       | `false`                | Set to `true` to include photos from partner libraries in filters and quiz rounds |
 | `FETCH_PHOTOS_DATE_LOWER_BOUND`    | No       | —                      | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
 | `FETCH_PHOTOS_DATE_UPPER_BOUND`    | No       | —                      | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
-| `PHOTO_DIVERSITY_MIN_DISTANCE_KM`  | No       | `0.1`                  | Minimum distance separation in km between round photos (default: 100m)        |
-| `PHOTO_DIVERSITY_MIN_TIME_SECONDS` | No       | `60.0`                 | Minimum time separation in seconds between round photos (default: 60s)        |
 | `COUNTRY_WHITELIST`                | No       | —                      | Comma-separated list of allowed countries in filters (case-insensitive)       |
 | `COUNTRY_BLACKLIST`                | No       | —                      | Comma-separated list of excluded countries in filters (case-insensitive)      |
 | `CITY_WHITELIST`                   | No       | —                      | Comma-separated list of allowed cities/regions in filters (case-insensitive)  |

@@ -143,8 +143,6 @@ class PinpointEngine(BaseGameModeEngine):
                     settings.fetch_photos_date_upper_bound,
                     include_shared_albums=state.setup.include_shared_albums,
                     include_partner_assets=state.setup.include_partner_assets,
-                    min_dist_km=settings.photo_diversity_min_distance_km,
-                    min_time_sec=settings.photo_diversity_min_time_seconds,
                     metadata_store=metadata_store,
                 )
             except ImmichClientError as exc:
@@ -308,8 +306,6 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     settings.fetch_photos_date_upper_bound,
                     include_shared_albums=state.setup.include_shared_albums,
                     include_partner_assets=state.setup.include_partner_assets,
-                    min_dist_km=settings.photo_diversity_min_distance_km,
-                    min_time_sec=settings.photo_diversity_min_time_seconds,
                     metadata_store=metadata_store,
                 )
             except ImmichClientError as exc:

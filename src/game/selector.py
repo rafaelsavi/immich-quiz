@@ -10,6 +10,10 @@ from src.storage.session import MatchState, RoundAsset
 # Hardcoded Smart Map Zoom internal safeguards
 SMART_MAP_ZOOM_MAX_SPAN_KM: float = 5000.0
 
+# Internal Photo Diversity sampling parameters (soft prioritization thresholds)
+DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM: float = 0.1
+DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS: float = 60.0
+
 
 def calculate_match_bounds(
     pool: list[AssetAnswer] | dict[str, AssetAnswer],
@@ -131,8 +135,8 @@ def is_asset_valid_for_batch(
     selected_answers: list[AssetAnswer] | list[RoundAsset] | list[AssetAnswer | RoundAsset],
     location_mode: bool,
     date_mode: bool,
-    min_dist_km: float = 0.1,
-    min_time_sec: float = 60.0,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
 ) -> bool:
     """
     Determine if a candidate photo satisfies diversity separation against selected match photos.
@@ -177,8 +181,8 @@ def filter_diverse_asset_answers(
     eligible_answers: list[AssetAnswer],
     location_mode: bool,
     date_mode: bool,
-    min_dist_km: float = 0.1,
-    min_time_sec: float = 60.0,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
 ) -> list[AssetAnswer]:
     """Greedily build a diverse subset of asset answers satisfying minimum distance and time constraints."""
     diverse: list[AssetAnswer] = []
@@ -203,11 +207,11 @@ async def select_round_asset(
     max_capture_date: date | None,
     include_shared_albums: bool = False,
     include_partner_assets: bool = False,
-    min_dist_km: float = 0.1,
-    min_time_sec: float = 60.0,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
     metadata_store: MetadataStore | None = None,
 ) -> RoundAsset | None:
-    """Draw an unplayed asset, refreshing the pool once if it is exhausted."""
+    """Draw an unplayed asset, prioritizing diverse assets but falling back to any unplayed candidate."""
     excluded = state.played_asset_ids | client_excluded
 
     if not state.asset_pool:
@@ -246,7 +250,7 @@ async def select_round_asset(
         if aid in state.asset_pool
     ]
 
-    # Select an asset that satisfies distance and time diversity against previously played match assets
+    # Primary pass: Select an asset that satisfies distance and time diversity against previously played match assets
     for aid in shuffled:
         ans = state.asset_pool[aid]
         if is_asset_valid_for_batch(
@@ -259,8 +263,9 @@ async def select_round_asset(
         ):
             return RoundAsset(asset_id=aid, answer=ans)
 
-    # Return None if no diverse candidate is available
-    return None
+    # Fallback pass: When pool is clustered or limited, downsample to any available unplayed candidate
+    fallback_id = shuffled[0]
+    return RoundAsset(asset_id=fallback_id, answer=state.asset_pool[fallback_id])
 
 
 async def select_batch_round_assets(
@@ -272,8 +277,8 @@ async def select_batch_round_assets(
     max_capture_date: date | None,
     include_shared_albums: bool = False,
     include_partner_assets: bool = False,
-    min_dist_km: float = 0.1,
-    min_time_sec: float = 60.0,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
     metadata_store: MetadataStore | None = None,
 ) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
     excluded = state.played_asset_ids | client_excluded
@@ -302,7 +307,7 @@ async def select_batch_round_assets(
         )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
-    if not candidates:
+    if len(candidates) < count:
         return None
 
     shuffled_candidates = list(candidates)
@@ -316,7 +321,7 @@ async def select_batch_round_assets(
         if aid in state.asset_pool
     ]
 
-    # Enforce location distance >= min_dist_km and capture date separation >= min_time_sec
+    # Primary pass: Greedily pick diverse assets (location distance >= min_dist_km, time separation >= min_time_sec)
     for aid in shuffled_candidates:
         ans = state.asset_pool[aid]
         if is_asset_valid_for_batch(
@@ -331,6 +336,15 @@ async def select_batch_round_assets(
             selected_assets.append(RoundAsset(asset_id=aid, answer=ans))
             if len(selected_assets) == count:
                 break
+
+    # Fallback pass: If diversity requirements couldn't fill all `count` slots, fill with remaining distinct unplayed candidates
+    if len(selected_assets) < count:
+        for aid in shuffled_candidates:
+            if aid not in selected_ids:
+                selected_ids.append(aid)
+                selected_assets.append(RoundAsset(asset_id=aid, answer=state.asset_pool[aid]))
+                if len(selected_assets) == count:
+                    break
 
     if len(selected_assets) < count:
         return None
