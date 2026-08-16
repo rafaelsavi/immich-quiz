@@ -56,7 +56,7 @@ export class PlayerInput {
             spellcheck="false"
             enterkeyhint="done"
           />
-          <button type="button" class="player-add-btn" id="player-add-btn" title="${t("setup.players_add_btn")}">
+          <button type="button" class="player-add-btn" id="player-add-btn" title="${t("setup.players_add_btn")}" disabled>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19"></line>
               <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -73,6 +73,7 @@ export class PlayerInput {
     this.textInput = this.container.querySelector("#player-text-input");
     this.addBtn = this.container.querySelector("#player-add-btn");
     this.feedbackEl = this.container.querySelector("#player-input-feedback");
+    this._updateAddBtnState();
   }
 
   _bindEvents() {
@@ -154,15 +155,23 @@ export class PlayerInput {
 
         if (addedCount > 0) {
           this.textInput.value = "";
+          this._updateAddBtnState();
           this._sync();
         }
       }
     });
 
-    // Clear error on input focus
+    // Clear error on input and update add button state
     this.textInput.addEventListener("input", () => {
+      this._updateAddBtnState();
       this._clearFeedback();
     });
+  }
+
+  _updateAddBtnState() {
+    if (this.addBtn && this.textInput) {
+      this.addBtn.disabled = !this.textInput.value.trim();
+    }
   }
 
   _isDuplicate(name) {
@@ -217,6 +226,7 @@ export class PlayerInput {
 
     this.players.push(name);
     this.textInput.value = "";
+    this._updateAddBtnState();
     this._clearFeedback();
     this._sync();
     return true;

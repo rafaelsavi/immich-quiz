@@ -28,6 +28,7 @@ def test_player_input_has_required_methods() -> None:
         '_sync',
         '_renderChips',
         '_updateBadge',
+        '_updateAddBtnState',
         'focus',
         'showEmptyError',
         'updateLanguage',
@@ -35,6 +36,13 @@ def test_player_input_has_required_methods() -> None:
     for method in required_methods:
         pattern = rf'\b{method}\s*\('
         assert re.search(pattern, content), f"Method '{method}' not found in PlayerInput class"
+
+
+def test_player_input_add_btn_disabled_state() -> None:
+    content = PLAYER_INPUT_JS.read_text(encoding='utf-8')
+    assert 'this._updateAddBtnState()' in content
+    assert 'this.addBtn.disabled' in content
+    assert 'disabled' in content
 
 
 def test_player_input_mobile_and_accessibility_attributes() -> None:

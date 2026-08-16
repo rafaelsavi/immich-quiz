@@ -475,3 +475,65 @@ def test_preflight_passes_dynamic_partner_and_shared_flags_to_search_query(tmp_p
     assert immich.last_query is not None
     assert immich.last_query.include_partner_assets is True
     assert immich.last_query.include_shared_albums is True
+
+
+def test_models_date_order_validation(tmp_path: Path) -> None:
+    client = build_client(tmp_path, FakeImmichClient())
+
+    # Preflight with min_date > max_date should fail with 422
+    res_preflight = client.post(
+        '/api/game/preflight',
+        json={
+            'library_name': 'family',
+            'min_date': '2024-01-01',
+            'max_date': '2022-01-01',
+        },
+    )
+    assert res_preflight.status_code == 422
+
+    # Game setup with min_date > max_date should fail with 422
+    res_setup = client.post(
+        '/api/game/setup',
+        json={
+            'players': ['Alice'],
+            'library_name': 'family',
+            'min_date': '2024-01-01',
+            'max_date': '2022-01-01',
+        },
+    )
+    assert res_setup.status_code == 422
+
+
+def test_preflight_allows_empty_players_while_setup_requires_players(tmp_path: Path) -> None:
+    client = build_client(tmp_path, FakeImmichClient(assets=[make_filter_asset('a1')]))
+
+    # Preflight with empty players succeeds
+    res_preflight = client.post(
+        '/api/game/preflight',
+        json={
+            'library_name': 'family',
+            'players': [],
+        },
+    )
+    assert res_preflight.status_code == 200
+
+    # Setup with empty players fails with 422
+    res_setup_empty = client.post(
+        '/api/game/setup',
+        json={
+            'library_name': 'family',
+            'players': [],
+        },
+    )
+    assert res_setup_empty.status_code == 422
+
+    # Setup with whitespace-only player fails with 422
+    res_setup_blank = client.post(
+        '/api/game/setup',
+        json={
+            'library_name': 'family',
+            'players': ['   '],
+        },
+    )
+    assert res_setup_blank.status_code == 422
+
