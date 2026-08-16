@@ -21,7 +21,7 @@ This guide documents all end-of-match performance awards in **Immich Quiz**, the
 ## 💾 Persistence & Storage
 
 When a match concludes:
-1. Performance awards are dynamically evaluated and displayed on the match summary screen via `renderAwards(summary)` in [`static/js/app.js`](file:///d:/Rafael/Projects/immich-quiz/static/js/app.js).
+1. Performance awards are dynamically evaluated and displayed on the match summary screen via `renderAwards(summary)` in `static/js/app.js`.
 2. Award tags are persisted in the SQLite leaderboard database (`data/leaderboard.db`) in the `awards_json` column of the `leaderboard_entries` table.
 3. Historical awards appear in the leaderboard table and modal summaries.
 
@@ -29,11 +29,11 @@ When a match concludes:
 
 ## 🛠️ How to Customize Award Conditions & Thresholds
 
-All award presentation logic is located in [`static/js/app.js`](file:///d:/Rafael/Projects/immich-quiz/static/js/app.js) inside the `renderAwards(summary)` function, and internationalized in [`static/js/modules/i18n.js`](file:///d:/Rafael/Projects/immich-quiz/static/js/modules/i18n.js).
+All award presentation logic is located in `static/js/app.js` inside the `renderAwards(summary)` function, and internationalized in `static/js/modules/i18n.js`.
 
 ### 1. Adjusting Award Criteria
 
-Open [`static/js/app.js`](file:///d:/Rafael/Projects/immich-quiz/static/js/app.js) and locate `function renderAwards(summary)`:
+Open `static/js/app.js` and locate `function renderAwards(summary)`:
 
 - **Speed Demon time fraction**:
   `elapsedSec <= totalSec / 2` checks for guesses within 50% of the time limit. Change `totalSec / 2` to `totalSec * 0.3` for a stricter 30% speed requirement.
@@ -47,14 +47,14 @@ Open [`static/js/app.js`](file:///d:/Rafael/Projects/immich-quiz/static/js/app.j
 
 To add a new award (e.g. "Clutch Finisher" or "Comeback King"):
 
-1. **Add translation strings** in [`static/js/modules/i18n.js`](file:///d:/Rafael/Projects/immich-quiz/static/js/modules/i18n.js) under both `"en"` and `"pt"` sections:
+1. **Add translation strings** in `static/js/modules/i18n.js` under both `"en"` and `"pt"` sections:
 
    ```javascript
    "award.my_award": "🚀 Clutch Finisher",
    "award.my_award_desc": "Highest score in the final round",
    ```
 
-2. **Add condition logic** in [`static/js/app.js`](file:///d:/Rafael/Projects/immich-quiz/static/js/app.js) inside `renderAwards(summary)`:
+2. **Add condition logic** in `static/js/app.js` inside `renderAwards(summary)`:
 
    ```javascript
    awards.push({

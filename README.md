@@ -74,6 +74,8 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `PEOPLE_BLACKLIST`                 | No       | —                      | Comma-separated list of excluded people names in filters (case-insensitive)   |
 | `DATA_PATH`                        | No       | `data`                 | Directory for SQLite persistence (`metadata.db` and `leaderboard.db`)        |
 | `AUTO_SYNC_ON_STARTUP`             | No       | `true`                 | Auto-trigger metadata sync in the background on server startup                |
+| `AUTO_DELTA_SYNC_INTERVAL_HOURS`   | No       | `6`                    | Interval in hours for periodic delta metadata sync (`0` disables)             |
+| `AUTO_FULL_SYNC_INTERVAL_HOURS`    | No       | `120`                  | Interval in hours for periodic full metadata sync & pruning (`0` disables)   |
 | `APP_HOST`                         | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
 | `APP_PORT`                         | No       | `8010`                 | Port the app listens on                                                       |
 | `SCORE_MAX_POINTS`                 | No       | `100`                  | Max points per enabled goal, per turn                                         |

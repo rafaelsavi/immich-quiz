@@ -16,6 +16,8 @@ from src.models import (
     LibraryFiltersResponse,
     PeopleMode,
     PersonOption,
+    SyncMode,
+    SyncStage,
     SyncStatus,
 )
 from src.storage.db import DatabaseManager
@@ -26,10 +28,15 @@ SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS sync_state (
     library_name TEXT PRIMARY KEY,
     last_sync_at TEXT,
+    last_full_sync_at TEXT,
+    last_immich_updated_at TEXT,
     sync_status TEXT DEFAULT 'idle',
+    sync_mode TEXT DEFAULT 'full',
+    sync_stage TEXT DEFAULT 'idle',
     sync_error TEXT,
     total_assets INTEGER DEFAULT 0,
-    synced_assets INTEGER DEFAULT 0
+    synced_assets INTEGER DEFAULT 0,
+    last_sync_duration_seconds REAL
 );
 
 CREATE TABLE IF NOT EXISTS assets (
@@ -41,16 +48,21 @@ CREATE TABLE IF NOT EXISTS assets (
     latitude REAL,
     longitude REAL,
     country TEXT,
+    state TEXT,
     city TEXT,
     capture_datetime TEXT,
+    immich_updated_at TEXT,
     times_played INTEGER NOT NULL DEFAULT 0,
     last_played_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_assets_lib_country ON assets(library_name, country);
+CREATE INDEX IF NOT EXISTS idx_assets_lib_state ON assets(library_name, state);
 CREATE INDEX IF NOT EXISTS idx_assets_lib_city ON assets(library_name, city);
 CREATE INDEX IF NOT EXISTS idx_assets_lib_datetime ON assets(library_name, capture_datetime);
 CREATE INDEX IF NOT EXISTS idx_assets_lib_coords ON assets(library_name, latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_assets_lib_updated ON assets(library_name, immich_updated_at);
+CREATE INDEX IF NOT EXISTS idx_assets_lib_times_played ON assets(library_name, times_played);
 
 CREATE TABLE IF NOT EXISTS people (
     id TEXT PRIMARY KEY,
@@ -82,6 +94,22 @@ CREATE TABLE IF NOT EXISTS asset_albums (
     FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_asset_albums_album ON asset_albums(album_id);
+
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    library_name TEXT NOT NULL,
+    name TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tags_lib_name ON tags(library_name, name);
+
+CREATE TABLE IF NOT EXISTS asset_tags (
+    asset_id TEXT NOT NULL,
+    tag_id TEXT NOT NULL,
+    PRIMARY KEY(asset_id, tag_id),
+    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE,
+    FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_asset_tags_tag ON asset_tags(tag_id);
 """
 
 
@@ -147,18 +175,6 @@ class MetadataStore:
 
     def init_schema(self) -> None:
         self._db.execute_script(SCHEMA_SQL)
-        self._migrate_schema()
-
-    def _migrate_schema(self) -> None:
-        """Safely apply incremental migrations to existing metadata databases."""
-        with self._db.connection() as conn:
-            cursor = conn.execute('PRAGMA table_info(assets)')
-            existing_columns = {row['name'] for row in cursor.fetchall()}
-            if 'times_played' not in existing_columns:
-                conn.execute('ALTER TABLE assets ADD COLUMN times_played INTEGER NOT NULL DEFAULT 0')
-            if 'last_played_at' not in existing_columns:
-                conn.execute('ALTER TABLE assets ADD COLUMN last_played_at TEXT')
-            conn.execute('CREATE INDEX IF NOT EXISTS idx_assets_lib_times_played ON assets(library_name, times_played)')
 
     def has_synced_assets(self, library_name: str) -> bool:
         count = self._db.fetch_val(
@@ -177,10 +193,15 @@ class MetadataStore:
         return {
             'library_name': library_name,
             'last_sync_at': None,
+            'last_full_sync_at': None,
+            'last_immich_updated_at': None,
             'sync_status': SyncStatus.idle.value,
+            'sync_mode': SyncMode.full.value,
+            'sync_stage': SyncStage.idle.value,
             'sync_error': None,
             'total_assets': 0,
             'synced_assets': 0,
+            'last_sync_duration_seconds': None,
         }
 
     def set_sync_state(
@@ -190,70 +211,220 @@ class MetadataStore:
         status: SyncStatus,
         total_assets: int | None = None,
         synced_assets: int | None = None,
+        sync_stage: SyncStage | None = None,
         error: str | None = None,
         last_sync_at: str | None = None,
+        last_full_sync_at: str | None = None,
+        last_immich_updated_at: str | None = None,
+        sync_mode: SyncMode | None = None,
+        last_sync_duration_seconds: float | None = None,
     ) -> None:
         with self._db.connection() as conn:
             existing = conn.execute(
-                'SELECT total_assets, synced_assets, last_sync_at FROM sync_state WHERE library_name = ?',
+                """
+                SELECT total_assets, synced_assets, last_sync_at, last_full_sync_at,
+                       last_immich_updated_at, sync_mode, sync_stage, last_sync_duration_seconds
+                FROM sync_state WHERE library_name = ?
+                """,
                 (library_name,),
             ).fetchone()
 
             tot = total_assets if total_assets is not None else (existing['total_assets'] if existing else 0)
             sync_cnt = synced_assets if synced_assets is not None else (existing['synced_assets'] if existing else 0)
+            if isinstance(sync_stage, SyncStage):
+                stage = sync_stage.value
+            elif sync_stage is not None:
+                stage = str(sync_stage)
+            else:
+                stage = existing['sync_stage'] if existing else SyncStage.idle.value
+
             last_sync = last_sync_at if last_sync_at is not None else (existing['last_sync_at'] if existing else None)
+            last_full = (
+                last_full_sync_at
+                if last_full_sync_at is not None
+                else (existing['last_full_sync_at'] if existing else None)
+            )
+            last_updated = (
+                last_immich_updated_at
+                if last_immich_updated_at is not None
+                else (existing['last_immich_updated_at'] if existing else None)
+            )
+            if isinstance(sync_mode, SyncMode):
+                mode = sync_mode.value
+            elif sync_mode is not None:
+                mode = str(sync_mode)
+            else:
+                mode = existing['sync_mode'] if existing else SyncMode.full.value
+            duration = (
+                last_sync_duration_seconds
+                if last_sync_duration_seconds is not None
+                else (existing['last_sync_duration_seconds'] if existing else None)
+            )
 
             conn.execute(
                 """
                 INSERT INTO sync_state (
-                    library_name, last_sync_at, sync_status, sync_error, total_assets, synced_assets
+                    library_name, last_sync_at, last_full_sync_at, last_immich_updated_at,
+                    sync_status, sync_mode, sync_stage, sync_error,
+                    total_assets, synced_assets, last_sync_duration_seconds
                 )
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(library_name) DO UPDATE SET
                     last_sync_at = excluded.last_sync_at,
+                    last_full_sync_at = excluded.last_full_sync_at,
+                    last_immich_updated_at = excluded.last_immich_updated_at,
                     sync_status = excluded.sync_status,
+                    sync_mode = excluded.sync_mode,
+                    sync_stage = excluded.sync_stage,
                     sync_error = excluded.sync_error,
                     total_assets = excluded.total_assets,
-                    synced_assets = excluded.synced_assets
+                    synced_assets = excluded.synced_assets,
+                    last_sync_duration_seconds = excluded.last_sync_duration_seconds
                 """,
-                (library_name, last_sync, status.value, error, tot, sync_cnt),
+                (
+                    library_name,
+                    last_sync,
+                    last_full,
+                    last_updated,
+                    status.value,
+                    mode,
+                    stage,
+                    error,
+                    tot,
+                    sync_cnt,
+                    duration,
+                ),
             )
 
+    def get_indexed_album_ids(self, library_name: str) -> set[str]:
+        """Return the set of album IDs already indexed for this library."""
+        rows = self._db.fetch_all('SELECT id FROM albums WHERE library_name = ?', (library_name,))
+        return {str(r['id']) for r in rows}
+
     def upsert_people(self, library_name: str, people: list[dict[str, str]]) -> None:
+        rows = [
+            (str(p.get('id', '')).strip(), library_name, str(p.get('name', '')).strip())
+            for p in people
+            if str(p.get('id', '')).strip() and str(p.get('name', '')).strip()
+        ]
+        if not rows:
+            return
         with self._db.connection() as conn:
-            for p in people:
-                pid = str(p.get('id', '')).strip()
-                name = str(p.get('name', '')).strip()
-                if pid and name:
-                    conn.execute(
-                        """
-                        INSERT INTO people (id, library_name, name)
-                        VALUES (?, ?, ?)
-                        ON CONFLICT(id) DO UPDATE SET
-                            library_name = excluded.library_name,
-                            name = excluded.name
-                        """,
-                        (pid, library_name, name),
-                    )
+            conn.executemany(
+                """
+                INSERT INTO people (id, library_name, name)
+                VALUES (?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    library_name = excluded.library_name,
+                    name = excluded.name
+                """,
+                rows,
+            )
 
     def upsert_albums(self, library_name: str, albums: list[dict[str, Any]]) -> None:
+        rows = []
+        for a in albums:
+            aid = str(a.get('id', '')).strip()
+            name = str(a.get('name', '') or a.get('albumName', '')).strip()
+            is_shared = 1 if bool(a.get('isShared') or a.get('shared')) else 0
+            if aid and name:
+                rows.append((aid, library_name, name, is_shared))
+        if not rows:
+            return
         with self._db.connection() as conn:
-            for a in albums:
-                aid = str(a.get('id', '')).strip()
-                name = str(a.get('name', '') or a.get('albumName', '')).strip()
-                is_shared = 1 if bool(a.get('isShared') or a.get('shared')) else 0
-                if aid and name:
-                    conn.execute(
-                        """
-                        INSERT INTO albums (id, library_name, name, is_shared)
-                        VALUES (?, ?, ?, ?)
-                        ON CONFLICT(id) DO UPDATE SET
-                            library_name = excluded.library_name,
-                            name = excluded.name,
-                            is_shared = excluded.is_shared
-                        """,
-                        (aid, library_name, name, is_shared),
-                    )
+            conn.executemany(
+                """
+                INSERT INTO albums (id, library_name, name, is_shared)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    library_name = excluded.library_name,
+                    name = excluded.name,
+                    is_shared = excluded.is_shared
+                """,
+                rows,
+            )
+
+    def prune_missing_albums(self, library_name: str, active_album_ids: set[str]) -> int:
+        """Remove albums that no longer exist on the Immich server."""
+        if not active_album_ids:
+            return 0
+        with self._db.connection() as conn:
+            conn.execute('CREATE TEMP TABLE temp_active_album_ids (id TEXT PRIMARY KEY);')
+            conn.executemany(
+                'INSERT INTO temp_active_album_ids (id) VALUES (?);',
+                [(aid,) for aid in active_album_ids],
+            )
+            cursor = conn.execute(
+                """
+                DELETE FROM albums
+                WHERE library_name = ?
+                  AND id NOT IN (SELECT id FROM temp_active_album_ids)
+                """,
+                (library_name,),
+            )
+            deleted_count = cursor.rowcount
+            conn.execute('DROP TABLE temp_active_album_ids;')
+            return deleted_count
+
+    def upsert_tags(self, library_name: str, tags: list[dict[str, str]]) -> None:
+        rows = [
+            (str(t.get('id', '')).strip(), library_name, str(t.get('name', '')).strip())
+            for t in tags
+            if str(t.get('id', '')).strip() and str(t.get('name', '')).strip()
+        ]
+        if not rows:
+            return
+        with self._db.connection() as conn:
+            conn.executemany(
+                """
+                INSERT INTO tags (id, library_name, name)
+                VALUES (?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    library_name = excluded.library_name,
+                    name = excluded.name
+                """,
+                rows,
+            )
+
+    def link_album_assets(
+        self,
+        junction_inserts: list[tuple[str, str]],
+        shared_asset_updates: list[tuple[str,]] | None = None,
+        *,
+        clear_album_ids: set[str] | None = None,
+    ) -> None:
+        """Insert album junction records and optionally update shared flags in bulk."""
+        with self._db.connection() as conn:
+            if clear_album_ids:
+                conn.executemany(
+                    'DELETE FROM asset_albums WHERE album_id = ?',
+                    [(aid,) for aid in clear_album_ids],
+                )
+            if junction_inserts:
+                conn.executemany(
+                    """
+                    INSERT OR IGNORE INTO asset_albums (asset_id, album_id)
+                    SELECT a.id, alb.id
+                    FROM assets a, albums alb
+                    WHERE a.id = ? AND alb.id = ?
+                    """,
+                    junction_inserts,
+                )
+            if shared_asset_updates:
+                conn.executemany(
+                    'UPDATE assets SET is_shared = 1, is_partner = 0 WHERE id = ?',
+                    shared_asset_updates,
+                )
+
+    def count_library_assets(self, library_name: str) -> int:
+        """Count total assets currently indexed for a library."""
+        return (
+            self._db.fetch_val(
+                'SELECT COUNT(*) FROM assets WHERE library_name = ?',
+                (library_name,),
+            )
+            or 0
+        )
 
     def upsert_assets_batch(
         self,
@@ -261,66 +432,101 @@ class MetadataStore:
         assets: list[dict[str, Any]],
         asset_people: list[tuple[str, str]],
         asset_albums: list[tuple[str, str]],
+        asset_tags: list[tuple[str, str]] | None = None,
     ) -> None:
-        with self._db.connection() as conn:
-            for a in assets:
-                country_val = a.get('country')
-                city_val = a.get('city')
-                country_clean = str(country_val).strip() if country_val else None
-                if country_clean and country_clean.lower() in ('none', 'null', 'undefined', ''):
-                    country_clean = None
-                city_clean = str(city_val).strip() if city_val else None
-                if city_clean and city_clean.lower() in ('none', 'null', 'undefined', ''):
-                    city_clean = None
+        if not assets:
+            return
 
-                conn.execute(
-                    """
-                    INSERT INTO assets (
-                        id, library_name, is_shared, is_partner, file_type,
-                        latitude, longitude, country, city, capture_datetime,
-                        times_played, last_played_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
-                    ON CONFLICT(id) DO UPDATE SET
-                        library_name = excluded.library_name,
-                        is_shared = excluded.is_shared,
-                        is_partner = excluded.is_partner,
-                        file_type = excluded.file_type,
-                        latitude = excluded.latitude,
-                        longitude = excluded.longitude,
-                        country = excluded.country,
-                        city = excluded.city,
-                        capture_datetime = excluded.capture_datetime
-                    """,
-                    (
-                        a['id'],
-                        library_name,
-                        a['is_shared'],
-                        a['is_partner'],
-                        a.get('file_type', 'IMAGE'),
-                        a.get('latitude'),
-                        a.get('longitude'),
-                        country_clean,
-                        city_clean,
-                        a.get('capture_datetime'),
-                    ),
+        asset_rows = []
+        asset_ids = []
+        for a in assets:
+            aid = a['id']
+            asset_ids.append(aid)
+            country_val = a.get('country')
+            state_val = a.get('state')
+            city_val = a.get('city')
+            country_clean = str(country_val).strip() if country_val else None
+            if country_clean and country_clean.lower() in ('none', 'null', 'undefined', ''):
+                country_clean = None
+            state_clean = str(state_val).strip() if state_val else None
+            if state_clean and state_clean.lower() in ('none', 'null', 'undefined', ''):
+                state_clean = None
+            city_clean = str(city_val).strip() if city_val else None
+            if city_clean and city_clean.lower() in ('none', 'null', 'undefined', ''):
+                city_clean = None
+
+            asset_rows.append(
+                (
+                    aid,
+                    library_name,
+                    a['is_shared'],
+                    a['is_partner'],
+                    a.get('file_type', 'IMAGE'),
+                    a.get('latitude'),
+                    a.get('longitude'),
+                    country_clean,
+                    state_clean,
+                    city_clean,
+                    a.get('capture_datetime'),
+                    a.get('immich_updated_at'),
                 )
+            )
 
-            for aid, pid in asset_people:
-                conn.execute(
+        with self._db.connection() as conn:
+            conn.executemany(
+                """
+                INSERT INTO assets (
+                    id, library_name, is_shared, is_partner, file_type,
+                    latitude, longitude, country, state, city, capture_datetime,
+                    immich_updated_at, times_played, last_played_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
+                ON CONFLICT(id) DO UPDATE SET
+                    library_name = excluded.library_name,
+                    is_shared = excluded.is_shared,
+                    is_partner = excluded.is_partner,
+                    file_type = excluded.file_type,
+                    latitude = excluded.latitude,
+                    longitude = excluded.longitude,
+                    country = excluded.country,
+                    state = excluded.state,
+                    city = excluded.city,
+                    capture_datetime = excluded.capture_datetime,
+                    immich_updated_at = excluded.immich_updated_at
+                """,
+                asset_rows,
+            )
+
+            # Clear stale junction records for this batch of assets
+            id_tuples = [(aid,) for aid in asset_ids]
+            conn.executemany('DELETE FROM asset_people WHERE asset_id = ?', id_tuples)
+            conn.executemany('DELETE FROM asset_albums WHERE asset_id = ?', id_tuples)
+            conn.executemany('DELETE FROM asset_tags WHERE asset_id = ?', id_tuples)
+
+            if asset_people:
+                conn.executemany(
                     """
                     INSERT OR IGNORE INTO asset_people (asset_id, person_id)
-                    SELECT ?, id FROM people WHERE id = ?
+                    SELECT a.id, p.id FROM assets a, people p WHERE a.id = ? AND p.id = ?
                     """,
-                    (aid, pid),
+                    asset_people,
                 )
 
-            for aid, album_id in asset_albums:
-                conn.execute(
+            if asset_albums:
+                conn.executemany(
                     """
                     INSERT OR IGNORE INTO asset_albums (asset_id, album_id)
-                    SELECT ?, id FROM albums WHERE id = ?
+                    SELECT a.id, alb.id FROM assets a, albums alb WHERE a.id = ? AND alb.id = ?
                     """,
-                    (aid, album_id),
+                    asset_albums,
+                )
+
+            if asset_tags:
+                conn.executemany(
+                    """
+                    INSERT OR IGNORE INTO asset_tags (asset_id, tag_id)
+                    SELECT a.id, t.id FROM assets a, tags t WHERE a.id = ? AND t.id = ?
+                    """,
+                    asset_tags,
                 )
 
     def prune_missing_assets(self, library_name: str, active_asset_ids: set[str]) -> int:
@@ -361,16 +567,15 @@ class MetadataStore:
             return
         ts = (played_at or datetime.now()).isoformat()
         with self._db.connection() as conn:
-            for aid in asset_ids:
-                conn.execute(
-                    """
-                    UPDATE assets
-                    SET times_played = times_played + 1,
-                        last_played_at = ?
-                    WHERE id = ?
-                    """,
-                    (ts, aid),
-                )
+            conn.executemany(
+                """
+                UPDATE assets
+                SET times_played = times_played + 1,
+                    last_played_at = ?
+                WHERE id = ?
+                """,
+                [(ts, aid) for aid in asset_ids],
+            )
 
     def _build_filter_clauses(
         self,
@@ -591,7 +796,7 @@ class MetadataStore:
         """Fetch randomized candidate assets matching the unified filter criteria."""
         where_sql, params = self._build_filter_clauses(criteria)
         sql = f"""
-            SELECT a.id, a.latitude, a.longitude, a.capture_datetime, a.city, a.country
+            SELECT a.id, a.latitude, a.longitude, a.capture_datetime, a.city, a.state, a.country
             FROM assets a
             WHERE {where_sql}
             ORDER BY a.times_played ASC, RANDOM()
@@ -611,6 +816,7 @@ class MetadataStore:
                 longitude=float(r['longitude']) if r.get('longitude') is not None else None,
                 capture_datetime=capture_dt,
                 city=r.get('city'),
+                state=r.get('state'),
                 country=r.get('country'),
             )
         return results
@@ -834,4 +1040,12 @@ class MetadataStore:
                 'SELECT id, name FROM albums WHERE library_name = ? AND is_shared = 0 ORDER BY name COLLATE NOCASE',
                 (library_name,),
             )
+        return [{'id': str(r['id']), 'name': str(r['name'])} for r in rows]
+
+    def get_tags(self, library_name: str) -> list[dict[str, str]]:
+        """Return indexed tags for a library."""
+        rows = self._db.fetch_all(
+            'SELECT id, name FROM tags WHERE library_name = ? ORDER BY name COLLATE NOCASE',
+            (library_name,),
+        )
         return [{'id': str(r['id']), 'name': str(r['name'])} for r in rows]

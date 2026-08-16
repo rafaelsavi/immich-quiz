@@ -86,6 +86,8 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 logger.info('Scheduling startup metadata sync for library: %s', lib_name)
                 sync_engine.trigger_sync(lib_name)
 
+        periodic_tasks: list[asyncio.Task[None]] = []
+
         async def _periodic_cleanup() -> None:
             while True:
                 await asyncio.sleep(900)
@@ -93,12 +95,26 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 if cleaned > 0:
                     logger.info('Cleaned up %d expired match session(s)', cleaned)
 
-        cleanup_task = asyncio.create_task(_periodic_cleanup())
+        periodic_tasks.append(asyncio.create_task(_periodic_cleanup()))
+
+        if settings.auto_delta_sync_interval_hours > 0 or settings.auto_full_sync_interval_hours > 0:
+            async def _periodic_sync_scheduler() -> None:
+                while True:
+                    await asyncio.sleep(60)
+                    for lib_name in (app.state.available_libraries or []):
+                        sync_engine.check_and_trigger_scheduled_sync(
+                            lib_name,
+                            delta_interval_hours=settings.auto_delta_sync_interval_hours,
+                            full_interval_hours=settings.auto_full_sync_interval_hours,
+                        )
+
+            periodic_tasks.append(asyncio.create_task(_periodic_sync_scheduler()))
 
         try:
             yield
         finally:
-            cleanup_task.cancel()
+            for t in periodic_tasks:
+                t.cancel()
             close = getattr(app.state.immich_client, 'aclose', None)
             if close is not None:
                 await close()

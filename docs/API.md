@@ -10,6 +10,7 @@ errors return `400`, `404` or `409` with an actionable `detail` message.
 Returns backend service health status and application version.
 
 Response:
+
 ```json
 {
   "status": "ok",
@@ -22,6 +23,7 @@ Response:
 Returns frontend configuration parameters and application version:
 
 Response:
+
 ```json
 {
   "language": "EN",
@@ -37,6 +39,7 @@ Response:
 Returns all configured libraries and unavailable libraries that failed startup validation.
 
 Response:
+
 ```json
 {
   "libraries": ["family_library"],
@@ -52,6 +55,7 @@ Libraries whose API key failed validation at startup are reported in
 Returns available albums for the selected library. Queries the local SQLite metadata index first for 0ms response time; falls back to the Immich API if the index is unpopulated.
 
 Response:
+
 ```json
 {
   "albums": [
@@ -66,6 +70,7 @@ Response:
 Returns discovered filter metadata options for the specified library, including timeline month boundaries, recognized people (respecting whitelist/blacklist rules), countries, and cities (with country association). Backed by in-memory `TTLCache` (5-minute TTL) and local SQLite index.
 
 Response:
+
 ```json
 {
   "date_range": {
@@ -87,24 +92,33 @@ Response:
 
 ### GET /api/sync/status?library_name={name}
 
-Returns current background synchronization status for the specified library.
+Returns current background synchronization telemetry and status for the specified library. See [`docs/SYNC.md`](SYNC.md) for full architecture.
 
 Response:
+
 ```json
 {
-  "status": "idle",
-  "is_syncing": false,
+  "library_name": "family",
+  "sync_status": "idle",
+  "sync_mode": "delta",
+  "last_sync_at": "2026-08-17T10:15:30.123456+00:00",
+  "last_full_sync_at": "2026-08-17T08:00:00.000000+00:00",
+  "last_immich_updated_at": "2026-08-17T10:14:02.000Z",
   "total_assets": 1240,
   "synced_assets": 1240,
-  "progress_pct": 100.0,
-  "last_synced_at": "2026-08-16T18:30:00Z",
-  "error": null
+  "last_sync_duration_seconds": 0.35,
+  "sync_error": null
 }
 ```
 
-### POST /api/sync?library_name={name}
+### POST /api/sync?library_name={name}&force_full=false
 
-Triggers an asynchronous background metadata sync from Immich into `data/metadata.db` and invalidates the cached filter options. Returns the initial sync status.
+Triggers an asynchronous background metadata sync from Immich into `data/metadata.db` and invalidates the cached filter options.
+
+* `force_full=false` (default): Executes an incremental **Delta Sync** querying assets modified after `last_immich_updated_at`.
+* `force_full=true`: Forces a **Full Sync** scanning all assets and pruning deleted media.
+
+Returns the updated `sync_state` immediately while the background task runs.
 
 ---
 
@@ -115,6 +129,7 @@ Triggers an asynchronous background metadata sync from Immich into `data/metadat
 Validates whether the selected library and active filter criteria contain enough eligible media assets for the requested match parameters before starting a game.
 
 Request:
+
 ```json
 {
   "library_name": "family_library",
@@ -135,6 +150,7 @@ Request:
 ```
 
 Response:
+
 ```json
 {
   "eligible_count": 45,
@@ -162,6 +178,7 @@ Response:
 Initiates a new game match, creates in-memory `MatchState`, pre-computes geographic bounding box for map auto-framing, and returns the match ID.
 
 Request:
+
 ```json
 {
   "library_name": "family_library",
@@ -182,13 +199,14 @@ Request:
 }
 ```
 
-- `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
-- `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
-- `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
-- `album_name` is resolved server-side from `album_ids`.
-- `people_mode` supports `"ANY"` (Any person) or `"ALL"` (All selected people together).
+* `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
+* `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
+* `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
+* `album_name` is resolved server-side from `album_ids`.
+* `people_mode` supports `"ANY"` (Any person) or `"ALL"` (All selected people together).
 
 Response:
+
 ```json
 {
   "match_id": "match-uuid-1234",
@@ -211,15 +229,16 @@ Response:
 
 Body: `{"match_id": "match-uuid-1234", "played_asset_ids": []}`
 
-- Returns the sanitized question payload (no EXIF, coordinates or capture date).
-- In **Pinpoint** mode: returns a single photo (`asset_id`, `media_url`).
-- In **Album Shuffle** mode: returns a batch of 3 photos (`batch_photos`) and lettered map pins (`batch_pins`).
-- One photo (or batch) is drawn per round and shared by every player in that round so scores are comparable.
-- Tracks candidate diversity ($\ge 100\text{m}$ distance, $\ge 60\text{s}$ time separation) and prioritizes least-played photos (`times_played ASC`).
-- `409` when the match is finished or has no remaining turns.
-- `404` when no eligible asset is available.
+* Returns the sanitized question payload (no EXIF, coordinates or capture date).
+* In **Pinpoint** mode: returns a single photo (`asset_id`, `media_url`).
+* In **Album Shuffle** mode: returns a batch of 3 photos (`batch_photos`) and lettered map pins (`batch_pins`).
+* One photo (or batch) is drawn per round and shared by every player in that round so scores are comparable.
+* Tracks candidate diversity ($\ge 100\text{m}$ distance, $\ge 60\text{s}$ time separation) and prioritizes least-played photos (`times_played ASC`).
+* `409` when the match is finished or has no remaining turns.
+* `404` when no eligible asset is available.
 
 Pinpoint Response Example:
+
 ```json
 {
   "question_id": "q-uuid-1",
@@ -244,6 +263,7 @@ Pinpoint Response Example:
 ```
 
 Album Shuffle Response Example:
+
 ```json
 {
   "question_id": "q-uuid-1",
@@ -277,15 +297,16 @@ Album Shuffle Response Example:
 
 ### GET /api/media/{asset_id}?library_name={name}
 
-- Only asset IDs issued as a question in a live match are served (returns `404` for any unauthorized asset ID).
-- Proxies re-encoded preview thumbnail bytes from Immich (carries no EXIF/GPS payload).
-- If loading fails, marks the asset as invalid in `metadata.db` to prevent future selection.
+* Only asset IDs issued as a question in a live match are served (returns `404` for any unauthorized asset ID).
+* Proxies re-encoded preview thumbnail bytes from Immich (carries no EXIF/GPS payload).
+* If loading fails, marks the asset as invalid in `metadata.db` to prevent future selection.
 
 ### POST /api/answer
 
 Submits a player's guess for the current turn.
 
 Pinpoint Request:
+
 ```json
 {
   "match_id": "match-uuid-1234",
@@ -299,6 +320,7 @@ Pinpoint Request:
 ```
 
 Album Shuffle Request:
+
 ```json
 {
   "match_id": "match-uuid-1234",
@@ -312,10 +334,11 @@ Album Shuffle Request:
 }
 ```
 
-- Returns **acknowledgement only** (`round_complete`, `waiting_for`, etc.) without revealing answers before other players take their turn.
-- A question can be answered once. Subsequent submissions return `409`.
+* Returns **acknowledgement only** (`round_complete`, `waiting_for`, etc.) without revealing answers before other players take their turn.
+* A question can be answered once. Subsequent submissions return `409`.
 
 Response:
+
 ```json
 {
   "player_name": "Alice",
@@ -333,10 +356,11 @@ Response:
 
 Body: `{"match_id": "match-uuid-1234", "round_number": 1}`
 
-- Reveals actual coordinates, city, country, capture date, and all players' guesses and scores.
-- `409` while any player in the round still owes an answer.
+* Reveals actual coordinates, city, country, capture date, and all players' guesses and scores.
+* `409` while any player in the round still owes an answer.
 
 Response Example:
+
 ```json
 {
   "round_number": 1,
@@ -384,6 +408,7 @@ Response Example:
 Returns final match summary, player rankings, accuracy percentages, and winner list.
 
 Response:
+
 ```json
 {
   "match_id": "match-uuid-1234",
@@ -419,18 +444,20 @@ Response:
 Queries persistent SQLite leaderboard history (`data/leaderboard.db`).
 
 Query Parameters:
-- `rounds`: Filter by round count (`5`, `10`, `20`)
-- `round_length`: Filter by timer setting (`30s`, `1m`, `2m`, `5m`, `unlimited`)
-- `location_mode`: Filter by location mode enabled (`true`/`false`)
-- `date_mode`: Filter by date mode enabled (`true`/`false`)
-- `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`)
-- `library`: Filter by library name
-- `albums`: Filter by album name
-- `player_name`: Filter by player name
-- `is_custom_filtered`: Filter by preset vs customized dataset (`true`/`false`)
-- `limit`: Maximum number of entries to return
+
+* `rounds`: Filter by round count (`5`, `10`, `20`)
+* `round_length`: Filter by timer setting (`30s`, `1m`, `2m`, `5m`, `unlimited`)
+* `location_mode`: Filter by location mode enabled (`true`/`false`)
+* `date_mode`: Filter by date mode enabled (`true`/`false`)
+* `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`)
+* `library`: Filter by library name
+* `albums`: Filter by album name
+* `player_name`: Filter by player name
+* `is_custom_filtered`: Filter by preset vs customized dataset (`true`/`false`)
+* `limit`: Maximum number of entries to return
 
 Response:
+
 ```json
 [
   {
@@ -465,8 +492,9 @@ Response:
 ## Anti-Cheat Rules
 
 Question payloads never include answer fields:
-- No EXIF metadata or capture timestamp
-- No GPS coordinates (latitude / longitude)
-- No city or country names
+
+* No EXIF metadata or capture timestamp
+* No GPS coordinates (latitude / longitude)
+* No city or country names
 
 Answer submissions return no reveal data. Reveal data is only available from `POST /api/round/result` once every player in the round has completed their turn.

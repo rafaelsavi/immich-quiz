@@ -561,3 +561,44 @@ def test_is_eligible_asset_people_mode_enum() -> None:
         )
         is False
     )
+
+
+@pytest.mark.asyncio
+async def test_list_tags() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == '/api/tags'
+        return httpx.Response(
+            200,
+            json=[
+                {'id': 't1', 'name': 'Trip'},
+                {'id': 't2', 'name': 'Architecture'},
+                {'id': 't3', 'name': ''},  # Empty name should be filtered
+            ],
+        )
+
+    client = build_client(handler)
+    tags = await client.list_tags('family')
+    assert len(tags) == 2
+    assert tags[0] == {'id': 't2', 'name': 'Architecture'}
+    assert tags[1] == {'id': 't1', 'name': 'Trip'}
+
+
+def test_extract_answer_includes_state() -> None:
+    raw = {
+        'id': 'a1',
+        'type': 'IMAGE',
+        'exifInfo': {
+            'latitude': 34.0522,
+            'longitude': -118.2437,
+            'city': 'Los Angeles',
+            'state': 'California',
+            'country': 'United States',
+            'dateTimeOriginal': '2023-06-01T12:00:00Z',
+        },
+    }
+    ans = ImmichClient.extract_answer(raw)
+    assert ans.latitude == 34.0522
+    assert ans.longitude == -118.2437
+    assert ans.city == 'Los Angeles'
+    assert ans.state == 'California'
+    assert ans.country == 'United States'

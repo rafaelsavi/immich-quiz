@@ -35,6 +35,41 @@ class SyncStatus(str, Enum):
     never_synced = 'never_synced'
 
 
+class SyncMode(str, Enum):
+    full = 'full'
+    delta = 'delta'
+
+
+class SyncStage(str, Enum):
+    idle = 'idle'
+    initializing = 'initializing'
+    fetching_people = 'fetching_people'
+    fetching_albums = 'fetching_albums'
+    updating_albums = 'updating_albums'
+    fetching_tags = 'fetching_tags'
+    scanning_assets = 'scanning_assets'
+    indexing_assets = 'indexing_assets'
+    checking_updates = 'checking_updates'
+    updating_assets = 'updating_assets'
+    pruning = 'pruning'
+    finalizing = 'finalizing'
+
+
+class SyncStateResponse(BaseModel):
+    library_name: str
+    last_sync_at: str | None = None
+    last_full_sync_at: str | None = None
+    last_immich_updated_at: str | None = None
+    sync_status: SyncStatus = SyncStatus.idle
+    sync_mode: SyncMode = SyncMode.full
+    sync_stage: SyncStage = SyncStage.idle
+    sync_error: str | None = None
+    total_assets: int = 0
+    synced_assets: int = 0
+    last_sync_duration_seconds: float | None = None
+    warning: str | None = None
+
+
 class MapBounds(BaseModel):
     min_lat: float
     max_lat: float

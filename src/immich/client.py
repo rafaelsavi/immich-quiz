@@ -25,6 +25,7 @@ class AssetAnswer:
     longitude: float | None
     capture_datetime: datetime | None = None
     city: str | None = None
+    state: str | None = None
     country: str | None = None
 
     @property
@@ -105,6 +106,21 @@ class ImmichClient:
             len(items),
             include_shared,
         )
+        return items
+
+    async def list_tags(self, library_name: str) -> list[dict[str, str]]:
+        key = self._library_key(library_name)
+        raw = await self._request_json('GET', '/tags', key)
+        items: list[dict[str, str]] = []
+        tags_list = raw if isinstance(raw, list) else []
+        for tag in tags_list:
+            if not isinstance(tag, dict):
+                continue
+            tag_id = str(tag.get('id', '')).strip()
+            tag_name = str(tag.get('name', '')).strip()
+            if tag_id and tag_name:
+                items.append({'id': tag_id, 'name': tag_name})
+        items.sort(key=lambda item: (item['name'].lower(), item['id']))
         return items
 
     async def get_asset_count(self, library_name: str) -> int | None:
@@ -401,6 +417,7 @@ class ImmichClient:
 
         capture_dt = ImmichClient.extract_capture_datetime(asset)
         city = str(exif.get('city', '')).strip() if exif.get('city') else None
+        state = str(exif.get('state', '')).strip() if exif.get('state') else None
         country = str(exif.get('country', '')).strip() if exif.get('country') else None
 
         return AssetAnswer(
@@ -408,6 +425,7 @@ class ImmichClient:
             longitude=lon,
             capture_datetime=capture_dt,
             city=city,
+            state=state,
             country=country,
         )
 

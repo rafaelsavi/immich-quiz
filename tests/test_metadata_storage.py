@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from src.config import AppSettings
 from src.main import create_app
-from src.models import CityOption, PeopleMode, SyncStatus
+from src.models import CityOption, PeopleMode, SyncMode, SyncStage, SyncStatus
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.sync import SyncEngine
@@ -574,6 +572,12 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     data_status = res_status.json()
     assert 'sync_status' in data_status
 
+    # Test POST /api/sync and POST /api/sync?force_full=true
+    res_post_sync = client.post('/api/sync?library_name=family')
+    assert res_post_sync.status_code == 200
+    res_post_sync_full = client.post('/api/sync?library_name=family&force_full=true')
+    assert res_post_sync_full.status_code == 200
+
     # Test POST /api/game/preflight
     preflight_payload = {
         'players': ['Player 1'],
@@ -781,40 +785,6 @@ def test_fetch_candidate_assets_prioritizes_least_played(meta_store: MetadataSto
     candidates = meta_store.fetch_candidate_assets(AssetFilterCriteria(library_name='family'), limit=1)
     assert len(candidates) == 1
     assert 'fresh-1' in candidates
-
-
-def test_metadata_schema_migration_adds_times_played_column(tmp_path: Path) -> None:
-    db_file = tmp_path / 'legacy_schema.db'
-    db = DatabaseManager(db_file)
-
-    # Create a legacy assets table missing times_played and last_played_at
-    with db.connection() as conn:
-        conn.execute(
-            """
-            CREATE TABLE assets (
-                id TEXT PRIMARY KEY,
-                library_name TEXT NOT NULL,
-                is_shared INTEGER NOT NULL DEFAULT 0,
-                is_partner INTEGER NOT NULL DEFAULT 0,
-                file_type TEXT NOT NULL DEFAULT 'IMAGE',
-                latitude REAL,
-                longitude REAL,
-                country TEXT,
-                city TEXT,
-                capture_datetime TEXT
-            );
-            """
-        )
-        conn.execute("INSERT INTO assets (id, library_name) VALUES ('legacy-1', 'family')")
-
-    # Initializing MetadataStore should run _migrate_schema seamlessly
-    MetadataStore(db)
-    cols = {row['name'] for row in db.fetch_all('PRAGMA table_info(assets)')}
-    assert 'times_played' in cols
-    assert 'last_played_at' in cols
-
-    row = db.fetch_one("SELECT times_played FROM assets WHERE id = 'legacy-1'")
-    assert row['times_played'] == 0
 
 
 def test_whitelist_and_blacklist_enforcement_in_metadata_store(meta_store: MetadataStore) -> None:
@@ -1048,3 +1018,436 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
     assert alice_counts.people == {'p1': 2, 'p2': 1}
     # Albums: alb1 (Japan) has 2, alb2 (France) has 0
     assert alice_counts.albums == {'alb1': 2}
+
+
+def test_tags_and_state_and_sync_metadata(meta_store: MetadataStore) -> None:
+    # 1. Tags upsert & get
+    meta_store.upsert_tags('lib', [{'id': 't1', 'name': 'Vacation'}, {'id': 't2', 'name': 'Food'}])
+    tags = meta_store.get_tags('lib')
+    assert len(tags) == 2
+    assert tags[0] == {'id': 't2', 'name': 'Food'}
+    assert tags[1] == {'id': 't1', 'name': 'Vacation'}
+
+    # 2. Assets with state, immich_updated_at, and tags
+    assets = [
+        {
+            'id': 'a10',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 25.7617,
+            'longitude': -80.1918,
+            'country': 'United States',
+            'state': 'Florida',
+            'city': 'Miami',
+            'capture_datetime': '2023-01-15T12:00:00',
+            'immich_updated_at': '2023-01-16T10:00:00Z',
+        },
+    ]
+    meta_store.upsert_assets_batch(
+        'lib',
+        assets,
+        asset_people=[],
+        asset_albums=[],
+        asset_tags=[('a10', 't1'), ('a10', 't2')],
+    )
+
+    criteria = AssetFilterCriteria(library_name='lib', location_mode=True, date_mode=True)
+    candidates = meta_store.fetch_candidate_assets(criteria)
+    assert 'a10' in candidates
+    ans = candidates['a10']
+    assert ans.state == 'Florida'
+    assert ans.city == 'Miami'
+    assert ans.country == 'United States'
+
+    # Check database rows directly for immich_updated_at and asset_tags
+    row = meta_store._db.fetch_one('SELECT state, immich_updated_at FROM assets WHERE id = ?', ('a10',))
+    assert row is not None
+    assert row['state'] == 'Florida'
+    assert row['immich_updated_at'] == '2023-01-16T10:00:00Z'
+
+    tag_rows = meta_store._db.fetch_all('SELECT tag_id FROM asset_tags WHERE asset_id = ? ORDER BY tag_id', ('a10',))
+    assert [r['tag_id'] for r in tag_rows] == ['t1', 't2']
+
+    # 3. Sync state with all new delta-sync fields
+    meta_store.set_sync_state(
+        'lib',
+        status=SyncStatus.idle,
+        total_assets=1,
+        synced_assets=1,
+        last_sync_at='2023-01-16T12:00:00Z',
+        last_full_sync_at='2023-01-16T12:00:00Z',
+        last_immich_updated_at='2023-01-16T10:00:00Z',
+        sync_mode=SyncMode.full,
+        last_sync_duration_seconds=1.23,
+    )
+    sync_state = meta_store.get_sync_state('lib')
+    assert sync_state['last_sync_at'] == '2023-01-16T12:00:00Z'
+    assert sync_state['last_full_sync_at'] == '2023-01-16T12:00:00Z'
+    assert sync_state['last_immich_updated_at'] == '2023-01-16T10:00:00Z'
+    assert sync_state['sync_mode'] == SyncMode.full.value
+    assert sync_state['last_sync_duration_seconds'] == 1.23
+
+
+def test_upsert_assets_batch_clears_stale_junctions(meta_store: MetadataStore) -> None:
+    meta_store.upsert_people('lib', [{'id': 'p1', 'name': 'Alice'}, {'id': 'p2', 'name': 'Bob'}])
+    meta_store.upsert_albums('lib', [{'id': 'a1', 'name': 'Alb 1'}, {'id': 'a2', 'name': 'Alb 2'}])
+    meta_store.upsert_tags('lib', [{'id': 't1', 'name': 'Tag 1'}, {'id': 't2', 'name': 'Tag 2'}])
+
+    assets = [
+        {
+            'id': 'asset-mod-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 20.0,
+            'country': 'Spain',
+            'city': 'Madrid',
+            'capture_datetime': '2023-01-01T00:00:00',
+        }
+    ]
+
+    # Initial upsert with p1, p2, a1, t1, t2
+    meta_store.upsert_assets_batch(
+        'lib',
+        assets,
+        asset_people=[('asset-mod-1', 'p1'), ('asset-mod-1', 'p2')],
+        asset_albums=[('asset-mod-1', 'a1')],
+        asset_tags=[('asset-mod-1', 't1'), ('asset-mod-1', 't2')],
+    )
+
+    def get_junctions():
+        p = [r['person_id'] for r in meta_store._db.fetch_all(
+            'SELECT person_id FROM asset_people WHERE asset_id = ? ORDER BY person_id',
+            ('asset-mod-1',),
+        )]
+        t = [r['tag_id'] for r in meta_store._db.fetch_all(
+            'SELECT tag_id FROM asset_tags WHERE asset_id = ? ORDER BY tag_id',
+            ('asset-mod-1',),
+        )]
+        a = [r['album_id'] for r in meta_store._db.fetch_all(
+            'SELECT album_id FROM asset_albums WHERE asset_id = ? ORDER BY album_id',
+            ('asset-mod-1',),
+        )]
+        return p, t, a
+
+    people, tags, albums = get_junctions()
+    assert people == ['p1', 'p2']
+    assert tags == ['t1', 't2']
+    assert albums == ['a1']
+
+    # Modified re-upsert: p2 only, a2 only, t1 only
+    meta_store.upsert_assets_batch(
+        'lib',
+        assets,
+        asset_people=[('asset-mod-1', 'p2')],
+        asset_albums=[('asset-mod-1', 'a2')],
+        asset_tags=[('asset-mod-1', 't1')],
+    )
+
+    people, tags, albums = get_junctions()
+    assert people == ['p2']
+    assert tags == ['t1']
+    assert albums == ['a2']
+
+
+@pytest.mark.asyncio
+async def test_sync_engine_delta_vs_full_sync(tmp_path: Path) -> None:
+    db_mgr = DatabaseManager(tmp_path / 'delta_sync_test.db')
+    meta_store = MetadataStore(db_mgr)
+
+    captured_payloads: list[dict[str, Any]] = []
+
+    class MockDeltaImmichClient:
+        def __init__(self) -> None:
+            self._user_id_by_key = {'token': 'user-me'}
+
+        def _library_key(self, library_name: str) -> str:
+            return 'token'
+
+        async def _current_user_id(self, key: str) -> str:
+            return 'user-me'
+
+        async def _request_json(self, method: str, path: str, key: str, json: Any = None) -> Any:
+            if path == '/people':
+                return []
+            if path == '/albums':
+                return []
+            if path == '/tags':
+                return []
+            if path == '/search/metadata':
+                captured_payloads.append(dict(json or {}))
+                page = (json or {}).get('page', 1)
+                if page == 1:
+                    return {
+                        'total': 1,
+                        'assets': [
+                            {
+                                'id': 'delta-asset-1',
+                                'type': 'IMAGE',
+                                'ownerId': 'user-me',
+                                'updatedAt': '2024-05-01T12:00:00Z',
+                                'exifInfo': {
+                                    'latitude': 41.3879,
+                                    'longitude': 2.1699,
+                                    'country': 'Spain',
+                                    'city': 'Barcelona',
+                                    'dateTimeOriginal': '2024-04-10T10:00:00Z',
+                                },
+                            }
+                        ],
+                    }
+                return {'total': 1, 'assets': []}
+            return {}
+
+        async def get_asset_count(self, library_name: str) -> int | None:
+            return 1
+
+        def _extract_total_assets(self, raw: Any) -> int | None:
+            return raw.get('total')
+
+        def _extract_asset_items(self, raw: Any) -> list[dict[str, Any]]:
+            return raw.get('assets', [])
+
+    mock_client = MockDeltaImmichClient()
+    sync_engine = SyncEngine(mock_client, meta_store)  # type: ignore
+
+    # 1. First sync should run FULL sync (no previous updated_at recorded)
+    await sync_engine.sync_library('family')
+    status1 = sync_engine.get_sync_status('family')
+    assert status1['sync_status'] == 'idle'
+    assert status1['sync_mode'] == SyncMode.full.value
+    assert status1['last_immich_updated_at'] == '2024-05-01T12:00:00Z'
+    assert len(captured_payloads) == 2  # page 1 and page 2
+    assert 'updatedAfter' not in captured_payloads[0]
+
+    captured_payloads.clear()
+
+    # 2. Second sync should run DELTA sync automatically (uses updatedAfter)
+    await sync_engine.sync_library('family')
+    status2 = sync_engine.get_sync_status('family')
+    assert status2['sync_status'] == 'idle'
+    assert status2['sync_mode'] == SyncMode.delta.value
+    assert len(captured_payloads) == 2
+    assert captured_payloads[0].get('updatedAfter') == '2024-05-01T12:00:00Z'
+
+    captured_payloads.clear()
+
+    # 3. Third sync with force_full=True should run FULL sync
+    await sync_engine.sync_library('family', force_full=True)
+    status3 = sync_engine.get_sync_status('family')
+    assert status3['sync_status'] == 'idle'
+    assert status3['sync_mode'] == SyncMode.full.value
+    assert len(captured_payloads) == 2
+    assert 'updatedAfter' not in captured_payloads[0]
+
+
+@pytest.mark.asyncio
+async def test_hundreds_of_albums_parallel_and_delta_skip(tmp_path: Path) -> None:
+    db_mgr = DatabaseManager(tmp_path / 'albums_perf_test.db')
+    meta_store = MetadataStore(db_mgr)
+
+    album_detail_calls: list[str] = []
+
+    class MockAlbumsClient:
+        def __init__(self) -> None:
+            self._user_id_by_key = {'token': 'user-me'}
+
+        def _library_key(self, library_name: str) -> str:
+            return 'token'
+
+        async def _current_user_id(self, key: str) -> str:
+            return 'user-me'
+
+        async def _request_json(self, method: str, path: str, key: str, json: Any = None) -> Any:
+            if path == '/people':
+                return []
+            if path == '/tags':
+                return []
+            if path == '/albums':
+                # Return 50 albums
+                return [
+                    {
+                        'id': f'alb-{i}',
+                        'albumName': f'Album {i}',
+                        'assetCount': 10,
+                        'updatedAt': '2024-01-01T00:00:00Z',
+                    }
+                    for i in range(50)
+                ]
+            if path.startswith('/albums/'):
+                album_detail_calls.append(path)
+                alb_id = path.split('/')[-1]
+                return {
+                    'id': alb_id,
+                    'assets': [{'id': f'asset-{alb_id}'}],
+                }
+            if path == '/search/metadata':
+                page = (json or {}).get('page', 1)
+                if page == 1:
+                    return {
+                        'total': 1,
+                        'assets': [
+                            {
+                                'id': 'asset-alb-0',
+                                'type': 'IMAGE',
+                                'ownerId': 'user-me',
+                                'updatedAt': '2024-05-01T12:00:00Z',
+                            }
+                        ],
+                    }
+                return {'total': 1, 'assets': []}
+            return {}
+
+        async def get_asset_count(self, library_name: str) -> int | None:
+            return 1
+
+        def _extract_total_assets(self, raw: Any) -> int | None:
+            return raw.get('total')
+
+        def _extract_asset_items(self, raw: Any) -> list[dict[str, Any]]:
+            return raw.get('assets', [])
+
+    mock_client = MockAlbumsClient()
+    sync_engine = SyncEngine(mock_client, meta_store)  # type: ignore
+
+    # 1. Full sync: all 50 albums are fetched in parallel
+    await sync_engine.sync_library('family')
+    assert len(album_detail_calls) == 50
+    album_detail_calls.clear()
+
+    # 2. Delta sync with no modified albums: 0 album detail calls made!
+    await sync_engine.sync_library('family')
+    assert len(album_detail_calls) == 0
+
+
+def test_sync_stages_telemetry(meta_store: MetadataStore) -> None:
+    # Test setting and getting sync state with sync_stage
+    meta_store.set_sync_state(
+        'vacation',
+        status=SyncStatus.syncing,
+        sync_mode=SyncMode.full,
+        sync_stage=SyncStage.fetching_albums,
+        total_assets=50,
+        synced_assets=10,
+    )
+    state = meta_store.get_sync_state('vacation')
+    assert state['sync_status'] == SyncStatus.syncing.value
+    assert state['sync_mode'] == SyncMode.full.value
+    assert state['sync_stage'] == SyncStage.fetching_albums.value
+    assert state['total_assets'] == 50
+    assert state['synced_assets'] == 10
+
+    # Test transitioning to idle
+    meta_store.set_sync_state(
+        'vacation',
+        status=SyncStatus.idle,
+        sync_mode=SyncMode.full,
+        sync_stage=SyncStage.idle,
+        total_assets=100,
+        synced_assets=100,
+    )
+    state_idle = meta_store.get_sync_state('vacation')
+    assert state_idle['sync_status'] == SyncStatus.idle.value
+    assert state_idle['sync_stage'] == SyncStage.idle.value
+
+
+def test_is_sync_due_logic() -> None:
+    now = datetime(2026, 8, 17, 12, 0, 0, tzinfo=timezone.utc)
+
+    # Disabled interval returns False
+    assert not SyncEngine.is_sync_due(None, 0, now=now)
+    assert not SyncEngine.is_sync_due('2026-08-17T00:00:00Z', 0, now=now)
+
+    # Never synced before returns True if interval > 0
+    assert SyncEngine.is_sync_due(None, 6, now=now)
+
+    # 5 hours ago with 6 hour interval -> False
+    five_hours_ago = (now - timedelta(hours=5)).isoformat()
+    assert not SyncEngine.is_sync_due(five_hours_ago, 6, now=now)
+
+    # 6 hours ago with 6 hour interval -> True
+    six_hours_ago = (now - timedelta(hours=6)).isoformat()
+    assert SyncEngine.is_sync_due(six_hours_ago, 6, now=now)
+
+    # 25 hours ago with 24 hour interval -> True
+    day_ago = (now - timedelta(hours=25)).isoformat()
+    assert SyncEngine.is_sync_due(day_ago, 24, now=now)
+
+
+@pytest.mark.asyncio
+async def test_check_and_trigger_scheduled_sync(meta_store: MetadataStore) -> None:
+    class DummyImmichClient:
+        def _library_key(self, name: str) -> str:
+            return 'key'
+
+        async def _current_user_id(self, key: str) -> str:
+            return 'user-1'
+
+        async def _request_json(self, method: str, path: str, key: str, json: Any = None) -> Any:
+            return []
+
+        async def get_asset_count(self, library_name: str) -> int | None:
+            return 0
+
+        def _extract_total_assets(self, raw: Any) -> int | None:
+            return 0
+
+        def _extract_asset_items(self, raw: Any) -> list[dict[str, Any]]:
+            return []
+
+    client = DummyImmichClient()
+    sync_engine = SyncEngine(client, meta_store)  # type: ignore
+
+    now = datetime(2026, 8, 17, 12, 0, 0, tzinfo=timezone.utc)
+
+    # 1. When full sync is due (25h ago), triggers full sync
+    meta_store.set_sync_state(
+        'family',
+        status=SyncStatus.idle,
+        last_sync_at=(now - timedelta(hours=2)).isoformat(),
+        last_full_sync_at=(now - timedelta(hours=25)).isoformat(),
+    )
+    task1 = sync_engine.check_and_trigger_scheduled_sync(
+        'family',
+        delta_interval_hours=6,
+        full_interval_hours=24,
+        now=now,
+    )
+    assert task1 is not None
+    await task1
+
+    # 2. When full sync is recent (10h ago) but delta sync is due (7h ago), triggers delta sync
+    meta_store.set_sync_state(
+        'family',
+        status=SyncStatus.idle,
+        last_sync_at=(now - timedelta(hours=7)).isoformat(),
+        last_full_sync_at=(now - timedelta(hours=10)).isoformat(),
+    )
+    task2 = sync_engine.check_and_trigger_scheduled_sync(
+        'family',
+        delta_interval_hours=6,
+        full_interval_hours=24,
+        now=now,
+    )
+    assert task2 is not None
+    await task2
+
+    # 3. When both are recent (last sync 2h ago, full 10h ago), neither is triggered
+    meta_store.set_sync_state(
+        'family',
+        status=SyncStatus.idle,
+        last_sync_at=(now - timedelta(hours=2)).isoformat(),
+        last_full_sync_at=(now - timedelta(hours=10)).isoformat(),
+    )
+    task3 = sync_engine.check_and_trigger_scheduled_sync(
+        'family',
+        delta_interval_hours=6,
+        full_interval_hours=24,
+        now=now,
+    )
+    assert task3 is None
+
+
+

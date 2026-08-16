@@ -46,6 +46,8 @@ class AppSettings:
     # Data folder and storage settings
     data_path: Path = Path('data')
     auto_sync_on_startup: bool = True
+    auto_delta_sync_interval_hours: int = 6
+    auto_full_sync_interval_hours: int = 120
 
     @property
     def metadata_db_path(self) -> Path:
@@ -174,6 +176,18 @@ def load_settings() -> AppSettings:
     data_path_raw = os.getenv('DATA_PATH') or os.getenv('DATA_DIR') or 'data'
     data_path = Path(data_path_raw).expanduser().resolve()
     auto_sync_on_startup = _parse_bool(os.getenv('AUTO_SYNC_ON_STARTUP', 'true'), 'AUTO_SYNC_ON_STARTUP')
+    auto_delta_sync_interval_hours = _parse_int_range(
+        os.getenv('AUTO_DELTA_SYNC_INTERVAL_HOURS', '6'),
+        'AUTO_DELTA_SYNC_INTERVAL_HOURS',
+        min_value=0,
+        max_value=8760,
+    )
+    auto_full_sync_interval_hours = _parse_int_range(
+        os.getenv('AUTO_FULL_SYNC_INTERVAL_HOURS', '120'),
+        'AUTO_FULL_SYNC_INTERVAL_HOURS',
+        min_value=0,
+        max_value=8760,
+    )
 
     country_whitelist = _parse_comma_set(os.getenv('COUNTRY_WHITELIST'))
     country_blacklist = _parse_comma_set(os.getenv('COUNTRY_BLACKLIST'))
@@ -213,6 +227,8 @@ def load_settings() -> AppSettings:
         language=language,
         data_path=data_path,
         auto_sync_on_startup=auto_sync_on_startup,
+        auto_delta_sync_interval_hours=auto_delta_sync_interval_hours,
+        auto_full_sync_interval_hours=auto_full_sync_interval_hours,
         country_whitelist=country_whitelist,
         country_blacklist=country_blacklist,
         city_whitelist=city_whitelist,

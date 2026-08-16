@@ -305,15 +305,45 @@ function renderSyncStatus(status) {
   }
   if (el.syncBtnLabel) {
     if (isSyncing) {
+      const mode = status.sync_mode || "full";
+      const stage = status.sync_stage || "initializing";
       const total = status.total_assets || 0;
       const synced = status.synced_assets || 0;
-      if (total > 0 && total >= synced) {
-        const pct = Math.min(100, Math.round((synced / total) * 100));
-        el.syncBtnLabel.textContent = `${synced.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
-      } else if (synced > 0) {
-        el.syncBtnLabel.textContent = t("setup.sync_count", synced);
+
+      if (mode === "delta") {
+        if (stage === "updating_assets" && synced > 0) {
+          el.syncBtnLabel.textContent = t("setup.sync_stage_updating_assets", synced);
+        } else if (stage === "updating_albums") {
+          el.syncBtnLabel.textContent = t("setup.sync_stage_fetching_albums");
+        } else if (stage === "finalizing") {
+          el.syncBtnLabel.textContent = t("setup.sync_stage_finalizing");
+        } else {
+          el.syncBtnLabel.textContent = t("setup.sync_stage_checking_updates");
+        }
       } else {
-        el.syncBtnLabel.textContent = t("setup.syncing_label");
+        // Full sync mode
+        if (stage === "fetching_albums") {
+          if (total > 0 && synced > 0) {
+            el.syncBtnLabel.textContent = t("setup.sync_stage_albums_progress", synced, total);
+          } else {
+            el.syncBtnLabel.textContent = t("setup.sync_stage_fetching_albums");
+          }
+        } else if (stage === "scanning_assets" || stage === "indexing_assets" || synced > 0) {
+          if (total > 0 && total >= synced && synced > 0) {
+            const pct = Math.min(100, Math.round((synced / total) * 100));
+            el.syncBtnLabel.textContent = `${synced.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
+          } else if (synced > 0) {
+            el.syncBtnLabel.textContent = `${synced.toLocaleString()} scanned`;
+          } else {
+            el.syncBtnLabel.textContent = t("setup.sync_stage_scanning_assets");
+          }
+        } else if (stage === "pruning") {
+          el.syncBtnLabel.textContent = t("setup.sync_stage_pruning");
+        } else if (stage === "finalizing") {
+          el.syncBtnLabel.textContent = t("setup.sync_stage_finalizing");
+        } else {
+          el.syncBtnLabel.textContent = t("setup.sync_stage_initializing");
+        }
       }
     } else if (neverSynced) {
       el.syncBtnLabel.textContent = t("setup.sync_label_never_synced");
@@ -327,6 +357,7 @@ async function checkSyncStatus(libraryName) {
   if (!libraryName) return;
   try {
     const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
+    if (el.library && el.library.value !== libraryName) return;
     if (status.warning) {
       console.warn(`[Immich Sync Warning] ${status.warning}`);
     }
@@ -336,6 +367,9 @@ async function checkSyncStatus(libraryName) {
     renderSyncStatus(status);
     if (status.sync_status === "syncing") {
       startSyncPolling(libraryName);
+    } else if (_syncPollInterval) {
+      clearInterval(_syncPollInterval);
+      _syncPollInterval = null;
     }
   } catch (e) {
     console.warn("Failed to fetch sync status:", e);
@@ -344,7 +378,8 @@ async function checkSyncStatus(libraryName) {
 
 function startSyncPolling(libraryName) {
   if (_syncPollInterval) clearInterval(_syncPollInterval);
-  _syncPollInterval = setInterval(async () => {
+
+  const poll = async () => {
     try {
       const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
       if (status.warning) {
@@ -353,25 +388,44 @@ function startSyncPolling(libraryName) {
       if (status.sync_error) {
         console.error(`[Immich Sync Error] ${status.sync_error}`);
       }
-      renderSyncStatus(status);
+      const isCurrentLibrary = el.library && el.library.value === libraryName;
+      if (isCurrentLibrary) {
+        renderSyncStatus(status);
+      }
       if (status.sync_status !== "syncing") {
-        clearInterval(_syncPollInterval);
-        _syncPollInterval = null;
-        // Sync completed: reload filters to show all newly indexed items!
-        await onLibrarySelected(libraryName);
+        if (_syncPollInterval) {
+          clearInterval(_syncPollInterval);
+          _syncPollInterval = null;
+        }
+        // Sync completed: reload filters to show all newly indexed items only if still on this library!
+        if (isCurrentLibrary) {
+          await onLibrarySelected(libraryName);
+        }
       }
     } catch (e) {
       console.warn("Error polling sync status:", e);
     }
-  }, 2000);
+  };
+
+  // Immediate check for fast delta syncs, then responsive 400ms interval
+  setTimeout(poll, 150);
+  _syncPollInterval = setInterval(poll, 400);
 }
 
 async function triggerLibrarySync() {
   const libraryName = el.library ? el.library.value : null;
   if (!libraryName) return;
   try {
-    renderSyncStatus({ sync_status: "syncing", total_assets: 0, synced_assets: 0 });
-    await api(`/api/sync?library_name=${encodeURIComponent(libraryName)}`, { method: "POST" });
+    const isDelta = Boolean(_lastSyncStatus && _lastSyncStatus.last_sync_at);
+    renderSyncStatus({
+      sync_status: "syncing",
+      sync_mode: isDelta ? "delta" : "full",
+      sync_stage: isDelta ? "checking_updates" : "initializing",
+      total_assets: 0,
+      synced_assets: 0,
+    });
+    const res = await api(`/api/sync?library_name=${encodeURIComponent(libraryName)}`, { method: "POST" });
+    if (res) renderSyncStatus(res);
     startSyncPolling(libraryName);
   } catch (err) {
     console.error("Failed to trigger sync:", err);
@@ -695,6 +749,8 @@ async function onLibrarySelected(libraryName) {
       api(`/api/albums?library_name=${encodeURIComponent(libraryName)}`),
       api(`/api/filters?library_name=${encodeURIComponent(libraryName)}`),
     ]);
+
+    if (el.library && el.library.value !== libraryName) return;
 
     cachedRawCities = filtersRes.cities || [];
 

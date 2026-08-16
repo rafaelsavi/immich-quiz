@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from src.immich.client import ImmichClient, ImmichClientError
-from src.models import SyncStatus
+from src.models import SyncMode, SyncStage, SyncStatus
 from src.storage.metadata import MetadataStore
 
 logger = logging.getLogger(__name__)
@@ -51,13 +52,57 @@ class SyncEngine:
             state['warning'] = self._sync_warnings[library_name]
         return state
 
-    def trigger_sync(self, library_name: str) -> asyncio.Task[None]:
+    @staticmethod
+    def is_sync_due(last_at_iso: str | None, interval_hours: int, now: datetime | None = None) -> bool:
+        """Check if a sync is due given the ISO timestamp of the last run and the interval in hours."""
+        if interval_hours <= 0:
+            return False
+        if not last_at_iso:
+            return True
+        try:
+            last_dt = datetime.fromisoformat(last_at_iso)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            current_time = now or datetime.now(timezone.utc)
+            return (current_time - last_dt) >= timedelta(hours=interval_hours)
+        except (ValueError, TypeError):
+            return True
+
+    def check_and_trigger_scheduled_sync(
+        self,
+        library_name: str,
+        *,
+        delta_interval_hours: int,
+        full_interval_hours: int,
+        now: datetime | None = None,
+    ) -> asyncio.Task[None] | None:
+        """Evaluate sync intervals against database sync_state and trigger sync if due."""
+        if self.is_syncing(library_name):
+            return None
+
+        state = self._metadata_store.get_sync_state(library_name)
+        last_sync_at = state.get('last_sync_at')
+        last_full_sync_at = state.get('last_full_sync_at')
+
+        # Full sync takes precedence if due
+        if self.is_sync_due(last_full_sync_at, full_interval_hours, now=now):
+            logger.info('Triggering scheduled full metadata sync for library: %s', library_name)
+            return self.trigger_sync(library_name, force_full=True)
+
+        # Otherwise check if delta sync is due
+        if self.is_sync_due(last_sync_at, delta_interval_hours, now=now):
+            logger.info('Triggering scheduled delta metadata sync for library: %s', library_name)
+            return self.trigger_sync(library_name, force_full=False)
+
+        return None
+
+    def trigger_sync(self, library_name: str, *, force_full: bool = False) -> asyncio.Task[None]:
         """Trigger an asynchronous background sync for a library if not already running."""
         if self.is_syncing(library_name):
             logger.info('Sync already in progress for library %s', library_name)
             return self._active_sync_tasks[library_name]
 
-        task = asyncio.create_task(self.sync_library(library_name))
+        task = asyncio.create_task(self.sync_library(library_name, force_full=force_full))
         self._active_sync_tasks[library_name] = task
 
         def _on_done(t: asyncio.Task[None]) -> None:
@@ -70,14 +115,118 @@ class SyncEngine:
         task.add_done_callback(_on_done)
         return task
 
-    async def sync_library(self, library_name: str) -> None:
-        """Perform full metadata synchronization for a specific library."""
-        logger.info('Starting metadata sync for library: %s', library_name)
+    def _process_asset_item(
+        self,
+        item: dict[str, Any],
+        *,
+        current_user_id: str | None,
+        album_asset_map: dict[str, set[str]],
+        shared_album_ids: set[str],
+        known_person_ids: set[str],
+        known_album_ids: set[str],
+        known_tag_ids: set[str],
+    ) -> tuple[dict[str, Any] | None, list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]]]:
+        aid = str(item.get('id', '') or item.get('assetId', '')).strip()
+        if not aid:
+            return None, [], [], []
+
+        # Determine ownership flags
+        owner_id = ImmichClient._extract_owner_id(item)
+        in_shared_album = bool(aid in album_asset_map and (album_asset_map[aid] & shared_album_ids))
+        has_shared_prop = bool(item.get('isShared') or item.get('shared'))
+        is_shared_flag = 1 if (has_shared_prop or in_shared_album) else 0
+        is_other_owner = bool(owner_id and current_user_id and owner_id != current_user_id)
+        is_partner_flag = 1 if (is_other_owner and not is_shared_flag) else 0
+
+        # Extract EXIF & location
+        exif = ImmichClient._exif(item)
+        lat: float | None = None
+        lon: float | None = None
+        raw_lat = exif.get('latitude')
+        raw_lon = exif.get('longitude')
+        if raw_lat is not None and raw_lon is not None:
+            try:
+                lat_val = float(raw_lat)
+                lon_val = float(raw_lon)
+                if not (lat_val == 0.0 and lon_val == 0.0):
+                    lat = lat_val
+                    lon = lon_val
+            except (ValueError, TypeError):
+                lat = None
+                lon = None
+
+        city = _clean_str(exif.get('city'))
+        state = _clean_str(exif.get('state'))
+        country = _clean_str(exif.get('country'))
+
+        capture_dt = ImmichClient.extract_capture_datetime(item)
+        capture_dt_str = capture_dt.isoformat() if capture_dt is not None else None
+        updated_at_str = _clean_str(item.get('updatedAt'))
+        file_type = str(item.get('type', 'IMAGE')).upper()
+
+        asset_dict = {
+            'id': aid,
+            'is_shared': is_shared_flag,
+            'is_partner': is_partner_flag,
+            'file_type': file_type,
+            'latitude': lat,
+            'longitude': lon,
+            'country': country,
+            'state': state,
+            'city': city,
+            'capture_datetime': capture_dt_str,
+            'immich_updated_at': updated_at_str,
+        }
+
+        asset_people: list[tuple[str, str]] = []
+        people = item.get('people') or item.get('faces') or []
+        if isinstance(people, list):
+            for p in people:
+                if isinstance(p, dict) and p.get('id'):
+                    pid = str(p['id']).strip()
+                    if pid and pid in known_person_ids:
+                        asset_people.append((aid, pid))
+
+        asset_albums: list[tuple[str, str]] = []
+        if aid in album_asset_map:
+            for alb_id in album_asset_map[aid]:
+                if alb_id in known_album_ids:
+                    asset_albums.append((aid, alb_id))
+
+        asset_tags: list[tuple[str, str]] = []
+        item_tags = item.get('tags') or []
+        if isinstance(item_tags, list):
+            for t in item_tags:
+                if isinstance(t, dict) and t.get('id'):
+                    tid = str(t['id']).strip()
+                    if tid and tid in known_tag_ids:
+                        asset_tags.append((aid, tid))
+                elif isinstance(t, str):
+                    tid = t.strip()
+                    if tid and tid in known_tag_ids:
+                        asset_tags.append((aid, tid))
+
+        return asset_dict, asset_people, asset_albums, asset_tags
+
+    async def sync_library(self, library_name: str, *, force_full: bool = False) -> None:
+        """Perform metadata synchronization (delta or full) for a specific library."""
+        current_state = self._metadata_store.get_sync_state(library_name)
+        has_synced = self._metadata_store.has_synced_assets(library_name)
+        last_immich_updated_at = current_state.get('last_immich_updated_at')
+
+        is_delta = (not force_full) and has_synced and bool(last_immich_updated_at)
+        sync_mode = SyncMode.delta if is_delta else SyncMode.full
+
+        logger.info('Starting %s metadata sync for library: %s', sync_mode.value, library_name)
+        sync_start = time.monotonic()
         self._metadata_store.set_sync_state(
             library_name,
             status=SyncStatus.syncing,
+            sync_mode=sync_mode,
+            sync_stage=SyncStage.checking_updates if is_delta else SyncStage.initializing,
             error=None,
             synced_assets=0,
+            total_assets=0,
         )
 
         try:
@@ -109,6 +258,9 @@ class SyncEngine:
             album_asset_map: dict[str, set[str]] = {}  # asset_id -> set of album_ids
             shared_album_ids: set[str] = set()
 
+            indexed_album_ids = self._metadata_store.get_indexed_album_ids(library_name)
+            albums_to_fetch: list[tuple[str, int]] = []  # (album_id, asset_count)
+
             for alb in albums_list:
                 if isinstance(alb, dict):
                     aid = str(alb.get('id', '')).strip()
@@ -119,55 +271,155 @@ class SyncEngine:
                     if aid and aname:
                         albums_data.append({'id': aid, 'name': aname, 'isShared': is_shared})
 
-                        # Fetch album assets to populate album junction
-                        try:
-                            alb_detail = await self._immich._request_json('GET', f'/albums/{aid}', key)
-                            alb_assets = self._immich._extract_asset_items(alb_detail)
-                            if not alb_assets and alb.get('assetCount', 0) > 0:
-                                search_alb = await self._immich._request_json(
-                                    'POST',
-                                    '/search/metadata',
-                                    key,
-                                    json={'albumIds': [aid], 'size': 1000},
+                        asset_count = int(alb.get('assetCount', 0) or 0)
+                        if asset_count > 0:
+                            alb_updated_at = _clean_str(alb.get('updatedAt'))
+                            if not is_delta:
+                                # Full sync: fetch all non-empty albums in parallel
+                                albums_to_fetch.append((aid, asset_count))
+                            else:
+                                # Delta sync: only fetch if album is newly added or modified since last sync
+                                is_new = aid not in indexed_album_ids
+                                is_modified = bool(
+                                    alb_updated_at
+                                    and last_immich_updated_at
+                                    and alb_updated_at > last_immich_updated_at
                                 )
-                                alb_assets = self._immich._extract_asset_items(search_alb)
-
-                            for item in alb_assets:
-                                item_id = str(item.get('id', '') or item.get('assetId', '')).strip()
-                                if item_id:
-                                    if item_id not in album_asset_map:
-                                        album_asset_map[item_id] = set()
-                                    album_asset_map[item_id].add(aid)
-                        except ImmichClientError as exc:
-                            logger.warning('Failed to fetch assets for album %s: %s', aid, exc)
+                                if is_new or is_modified:
+                                    albums_to_fetch.append((aid, asset_count))
 
             self._metadata_store.upsert_albums(library_name, albums_data)
             known_album_ids = {a['id'] for a in albums_data}
 
-            # 3. Paginate through all assets via /search/metadata
+            if not is_delta:
+                self._metadata_store.prune_missing_albums(library_name, known_album_ids)
+
+            # Concurrent album asset fetching (bounded concurrency pool of 15)
+            if albums_to_fetch:
+                self._metadata_store.set_sync_state(
+                    library_name,
+                    status=SyncStatus.syncing,
+                    sync_mode=sync_mode,
+                    sync_stage=SyncStage.fetching_albums if not is_delta else SyncStage.updating_albums,
+                    total_assets=len(albums_to_fetch),
+                    synced_assets=0,
+                )
+                album_semaphore = asyncio.Semaphore(15)
+
+                async def _fetch_album_contents(alb_id: str, count: int) -> tuple[str, list[str]]:
+                    async with album_semaphore:
+                        try:
+                            alb_detail = await self._immich._request_json('GET', f'/albums/{alb_id}', key)
+                            alb_assets = self._immich._extract_asset_items(alb_detail)
+                            if not alb_assets and count > 0:
+                                search_alb = await self._immich._request_json(
+                                    'POST',
+                                    '/search/metadata',
+                                    key,
+                                    json={'albumIds': [alb_id], 'size': 1000},
+                                )
+                                alb_assets = self._immich._extract_asset_items(search_alb)
+
+                            item_ids = [
+                                str(item.get('id', '') or item.get('assetId', '')).strip()
+                                for item in alb_assets
+                                if str(item.get('id', '') or item.get('assetId', '')).strip()
+                            ]
+                            return alb_id, item_ids
+                        except ImmichClientError as exc:
+                            logger.warning('Failed to fetch assets for album %s: %s', alb_id, exc)
+                            return alb_id, []
+
+                fetched_results = await asyncio.gather(
+                    *(_fetch_album_contents(alb_id, cnt) for alb_id, cnt in albums_to_fetch)
+                )
+
+                # Populate album_asset_map & update modified album junctions in SQLite
+                modified_junction_inserts: list[tuple[str, str]] = []
+                clear_album_ids: set[str] = set()
+                for alb_id, item_ids in fetched_results:
+                    if is_delta:
+                        clear_album_ids.add(alb_id)
+                    for item_id in item_ids:
+                        if item_id not in album_asset_map:
+                            album_asset_map[item_id] = set()
+                        album_asset_map[item_id].add(alb_id)
+                        if is_delta:
+                            modified_junction_inserts.append((item_id, alb_id))
+
+                if modified_junction_inserts or clear_album_ids:
+                    self._metadata_store.link_album_assets(
+                        modified_junction_inserts,
+                        clear_album_ids=clear_album_ids if is_delta else None,
+                    )
+
+            # 3. Fetch & store tags
+            try:
+                raw_tags = await self._immich._request_json('GET', '/tags', key)
+                tags_list = raw_tags if isinstance(raw_tags, list) else []
+                tags_data: list[dict[str, str]] = []
+                for t in tags_list:
+                    if isinstance(t, dict):
+                        tid = str(t.get('id', '')).strip()
+                        tname = str(t.get('name', '')).strip()
+                        if tid and tname:
+                            tags_data.append({'id': tid, 'name': tname})
+                self._metadata_store.upsert_tags(library_name, tags_data)
+                known_tag_ids = {t['id'] for t in tags_data}
+            except Exception as exc:
+                logger.warning('Failed to fetch tags for library %s: %s', library_name, exc)
+                known_tag_ids = set()
+
+            # 4. Asset search (Delta or Full)
             page_size = 250
             page_num = 1
             seen_asset_ids: set[str] = set()
-            total_reported: int | None = await self._immich.get_asset_count(library_name)
-            if total_reported is None:
-                msg = (
-                    f"Immich /search/statistics did not return an asset count for library '{library_name}'. "
-                    'Sync will proceed without total progress estimate.'
+            max_updated_at: str | None = last_immich_updated_at if is_delta else None
+            total_reported: int | None = None
+
+            if not is_delta:
+                total_reported = await self._immich.get_asset_count(library_name)
+                if total_reported is None:
+                    msg = (
+                        f"Immich /search/statistics did not return an asset count for library '{library_name}'. "
+                        'Sync will proceed without total progress estimate.'
+                    )
+                    logger.warning(msg)
+                    self._sync_warnings[library_name] = msg
+
+                self._metadata_store.set_sync_state(
+                    library_name,
+                    status=SyncStatus.syncing,
+                    sync_mode=sync_mode,
+                    sync_stage=SyncStage.scanning_assets,
+                    synced_assets=0,
+                    total_assets=total_reported or 0,
                 )
-                logger.warning(msg)
-                self._sync_warnings[library_name] = msg
+            else:
+                self._metadata_store.set_sync_state(
+                    library_name,
+                    status=SyncStatus.syncing,
+                    sync_mode=sync_mode,
+                    sync_stage=SyncStage.checking_updates,
+                    synced_assets=0,
+                    total_assets=0,
+                )
 
             while True:
-                payload = {
+                payload: dict[str, Any] = {
                     'size': page_size,
                     'page': page_num,
                     'withExif': True,
                     'withPartners': True,
                     'isShared': True,
                     'withPeople': True,
+                    'withTags': True,
                 }
+                if is_delta and last_immich_updated_at:
+                    payload['updatedAfter'] = last_immich_updated_at
+
                 raw_page = await self._immich._request_json('POST', '/search/metadata', key, json=payload)
-                if total_reported is None:
+                if not is_delta and total_reported is None:
                     extracted_total = self._immich._extract_total_assets(raw_page)
                     if extracted_total is not None and extracted_total > 0:
                         total_reported = extracted_total
@@ -179,75 +431,31 @@ class SyncEngine:
                 batch_assets: list[dict[str, Any]] = []
                 batch_asset_people: list[tuple[str, str]] = []
                 batch_asset_albums: list[tuple[str, str]] = []
+                batch_asset_tags: list[tuple[str, str]] = []
 
                 for item in items:
-                    aid = str(item.get('id', '') or item.get('assetId', '')).strip()
-                    if not aid:
-                        continue
-                    seen_asset_ids.add(aid)
-
-                    # Determine ownership flags
-                    owner_id = ImmichClient._extract_owner_id(item)
-                    in_shared_album = bool(aid in album_asset_map and (album_asset_map[aid] & shared_album_ids))
-                    has_shared_prop = bool(item.get('isShared') or item.get('shared'))
-                    is_shared_flag = 1 if (has_shared_prop or in_shared_album) else 0
-                    is_other_owner = bool(owner_id and current_user_id and owner_id != current_user_id)
-                    is_partner_flag = 1 if (is_other_owner and not is_shared_flag) else 0
-
-                    # Extract EXIF & location
-                    exif = ImmichClient._exif(item)
-                    lat: float | None = None
-                    lon: float | None = None
-                    raw_lat = exif.get('latitude')
-                    raw_lon = exif.get('longitude')
-                    if raw_lat is not None and raw_lon is not None:
-                        try:
-                            lat_val = float(raw_lat)
-                            lon_val = float(raw_lon)
-                            if not (lat_val == 0.0 and lon_val == 0.0):
-                                lat = lat_val
-                                lon = lon_val
-                        except (ValueError, TypeError):
-                            lat = None
-                            lon = None
-
-                    city = _clean_str(exif.get('city'))
-                    country = _clean_str(exif.get('country'))
-
-                    # Extract capture datetime (normalized to ISO8601 string)
-                    capture_dt = ImmichClient.extract_capture_datetime(item)
-                    capture_dt_str = capture_dt.isoformat() if capture_dt is not None else None
-
-                    file_type = str(item.get('type', 'IMAGE')).upper()
-
-                    batch_assets.append(
-                        {
-                            'id': aid,
-                            'is_shared': is_shared_flag,
-                            'is_partner': is_partner_flag,
-                            'file_type': file_type,
-                            'latitude': lat,
-                            'longitude': lon,
-                            'country': country,
-                            'city': city,
-                            'capture_datetime': capture_dt_str,
-                        }
+                    asset_dict, a_people, a_albums, a_tags = self._process_asset_item(
+                        item,
+                        current_user_id=current_user_id,
+                        album_asset_map=album_asset_map,
+                        shared_album_ids=shared_album_ids,
+                        known_person_ids=known_person_ids,
+                        known_album_ids=known_album_ids,
+                        known_tag_ids=known_tag_ids,
                     )
+                    if not asset_dict:
+                        continue
 
-                    # Extract people (only keep named people present in the people table)
-                    people = item.get('people') or item.get('faces') or []
-                    if isinstance(people, list):
-                        for p in people:
-                            if isinstance(p, dict) and p.get('id'):
-                                pid = str(p['id']).strip()
-                                if pid and pid in known_person_ids:
-                                    batch_asset_people.append((aid, pid))
+                    aid = asset_dict['id']
+                    seen_asset_ids.add(aid)
+                    batch_assets.append(asset_dict)
+                    batch_asset_people.extend(a_people)
+                    batch_asset_albums.extend(a_albums)
+                    batch_asset_tags.extend(a_tags)
 
-                    # Attach album associations (only keep albums present in albums table)
-                    if aid in album_asset_map:
-                        for alb_id in album_asset_map[aid]:
-                            if alb_id in known_album_ids:
-                                batch_asset_albums.append((aid, alb_id))
+                    updated_str = asset_dict.get('immich_updated_at')
+                    if updated_str and (max_updated_at is None or updated_str > max_updated_at):
+                        max_updated_at = updated_str
 
                 # Batch upsert into SQLite
                 self._metadata_store.upsert_assets_batch(
@@ -255,58 +463,100 @@ class SyncEngine:
                     batch_assets,
                     batch_asset_people,
                     batch_asset_albums,
+                    batch_asset_tags,
                 )
 
                 synced_count = len(seen_asset_ids)
-                total_target = total_reported if (total_reported is not None and total_reported >= synced_count) else 0
+                if not is_delta:
+                    total_target = (
+                        total_reported
+                        if (total_reported is not None and total_reported >= synced_count)
+                        else 0
+                    )
+                    self._metadata_store.set_sync_state(
+                        library_name,
+                        status=SyncStatus.syncing,
+                        sync_mode=sync_mode,
+                        sync_stage=SyncStage.indexing_assets,
+                        synced_assets=synced_count,
+                        total_assets=total_target,
+                    )
+                else:
+                    self._metadata_store.set_sync_state(
+                        library_name,
+                        status=SyncStatus.syncing,
+                        sync_mode=sync_mode,
+                        sync_stage=SyncStage.updating_assets if synced_count > 0 else SyncStage.checking_updates,
+                        synced_assets=synced_count,
+                        total_assets=synced_count,
+                    )
+
+                page_num += 1
+                await asyncio.sleep(0.01)
+
+            # 5. Link any album associations that might have been processed
+            if album_asset_map:
+                junction_inserts: list[tuple[str, str]] = []
+                shared_asset_updates: list[tuple[str,]] = []
+
+                for asset_id, album_ids in album_asset_map.items():
+                    for album_id in album_ids:
+                        if album_id in known_album_ids:
+                            junction_inserts.append((asset_id, album_id))
+                    if album_ids & shared_album_ids:
+                        shared_asset_updates.append((asset_id,))
+
+                if junction_inserts or shared_asset_updates:
+                    self._metadata_store.link_album_assets(
+                        junction_inserts,
+                        shared_asset_updates=shared_asset_updates,
+                    )
+
+            # 6. Prune missing assets (only in full sync)
+            if not is_delta:
                 self._metadata_store.set_sync_state(
                     library_name,
                     status=SyncStatus.syncing,
-                    synced_assets=synced_count,
-                    total_assets=total_target,
+                    sync_mode=sync_mode,
+                    sync_stage=SyncStage.pruning,
                 )
+                pruned_count = self._metadata_store.prune_missing_assets(library_name, seen_asset_ids)
+                if pruned_count > 0:
+                    logger.info('Pruned %d deleted asset(s) from metadata index for %s', pruned_count, library_name)
 
-                page_num += 1
-                # Yield to the event loop so the server remains responsive during large syncs
-                await asyncio.sleep(0.01)
-
-            # 4. Link any album associations that might have been processed
-            if album_asset_map:
-                with self._metadata_store._db.connection() as conn:
-                    for asset_id, album_ids in album_asset_map.items():
-                        if asset_id in seen_asset_ids:
-                            for album_id in album_ids:
-                                if album_id in known_album_ids:
-                                    conn.execute(
-                                        """
-                                        INSERT OR IGNORE INTO asset_albums (asset_id, album_id)
-                                        SELECT ?, id FROM albums WHERE id = ?
-                                        """,
-                                        (asset_id, album_id),
-                                    )
-                            if album_ids & shared_album_ids:
-                                conn.execute(
-                                    'UPDATE assets SET is_shared = 1, is_partner = 0 WHERE id = ?',
-                                    (asset_id,),
-                                )
-
-            # 5. Prune missing assets
-            pruned_count = self._metadata_store.prune_missing_assets(library_name, seen_asset_ids)
-            if pruned_count > 0:
-                logger.info('Pruned %d deleted asset(s) from metadata index for %s', pruned_count, library_name)
-
-            # 6. Mark sync complete
+            # 7. Mark sync complete
+            self._metadata_store.set_sync_state(
+                library_name,
+                status=SyncStatus.syncing,
+                sync_mode=sync_mode,
+                sync_stage=SyncStage.finalizing,
+            )
             now_iso = datetime.now(timezone.utc).isoformat()
-            total_final = len(seen_asset_ids)
+            duration_sec = round(time.monotonic() - sync_start, 2)
+            db_total = self._metadata_store.count_library_assets(library_name)
+
+            last_full_at = now_iso if not is_delta else current_state.get('last_full_sync_at')
             self._metadata_store.set_sync_state(
                 library_name,
                 status=SyncStatus.idle,
+                sync_stage=SyncStage.idle,
                 last_sync_at=now_iso,
-                synced_assets=total_final,
-                total_assets=total_final,
+                last_full_sync_at=last_full_at,
+                last_immich_updated_at=max_updated_at,
+                sync_mode=sync_mode,
+                last_sync_duration_seconds=duration_sec,
+                synced_assets=db_total,
+                total_assets=db_total,
                 error=None,
             )
-            logger.info('Successfully finished metadata sync for %s (%d assets)', library_name, total_final)
+            logger.info(
+                'Successfully finished %s metadata sync for %s (%d assets in db, %d updated in %.2fs)',
+                sync_mode.value,
+                library_name,
+                db_total,
+                len(seen_asset_ids),
+                duration_sec,
+            )
 
             if self._on_sync_complete is not None:
                 try:
@@ -319,6 +569,7 @@ class SyncEngine:
             self._metadata_store.set_sync_state(
                 library_name,
                 status=SyncStatus.error,
+                sync_stage=SyncStage.idle,
                 error=str(exc),
             )
             raise

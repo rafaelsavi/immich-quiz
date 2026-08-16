@@ -309,3 +309,31 @@ def test_people_whitelist_blacklist_overlap_rejected(monkeypatch: pytest.MonkeyP
     with pytest.raises(ConfigError, match='PEOPLE_WHITELIST and PEOPLE_BLACKLIST cannot overlap: bob'):
         load_settings()
 
+
+def test_auto_delta_sync_interval_hours_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('AUTO_DELTA_SYNC_INTERVAL_HOURS', '6')
+
+    settings = load_settings()
+    assert settings.auto_delta_sync_interval_hours == 6
+
+    monkeypatch.setenv('AUTO_DELTA_SYNC_INTERVAL_HOURS', '-1')
+    with pytest.raises(ConfigError, match='AUTO_DELTA_SYNC_INTERVAL_HOURS'):
+        load_settings()
+
+
+def test_auto_full_sync_interval_hours_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('AUTO_FULL_SYNC_INTERVAL_HOURS', '48')
+
+    settings = load_settings()
+    assert settings.auto_full_sync_interval_hours == 48
+
+    monkeypatch.setenv('AUTO_FULL_SYNC_INTERVAL_HOURS', '-1')
+    with pytest.raises(ConfigError, match='AUTO_FULL_SYNC_INTERVAL_HOURS'):
+        load_settings()
+
+
+

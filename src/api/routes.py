@@ -22,6 +22,7 @@ from src.models import (
     RoundLength,
     RoundResultRequest,
     RoundResultResponse,
+    SyncStateResponse,
 )
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import MetadataStore
@@ -129,7 +130,7 @@ async def library_filters(
     return response
 
 
-@router.get('/sync/status')
+@router.get('/sync/status', response_model=SyncStateResponse)
 async def sync_status(
     library_name: str,
     sync_engine: SyncEngine = Depends(get_sync_engine),
@@ -137,13 +138,14 @@ async def sync_status(
     return sync_engine.get_sync_status(library_name)
 
 
-@router.post('/sync')
+@router.post('/sync', response_model=SyncStateResponse)
 async def trigger_sync(
     library_name: str,
+    force_full: bool = Query(default=False),
     sync_engine: SyncEngine = Depends(get_sync_engine),
 ) -> dict[str, Any]:
     invalidate_filters_cache(library_name)
-    sync_engine.trigger_sync(library_name)
+    sync_engine.trigger_sync(library_name, force_full=force_full)
     return sync_engine.get_sync_status(library_name)
 
 

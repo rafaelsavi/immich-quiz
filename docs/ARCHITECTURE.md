@@ -6,6 +6,7 @@
 - Frontend: static HTML/CSS/JS with Leaflet (no build step).
 - Session persistence: in-memory for active games.
 - Historical persistence: SQLite databases (`data/metadata.db` for metadata cache, `data/leaderboard.db` for player match history).
+- Metadata synchronization: Background asynchronous full & delta indexing from Immich (see [`docs/SYNC.md`](SYNC.md) for full architecture).
 
 ---
 
@@ -16,7 +17,8 @@ immich-quiz/
 ├── src/
 │   ├── main.py          App factory and lifespan. Creates ImmichClient,
 │   │                    SessionStore, MetadataStore, and LeaderboardStore;
-│   │                    validates Immich access on startup; mounts static files and routes.
+│   │                    validates Immich access on startup; mounts static files and routes;
+│   │                    schedules periodic background delta sync tasks.
 │   ├── config.py        AppSettings dataclass. Parses and validates all env
 │   │                    vars at startup; raises ConfigError on bad input.
 │   ├── models.py        Pydantic request/response models for all endpoints.
@@ -35,13 +37,13 @@ immich-quiz/
 │   │                    ImmichClient, MetadataStore, and LeaderboardStore via FastAPI DI.
 │   ├── immich/
 │   │   └── client.py    ImmichClient adapter. Wraps httpx AsyncClient.
-│   │                    Provides: validate_access, list_albums, search_assets,
+│   │                    Provides: validate_access, list_albums, list_tags, search_assets,
 │   │                    search_random_assets, list_people, get_timeline_bounds, get_asset_bytes.
 │   └── storage/
 │       ├── db.py        DatabaseManager for SQLite connection lifecycle and WAL mode.
 │       ├── metadata.py  MetadataStore with indexed relational schema, query parity
 │       │                builder, filter options extraction, and asset pruning/invalidation.
-│       ├── sync.py      SyncEngine for asynchronous background indexing from Immich.
+│       ├── sync.py      SyncEngine for full and incremental delta metadata indexing.
 │       ├── session.py   In-memory state. SessionStore holds MatchState objects.
 │       └── leaderboard.py LeaderboardStore appends and reads rows from SQLite.
 └── static/              Vanilla HTML/CSS/JS frontend.
