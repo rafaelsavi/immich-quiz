@@ -1048,5 +1048,3 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
     assert alice_counts.people == {'p1': 2, 'p2': 1}
     # Albums: alb1 (Japan) has 2, alb2 (France) has 0
     assert alice_counts.albums == {'alb1': 2}
-
-

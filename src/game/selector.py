@@ -18,7 +18,7 @@ import random
 from datetime import date
 from typing import Any
 
-from src.immich.client import AssetAnswer, ImmichClient, SearchQuery
+from src.immich.client import AssetAnswer, ImmichClient
 from src.models import MapBounds
 from src.scoring import haversine_km
 from src.storage.metadata import AssetFilterCriteria, MetadataStore

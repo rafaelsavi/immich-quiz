@@ -212,9 +212,13 @@ class GameService:
 
     async def setup_game(self, setup: GameSetupRequest) -> GameSetupResponse:
         if self.settings.fetch_photos_date_lower_bound:
-            setup.min_date = max(filter(None, [self.settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
+            setup.min_date = max(
+                filter(None, [self.settings.fetch_photos_date_lower_bound, setup.min_date]), default=None
+            )
         if self.settings.fetch_photos_date_upper_bound:
-            setup.max_date = min(filter(None, [self.settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
+            setup.max_date = min(
+                filter(None, [self.settings.fetch_photos_date_upper_bound, setup.max_date]), default=None
+            )
 
         setup.album_name = await self.resolve_album_name(
             setup.library_name,

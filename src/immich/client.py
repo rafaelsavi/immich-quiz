@@ -886,9 +886,7 @@ class ImmichClient:
         asset_city = (exif.get('city') or '').strip().lower()
 
         asset_people = asset.get('people') or asset.get('faces') or []
-        asset_person_ids = {
-            str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')
-        }
+        asset_person_ids = {str(p.get('id', '')).strip() for p in asset_people if isinstance(p, dict) and p.get('id')}
         asset_person_names = {
             str(p.get('name', '')).strip().lower() for p in asset_people if isinstance(p, dict) and p.get('name')
         }
@@ -921,11 +919,7 @@ class ImmichClient:
             return False
 
         # City whitelist baseline (when user didn't specify cities)
-        if (
-            city_whitelist
-            and not cities
-            and (not asset_city or asset_city not in {c.lower() for c in city_whitelist})
-        ):
+        if city_whitelist and not cities and (not asset_city or asset_city not in {c.lower() for c in city_whitelist}):
             return False
 
         # People whitelist baseline (when user didn't specify person_ids)
