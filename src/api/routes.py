@@ -77,6 +77,8 @@ async def ui_config(request: Request) -> dict[str, object]:
         'language': settings.language,
         'score_max_points': settings.score_max_points,
         'version': APP_VERSION,
+        'default_include_shared_albums': settings.include_shared_albums,
+        'default_include_partner_assets': settings.include_partner_assets,
     }
 
 

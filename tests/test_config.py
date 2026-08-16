@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -28,6 +29,8 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'LANGUAGE',
         'PHOTO_DIVERSITY_MIN_DISTANCE_KM',
         'PHOTO_DIVERSITY_MIN_TIME_SECONDS',
+        'DATA_PATH',
+        'DATA_DIR',
         'COUNTRY_WHITELIST',
         'COUNTRY_BLACKLIST',
         'CITY_WHITELIST',
@@ -293,3 +296,15 @@ def test_custom_whitelists_and_blacklists_parsed(monkeypatch: pytest.MonkeyPatch
     assert settings.city_blacklist == frozenset({'curitiba'})
     assert settings.people_whitelist == frozenset({'alice', 'bob smith'})
     assert settings.people_blacklist == frozenset({'charlie'})
+
+
+def test_data_path_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('DATA_PATH', str(tmp_path / 'custom_data'))
+
+    settings = load_settings()
+
+    assert settings.data_path == (tmp_path / 'custom_data').resolve()
+    assert settings.metadata_db_path == (tmp_path / 'custom_data' / 'metadata.db').resolve()
+    assert settings.leaderboard_db_path == (tmp_path / 'custom_data' / 'leaderboard.db').resolve()

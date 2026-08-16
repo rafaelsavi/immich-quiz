@@ -93,8 +93,8 @@ class GameService:
                 person_ids=tuple(setup.person_ids),
                 people_mode=setup.people_mode,
                 album_ids=tuple(setup.album_ids),
-                include_shared_albums=settings.include_shared_albums,
-                include_partner_assets=settings.include_partner_assets,
+                include_shared_albums=setup.include_shared_albums,
+                include_partner_assets=setup.include_partner_assets,
             )
             counts = metadata_store.get_asset_counts(criteria)
             eligible_count = counts['eligible_count']
@@ -109,8 +109,8 @@ class GameService:
                 people_mode=setup.people_mode,
                 countries=tuple(setup.countries),
                 cities=tuple(setup.cities),
-                include_shared_albums=settings.include_shared_albums,
-                include_partner_assets=settings.include_partner_assets,
+                include_shared_albums=setup.include_shared_albums,
+                include_partner_assets=setup.include_partner_assets,
                 min_date=effective_min_date,
                 max_date=effective_max_date,
             )
@@ -231,8 +231,8 @@ class GameService:
                     immich,
                     min_capture_date=settings.fetch_photos_date_lower_bound,
                     max_capture_date=settings.fetch_photos_date_upper_bound,
-                    include_shared_albums=settings.include_shared_albums,
-                    include_partner_assets=settings.include_partner_assets,
+                    include_shared_albums=setup.include_shared_albums,
+                    include_partner_assets=setup.include_partner_assets,
                     metadata_store=metadata_store,
                 )
                 map_bounds = calculate_match_bounds(state.asset_pool)

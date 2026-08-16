@@ -219,7 +219,7 @@ def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path
         language='EN',
         photo_diversity_min_distance_km=0.1,
         photo_diversity_min_time_seconds=60.0,
-        metadata_db_path=tmp_path / 'metadata.db',
+        data_path=tmp_path,
         auto_sync_on_startup=False,
         country_whitelist=frozenset({'japan'}),  # Whitelist only Japan
     )
@@ -317,7 +317,7 @@ def test_metadata_store_filter_options_ownership_filtering(meta_store: MetadataS
             language='EN',
             photo_diversity_min_distance_km=0.1,
             photo_diversity_min_time_seconds=60.0,
-            metadata_db_path=tmp_path / 'metadata.db',
+            data_path=tmp_path,
             auto_sync_on_startup=False,
         )
 
@@ -404,7 +404,7 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         language='EN',
         photo_diversity_min_distance_km=0.1,
         photo_diversity_min_time_seconds=60.0,
-        metadata_db_path=tmp_path / 'metadata.db',
+        data_path=tmp_path,
         auto_sync_on_startup=False,
     )
     res1 = meta_store.get_filter_options('family', settings_loose_lower)
@@ -429,7 +429,7 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         language='EN',
         photo_diversity_min_distance_km=0.1,
         photo_diversity_min_time_seconds=60.0,
-        metadata_db_path=tmp_path / 'metadata.db',
+        data_path=tmp_path,
         auto_sync_on_startup=False,
     )
     res2 = meta_store.get_filter_options('family', settings_tight_lower)
@@ -590,7 +590,7 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
         language='EN',
         photo_diversity_min_distance_km=0.1,
         photo_diversity_min_time_seconds=60.0,
-        metadata_db_path=tmp_path / 'test_api_meta.db',
+        data_path=tmp_path,
         auto_sync_on_startup=False,
     )
 
@@ -730,7 +730,7 @@ def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: M
         language='EN',
         photo_diversity_min_distance_km=0.1,
         photo_diversity_min_time_seconds=60.0,
-        metadata_db_path=tmp_path / 'meta.db',
+        data_path=tmp_path,
         auto_sync_on_startup=False,
     )
 

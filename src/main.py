@@ -41,10 +41,15 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     if settings is None:
         settings = load_settings()
 
-    db_manager = DatabaseManager(settings.metadata_db_path)
-    metadata_store = MetadataStore(db_manager)
+    metadata_db_manager = DatabaseManager(settings.metadata_db_path)
+    leaderboard_db_manager = DatabaseManager(settings.leaderboard_db_path)
+    metadata_store = MetadataStore(metadata_db_manager)
     immich_client = ImmichClient(settings.immich_server_url, settings.immich_libraries)
     sync_engine = SyncEngine(immich_client, metadata_store)
+    leaderboard_store = LeaderboardStore(
+        leaderboard_db_manager,
+        score_max_points=settings.score_max_points,
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -89,13 +94,12 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.session_store = SessionStore()
     app.state.immich_client = immich_client
-    app.state.db_manager = db_manager
+    app.state.db_manager = metadata_db_manager
+    app.state.metadata_db_manager = metadata_db_manager
+    app.state.leaderboard_db_manager = leaderboard_db_manager
     app.state.metadata_store = metadata_store
     app.state.sync_engine = sync_engine
-    app.state.leaderboard_store = LeaderboardStore(
-        db_manager,
-        score_max_points=settings.score_max_points,
-    )
+    app.state.leaderboard_store = leaderboard_store
 
     @app.middleware('http')
     async def add_security_headers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

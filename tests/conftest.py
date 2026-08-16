@@ -219,7 +219,7 @@ def build_client(
         language=language,
         photo_diversity_min_distance_km=photo_diversity_min_distance_km,
         photo_diversity_min_time_seconds=photo_diversity_min_time_seconds,
-        metadata_db_path=tmp_path / 'metadata.db',
+        data_path=tmp_path,
         auto_sync_on_startup=False,
     )
     app = create_app(settings=settings)

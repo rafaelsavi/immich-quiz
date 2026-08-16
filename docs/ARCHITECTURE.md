@@ -5,7 +5,7 @@
 - Backend: FastAPI with async endpoints, served by Uvicorn.
 - Frontend: static HTML/CSS/JS with Leaflet (no build step).
 - Session persistence: in-memory for active games.
-- Historical persistence: SQLite database for metadata index and leaderboard rows.
+- Historical persistence: SQLite databases (`data/metadata.db` for metadata cache, `data/leaderboard.db` for player match history).
 
 ---
 

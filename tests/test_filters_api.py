@@ -454,3 +454,24 @@ def test_preflight_multiple_cities_or_mode(tmp_path: Path) -> None:
     assert data['eligible_count'] == 2
     assert data['ok'] is False  # 2 < 5 required
     assert data['required'] == 5
+
+
+def test_preflight_passes_dynamic_partner_and_shared_flags_to_search_query(tmp_path: Path) -> None:
+    immich = FakeImmichClient(assets=[make_filter_asset('a1')])
+    client = build_client(tmp_path, immich)
+
+    res = client.post(
+        '/api/game/preflight',
+        json={
+            'library_name': 'family',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': False,
+            'include_partner_assets': True,
+            'include_shared_albums': True,
+        },
+    )
+    assert res.status_code == 200
+    assert immich.last_query is not None
+    assert immich.last_query.include_partner_assets is True
+    assert immich.last_query.include_shared_albums is True
