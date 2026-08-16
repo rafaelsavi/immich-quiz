@@ -35,6 +35,8 @@ def test_multi_select_has_required_methods() -> None:
         'toggle',
         'updateTriggerUi',
         'renderOptions',
+        'updateCounts',
+        '_getItemCount',
         '_notifyChange',
     ]
     for method in required_methods:
@@ -97,6 +99,8 @@ def test_multi_select_css_covers_all_component_classes() -> None:
         '.btn-text-action',
         '.multi-select-options',
         '.multi-select-option',
+        '.multi-select-option-sub',
+        '.multi-select-count-badge',
         '.multi-select-empty',
         '.hidden',
     ]
@@ -115,3 +119,6 @@ def test_multi_select_event_isolation() -> None:
     # Verify Enter and Space trigger toggle
     assert 'Enter' in content
     assert 'Space' in content or ' ' in content
+    # Verify zero-match handling in MultiSelect JS
+    assert 'zero-match' in content
+    assert 'multi-select-count-badge' in content

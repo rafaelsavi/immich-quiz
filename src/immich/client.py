@@ -293,6 +293,8 @@ class ImmichClient:
         library_name: str,
         whitelist: frozenset[str] = frozenset(),
         blacklist: frozenset[str] = frozenset(),
+        country_whitelist: frozenset[str] = frozenset(),
+        country_blacklist: frozenset[str] = frozenset(),
     ) -> list[CityInfo]:
         key = self._library_key(library_name)
         city_map: dict[str, str | None] = {}  # city_name -> country_name
@@ -314,11 +316,23 @@ class ImmichClient:
         if whitelist and not city_map:
             city_map = {c.title(): None for c in whitelist}
 
-        filtered = [
-            CityInfo(name=c, country=country)
-            for c, country in city_map.items()
-            if (not whitelist or c.lower() in whitelist) and (not blacklist or c.lower() not in blacklist)
-        ]
+        filtered: list[CityInfo] = []
+        for c, country in city_map.items():
+            c_lower = c.lower()
+            if whitelist and c_lower not in whitelist:
+                continue
+            if blacklist and c_lower in blacklist:
+                continue
+            if country:
+                country_lower = country.lower()
+                if country_whitelist and country_lower not in country_whitelist:
+                    continue
+                if country_blacklist and country_lower in country_blacklist:
+                    continue
+            elif country_whitelist:
+                continue
+            filtered.append(CityInfo(name=c, country=country))
+
         filtered.sort(key=lambda item: item.name.lower())
         return filtered
 

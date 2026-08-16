@@ -79,6 +79,7 @@ class GameService:
         total_count: int | None = None
         gps_count: int | None = None
         date_count: int | None = None
+        facet_counts: FacetCounts | None = None
 
         # 1. Fast indexed SQLite query if metadata store is populated for this library
         if metadata_store is not None and metadata_store.has_synced_assets(setup.library_name):
@@ -87,6 +88,7 @@ class GameService:
             total_count = counts['total_count']
             gps_count = counts['gps_count']
             date_count = counts['date_count']
+            facet_counts = metadata_store.get_facet_counts(criteria)
         else:
             # Fallback to paginated HTTP sampling
             query = SearchQuery(
@@ -208,6 +210,7 @@ class GameService:
             date_count=date_count,
             location_mode=setup.location_mode,
             date_mode=setup.date_mode,
+            facet_counts=facet_counts,
         )
 
     async def setup_game(

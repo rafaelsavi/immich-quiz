@@ -163,6 +163,8 @@ async def library_filters(
             library_name,
             whitelist=settings.city_whitelist,
             blacklist=settings.city_blacklist,
+            country_whitelist=settings.country_whitelist,
+            country_blacklist=settings.country_blacklist,
         )
         cities = [CityOption(name=c.name, country=c.country) for c in cities_raw]
 

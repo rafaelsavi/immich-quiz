@@ -1015,6 +1015,14 @@ async def test_list_cities() -> None:
         CityInfo(name='Berlin', country='Germany'),
     ]
 
+    # Country Whitelist
+    cw_cities = await client.list_cities('family', country_whitelist=frozenset({'germany'}))
+    assert cw_cities == [CityInfo(name='Berlin', country='Germany')]
+
+    # Country Blacklist
+    cb_cities = await client.list_cities('family', country_blacklist=frozenset({'germany'}))
+    assert cb_cities == [CityInfo(name='Paris', country='France')]
+
     await client.aclose()
 
 

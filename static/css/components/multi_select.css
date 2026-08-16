@@ -326,6 +326,39 @@
   text-overflow: ellipsis;
 }
 
+.multi-select-option.zero-match {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.multi-select-option.zero-match:hover {
+  background: transparent;
+}
+
+.multi-select-option-sub {
+  font-size: 0.75rem;
+  color: #7b879c;
+  font-style: italic;
+  margin-left: 0.25rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.multi-select-count-badge {
+  font-size: 0.75rem;
+  color: #556480;
+  font-weight: 600;
+  margin-left: auto;
+  padding-left: 0.5rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.multi-select-count-badge.zero {
+  color: #9aa3b5;
+  font-weight: normal;
+}
+
 /* Empty state */
 .multi-select-empty {
   padding: 0.75rem;

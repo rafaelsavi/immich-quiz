@@ -116,12 +116,25 @@ class FakeImmichClient:
         library_name: str,
         whitelist: frozenset[str] = frozenset(),
         blacklist: frozenset[str] = frozenset(),
+        country_whitelist: frozenset[str] = frozenset(),
+        country_blacklist: frozenset[str] = frozenset(),
     ) -> list[CityInfo]:
-        filtered = [
-            c
-            for c in self.cities
-            if (not whitelist or c.name.lower() in whitelist) and (not blacklist or c.name.lower() not in blacklist)
-        ]
+        filtered: list[CityInfo] = []
+        for c in self.cities:
+            c_lower = c.name.lower()
+            if whitelist and c_lower not in whitelist:
+                continue
+            if blacklist and c_lower in blacklist:
+                continue
+            if c.country:
+                co_lower = c.country.lower()
+                if country_whitelist and co_lower not in country_whitelist:
+                    continue
+                if country_blacklist and co_lower in country_blacklist:
+                    continue
+            elif country_whitelist:
+                continue
+            filtered.append(c)
         return filtered
 
     async def search_assets(

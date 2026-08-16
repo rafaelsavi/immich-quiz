@@ -26,6 +26,7 @@ export class MultiSelect {
 
     this.items = [];
     this.selectedMap = new Map(); // id -> name
+    this.countsMap = null; // id/name -> count
     this.isOpen = false;
 
     this._boundOnDocClick = this._onDocClick.bind(this);
@@ -216,10 +217,37 @@ export class MultiSelect {
     this._notifyChange();
   }
 
+  _getItemCount(item) {
+    if (!this.countsMap) return null;
+    if (this.countsMap.has(item.id)) return this.countsMap.get(item.id);
+    if (this.countsMap.has(item.name)) return this.countsMap.get(item.name);
+    if (typeof item.id === "string" && this.countsMap.has(item.id.toLowerCase())) {
+      return this.countsMap.get(item.id.toLowerCase());
+    }
+    if (typeof item.name === "string" && this.countsMap.has(item.name.toLowerCase())) {
+      return this.countsMap.get(item.name.toLowerCase());
+    }
+    return 0;
+  }
+
+  updateCounts(counts) {
+    if (!counts) {
+      this.countsMap = null;
+    } else if (counts instanceof Map) {
+      this.countsMap = counts;
+    } else if (typeof counts === "object") {
+      this.countsMap = new Map(Object.entries(counts));
+    }
+    this.renderOptions();
+  }
+
   selectAll() {
     const query = this.searchInputEl ? this.searchInputEl.value.trim().toLowerCase() : "";
     const filtered = this.items.filter((item) => item.name.toLowerCase().includes(query));
-    filtered.forEach((item) => this.selectedMap.set(item.id, item.name));
+    filtered.forEach((item) => {
+      if (this.countsMap !== null && this._getItemCount(item) === 0) return;
+      this.selectedMap.set(item.id, item.name);
+    });
     this.renderOptions();
     this.updateTriggerUi();
     this._notifyChange();
@@ -255,6 +283,7 @@ export class MultiSelect {
     this.isOpen = false;
     if (this.container) this.container.classList.remove("open");
     this.triggerEl.setAttribute("aria-expanded", "false");
+    this.dropdownEl.classList.remove("hidden");
     this.dropdownEl.classList.add("hidden");
   }
 
@@ -329,7 +358,14 @@ export class MultiSelect {
     const query = this.searchInputEl ? this.searchInputEl.value.trim().toLowerCase() : "";
     const filtered = this.items.filter((item) => item.name.toLowerCase().includes(query));
 
-    if (filtered.length === 0) {
+    const visibleItems = filtered.filter((item) => {
+      if (this.selectedMap.has(item.id)) return true;
+      const count = this._getItemCount(item);
+      if (count !== null && count === 0) return false;
+      return true;
+    });
+
+    if (visibleItems.length === 0) {
       const empty = document.createElement("div");
       empty.className = "multi-select-empty";
       empty.textContent = t(this.noResultsKey);
@@ -337,10 +373,13 @@ export class MultiSelect {
       return;
     }
 
-    filtered.forEach((item) => {
+    visibleItems.forEach((item) => {
       const isSelected = this.selectedMap.has(item.id);
+      const count = this._getItemCount(item);
+      const isZeroMatch = count !== null && count === 0;
+
       const optEl = document.createElement("div");
-      optEl.className = `multi-select-option ${isSelected ? "selected" : ""}`;
+      optEl.className = `multi-select-option ${isSelected ? "selected" : ""} ${isZeroMatch ? "zero-match" : ""}`;
 
       const checkbox = document.createElement("input");
       checkbox.type = "checkbox";
@@ -352,6 +391,20 @@ export class MultiSelect {
 
       optEl.appendChild(checkbox);
       optEl.appendChild(label);
+
+      if (item.subtitle) {
+        const sub = document.createElement("span");
+        sub.className = "multi-select-option-sub";
+        sub.textContent = item.subtitle;
+        optEl.appendChild(sub);
+      }
+
+      if (count !== null) {
+        const badge = document.createElement("span");
+        badge.className = `multi-select-count-badge ${isZeroMatch ? "zero" : ""}`;
+        badge.textContent = `(${count})`;
+        optEl.appendChild(badge);
+      }
 
       optEl.addEventListener("click", (e) => {
         e.stopPropagation();

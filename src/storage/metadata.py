@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Any
 
 from src.config import AppSettings
 from src.immich.client import AssetAnswer
-from src.models import CityOption, DateRangeOption, LibraryFiltersResponse, PersonOption
+from src.models import CityOption, DateRangeOption, FacetCounts, LibraryFiltersResponse, PersonOption
 from src.storage.db import DatabaseManager
 
 logger = logging.getLogger(__name__)
@@ -677,6 +677,14 @@ class MetadataStore:
             if (not settings.city_whitelist or c_lower in settings.city_whitelist) and (
                 not settings.city_blacklist or c_lower not in settings.city_blacklist
             ):
+                if c_country:
+                    country_lower = c_country.lower()
+                    if settings.country_whitelist and country_lower not in settings.country_whitelist:
+                        continue
+                    if settings.country_blacklist and country_lower in settings.country_blacklist:
+                        continue
+                elif settings.country_whitelist:
+                    continue
                 city_options.append(CityOption(name=c_name, country=c_country))
 
         # 3. People
@@ -734,6 +742,86 @@ class MetadataStore:
             countries=filtered_countries,
             cities=city_options,
             people=person_options,
+        )
+
+    def get_facet_counts(self, criteria: AssetFilterCriteria) -> FacetCounts:
+        """Compute matching photo counts for each facet option under current criteria.
+
+        In standard multi-select faceted search:
+        - The count for each country option is evaluated using criteria excluding user-selected countries.
+        - The count for each city option is evaluated using criteria excluding user-selected cities.
+        - The count for each person option is evaluated using criteria excluding user-selected person_ids.
+        - The count for each album option is evaluated using criteria excluding user-selected album_ids.
+        """
+        # 1. Countries
+        country_crit = replace(criteria, countries=frozenset())
+        c_where, c_params = self._build_filter_clauses(country_crit)
+        country_rows = self._db.fetch_all(
+            f"""
+            SELECT a.country, COUNT(DISTINCT a.id) as count
+            FROM assets a
+            WHERE {c_where}
+              AND a.country IS NOT NULL
+              AND TRIM(a.country) != ''
+              AND LOWER(a.country) NOT IN ('none', 'null')
+            GROUP BY a.country
+            """,
+            c_params,
+        )
+        country_counts = {str(r['country']).strip(): int(r['count']) for r in country_rows if r.get('country')}
+
+        # 2. Cities
+        city_crit = replace(criteria, cities=frozenset())
+        ct_where, ct_params = self._build_filter_clauses(city_crit)
+        city_rows = self._db.fetch_all(
+            f"""
+            SELECT a.city, COUNT(DISTINCT a.id) as count
+            FROM assets a
+            WHERE {ct_where}
+              AND a.city IS NOT NULL
+              AND TRIM(a.city) != ''
+              AND LOWER(a.city) NOT IN ('none', 'null')
+            GROUP BY a.city
+            """,
+            ct_params,
+        )
+        city_counts = {str(r['city']).strip(): int(r['count']) for r in city_rows if r.get('city')}
+
+        # 3. People
+        people_crit = replace(criteria, person_ids=frozenset())
+        p_where, p_params = self._build_filter_clauses(people_crit)
+        people_rows = self._db.fetch_all(
+            f"""
+            SELECT ap.person_id, COUNT(DISTINCT a.id) as count
+            FROM assets a
+            JOIN asset_people ap ON a.id = ap.asset_id
+            WHERE {p_where}
+            GROUP BY ap.person_id
+            """,
+            p_params,
+        )
+        people_counts = {str(r['person_id']).strip(): int(r['count']) for r in people_rows if r.get('person_id')}
+
+        # 4. Albums
+        album_crit = replace(criteria, album_ids=frozenset())
+        al_where, al_params = self._build_filter_clauses(album_crit)
+        album_rows = self._db.fetch_all(
+            f"""
+            SELECT aa.album_id, COUNT(DISTINCT a.id) as count
+            FROM assets a
+            JOIN asset_albums aa ON a.id = aa.asset_id
+            WHERE {al_where}
+            GROUP BY aa.album_id
+            """,
+            al_params,
+        )
+        album_counts = {str(r['album_id']).strip(): int(r['count']) for r in album_rows if r.get('album_id')}
+
+        return FacetCounts(
+            countries=country_counts,
+            cities=city_counts,
+            people=people_counts,
+            albums=album_counts,
         )
 
     def get_albums(self, library_name: str, include_shared_albums: bool = True) -> list[dict[str, str]]:

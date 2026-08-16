@@ -123,6 +123,13 @@ class PreflightRequest(BaseGameConfig):
         return self
 
 
+class FacetCounts(BaseModel):
+    countries: dict[str, int] = Field(default_factory=dict)
+    cities: dict[str, int] = Field(default_factory=dict)
+    people: dict[str, int] = Field(default_factory=dict)
+    albums: dict[str, int] = Field(default_factory=dict)
+
+
 class PreflightResponse(BaseModel):
     eligible_count: int
     required: int
@@ -136,6 +143,7 @@ class PreflightResponse(BaseModel):
     date_count: int | None = None
     location_mode: bool = True
     date_mode: bool = True
+    facet_counts: FacetCounts | None = None
 
 
 class GameSetupRequest(BaseGameConfig):

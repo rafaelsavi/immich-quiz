@@ -391,10 +391,10 @@ async function triggerLibrarySync() {
 function updateDependentCities(selectedCountryNames) {
   if (!cityMultiSelect) return;
   if (!selectedCountryNames || selectedCountryNames.length === 0) {
-    cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name })));
+    cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
   } else {
     const filtered = cachedRawCities.filter((c) => !c.country || selectedCountryNames.includes(c.country));
-    cityMultiSelect.setItems(filtered.map((c) => ({ id: c.name, name: c.name })));
+    cityMultiSelect.setItems(filtered.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
   }
 }
 
@@ -676,6 +676,13 @@ async function executePreflight() {
 
     updatePreflightCount(_lastPreflightData);
 
+    if (preflight && preflight.facet_counts) {
+      if (countryMultiSelect) countryMultiSelect.updateCounts(preflight.facet_counts.countries);
+      if (cityMultiSelect) cityMultiSelect.updateCounts(preflight.facet_counts.cities);
+      if (peopleMultiSelect) peopleMultiSelect.updateCounts(preflight.facet_counts.people);
+      if (albumMultiSelect) albumMultiSelect.updateCounts(preflight.facet_counts.albums);
+    }
+
     if (!preflight.ok) {
       showPreflightWarning(
         t("setup.not_enough_media", preflight.eligible_count, preflight.required)
@@ -706,7 +713,7 @@ async function onLibrarySelected(libraryName) {
 
     if (albumMultiSelect) albumMultiSelect.setItems(albumsRes.albums || []);
     if (countryMultiSelect) countryMultiSelect.setItems((filtersRes.countries || []).map((c) => ({ id: c, name: c })));
-    if (cityMultiSelect) cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name })));
+    if (cityMultiSelect) cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
     if (peopleMultiSelect) peopleMultiSelect.setItems(filtersRes.people || []);
 
     if (dateRangeSlider) {

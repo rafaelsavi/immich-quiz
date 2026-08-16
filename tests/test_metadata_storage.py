@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from src.config import AppSettings
 from src.main import create_app
+from src.models import CityOption
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.sync import SyncEngine
@@ -222,7 +223,7 @@ def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path
 
     filters = meta_store.get_filter_options('family', settings)
     assert filters.countries == ['Japan']
-    assert len(filters.cities) == 2
+    assert filters.cities == [CityOption(name='Tokyo', country='Japan')]
     assert len(filters.people) == 2
     assert filters.date_range.min_month == '2022-08'
     assert filters.date_range.max_month == '2023-05'
@@ -976,4 +977,76 @@ def test_asset_filter_criteria_from_setup_factory() -> None:
     assert criteria.city_blacklist == frozenset({'berlin'})
     assert criteria.people_whitelist == frozenset({'alice'})
     assert criteria.people_blacklist == frozenset({'bob'})
+
+
+def test_get_facet_counts(meta_store: MetadataStore) -> None:
+    meta_store.upsert_people('lib', [{'id': 'p1', 'name': 'Alice'}, {'id': 'p2', 'name': 'Bob'}])
+    meta_store.upsert_albums('lib', [{'id': 'alb1', 'name': 'Japan Trip'}, {'id': 'alb2', 'name': 'France Trip'}])
+    assets = [
+        {
+            'id': 'a1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 35.68,
+            'longitude': 139.76,
+            'country': 'Japan',
+            'city': 'Tokyo',
+            'capture_datetime': '2023-05-10T12:00:00',
+        },
+        {
+            'id': 'a2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 35.01,
+            'longitude': 135.76,
+            'country': 'Japan',
+            'city': 'Kyoto',
+            'capture_datetime': '2023-05-12T12:00:00',
+        },
+        {
+            'id': 'a3',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 48.85,
+            'longitude': 2.35,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2022-08-15T14:30:00',
+        },
+    ]
+    meta_store.upsert_assets_batch(
+        'lib',
+        assets,
+        [('a1', 'p1'), ('a2', 'p1'), ('a3', 'p2')],  # Alice in Japan (a1, a2); Bob in France (a3)
+        [('a1', 'alb1'), ('a2', 'alb1'), ('a3', 'alb2')],
+    )
+
+    # 1. Base criteria without user filters
+    base_criteria = AssetFilterCriteria(library_name='lib', location_mode=True, date_mode=True)
+    counts = meta_store.get_facet_counts(base_criteria)
+    assert counts.countries == {'Japan': 2, 'France': 1}
+    assert counts.cities == {'Tokyo': 1, 'Kyoto': 1, 'Paris': 1}
+    assert counts.people == {'p1': 2, 'p2': 1}
+    assert counts.albums == {'alb1': 2, 'alb2': 1}
+
+    # 2. Filtered by Person: Alice ('p1')
+    alice_criteria = AssetFilterCriteria(
+        library_name='lib',
+        location_mode=True,
+        date_mode=True,
+        person_ids=frozenset({'p1'}),
+    )
+    alice_counts = meta_store.get_facet_counts(alice_criteria)
+    # Countries: Japan has 2, France has 0 (so France not in dict or 0)
+    assert alice_counts.countries == {'Japan': 2}
+    # Cities: Tokyo has 1, Kyoto has 1, Paris has 0
+    assert alice_counts.cities == {'Tokyo': 1, 'Kyoto': 1}
+    # People (excluding person filter): all people show their base count with lib
+    assert alice_counts.people == {'p1': 2, 'p2': 1}
+    # Albums: alb1 (Japan) has 2, alb2 (France) has 0
+    assert alice_counts.albums == {'alb1': 2}
+
 
