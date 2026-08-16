@@ -207,8 +207,6 @@ def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path
         immich_libraries={'family': 'token'},
         app_title='Quiz',
         app_tagline='',
-        include_shared_albums=False,
-        include_partner_assets=False,
         fetch_photos_date_lower_bound=None,
         fetch_photos_date_upper_bound=None,
         app_host='127.0.0.1',
@@ -297,70 +295,30 @@ def test_metadata_store_filter_options_ownership_filtering(meta_store: MetadataS
     ]
     meta_store.upsert_assets_batch('family', assets, asset_people, [])
 
-    def make_settings(*, include_shared_albums: bool, include_partner_assets: bool) -> AppSettings:
-        return AppSettings(
-            immich_server_url='https://example.com/api',
-            immich_libraries={'family': 'token'},
-            app_title='Quiz',
-            app_tagline='',
-            include_shared_albums=include_shared_albums,
-            include_partner_assets=include_partner_assets,
-            fetch_photos_date_lower_bound=None,
-            fetch_photos_date_upper_bound=None,
-            app_host='127.0.0.1',
-            app_port=8010,
-            score_max_points=100,
-            location_score_decay_km=500.0,
-            date_score_decay_days=500.0,
-            language='EN',
-            data_path=tmp_path,
-            auto_sync_on_startup=False,
-        )
-
-    # 1. Default: include_shared=False, include_partner=False (only personal photos)
-    f_default = meta_store.get_filter_options(
-        'family',
-        make_settings(include_shared_albums=False, include_partner_assets=False),
+    settings = AppSettings(
+        immich_server_url='https://example.com/api',
+        immich_libraries={'family': 'token'},
+        app_title='Quiz',
+        app_tagline='',
+        fetch_photos_date_lower_bound=None,
+        fetch_photos_date_upper_bound=None,
+        app_host='127.0.0.1',
+        app_port=8010,
+        score_max_points=100,
+        location_score_decay_km=500.0,
+        date_score_decay_days=500.0,
+        language='EN',
+        data_path=tmp_path,
+        auto_sync_on_startup=False,
     )
-    assert f_default.countries == ['Japan']
-    assert [c.name for c in f_default.cities] == ['Tokyo']
-    assert [p.name for p in f_default.people] == ['Alice']
-    assert f_default.date_range.min_month == '2022-05'
-    assert f_default.date_range.max_month == '2022-05'
 
-    # 2. Shared enabled: include_shared=True, include_partner=False
-    f_shared = meta_store.get_filter_options(
-        'family',
-        make_settings(include_shared_albums=True, include_partner_assets=False),
-    )
-    assert f_shared.countries == ['France', 'Japan']
-    assert [c.name for c in f_shared.cities] == ['Paris', 'Tokyo']
-    assert [p.name for p in f_shared.people] == ['Alice', 'Bob']
-    assert f_shared.date_range.min_month == '2022-05'
-    assert f_shared.date_range.max_month == '2023-06'
-
-    # 3. Partner enabled: include_shared=False, include_partner=True
-    # Partner photos included unless they belong to a shared album
-    f_partner = meta_store.get_filter_options(
-        'family',
-        make_settings(include_shared_albums=False, include_partner_assets=True),
-    )
-    assert f_partner.countries == ['Italy', 'Japan']
-    assert [c.name for c in f_partner.cities] == ['Rome', 'Tokyo']
-    assert [p.name for p in f_partner.people] == ['Alice', 'Charlie']
-    assert f_partner.date_range.min_month == '2022-05'
-    assert f_partner.date_range.max_month == '2024-07'
-
-    # 4. Both enabled: include_shared=True, include_partner=True
-    f_both = meta_store.get_filter_options(
-        'family',
-        make_settings(include_shared_albums=True, include_partner_assets=True),
-    )
-    assert f_both.countries == ['France', 'Italy', 'Japan', 'Spain']
-    assert [c.name for c in f_both.cities] == ['Madrid', 'Paris', 'Rome', 'Tokyo']
-    assert [p.name for p in f_both.people] == ['Alice', 'Bob', 'Charlie', 'Diana']
-    assert f_both.date_range.min_month == '2022-05'
-    assert f_both.date_range.max_month == '2025-08'
+    # Discovers all options from all assets in the library
+    f_options = meta_store.get_filter_options('family', settings)
+    assert f_options.countries == ['France', 'Italy', 'Japan', 'Spain']
+    assert [c.name for c in f_options.cities] == ['Madrid', 'Paris', 'Rome', 'Tokyo']
+    assert [p.name for p in f_options.people] == ['Alice', 'Bob', 'Charlie', 'Diana']
+    assert f_options.date_range.min_month == '2022-05'
+    assert f_options.date_range.max_month == '2025-08'
 
 
 def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path: Path) -> None:
@@ -388,8 +346,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         immich_libraries={'family': 'token'},
         app_title='Quiz',
         app_tagline='',
-        include_shared_albums=False,
-        include_partner_assets=False,
         fetch_photos_date_lower_bound=date(1960, 1, 1),
         fetch_photos_date_upper_bound=date(2030, 1, 1),
         app_host='127.0.0.1',
@@ -411,8 +367,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         immich_libraries={'family': 'token'},
         app_title='Quiz',
         app_tagline='',
-        include_shared_albums=False,
-        include_partner_assets=False,
         fetch_photos_date_lower_bound=date(2020, 1, 1),
         fetch_photos_date_upper_bound=date(2022, 12, 31),
         app_host='127.0.0.1',
@@ -570,8 +524,6 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
         immich_libraries={'family': 'token'},
         app_title='Quiz',
         app_tagline='',
-        include_shared_albums=False,
-        include_partner_assets=False,
         fetch_photos_date_lower_bound=None,
         fetch_photos_date_upper_bound=None,
         app_host='127.0.0.1',
@@ -707,8 +659,6 @@ def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: M
         immich_libraries={'family': 'token'},
         app_title='Quiz',
         app_tagline='',
-        include_shared_albums=False,
-        include_partner_assets=False,
         fetch_photos_date_lower_bound=None,
         fetch_photos_date_upper_bound=None,
         app_host='127.0.0.1',
@@ -857,7 +807,7 @@ def test_metadata_schema_migration_adds_times_played_column(tmp_path: Path) -> N
         conn.execute("INSERT INTO assets (id, library_name) VALUES ('legacy-1', 'family')")
 
     # Initializing MetadataStore should run _migrate_schema seamlessly
-    store = MetadataStore(db)
+    MetadataStore(db)
     cols = {row['name'] for row in db.fetch_all('PRAGMA table_info(assets)')}
     assert 'times_played' in cols
     assert 'last_played_at' in cols

@@ -77,8 +77,6 @@ async def ui_config(request: Request) -> dict[str, object]:
         'language': settings.language,
         'score_max_points': settings.score_max_points,
         'version': APP_VERSION,
-        'default_include_shared_albums': settings.include_shared_albums,
-        'default_include_partner_assets': settings.include_partner_assets,
     }
 
 
@@ -96,16 +94,14 @@ async def libraries(request: Request, immich: ImmichClient = Depends(get_immich_
 @router.get('/albums')
 async def albums(
     library_name: str,
-    request: Request,
     immich: ImmichClient = Depends(get_immich_client),
     metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> dict[str, list[dict[str, str]]]:
-    settings = request.app.state.settings
     if metadata_store.has_synced_assets(library_name):
-        return {'albums': metadata_store.get_albums(library_name, include_shared_albums=settings.include_shared_albums)}
+        return {'albums': metadata_store.get_albums(library_name, include_shared_albums=True)}
 
     try:
-        result = await immich.list_albums(library_name, include_shared_albums=settings.include_shared_albums)
+        result = await immich.list_albums(library_name, include_shared_albums=True)
         return {'albums': result}
     except ImmichClientError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

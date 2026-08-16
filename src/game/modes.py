@@ -141,8 +141,6 @@ class PinpointEngine(BaseGameModeEngine):
                     set(payload_played_asset_ids),
                     settings.fetch_photos_date_lower_bound,
                     settings.fetch_photos_date_upper_bound,
-                    include_shared_albums=state.setup.include_shared_albums,
-                    include_partner_assets=state.setup.include_partner_assets,
                     metadata_store=metadata_store,
                 )
             except ImmichClientError as exc:
@@ -306,8 +304,6 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     set(payload_played_asset_ids),
                     settings.fetch_photos_date_lower_bound,
                     settings.fetch_photos_date_upper_bound,
-                    include_shared_albums=state.setup.include_shared_albums,
-                    include_partner_assets=state.setup.include_partner_assets,
                     metadata_store=metadata_store,
                 )
             except ImmichClientError as exc:

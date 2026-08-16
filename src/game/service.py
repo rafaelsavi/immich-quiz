@@ -231,8 +231,6 @@ class GameService:
                     immich,
                     min_capture_date=settings.fetch_photos_date_lower_bound,
                     max_capture_date=settings.fetch_photos_date_upper_bound,
-                    include_shared_albums=setup.include_shared_albums,
-                    include_partner_assets=setup.include_partner_assets,
                     metadata_store=metadata_store,
                 )
                 map_bounds = calculate_match_bounds(state.asset_pool)

@@ -522,28 +522,10 @@ class MetadataStore:
     ) -> LibraryFiltersResponse:
         """Fetch unique filter options from indexed SQLite metadata.
 
-        Strictly gated by ownership settings and whitelists/blacklists.
+        Gated by environment date boundaries and whitelists/blacklists.
         """
         clauses: list[str] = ['a.library_name = ?', "a.file_type != 'VIDEO'"]
         params: list[Any] = [library_name]
-
-        if not settings.include_shared_albums and not settings.include_partner_assets:
-            clauses.append(
-                'a.is_shared = 0 AND a.is_partner = 0 AND a.id NOT IN ('
-                'SELECT aa.asset_id FROM asset_albums aa '
-                'JOIN albums alb ON aa.album_id = alb.id WHERE alb.is_shared = 1'
-                ')'
-            )
-        elif not settings.include_shared_albums:
-            clauses.append(
-                'a.is_shared = 0 AND a.id NOT IN ('
-                'SELECT aa.asset_id FROM asset_albums aa '
-                'JOIN albums alb ON aa.album_id = alb.id WHERE alb.is_shared = 1'
-                ')'
-            )
-        elif not settings.include_partner_assets:
-            clauses.append('a.is_partner = 0')
-
         base_where = ' AND '.join(f'({c})' for c in clauses)
 
         # 1. Countries
@@ -652,8 +634,8 @@ class MetadataStore:
             people=person_options,
         )
 
-    def get_albums(self, library_name: str, include_shared_albums: bool = False) -> list[dict[str, str]]:
-        """Return indexed albums for a library, respecting shared album visibility settings."""
+    def get_albums(self, library_name: str, include_shared_albums: bool = True) -> list[dict[str, str]]:
+        """Return indexed albums for a library."""
         if include_shared_albums:
             rows = self._db.fetch_all(
                 'SELECT id, name FROM albums WHERE library_name = ? ORDER BY name COLLATE NOCASE',

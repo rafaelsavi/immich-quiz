@@ -17,8 +17,6 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'IMMICH_LIBRARIES',
         'APP_TITLE',
         'APP_TAGLINE',
-        'INCLUDE_SHARED_ALBUMS',
-        'INCLUDE_PARTNER_ASSETS',
         'APP_HOST',
         'APP_PORT',
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
@@ -90,8 +88,6 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.immich_libraries == {'family': 'token'}
     assert settings.app_title == 'Immich Quiz'
     assert settings.app_tagline == ''
-    assert settings.include_shared_albums is False
-    assert settings.include_partner_assets is False
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
     assert settings.fetch_photos_date_lower_bound is None
@@ -147,44 +143,6 @@ def test_date_bounds_reject_inverted_range(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.setenv('FETCH_PHOTOS_DATE_UPPER_BOUND', '2024-12-31')
 
     with pytest.raises(ConfigError, match='on or before'):
-        load_settings()
-
-
-def test_include_shared_albums_accepts_true(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('INCLUDE_SHARED_ALBUMS', 'true')
-
-    settings = load_settings()
-
-    assert settings.include_shared_albums is True
-
-
-def test_include_shared_albums_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('INCLUDE_SHARED_ALBUMS', 'maybe')
-
-    with pytest.raises(ConfigError, match='INCLUDE_SHARED_ALBUMS'):
-        load_settings()
-
-
-def test_include_partner_assets_accepts_true(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('INCLUDE_PARTNER_ASSETS', 'true')
-
-    settings = load_settings()
-
-    assert settings.include_partner_assets is True
-
-
-def test_include_partner_assets_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('INCLUDE_PARTNER_ASSETS', 'maybe')
-
-    with pytest.raises(ConfigError, match='INCLUDE_PARTNER_ASSETS'):
         load_settings()
 
 

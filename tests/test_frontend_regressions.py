@@ -329,4 +329,3 @@ def test_pinpoint_quiz_image_fullscreen_button_handling() -> None:
     assert 'el.quizImageFullscreen.removeAttribute("src")' not in app_js, (
         'app.js must not call removeAttribute("src") on quizImageFullscreen'
     )
-

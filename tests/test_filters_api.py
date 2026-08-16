@@ -536,4 +536,3 @@ def test_preflight_allows_empty_players_while_setup_requires_players(tmp_path: P
         },
     )
     assert res_setup_blank.status_code == 422
-

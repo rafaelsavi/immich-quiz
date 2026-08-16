@@ -6,10 +6,10 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
 # ---------------------------------------------------------------------------
 # Enums and Shared Primitives
 # ---------------------------------------------------------------------------
+
 
 class RoundLength(str, Enum):
     seconds_30 = '30s'
@@ -53,6 +53,7 @@ def _validate_and_normalize_players(players: list[str], *, allow_empty: bool = F
 # Library Discovery & Filter Options
 # ---------------------------------------------------------------------------
 
+
 class PersonOption(BaseModel):
     id: str
     name: str
@@ -78,6 +79,7 @@ class LibraryFiltersResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Game Setup & Preflight Request / Response Models
 # ---------------------------------------------------------------------------
+
 
 class BaseGameConfig(BaseModel):
     """Shared filter and mode configuration for preflight checks and game setup."""
@@ -160,6 +162,7 @@ class GameSetupResponse(BaseModel):
 # Gameplay / Question & Turn Models
 # ---------------------------------------------------------------------------
 
+
 class QuestionRequest(BaseModel):
     match_id: str
     played_asset_ids: list[str] = Field(default_factory=list)
@@ -201,6 +204,7 @@ class QuestionResponse(BaseModel):
 # Answers & Round Acknowledgements
 # ---------------------------------------------------------------------------
 
+
 class AlbumShuffleAnswerItem(BaseModel):
     photo_id: str
     assigned_pin_id: str | None = None
@@ -240,6 +244,7 @@ class AnswerResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Results & Match Summaries
 # ---------------------------------------------------------------------------
+
 
 class PlayerRoundResult(BaseModel):
     player_name: str
@@ -325,6 +330,7 @@ class MatchSummaryResponse(BaseModel):
 # ---------------------------------------------------------------------------
 # Leaderboard
 # ---------------------------------------------------------------------------
+
 
 class LeaderboardEntry(BaseModel):
     match_id: str

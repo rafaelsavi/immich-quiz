@@ -251,15 +251,13 @@ function initFilterComponents() {
       resetPeopleMode();
       updatePeopleModeToggleVisibility();
 
-      const defaultPartner = Boolean(state.defaultIncludePartnerAssets);
-      const defaultShared = Boolean(state.defaultIncludeSharedAlbums);
       if (el.includePartnerCheckbox) {
-        el.includePartnerCheckbox.checked = defaultPartner;
-        if (el.labelIncludePartner) el.labelIncludePartner.classList.toggle("active", defaultPartner);
+        el.includePartnerCheckbox.checked = false;
+        if (el.labelIncludePartner) el.labelIncludePartner.classList.remove("active");
       }
       if (el.includeSharedCheckbox) {
-        el.includeSharedCheckbox.checked = defaultShared;
-        if (el.labelIncludeShared) el.labelIncludeShared.classList.toggle("active", defaultShared);
+        el.includeSharedCheckbox.checked = false;
+        if (el.labelIncludeShared) el.labelIncludeShared.classList.remove("active");
       }
 
       clearSavedLibraryFilters(el.library ? el.library.value : null);
@@ -427,17 +425,15 @@ function saveCurrentLibraryFilters() {
 function restoreLibraryFilters(libraryName) {
   if (!libraryName) return;
   try {
-    const defaultPartner = Boolean(state.defaultIncludePartnerAssets);
-    const defaultShared = Boolean(state.defaultIncludeSharedAlbums);
     const raw = localStorage.getItem(STORAGE_KEY_PREFIX + libraryName);
     if (!raw) {
       if (el.includePartnerCheckbox) {
-        el.includePartnerCheckbox.checked = defaultPartner;
-        if (el.labelIncludePartner) el.labelIncludePartner.classList.toggle("active", defaultPartner);
+        el.includePartnerCheckbox.checked = false;
+        if (el.labelIncludePartner) el.labelIncludePartner.classList.remove("active");
       }
       if (el.includeSharedCheckbox) {
-        el.includeSharedCheckbox.checked = defaultShared;
-        if (el.labelIncludeShared) el.labelIncludeShared.classList.toggle("active", defaultShared);
+        el.includeSharedCheckbox.checked = false;
+        if (el.labelIncludeShared) el.labelIncludeShared.classList.remove("active");
       }
       return;
     }
@@ -454,8 +450,8 @@ function restoreLibraryFilters(libraryName) {
       dateRangeSlider.setSelectedRange(saved.min_month, saved.max_month);
     }
 
-    const partnerChecked = saved.include_partner_assets !== undefined ? Boolean(saved.include_partner_assets) : defaultPartner;
-    const sharedChecked = saved.include_shared_albums !== undefined ? Boolean(saved.include_shared_albums) : defaultShared;
+    const partnerChecked = saved.include_partner_assets ? Boolean(saved.include_partner_assets) : false;
+    const sharedChecked = saved.include_shared_albums ? Boolean(saved.include_shared_albums) : false;
     if (el.includePartnerCheckbox) {
       el.includePartnerCheckbox.checked = partnerChecked;
       if (el.labelIncludePartner) el.labelIncludePartner.classList.toggle("active", partnerChecked);
@@ -782,12 +778,6 @@ function applyUiConfig(config) {
   }
   if (config.score_max_points) {
     state.scoreMaxPoints = Number(config.score_max_points);
-  }
-  if (config.default_include_shared_albums !== undefined) {
-    state.defaultIncludeSharedAlbums = Boolean(config.default_include_shared_albums);
-  }
-  if (config.default_include_partner_assets !== undefined) {
-    state.defaultIncludePartnerAssets = Boolean(config.default_include_partner_assets);
   }
   if (el.library && el.library.value) {
     restoreLibraryFilters(el.library.value);

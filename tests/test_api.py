@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from src.game.selector import calculate_match_bounds, is_asset_valid_for_batch
 from src.immich.client import AssetAnswer
+from src.storage.metadata import MetadataStore
 from src.storage.session import RoundAsset
 
 
@@ -69,11 +70,11 @@ def test_question_selection_honors_photo_date_bounds(tmp_path: Path) -> None:
     assert response.json()['asset_id'] == 'in-range'
 
 
-def test_albums_default_to_owned_only(client: TestClient, immich: FakeImmichClient) -> None:
+def test_albums_fetches_all_albums(client: TestClient, immich: FakeImmichClient) -> None:
     response = client.get('/api/albums', params={'library_name': 'family'})
 
     assert response.status_code == 200
-    assert immich.last_include_shared_albums is False
+    assert immich.last_include_shared_albums is True
 
 
 def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
@@ -83,16 +84,6 @@ def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
     body = response.json()
     assert body['language'] == 'EN'
     assert body['score_max_points'] == 100
-
-
-def test_albums_respects_include_shared_albums_settings(tmp_path: Path) -> None:
-    immich = FakeImmichClient()
-    client = build_client(tmp_path, immich, include_shared_albums=True)
-
-    response = client.get('/api/albums', params={'library_name': 'family'})
-
-    assert response.status_code == 200
-    assert immich.last_include_shared_albums is True
 
 
 def test_answer_response_hides_the_solution(client: TestClient) -> None:
@@ -1003,14 +994,11 @@ def test_ui_config_returns_runtime_metadata(tmp_path: Path) -> None:
     data = res.json()
     assert data['language'] == 'EN'
     assert data['score_max_points'] == 100
-    assert data['default_include_shared_albums'] is False
-    assert data['default_include_partner_assets'] is False
     assert 'version' in data
 
 
 def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: Path) -> None:
     from src.storage.db import DatabaseManager
-    from src.storage.metadata import MetadataStore
 
     db = DatabaseManager(tmp_path / 'metadata.db')
     meta_store = MetadataStore(db)
@@ -1158,4 +1146,3 @@ def test_question_endpoint_records_times_played(tmp_path: Path) -> None:
     row_after = meta_store._db.fetch_one("SELECT times_played, last_played_at FROM assets WHERE id = 'q-test-1'")
     assert row_after['times_played'] == 1
     assert row_after['last_played_at'] is not None
-

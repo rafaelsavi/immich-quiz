@@ -26,8 +26,6 @@ class AppSettings:
     immich_libraries: dict[str, str]
     app_title: str
     app_tagline: str
-    include_shared_albums: bool
-    include_partner_assets: bool
     fetch_photos_date_lower_bound: date | None
     fetch_photos_date_upper_bound: date | None
     app_host: str
@@ -48,7 +46,6 @@ class AppSettings:
     people_whitelist: frozenset[str] = frozenset()
     people_blacklist: frozenset[str] = frozenset()
 
-
     @property
     def metadata_db_path(self) -> Path:
         return self.data_path / 'metadata.db'
@@ -56,6 +53,7 @@ class AppSettings:
     @property
     def leaderboard_db_path(self) -> Path:
         return self.data_path / 'leaderboard.db'
+
 
 def _parse_language(value: str) -> str:
     normalized = value.strip().upper()
@@ -138,8 +136,6 @@ def load_settings() -> AppSettings:
         raise ConfigError('IMMICH_LIBRARIES is required')
 
     libraries = _parse_library_map(raw_libraries)
-    include_shared_albums = _parse_bool(os.getenv('INCLUDE_SHARED_ALBUMS', 'false'), 'INCLUDE_SHARED_ALBUMS')
-    include_partner_assets = _parse_bool(os.getenv('INCLUDE_PARTNER_ASSETS', 'false'), 'INCLUDE_PARTNER_ASSETS')
     fetch_photos_date_lower_bound = _parse_optional_date(
         os.getenv('FETCH_PHOTOS_DATE_LOWER_BOUND', ''),
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
@@ -194,8 +190,6 @@ def load_settings() -> AppSettings:
         immich_libraries=libraries,
         app_title=app_title,
         app_tagline=app_tagline,
-        include_shared_albums=include_shared_albums,
-        include_partner_assets=include_partner_assets,
         fetch_photos_date_lower_bound=fetch_photos_date_lower_bound,
         fetch_photos_date_upper_bound=fetch_photos_date_upper_bound,
         app_host=host,

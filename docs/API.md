@@ -34,12 +34,9 @@ Returns frontend configuration parameters:
 Libraries whose API key failed validation at startup are reported in
 `unavailable` and omitted from `libraries`. A bad key no longer stops the app.
 
-### GET /api/albums?library_name={name}&include_shared_albums={bool}
+### GET /api/albums?library_name={name}
 
-Returns `{"albums": [{"id": "...", "name": "..."}]}`.
-By default this includes only albums owned by the authenticated user.
-The default can be configured with `INCLUDE_SHARED_ALBUMS`.
-Set `include_shared_albums=true` or `false` to explicitly override.
+Returns `{"albums": [{"id": "...", "name": "..."}]}` containing all albums available in the selected library for selection in the setup filters.
 
 ### POST /api/game/preflight
 

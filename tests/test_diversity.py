@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 from conftest import FakeImmichClient, build_client, make_asset, setup_payload
 
 from src.game.selector import (
