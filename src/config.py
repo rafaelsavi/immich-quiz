@@ -26,8 +26,8 @@ class AppSettings:
     immich_libraries: dict[str, str]
     app_title: str
     app_tagline: str
-    fetch_photos_date_lower_bound: date | None
-    fetch_photos_date_upper_bound: date | None
+    date_lower_bound: date | None
+    date_upper_bound: date | None
     app_host: str
     app_port: int
     score_max_points: int
@@ -136,20 +136,16 @@ def load_settings() -> AppSettings:
         raise ConfigError('IMMICH_LIBRARIES is required')
 
     libraries = _parse_library_map(raw_libraries)
-    fetch_photos_date_lower_bound = _parse_optional_date(
-        os.getenv('FETCH_PHOTOS_DATE_LOWER_BOUND', ''),
-        'FETCH_PHOTOS_DATE_LOWER_BOUND',
+    date_lower_bound = _parse_optional_date(
+        os.getenv('DATE_LOWER_BOUND') or os.getenv('FETCH_PHOTOS_DATE_LOWER_BOUND', ''),
+        'DATE_LOWER_BOUND',
     )
-    fetch_photos_date_upper_bound = _parse_optional_date(
-        os.getenv('FETCH_PHOTOS_DATE_UPPER_BOUND', ''),
-        'FETCH_PHOTOS_DATE_UPPER_BOUND',
+    date_upper_bound = _parse_optional_date(
+        os.getenv('DATE_UPPER_BOUND') or os.getenv('FETCH_PHOTOS_DATE_UPPER_BOUND', ''),
+        'DATE_UPPER_BOUND',
     )
-    if (
-        fetch_photos_date_lower_bound is not None
-        and fetch_photos_date_upper_bound is not None
-        and fetch_photos_date_lower_bound > fetch_photos_date_upper_bound
-    ):
-        raise ConfigError('FETCH_PHOTOS_DATE_LOWER_BOUND must be on or before FETCH_PHOTOS_DATE_UPPER_BOUND')
+    if date_lower_bound is not None and date_upper_bound is not None and date_lower_bound > date_upper_bound:
+        raise ConfigError('DATE_LOWER_BOUND must be on or before DATE_UPPER_BOUND')
 
     host = os.getenv('APP_HOST', '127.0.0.1').strip() or '127.0.0.1'
     port_raw = os.getenv('APP_PORT', '8010').strip()
@@ -190,8 +186,8 @@ def load_settings() -> AppSettings:
         immich_libraries=libraries,
         app_title=app_title,
         app_tagline=app_tagline,
-        fetch_photos_date_lower_bound=fetch_photos_date_lower_bound,
-        fetch_photos_date_upper_bound=fetch_photos_date_upper_bound,
+        date_lower_bound=date_lower_bound,
+        date_upper_bound=date_upper_bound,
         app_host=host,
         app_port=port,
         score_max_points=score_max_points,

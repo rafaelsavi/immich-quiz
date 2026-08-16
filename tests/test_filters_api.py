@@ -118,8 +118,8 @@ def test_get_filters_env_date_bounds_override(tmp_path: Path) -> None:
     client = build_client(
         tmp_path,
         immich,
-        fetch_photos_date_lower_bound=date(2021, 5, 1),
-        fetch_photos_date_upper_bound=date(2022, 12, 31),
+        date_lower_bound=date(2021, 5, 1),
+        date_upper_bound=date(2022, 12, 31),
     )
 
     response = client.get('/api/filters?library_name=family')
@@ -207,8 +207,8 @@ def test_preflight_effective_date_bounds(tmp_path: Path) -> None:
     client = build_client(
         tmp_path,
         immich,
-        fetch_photos_date_lower_bound=date(2021, 1, 1),
-        fetch_photos_date_upper_bound=date(2023, 1, 1),
+        date_lower_bound=date(2021, 1, 1),
+        date_upper_bound=date(2023, 1, 1),
     )
 
     # Request bounds: [2022-01-01, 2024-01-01] -> Effective bounds: [2022-01-01, 2023-01-01]

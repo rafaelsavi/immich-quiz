@@ -19,6 +19,8 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'APP_TAGLINE',
         'APP_HOST',
         'APP_PORT',
+        'DATE_LOWER_BOUND',
+        'DATE_UPPER_BOUND',
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
         'FETCH_PHOTOS_DATE_UPPER_BOUND',
         'SCORE_MAX_POINTS',
@@ -90,8 +92,8 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.app_tagline == ''
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
-    assert settings.fetch_photos_date_lower_bound is None
-    assert settings.fetch_photos_date_upper_bound is None
+    assert settings.date_lower_bound is None
+    assert settings.date_upper_bound is None
     assert settings.score_max_points == 100
     assert settings.location_score_decay_km == 500.0
     assert settings.date_score_decay_days == 500.0
@@ -118,29 +120,41 @@ def test_server_url_adds_api_if_missing(monkeypatch: pytest.MonkeyPatch, raw_url
 def test_date_bounds_parse_when_valid(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('FETCH_PHOTOS_DATE_LOWER_BOUND', '2020-01-01')
-    monkeypatch.setenv('FETCH_PHOTOS_DATE_UPPER_BOUND', '2024-12-31')
+    monkeypatch.setenv('DATE_LOWER_BOUND', '2020-01-01')
+    monkeypatch.setenv('DATE_UPPER_BOUND', '2024-12-31')
 
     settings = load_settings()
 
-    assert settings.fetch_photos_date_lower_bound == date(2020, 1, 1)
-    assert settings.fetch_photos_date_upper_bound == date(2024, 12, 31)
+    assert settings.date_lower_bound == date(2020, 1, 1)
+    assert settings.date_upper_bound == date(2024, 12, 31)
+
+
+def test_legacy_fetch_photos_date_bounds_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('FETCH_PHOTOS_DATE_LOWER_BOUND', '2019-05-01')
+    monkeypatch.setenv('FETCH_PHOTOS_DATE_UPPER_BOUND', '2023-08-31')
+
+    settings = load_settings()
+
+    assert settings.date_lower_bound == date(2019, 5, 1)
+    assert settings.date_upper_bound == date(2023, 8, 31)
 
 
 def test_date_lower_bound_rejects_invalid_format(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('FETCH_PHOTOS_DATE_LOWER_BOUND', '2020/01/01')
+    monkeypatch.setenv('DATE_LOWER_BOUND', '2020/01/01')
 
-    with pytest.raises(ConfigError, match='FETCH_PHOTOS_DATE_LOWER_BOUND'):
+    with pytest.raises(ConfigError, match='DATE_LOWER_BOUND'):
         load_settings()
 
 
 def test_date_bounds_reject_inverted_range(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('FETCH_PHOTOS_DATE_LOWER_BOUND', '2025-01-01')
-    monkeypatch.setenv('FETCH_PHOTOS_DATE_UPPER_BOUND', '2024-12-31')
+    monkeypatch.setenv('DATE_LOWER_BOUND', '2025-01-01')
+    monkeypatch.setenv('DATE_UPPER_BOUND', '2024-12-31')
 
     with pytest.raises(ConfigError, match='on or before'):
         load_settings()

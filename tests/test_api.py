@@ -60,8 +60,8 @@ def test_question_selection_honors_photo_date_bounds(tmp_path: Path) -> None:
     client = build_client(
         tmp_path,
         immich,
-        fetch_photos_date_lower_bound=date(2020, 1, 1),
-        fetch_photos_date_upper_bound=date(2024, 12, 31),
+        date_lower_bound=date(2020, 1, 1),
+        date_upper_bound=date(2024, 12, 31),
     )
     match_id = start_match(client)
 
@@ -507,8 +507,8 @@ def test_preflight_checks_eligible_asset_count(tmp_path: Path) -> None:
     client_enough = build_client(
         tmp_path,
         immich_enough,
-        fetch_photos_date_lower_bound=date(2020, 1, 1),
-        fetch_photos_date_upper_bound=date(2024, 12, 31),
+        date_lower_bound=date(2020, 1, 1),
+        date_upper_bound=date(2024, 12, 31),
     )
     payload_enough = setup_payload(round_count=5, location_mode=True, date_mode=True)
     res_enough = client_enough.post('/api/game/preflight', json=payload_enough)

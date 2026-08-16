@@ -142,16 +142,16 @@ async def library_filters(
 
         bounds = await immich.get_timeline_bounds(library_name)
         min_d = bounds.min_date
-        if min_d and settings.fetch_photos_date_lower_bound:
-            min_d = max(min_d, settings.fetch_photos_date_lower_bound)
+        if min_d and settings.date_lower_bound:
+            min_d = max(min_d, settings.date_lower_bound)
         elif not min_d:
-            min_d = settings.fetch_photos_date_lower_bound
+            min_d = settings.date_lower_bound
 
         max_d = bounds.max_date
-        if max_d and settings.fetch_photos_date_upper_bound:
-            max_d = min(max_d, settings.fetch_photos_date_upper_bound)
+        if max_d and settings.date_upper_bound:
+            max_d = min(max_d, settings.date_upper_bound)
         elif not max_d:
-            max_d = settings.fetch_photos_date_upper_bound
+            max_d = settings.date_upper_bound
 
         date_range = DateRangeOption(
             min_month=min_d.strftime('%Y-%m') if min_d else None,

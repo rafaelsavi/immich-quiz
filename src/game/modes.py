@@ -139,8 +139,8 @@ class PinpointEngine(BaseGameModeEngine):
                     state,
                     immich,
                     set(payload_played_asset_ids),
-                    settings.fetch_photos_date_lower_bound,
-                    settings.fetch_photos_date_upper_bound,
+                    settings.date_lower_bound,
+                    settings.date_upper_bound,
                     metadata_store=metadata_store,
                     settings=settings,
                 )
@@ -303,8 +303,8 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     immich,
                     3,
                     set(payload_played_asset_ids),
-                    settings.fetch_photos_date_lower_bound,
-                    settings.fetch_photos_date_upper_bound,
+                    settings.date_lower_bound,
+                    settings.date_upper_bound,
                     metadata_store=metadata_store,
                     settings=settings,
                 )

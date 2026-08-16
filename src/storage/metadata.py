@@ -116,10 +116,10 @@ class AssetFilterCriteria:
         eff_min = getattr(setup, 'min_date', None)
         eff_max = getattr(setup, 'max_date', None)
         if settings is not None:
-            if settings.fetch_photos_date_lower_bound:
-                eff_min = max(filter(None, [settings.fetch_photos_date_lower_bound, eff_min]), default=None)
-            if settings.fetch_photos_date_upper_bound:
-                eff_max = min(filter(None, [settings.fetch_photos_date_upper_bound, eff_max]), default=None)
+            if settings.date_lower_bound:
+                eff_min = max(filter(None, [settings.date_lower_bound, eff_min]), default=None)
+            if settings.date_upper_bound:
+                eff_max = min(filter(None, [settings.date_upper_bound, eff_max]), default=None)
 
         return cls(
             library_name=setup.library_name,
@@ -731,11 +731,11 @@ class MetadataStore:
                 max_month = str(bounds_row['max_dt'])[:7]
 
         # Apply .env date lower/upper bounds as clamps if set
-        if settings.fetch_photos_date_lower_bound:
-            env_min = settings.fetch_photos_date_lower_bound.strftime('%Y-%m')
+        if settings.date_lower_bound:
+            env_min = settings.date_lower_bound.strftime('%Y-%m')
             min_month = max(min_month, env_min) if min_month is not None else env_min
-        if settings.fetch_photos_date_upper_bound:
-            env_max = settings.fetch_photos_date_upper_bound.strftime('%Y-%m')
+        if settings.date_upper_bound:
+            env_max = settings.date_upper_bound.strftime('%Y-%m')
             max_month = min(max_month, env_max) if max_month is not None else env_max
 
         return LibraryFiltersResponse(
