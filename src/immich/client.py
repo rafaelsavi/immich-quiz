@@ -56,8 +56,7 @@ class SearchQuery:
     people_mode: str = 'OR'  # 'OR' (any) | 'AND' (all together)
     countries: tuple[str, ...] = ()
     cities: tuple[str, ...] = ()
-    include_shared_albums: bool = False
-    include_partner_assets: bool = False
+    include_shared: bool = False
     min_date: date | None = None
     max_date: date | None = None
 
@@ -65,7 +64,7 @@ class SearchQuery:
     def should_filter_by_owner(self) -> bool:
         if self.album_ids:
             return False
-        return not (self.include_shared_albums and self.include_partner_assets)
+        return not self.include_shared
 
     def build_payload(self, size: int, page: int | None = None) -> dict[str, Any]:
         payload: dict[str, Any] = {'size': size, 'withExif': True}
@@ -75,9 +74,8 @@ class SearchQuery:
             payload['albumIds'] = list(self.album_ids)
         if self.person_ids:
             payload['personIds'] = list(self.person_ids)
-        if self.include_partner_assets or self.album_ids:
+        if self.include_shared or self.album_ids:
             payload['withPartners'] = True
-        if self.include_shared_albums or self.album_ids:
             payload['isShared'] = True
         # Immich API accepts only a single string for 'country'/'city'.
         # Pass the value only when exactly one is selected; multi-value
@@ -140,19 +138,19 @@ class ImmichClient:
         payload = {'size': 1, 'page': 1, 'withExif': True}
         await self._request_json('POST', '/search/metadata', key, json=payload)
 
-    async def list_albums(self, library_name: str, include_shared_albums: bool = False) -> list[dict[str, str]]:
+    async def list_albums(self, library_name: str, include_shared: bool = False) -> list[dict[str, str]]:
         key = self._library_key(library_name)
         raw = await self._request_json('GET', '/albums', key)
         items: list[dict[str, str]] = []
         raw_count = len(raw) if isinstance(raw, list) else 0
         if isinstance(raw, list):
             current_user_id: str | None = None
-            if not include_shared_albums:
+            if not include_shared:
                 current_user_id = await self._current_user_id(key)
             for album in raw:
                 if not isinstance(album, dict):
                     continue
-                if not include_shared_albums and self._is_shared_album(album, current_user_id):
+                if not include_shared and self._is_shared_album(album, current_user_id):
                     continue
                 album_id = str(album.get('id', '')).strip()
                 album_name = str(album.get('albumName', '') or album.get('name', '')).strip()
@@ -164,7 +162,7 @@ class ImmichClient:
             library_name,
             raw_count,
             len(items),
-            include_shared_albums,
+            include_shared,
         )
         return items
 
@@ -342,8 +340,7 @@ class ImmichClient:
         album_ids: list[str] | None = None,
         *,
         query: SearchQuery | None = None,
-        include_shared_albums: bool = False,
-        include_partner_assets: bool = False,
+        include_shared: bool = False,
         min_date: date | None = None,
         max_date: date | None = None,
         size: int = 250,
@@ -352,8 +349,7 @@ class ImmichClient:
         if query is None:
             query = SearchQuery(
                 album_ids=tuple(album_ids) if album_ids else (),
-                include_shared_albums=include_shared_albums,
-                include_partner_assets=include_partner_assets,
+                include_shared=include_shared,
                 min_date=min_date,
                 max_date=max_date,
             )
@@ -367,8 +363,7 @@ class ImmichClient:
             items,
             current_user_id=current_user_id,
             has_selected_albums=bool(query.album_ids),
-            include_shared_albums=query.include_shared_albums,
-            include_partner_assets=query.include_partner_assets,
+            include_shared=query.include_shared,
         )
 
     async def _fetch_album_assets(self, key: str, album_id: str) -> list[dict[str, Any]]:
@@ -383,8 +378,7 @@ class ImmichClient:
         library_name: str,
         album_ids: list[str] | None = None,
         size: int = 250,
-        include_shared_albums: bool = False,
-        include_partner_assets: bool = False,
+        include_shared: bool = False,
         *,
         query: SearchQuery | None = None,
         min_date: date | None = None,
@@ -394,8 +388,7 @@ class ImmichClient:
         if query is None:
             query = SearchQuery(
                 album_ids=tuple(album_ids) if album_ids else (),
-                include_shared_albums=include_shared_albums,
-                include_partner_assets=include_partner_assets,
+                include_shared=include_shared,
                 min_date=min_date,
                 max_date=max_date,
             )
@@ -411,8 +404,7 @@ class ImmichClient:
             raw_items,
             current_user_id=current_user_id,
             has_selected_albums=bool(query.album_ids),
-            include_shared_albums=query.include_shared_albums,
-            include_partner_assets=query.include_partner_assets,
+            include_shared=query.include_shared,
         )
         random.shuffle(filtered)
         return filtered[:size]
@@ -446,8 +438,7 @@ class ImmichClient:
                         people_mode='OR',
                         countries=query.countries,
                         cities=query.cities,
-                        include_shared_albums=query.include_shared_albums,
-                        include_partner_assets=query.include_partner_assets,
+                        include_shared=query.include_shared,
                         min_date=query.min_date,
                         max_date=query.max_date,
                     )
@@ -476,8 +467,7 @@ class ImmichClient:
                         people_mode='OR',
                         countries=query.countries,
                         cities=query.cities,
-                        include_shared_albums=query.include_shared_albums,
-                        include_partner_assets=query.include_partner_assets,
+                        include_shared=query.include_shared,
                         min_date=query.min_date,
                         max_date=query.max_date,
                     )
@@ -497,8 +487,7 @@ class ImmichClient:
                     people_mode=query.people_mode,
                     countries=query.countries,
                     cities=query.cities,
-                    include_shared_albums=query.include_shared_albums,
-                    include_partner_assets=query.include_partner_assets,
+                    include_shared=query.include_shared,
                     min_date=query.min_date,
                     max_date=query.max_date,
                 )
@@ -518,8 +507,7 @@ class ImmichClient:
                     people_mode=query.people_mode,
                     countries=query.countries,
                     cities=(city,),
-                    include_shared_albums=query.include_shared_albums,
-                    include_partner_assets=query.include_partner_assets,
+                    include_shared=query.include_shared,
                     min_date=query.min_date,
                     max_date=query.max_date,
                 )
@@ -539,8 +527,7 @@ class ImmichClient:
                     people_mode=query.people_mode,
                     countries=(country,),
                     cities=query.cities,
-                    include_shared_albums=query.include_shared_albums,
-                    include_partner_assets=query.include_partner_assets,
+                    include_shared=query.include_shared,
                     min_date=query.min_date,
                     max_date=query.max_date,
                 )
@@ -644,8 +631,7 @@ class ImmichClient:
                 people_mode=query.people_mode,
                 countries=query.countries,
                 cities=query.cities,
-                include_shared_albums=query.include_shared_albums,
-                include_partner_assets=query.include_partner_assets,
+                include_shared=query.include_shared,
                 min_date=bucket_min,
                 max_date=bucket_max,
             )
@@ -737,7 +723,7 @@ class ImmichClient:
         """Return True if the album was shared with the user by someone else.
 
         Albums owned by the current user (whether private or shared with others)
-        return False so they are retained when include_shared_albums is False.
+        return False so they are retained when include_shared is False.
         """
         owner_id = ImmichClient._extract_owner_id(album)
         if owner_id and current_user_id:
@@ -768,28 +754,15 @@ class ImmichClient:
         *,
         current_user_id: str | None,
         has_selected_albums: bool = False,
-        include_shared_albums: bool = False,
-        include_partner_assets: bool = False,
+        include_shared: bool = False,
     ) -> list[dict[str, Any]]:
-        if has_selected_albums or (include_shared_albums and include_partner_assets):
+        if has_selected_albums or include_shared:
             return items
 
         filtered: list[dict[str, Any]] = []
         for asset in items:
             owner_id = ImmichClient._extract_owner_id(asset)
             if not owner_id or (current_user_id and owner_id == current_user_id):
-                filtered.append(asset)
-                continue
-
-            is_shared = bool(asset.get('isShared') or asset.get('shared'))
-            if (
-                is_shared
-                and include_shared_albums
-                or not is_shared
-                and include_partner_assets
-                or (include_shared_albums or include_partner_assets)
-                and ('isShared' not in asset and 'shared' not in asset)
-            ):
                 filtered.append(asset)
 
         return filtered

@@ -121,37 +121,8 @@ async def load_asset_pool(
 
     """
     criteria = AssetFilterCriteria.from_setup(state.setup, settings)
-
-    effective_min_date = max(
-        filter(None, [criteria.min_date, min_capture_date]),
-        default=None,
-    )
-    effective_max_date = min(
-        filter(None, [criteria.max_date, max_capture_date]),
-        default=None,
-    )
-
-    if effective_min_date != criteria.min_date or effective_max_date != criteria.max_date:
-        criteria = AssetFilterCriteria(
-            library_name=criteria.library_name,
-            location_mode=criteria.location_mode,
-            date_mode=criteria.date_mode,
-            min_date=effective_min_date,
-            max_date=effective_max_date,
-            countries=criteria.countries,
-            cities=criteria.cities,
-            person_ids=criteria.person_ids,
-            people_mode=criteria.people_mode,
-            album_ids=criteria.album_ids,
-            include_shared_albums=criteria.include_shared_albums,
-            include_partner_assets=criteria.include_partner_assets,
-            country_whitelist=criteria.country_whitelist,
-            country_blacklist=criteria.country_blacklist,
-            city_whitelist=criteria.city_whitelist,
-            city_blacklist=criteria.city_blacklist,
-            people_whitelist=criteria.people_whitelist,
-            people_blacklist=criteria.people_blacklist,
-        )
+    effective_min_date = criteria.min_date
+    effective_max_date = criteria.max_date
 
     # Use fast indexed SQLite metadata store when available
     if metadata_store is not None and metadata_store.has_synced_assets(state.setup.library_name):
@@ -159,17 +130,7 @@ async def load_asset_pool(
         return
 
     # Fallback to Immich API on cold start or when metadata store has no indexed assets
-    query = SearchQuery(
-        album_ids=tuple(state.setup.album_ids),
-        person_ids=tuple(state.setup.person_ids),
-        people_mode=state.setup.people_mode,
-        countries=tuple(state.setup.countries),
-        cities=tuple(state.setup.cities),
-        include_shared_albums=state.setup.include_shared_albums,
-        include_partner_assets=state.setup.include_partner_assets,
-        min_date=effective_min_date,
-        max_date=effective_max_date,
-    )
+    query = criteria.to_search_query()
 
     raw_assets = await immich.search_random_assets(
         state.setup.library_name,

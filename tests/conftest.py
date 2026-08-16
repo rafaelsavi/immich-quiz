@@ -69,7 +69,7 @@ class FakeImmichClient:
         )
         self.search_calls = 0
         self.closed = False
-        self.last_include_shared_albums = False
+        self.last_include_shared = False
         self.last_query: SearchQuery | None = None
 
     def list_libraries(self) -> list[str]:
@@ -78,8 +78,8 @@ class FakeImmichClient:
     async def validate_access(self, library_name: str) -> None:
         return None
 
-    async def list_albums(self, library_name: str, include_shared_albums: bool = False) -> list[dict[str, str]]:
-        self.last_include_shared_albums = include_shared_albums
+    async def list_albums(self, library_name: str, include_shared: bool = False) -> list[dict[str, str]]:
+        self.last_include_shared = include_shared
         return [{'id': 'album-1', 'name': 'Holidays'}]
 
     async def list_people(
@@ -143,8 +143,7 @@ class FakeImmichClient:
         album_ids: list[str] | None = None,
         *,
         query: SearchQuery | None = None,
-        include_shared_albums: bool = False,
-        include_partner_assets: bool = False,
+        include_shared: bool = False,
         size: int = 250,
         page: int = 1,
     ) -> list[dict[str, Any]]:
@@ -157,8 +156,7 @@ class FakeImmichClient:
         library_name: str,
         album_ids: list[str] | None = None,
         size: int = 250,
-        include_shared_albums: bool = False,
-        include_partner_assets: bool = False,
+        include_shared: bool = False,
         *,
         query: SearchQuery | None = None,
         min_date: date | None = None,

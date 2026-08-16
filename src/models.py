@@ -98,8 +98,7 @@ class BaseGameConfig(BaseModel):
     cities: list[str] = Field(default_factory=list)
     min_date: date | None = None
     max_date: date | None = None
-    include_shared_albums: bool = False
-    include_partner_assets: bool = False
+    include_shared: bool = False
 
     @model_validator(mode='after')
     def validate_modes_and_dates(self) -> BaseGameConfig:

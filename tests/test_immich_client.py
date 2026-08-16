@@ -215,7 +215,7 @@ async def test_list_albums_excludes_modern_shared_albums() -> None:
     """Modern Immich payloads use shared: bool and albumUsers instead of top-level ownerId.
 
     Shared albums owned by the user should be included, while albums shared with the user
-    by someone else should be excluded when include_shared_albums=False.
+    by someone else should be excluded when include_shared=False.
     """
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -254,7 +254,7 @@ async def test_list_albums_excludes_modern_shared_albums() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    albums = await client.list_albums('family', include_shared_albums=False)
+    albums = await client.list_albums('family', include_shared=False)
     await client.aclose()
 
     # Private albums and shared albums owned by me should be returned; albums shared by others are excluded
@@ -301,7 +301,7 @@ async def test_list_albums_includes_modern_shared_albums_when_true() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    albums = await client.list_albums('family', include_shared_albums=True)
+    albums = await client.list_albums('family', include_shared=True)
     await client.aclose()
 
     assert albums == [
@@ -352,7 +352,7 @@ async def test_list_albums_includes_shared_albums_when_true() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    albums = await client.list_albums('family', include_shared_albums=True)
+    albums = await client.list_albums('family', include_shared=True)
     await client.aclose()
 
     assert albums == [
@@ -388,7 +388,7 @@ async def test_list_albums_shared_by_user_retained_when_shared_false_and_top_lev
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    albums = await client.list_albums('family', include_shared_albums=False)
+    albums = await client.list_albums('family', include_shared=False)
     await client.aclose()
 
     assert albums == [
@@ -410,19 +410,19 @@ async def test_search_random_assets_payload_flags() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    await client.search_random_assets('family', size=1, include_partner_assets=True, include_shared_albums=False)
-    await client.search_random_assets('family', size=1, include_partner_assets=False, include_shared_albums=True)
+    await client.search_random_assets('family', size=1, include_shared=True)
+    await client.search_random_assets('family', size=1, include_shared=False)
     await client.aclose()
 
     assert len(payloads) == 2
     assert payloads[0].get('withPartners') is True
-    assert 'isShared' not in payloads[0]
+    assert payloads[0].get('isShared') is True
 
     assert 'withPartners' not in payloads[1]
-    assert payloads[1].get('isShared') is True
+    assert 'isShared' not in payloads[1]
 
 
-async def test_search_random_assets_owner_filtering_both_false() -> None:
+async def test_search_random_assets_owner_filtering_false() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith('/users/me'):
             return httpx.Response(200, json={'id': 'me-user'})
@@ -442,13 +442,13 @@ async def test_search_random_assets_owner_filtering_both_false() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    items = await client.search_random_assets('family', include_shared_albums=False, include_partner_assets=False)
+    items = await client.search_random_assets('family', include_shared=False)
     await client.aclose()
 
     assert [item['id'] for item in items] == ['my-photo']
 
 
-async def test_search_random_assets_owner_filtering_include_partner() -> None:
+async def test_search_random_assets_owner_filtering_include_shared() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith('/users/me'):
             return httpx.Response(200, json={'id': 'me-user'})
@@ -468,36 +468,10 @@ async def test_search_random_assets_owner_filtering_include_partner() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    items = await client.search_random_assets('family', include_shared_albums=False, include_partner_assets=True)
+    items = await client.search_random_assets('family', include_shared=True)
     await client.aclose()
 
-    assert set(item['id'] for item in items) == {'my-photo', 'partner-photo'}
-
-
-async def test_search_random_assets_owner_filtering_include_shared_albums() -> None:
-    def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path.endswith('/users/me'):
-            return httpx.Response(200, json={'id': 'me-user'})
-        if request.url.path.endswith('/search/random'):
-            return httpx.Response(
-                200,
-                json={
-                    'assets': {
-                        'items': [
-                            asset(id='my-photo', ownerId='me-user'),
-                            asset(id='shared-photo', ownerId='other-user', isShared=True),
-                            asset(id='partner-photo', ownerId='partner-user', isShared=False),
-                        ]
-                    }
-                },
-            )
-        return httpx.Response(404, json={'error': 'not found'})
-
-    client = build_client(handler)
-    items = await client.search_random_assets('family', include_shared_albums=True, include_partner_assets=False)
-    await client.aclose()
-
-    assert set(item['id'] for item in items) == {'my-photo', 'shared-photo'}
+    assert set(item['id'] for item in items) == {'my-photo', 'shared-photo', 'partner-photo'}
 
 
 async def test_search_random_assets_owner_filtering_selected_album() -> None:
@@ -521,8 +495,7 @@ async def test_search_random_assets_owner_filtering_selected_album() -> None:
     items = await client.search_random_assets(
         'family',
         album_ids=['album-shared'],
-        include_shared_albums=False,
-        include_partner_assets=False,
+        include_shared=False,
     )
     await client.aclose()
 
@@ -549,16 +522,12 @@ async def test_search_random_assets_owner_filtering_with_shared_field() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    items_none = await client.search_random_assets('family', include_shared_albums=False, include_partner_assets=False)
-    items_partner = await client.search_random_assets(
-        'family', include_shared_albums=False, include_partner_assets=True
-    )
-    items_shared = await client.search_random_assets('family', include_shared_albums=True, include_partner_assets=False)
+    items_none = await client.search_random_assets('family', include_shared=False)
+    items_shared = await client.search_random_assets('family', include_shared=True)
     await client.aclose()
 
     assert [item['id'] for item in items_none] == ['my-photo']
-    assert set(item['id'] for item in items_partner) == {'my-photo', 'partner-photo'}
-    assert set(item['id'] for item in items_shared) == {'my-photo', 'shared-photo'}
+    assert set(item['id'] for item in items_shared) == {'my-photo', 'shared-photo', 'partner-photo'}
 
 
 async def test_immich_client_async_context_manager() -> None:
@@ -592,7 +561,7 @@ async def test_list_albums_lazy_loads_users_me() -> None:
         return httpx.Response(404, json={'error': 'not found'})
 
     client = build_client(handler)
-    albums = await client.list_albums('family', include_shared_albums=True)
+    albums = await client.list_albums('family', include_shared=True)
     await client.aclose()
 
     assert users_me_called is False
@@ -617,7 +586,7 @@ async def test_search_assets_lazy_loads_users_me_when_album_targeted_or_all_shar
     assert users_me_called is False
     assert len(items1) == 1
 
-    items2 = await client.search_assets('family', include_shared_albums=True, include_partner_assets=True)
+    items2 = await client.search_assets('family', include_shared=True)
     assert users_me_called is False
     assert len(items2) == 1
 
@@ -639,8 +608,7 @@ def test_build_search_payload() -> None:
 
     payload2 = SearchQuery(
         album_ids=('album-123',),
-        include_shared_albums=True,
-        include_partner_assets=True,
+        include_shared=True,
     ).build_payload(10, page=2)
     assert payload2 == {
         'size': 10,
@@ -659,8 +627,7 @@ def test_search_query_build_payload() -> None:
 
     q = SearchQuery(
         album_ids=('album-1',),
-        include_shared_albums=True,
-        include_partner_assets=True,
+        include_shared=True,
         min_date=date(2020, 1, 1),
         max_date=date(2024, 12, 31),
     )
@@ -681,8 +648,8 @@ def test_search_query_should_filter_by_owner() -> None:
     from src.immich.client import SearchQuery
 
     assert SearchQuery(album_ids=('album-1',)).should_filter_by_owner is False
-    assert SearchQuery(include_shared_albums=True, include_partner_assets=True).should_filter_by_owner is False
-    assert SearchQuery(include_shared_albums=True, include_partner_assets=False).should_filter_by_owner is True
+    assert SearchQuery(include_shared=True).should_filter_by_owner is False
+    assert SearchQuery(include_shared=False).should_filter_by_owner is True
     assert SearchQuery().should_filter_by_owner is True
 
 

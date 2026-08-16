@@ -7,10 +7,11 @@ from fastapi import HTTPException
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, load_asset_pool
-from src.immich.client import AssetAnswer, ImmichClient, ImmichClientError, SearchQuery
+from src.immich.client import AssetAnswer, ImmichClient, ImmichClientError
 from src.models import (
     AnswerRequest,
     AnswerResponse,
+    FacetCounts,
     GameMode,
     GameSetupRequest,
     GameSetupResponse,
@@ -33,12 +34,24 @@ logger = logging.getLogger(__name__)
 
 
 class GameService:
-    def __init__(self, registry: GameModeRegistry | None = None) -> None:
+    def __init__(
+        self,
+        session_store: SessionStore,
+        metadata_store: MetadataStore,
+        immich_client: ImmichClient,
+        leaderboard_store: LeaderboardStore,
+        settings: AppSettings,
+        registry: GameModeRegistry | None = None,
+    ) -> None:
+        self.store = session_store
+        self.metadata_store = metadata_store
+        self.immich = immich_client
+        self.leaderboard_store = leaderboard_store
+        self.settings = settings
         self.registry = registry or default_game_mode_registry
 
     async def resolve_album_name(
         self,
-        immich: ImmichClient,
         library_name: str,
         album_ids: list[str] | None = None,
     ) -> str:
@@ -47,7 +60,7 @@ class GameService:
             return '-'
 
         try:
-            albums = await immich.list_albums(library_name, include_shared_albums=True)
+            albums = await self.immich.list_albums(library_name, include_shared=True)
         except ImmichClientError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -65,14 +78,8 @@ class GameService:
         names.sort(key=lambda s: (s.lower(), s))
         return ', '.join(names) if names else '-'
 
-    async def preflight(
-        self,
-        setup: PreflightRequest,
-        settings: AppSettings,
-        immich: ImmichClient,
-        metadata_store: MetadataStore | None = None,
-    ) -> PreflightResponse:
-        criteria = AssetFilterCriteria.from_setup(setup, settings)
+    async def preflight(self, setup: PreflightRequest) -> PreflightResponse:
+        criteria = AssetFilterCriteria.from_setup(setup, self.settings)
         effective_min_date = criteria.min_date
         effective_max_date = criteria.max_date
 
@@ -82,26 +89,16 @@ class GameService:
         facet_counts: FacetCounts | None = None
 
         # 1. Fast indexed SQLite query if metadata store is populated for this library
-        if metadata_store is not None and metadata_store.has_synced_assets(setup.library_name):
-            counts = metadata_store.get_asset_counts(criteria)
+        if self.metadata_store.has_synced_assets(setup.library_name):
+            counts = self.metadata_store.get_asset_counts(criteria)
             eligible_count = counts['eligible_count']
             total_count = counts['total_count']
             gps_count = counts['gps_count']
             date_count = counts['date_count']
-            facet_counts = metadata_store.get_facet_counts(criteria)
+            facet_counts = self.metadata_store.get_facet_counts(criteria)
         else:
             # Fallback to paginated HTTP sampling
-            query = SearchQuery(
-                album_ids=tuple(setup.album_ids),
-                person_ids=tuple(setup.person_ids),
-                people_mode=setup.people_mode,
-                countries=tuple(setup.countries),
-                cities=tuple(setup.cities),
-                include_shared_albums=setup.include_shared_albums,
-                include_partner_assets=setup.include_partner_assets,
-                min_date=effective_min_date,
-                max_date=effective_max_date,
-            )
+            query = criteria.to_search_query()
 
             # Sample candidate assets to verify availability for selected game mode and filters.
             target_eligible_count = 250
@@ -113,7 +110,7 @@ class GameService:
 
             try:
                 for page_num in range(1, max_sample_pages + 1):
-                    raw_assets = await immich.search_assets(
+                    raw_assets = await self.immich.search_assets(
                         setup.library_name,
                         query=query,
                         size=100,
@@ -213,34 +210,26 @@ class GameService:
             facet_counts=facet_counts,
         )
 
-    async def setup_game(
-        self,
-        setup: GameSetupRequest,
-        settings: AppSettings,
-        store: SessionStore,
-        immich: ImmichClient,
-        metadata_store: MetadataStore | None = None,
-    ) -> GameSetupResponse:
-        if settings.fetch_photos_date_lower_bound:
-            setup.min_date = max(filter(None, [settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
-        if settings.fetch_photos_date_upper_bound:
-            setup.max_date = min(filter(None, [settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
+    async def setup_game(self, setup: GameSetupRequest) -> GameSetupResponse:
+        if self.settings.fetch_photos_date_lower_bound:
+            setup.min_date = max(filter(None, [self.settings.fetch_photos_date_lower_bound, setup.min_date]), default=None)
+        if self.settings.fetch_photos_date_upper_bound:
+            setup.max_date = min(filter(None, [self.settings.fetch_photos_date_upper_bound, setup.max_date]), default=None)
 
         setup.album_name = await self.resolve_album_name(
-            immich,
             setup.library_name,
             album_ids=setup.album_ids,
         )
-        state = store.create_match(setup)
+        state = self.store.create_match(setup)
 
         map_bounds: MapBounds | None = None
         if setup.location_mode and setup.game_mode == GameMode.pinpoint:
             try:
                 await load_asset_pool(
                     state,
-                    immich,
-                    metadata_store=metadata_store,
-                    settings=settings,
+                    self.immich,
+                    metadata_store=self.metadata_store,
+                    settings=self.settings,
                 )
                 map_bounds = calculate_match_bounds(state.asset_pool)
             except Exception as exc:
@@ -253,16 +242,9 @@ class GameService:
             map_bounds=map_bounds,
         )
 
-    async def get_question(
-        self,
-        payload: QuestionRequest,
-        settings: AppSettings,
-        store: SessionStore,
-        immich: ImmichClient,
-        metadata_store: MetadataStore | None = None,
-    ) -> QuestionResponse:
+    async def get_question(self, payload: QuestionRequest) -> QuestionResponse:
         try:
-            state = store.get_match(payload.match_id)
+            state = self.store.get_match(payload.match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -274,7 +256,7 @@ class GameService:
 
         engine = self.registry.get(state.setup.game_mode)
 
-        active = store.active_question(payload.match_id)
+        active = self.store.active_question(payload.match_id)
         if active is not None:
             active_failed = False
             if (
@@ -299,12 +281,12 @@ class GameService:
                     for ba in active.batch_assets:
                         if ba.asset_id in payload.played_asset_ids:
                             state.played_asset_ids.add(ba.asset_id)
-                            if metadata_store is not None:
-                                metadata_store.mark_asset_invalid(ba.asset_id)
+                            if self.metadata_store is not None:
+                                self.metadata_store.mark_asset_invalid(ba.asset_id)
                 else:
                     state.played_asset_ids.add(active.asset_id)
-                    if metadata_store is not None:
-                        metadata_store.mark_asset_invalid(active.asset_id)
+                    if self.metadata_store is not None:
+                        self.metadata_store.mark_asset_invalid(active.asset_id)
                 active = None
             else:
                 return engine.build_question_response(state, active)
@@ -312,22 +294,16 @@ class GameService:
         question_state = await engine.select_question(
             state,
             payload.played_asset_ids,
-            settings,
-            store,
-            immich,
-            metadata_store=metadata_store,
+            self.settings,
+            self.store,
+            self.immich,
+            metadata_store=self.metadata_store,
         )
         return engine.build_question_response(state, question_state)
 
-    async def submit_answer(
-        self,
-        payload: AnswerRequest,
-        settings: AppSettings,
-        store: SessionStore,
-        leaderboard_store: LeaderboardStore,
-    ) -> AnswerResponse:
+    async def submit_answer(self, payload: AnswerRequest) -> AnswerResponse:
         try:
-            state = store.get_match(payload.match_id)
+            state = self.store.get_match(payload.match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -338,10 +314,10 @@ class GameService:
             raise HTTPException(status_code=409, detail='Question already answered')
 
         engine = self.registry.get(state.setup.game_mode)
-        updated_state = engine.evaluate_and_apply_answer(state, question_state, payload, settings, store)
+        updated_state = engine.evaluate_and_apply_answer(state, question_state, payload, self.settings, self.store)
 
         if updated_state.finished:
-            leaderboard_store.append_match(
+            self.leaderboard_store.append_match(
                 match_id=updated_state.match_id,
                 library_name=updated_state.setup.library_name,
                 album_name=updated_state.setup.album_name or '-',
@@ -371,15 +347,10 @@ class GameService:
             match_finished=updated_state.finished,
         )
 
-    async def get_round_result(
-        self,
-        payload: RoundResultRequest,
-        settings: AppSettings,
-        store: SessionStore,
-    ) -> RoundResultResponse:
+    async def get_round_result(self, payload: RoundResultRequest) -> RoundResultResponse:
         """Reveal a round only once every player in it has locked in an answer."""
         try:
-            state = store.get_match(payload.match_id)
+            state = self.store.get_match(payload.match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -414,17 +385,12 @@ class GameService:
             batch_reveal=batch_reveal,
             results=results,
             match_finished=state.finished,
-            score_max_points=settings.score_max_points,
+            score_max_points=self.settings.score_max_points,
         )
 
-    async def get_match_summary(
-        self,
-        match_id: str,
-        settings: AppSettings,
-        store: SessionStore,
-    ) -> MatchSummaryResponse:
+    async def get_match_summary(self, match_id: str) -> MatchSummaryResponse:
         try:
-            state = store.get_match(match_id)
+            state = self.store.get_match(match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -432,7 +398,7 @@ class GameService:
             state.setup.round_count,
             state.setup.location_mode,
             state.setup.date_mode,
-            per_goal_max_points=settings.score_max_points,
+            per_goal_max_points=self.settings.score_max_points,
         )
 
         ordered = sorted(

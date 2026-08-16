@@ -467,14 +467,12 @@ def test_preflight_passes_dynamic_partner_and_shared_flags_to_search_query(tmp_p
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
-            'include_partner_assets': True,
-            'include_shared_albums': True,
+            'include_shared': True,
         },
     )
     assert res.status_code == 200
     assert immich.last_query is not None
-    assert immich.last_query.include_partner_assets is True
-    assert immich.last_query.include_shared_albums is True
+    assert immich.last_query.include_shared is True
 
 
 def test_models_date_order_validation(tmp_path: Path) -> None:

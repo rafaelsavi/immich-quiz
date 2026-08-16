@@ -60,9 +60,13 @@ def get_sync_engine(request: Request) -> SyncEngine:
 
 
 def get_game_service(request: Request) -> GameService:
-    if not hasattr(request.app.state, 'game_service'):
-        request.app.state.game_service = GameService()
-    return request.app.state.game_service
+    return GameService(
+        session_store=request.app.state.session_store,
+        metadata_store=request.app.state.metadata_store,
+        immich_client=request.app.state.immich_client,
+        leaderboard_store=request.app.state.leaderboard_store,
+        settings=request.app.state.settings,
+    )
 
 
 @router.get('/health')
@@ -98,10 +102,10 @@ async def albums(
     metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> dict[str, list[dict[str, str]]]:
     if metadata_store.has_synced_assets(library_name):
-        return {'albums': metadata_store.get_albums(library_name, include_shared_albums=True)}
+        return {'albums': metadata_store.get_albums(library_name, include_shared=True)}
 
     try:
-        result = await immich.list_albums(library_name, include_shared_albums=True)
+        result = await immich.list_albums(library_name, include_shared=True)
         return {'albums': result}
     except ImmichClientError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -231,48 +235,25 @@ async def leaderboard(
 @router.post('/game/preflight', response_model=PreflightResponse)
 async def game_preflight(
     setup: PreflightRequest,
-    request: Request,
-    immich: ImmichClient = Depends(get_immich_client),
     game_service: GameService = Depends(get_game_service),
-    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> PreflightResponse:
-    return await game_service.preflight(setup, request.app.state.settings, immich, metadata_store=metadata_store)
+    return await game_service.preflight(setup)
 
 
 @router.post('/game/setup', response_model=GameSetupResponse)
 async def game_setup(
     setup: GameSetupRequest,
-    request: Request,
-    store: SessionStore = Depends(get_session_store),
-    immich: ImmichClient = Depends(get_immich_client),
     game_service: GameService = Depends(get_game_service),
-    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> GameSetupResponse:
-    return await game_service.setup_game(
-        setup,
-        request.app.state.settings,
-        store,
-        immich,
-        metadata_store=metadata_store,
-    )
+    return await game_service.setup_game(setup)
 
 
 @router.post('/question', response_model=QuestionResponse)
 async def question(
     payload: QuestionRequest,
-    request: Request,
-    store: SessionStore = Depends(get_session_store),
-    immich: ImmichClient = Depends(get_immich_client),
     game_service: GameService = Depends(get_game_service),
-    metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> QuestionResponse:
-    return await game_service.get_question(
-        payload,
-        request.app.state.settings,
-        store,
-        immich,
-        metadata_store=metadata_store,
-    )
+    return await game_service.get_question(payload)
 
 
 @router.get('/media/{asset_id}')
@@ -298,29 +279,22 @@ async def media(
 @router.post('/answer', response_model=AnswerResponse)
 async def answer(
     payload: AnswerRequest,
-    request: Request,
-    store: SessionStore = Depends(get_session_store),
-    leaderboard_store: LeaderboardStore = Depends(get_leaderboard_store),
     game_service: GameService = Depends(get_game_service),
 ) -> AnswerResponse:
-    return await game_service.submit_answer(payload, request.app.state.settings, store, leaderboard_store)
+    return await game_service.submit_answer(payload)
 
 
 @router.post('/round/result', response_model=RoundResultResponse)
 async def round_result(
     payload: RoundResultRequest,
-    request: Request,
-    store: SessionStore = Depends(get_session_store),
     game_service: GameService = Depends(get_game_service),
 ) -> RoundResultResponse:
-    return await game_service.get_round_result(payload, request.app.state.settings, store)
+    return await game_service.get_round_result(payload)
 
 
 @router.get('/match/{match_id}/summary', response_model=MatchSummaryResponse)
 async def match_summary(
     match_id: str,
-    request: Request,
-    store: SessionStore = Depends(get_session_store),
     game_service: GameService = Depends(get_game_service),
 ) -> MatchSummaryResponse:
-    return await game_service.get_match_summary(match_id, request.app.state.settings, store)
+    return await game_service.get_match_summary(match_id)

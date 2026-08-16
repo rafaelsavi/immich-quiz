@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import router
 from src.config import AppSettings, ConfigError, load_settings
+from src.game.service import GameService
 from src.immich.client import ImmichClient, ImmichClientError
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
@@ -49,6 +50,14 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     leaderboard_store = LeaderboardStore(
         leaderboard_db_manager,
         score_max_points=settings.score_max_points,
+    )
+    session_store = SessionStore()
+    game_service = GameService(
+        session_store=session_store,
+        metadata_store=metadata_store,
+        immich_client=immich_client,
+        leaderboard_store=leaderboard_store,
+        settings=settings,
     )
 
     @asynccontextmanager
@@ -92,14 +101,14 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     app = FastAPI(title='Immich Quiz', version=APP_VERSION, lifespan=lifespan)
     app.state.settings = settings
-    app.state.session_store = SessionStore()
+    app.state.session_store = session_store
     app.state.immich_client = immich_client
-    app.state.db_manager = metadata_db_manager
     app.state.metadata_db_manager = metadata_db_manager
     app.state.leaderboard_db_manager = leaderboard_db_manager
     app.state.metadata_store = metadata_store
     app.state.sync_engine = sync_engine
     app.state.leaderboard_store = leaderboard_store
+    app.state.game_service = game_service
 
     @app.middleware('http')
     async def add_security_headers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

@@ -7,7 +7,7 @@ from datetime import date, datetime
 from typing import Any
 
 from src.config import AppSettings
-from src.immich.client import AssetAnswer
+from src.immich.client import AssetAnswer, SearchQuery
 from src.models import CityOption, DateRangeOption, FacetCounts, LibraryFiltersResponse, PersonOption
 from src.storage.db import DatabaseManager
 
@@ -88,8 +88,7 @@ class AssetFilterCriteria:
     person_ids: tuple[str, ...] = ()
     people_mode: str = 'OR'
     album_ids: tuple[str, ...] = ()
-    include_shared_albums: bool = False
-    include_partner_assets: bool = False
+    include_shared: bool = False
     # Layer 1 Config Safeguards
     country_whitelist: frozenset[str] = frozenset()
     country_blacklist: frozenset[str] = frozenset()
@@ -97,6 +96,19 @@ class AssetFilterCriteria:
     city_blacklist: frozenset[str] = frozenset()
     people_whitelist: frozenset[str] = frozenset()
     people_blacklist: frozenset[str] = frozenset()
+
+    def to_search_query(self) -> SearchQuery:
+        """Convert filter criteria to an Immich SearchQuery."""
+        return SearchQuery(
+            album_ids=self.album_ids,
+            person_ids=self.person_ids,
+            people_mode=self.people_mode,
+            countries=self.countries,
+            cities=self.cities,
+            include_shared=self.include_shared,
+            min_date=self.min_date,
+            max_date=self.max_date,
+        )
 
     @classmethod
     def from_setup(cls, setup: Any, settings: AppSettings | None = None) -> AssetFilterCriteria:
@@ -120,8 +132,7 @@ class AssetFilterCriteria:
             person_ids=tuple(setup.person_ids) if getattr(setup, 'person_ids', None) else (),
             people_mode=getattr(setup, 'people_mode', 'OR'),
             album_ids=tuple(setup.album_ids) if getattr(setup, 'album_ids', None) else (),
-            include_shared_albums=bool(getattr(setup, 'include_shared_albums', False)),
-            include_partner_assets=bool(getattr(setup, 'include_partner_assets', False)),
+            include_shared=bool(getattr(setup, 'include_shared', False)),
             country_whitelist=settings.country_whitelist if settings else frozenset(),
             country_blacklist=settings.country_blacklist if settings else frozenset(),
             city_whitelist=settings.city_whitelist if settings else frozenset(),
@@ -460,23 +471,13 @@ class MetadataStore:
 
         # 10. Ownership flags
         has_selected_albums = bool(criteria.album_ids)
-        if not has_selected_albums:
-            if not criteria.include_shared_albums and not criteria.include_partner_assets:
-                clauses.append(
-                    'a.is_shared = 0 AND a.is_partner = 0 AND a.id NOT IN ('
-                    'SELECT aa.asset_id FROM asset_albums aa '
-                    'JOIN albums alb ON aa.album_id = alb.id WHERE alb.is_shared = 1'
-                    ')'
-                )
-            elif not criteria.include_shared_albums:
-                clauses.append(
-                    'a.is_shared = 0 AND a.id NOT IN ('
-                    'SELECT aa.asset_id FROM asset_albums aa '
-                    'JOIN albums alb ON aa.album_id = alb.id WHERE alb.is_shared = 1'
-                    ')'
-                )
-            elif not criteria.include_partner_assets:
-                clauses.append('a.is_partner = 0')
+        if not has_selected_albums and not criteria.include_shared:
+            clauses.append(
+                'a.is_shared = 0 AND a.is_partner = 0 AND a.id NOT IN ('
+                'SELECT aa.asset_id FROM asset_albums aa '
+                'JOIN albums alb ON aa.album_id = alb.id WHERE alb.is_shared = 1'
+                ')'
+            )
 
         # 11. User countries filter (case-insensitive)
         if criteria.countries:
@@ -824,9 +825,9 @@ class MetadataStore:
             albums=album_counts,
         )
 
-    def get_albums(self, library_name: str, include_shared_albums: bool = True) -> list[dict[str, str]]:
+    def get_albums(self, library_name: str, include_shared: bool = True) -> list[dict[str, str]]:
         """Return indexed albums for a library."""
-        if include_shared_albums:
+        if include_shared:
             rows = self._db.fetch_all(
                 'SELECT id, name FROM albums WHERE library_name = ? ORDER BY name COLLATE NOCASE',
                 (library_name,),

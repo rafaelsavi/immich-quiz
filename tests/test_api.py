@@ -74,7 +74,7 @@ def test_albums_fetches_all_albums(client: TestClient, immich: FakeImmichClient)
     response = client.get('/api/albums', params={'library_name': 'family'})
 
     assert response.status_code == 200
-    assert immich.last_include_shared_albums is True
+    assert immich.last_include_shared is True
 
 
 def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
@@ -1042,7 +1042,7 @@ def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: 
     immich = FakeImmichClient([])
     client = build_client(tmp_path, immich)
 
-    # 1. By default (both False), only owned-1 is eligible (count = 1)
+    # 1. By default (include_shared=False), only owned-1 is eligible (count = 1)
     res = client.post(
         '/api/game/preflight',
         json={
@@ -1050,14 +1050,13 @@ def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: 
             'round_count': 5,
             'location_mode': True,
             'date_mode': True,
-            'include_partner_assets': False,
-            'include_shared_albums': False,
+            'include_shared': False,
         },
     )
     assert res.status_code == 200
     assert res.json()['eligible_count'] == 1
 
-    # 2. Enabling include_partner_assets yields owned-1 and partner-1 (count = 2)
+    # 2. Enabling include_shared yields all 3 assets (count = 3)
     res = client.post(
         '/api/game/preflight',
         json={
@@ -1065,38 +1064,7 @@ def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: 
             'round_count': 5,
             'location_mode': True,
             'date_mode': True,
-            'include_partner_assets': True,
-            'include_shared_albums': False,
-        },
-    )
-    assert res.status_code == 200
-    assert res.json()['eligible_count'] == 2
-
-    # 3. Enabling include_shared_albums yields owned-1 and shared-1 (count = 2)
-    res = client.post(
-        '/api/game/preflight',
-        json={
-            'library_name': 'family',
-            'round_count': 5,
-            'location_mode': True,
-            'date_mode': True,
-            'include_partner_assets': False,
-            'include_shared_albums': True,
-        },
-    )
-    assert res.status_code == 200
-    assert res.json()['eligible_count'] == 2
-
-    # 4. Enabling both yields all 3 assets (count = 3)
-    res = client.post(
-        '/api/game/preflight',
-        json={
-            'library_name': 'family',
-            'round_count': 5,
-            'location_mode': True,
-            'date_mode': True,
-            'include_partner_assets': True,
-            'include_shared_albums': True,
+            'include_shared': True,
         },
     )
     assert res.status_code == 200

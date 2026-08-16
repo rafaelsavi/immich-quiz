@@ -205,17 +205,6 @@ function initFilterComponents() {
   }
 
   // Photo Sources Checkboxes
-  if (el.includePartnerCheckbox) {
-    el.includePartnerCheckbox.addEventListener("change", () => {
-      if (el.labelIncludePartner) {
-        el.labelIncludePartner.classList.toggle("active", el.includePartnerCheckbox.checked);
-      }
-      saveCurrentLibraryFilters();
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-    });
-  }
-
   if (el.includeSharedCheckbox) {
     el.includeSharedCheckbox.addEventListener("change", () => {
       if (el.labelIncludeShared) {
@@ -251,10 +240,6 @@ function initFilterComponents() {
       resetPeopleMode();
       updatePeopleModeToggleVisibility();
 
-      if (el.includePartnerCheckbox) {
-        el.includePartnerCheckbox.checked = false;
-        if (el.labelIncludePartner) el.labelIncludePartner.classList.remove("active");
-      }
       if (el.includeSharedCheckbox) {
         el.includeSharedCheckbox.checked = false;
         if (el.labelIncludeShared) el.labelIncludeShared.classList.remove("active");
@@ -412,8 +397,7 @@ function saveCurrentLibraryFilters() {
     people_mode: getSelectedPeopleMode(),
     min_month: minDate ? minDate.slice(0, 7) : null,
     max_month: maxDate ? maxDate.slice(0, 7) : null,
-    include_partner_assets: el.includePartnerCheckbox ? el.includePartnerCheckbox.checked : false,
-    include_shared_albums: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
+    include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
   };
   try {
     localStorage.setItem(STORAGE_KEY_PREFIX + libraryName, JSON.stringify(filterState));
@@ -427,10 +411,6 @@ function restoreLibraryFilters(libraryName) {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_PREFIX + libraryName);
     if (!raw) {
-      if (el.includePartnerCheckbox) {
-        el.includePartnerCheckbox.checked = false;
-        if (el.labelIncludePartner) el.labelIncludePartner.classList.remove("active");
-      }
       if (el.includeSharedCheckbox) {
         el.includeSharedCheckbox.checked = false;
         if (el.labelIncludeShared) el.labelIncludeShared.classList.remove("active");
@@ -450,12 +430,7 @@ function restoreLibraryFilters(libraryName) {
       dateRangeSlider.setSelectedRange(saved.min_month, saved.max_month);
     }
 
-    const partnerChecked = saved.include_partner_assets ? Boolean(saved.include_partner_assets) : false;
-    const sharedChecked = saved.include_shared_albums ? Boolean(saved.include_shared_albums) : false;
-    if (el.includePartnerCheckbox) {
-      el.includePartnerCheckbox.checked = partnerChecked;
-      if (el.labelIncludePartner) el.labelIncludePartner.classList.toggle("active", partnerChecked);
-    }
+    const sharedChecked = Boolean(saved.include_shared);
     if (el.includeSharedCheckbox) {
       el.includeSharedCheckbox.checked = sharedChecked;
       if (el.labelIncludeShared) el.labelIncludeShared.classList.toggle("active", sharedChecked);
@@ -516,7 +491,6 @@ function updateFiltersSummaryBadge() {
     const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
     if (minDate || maxDate) count++;
   }
-  if (el.includePartnerCheckbox && el.includePartnerCheckbox.checked) count++;
   if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) count++;
 
   if (count === 0) {
@@ -657,8 +631,7 @@ async function executePreflight() {
     cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
     min_date: minDate,
     max_date: maxDate,
-    include_partner_assets: el.includePartnerCheckbox ? el.includePartnerCheckbox.checked : false,
-    include_shared_albums: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
+    include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
   };
 
   try {
@@ -1121,8 +1094,7 @@ async function startMatch(event) {
     cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
     min_date: minDate,
     max_date: maxDate,
-    include_partner_assets: el.includePartnerCheckbox ? el.includePartnerCheckbox.checked : false,
-    include_shared_albums: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
+    include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
     ...modePayload,
   };
 

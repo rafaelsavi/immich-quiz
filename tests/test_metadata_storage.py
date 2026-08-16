@@ -127,8 +127,8 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert len(cand1) == 2
     assert set(cand1.keys()) == {'asset-1', 'asset-2'}
 
-    # Query 2: Include shared albums
-    c2 = AssetFilterCriteria(library_name='family', include_shared_albums=True)
+    # Query 2: Include shared photos
+    c2 = AssetFilterCriteria(library_name='family', include_shared=True)
     count2 = meta_store.count_eligible_assets(c2)
     cand2 = meta_store.fetch_candidate_assets(c2)
     assert count2 == 3
@@ -171,7 +171,7 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
 
     # Query 8: get_asset_counts breakdown
     counts = meta_store.get_asset_counts(
-        AssetFilterCriteria(library_name='family', location_mode=True, date_mode=True, include_shared_albums=True)
+        AssetFilterCriteria(library_name='family', location_mode=True, date_mode=True, include_shared=True)
     )
     assert counts['total_count'] == 3
     assert counts['gps_count'] == 3
