@@ -1012,7 +1012,6 @@ function resetGameUi() {
   }
   if (el.quizImageFullscreen) {
     el.quizImageFullscreen.classList.add("hidden");
-    el.quizImageFullscreen.removeAttribute("src");
   }
   if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
   if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
@@ -1275,7 +1274,6 @@ async function loadQuestion() {
   }
   if (el.quizImageFullscreen) {
     el.quizImageFullscreen.classList.add("hidden");
-    el.quizImageFullscreen.removeAttribute("src");
   }
   if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
 

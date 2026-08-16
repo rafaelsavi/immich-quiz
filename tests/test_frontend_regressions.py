@@ -306,3 +306,27 @@ def test_preflight_warning_disables_start_button_and_guards_submission() -> None
     # startMatch must guard against starting if button is disabled or preflight warning is visible
     assert 'async function startMatch' in app_js
     assert 'submitBtn.disabled' in app_js, 'startMatch must check submitBtn.disabled'
+
+
+def test_pinpoint_quiz_image_fullscreen_button_handling() -> None:
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    assert 'id="quiz-image-fullscreen"' in index_html, 'quiz-image-fullscreen ID missing from index.html'
+    assert 'quizImageFullscreen' in state_js, 'quizImageFullscreen getter missing from state.js'
+
+    # pinpoint.js onReady must unhide quizImageFullscreen
+    assert 'el.quizImageFullscreen.classList.remove("hidden")' in pinpoint_js, (
+        'pinpoint.js must unhide quizImageFullscreen on onReady / reveal'
+    )
+    # pinpoint.js unmount / renderQuestion must hide quizImageFullscreen
+    assert 'el.quizImageFullscreen.classList.add("hidden")' in pinpoint_js, (
+        'pinpoint.js must hide quizImageFullscreen on renderQuestion / unmount'
+    )
+    # app.js must not call removeAttribute('src') on quizImageFullscreen
+    assert 'el.quizImageFullscreen.removeAttribute("src")' not in app_js, (
+        'app.js must not call removeAttribute("src") on quizImageFullscreen'
+    )
+

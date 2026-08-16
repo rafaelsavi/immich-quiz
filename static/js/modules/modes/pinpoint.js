@@ -570,20 +570,20 @@ export const pinpointMode = {
     initDateDropdowns();
 
     if (el.quizImageFullscreen) {
-      el.quizImageFullscreen.addEventListener("click", (e) => {
+      el.quizImageFullscreen.onclick = (e) => {
         e.stopPropagation();
         toggleMapFullscreen(el.mediaFrame);
-      });
+      };
     }
     if (el.guessMapFullscreen) {
       if (window.L && L.DomEvent) {
         L.DomEvent.disableClickPropagation(el.guessMapFullscreen);
         L.DomEvent.disableScrollPropagation(el.guessMapFullscreen);
       }
-      el.guessMapFullscreen.addEventListener("click", (e) => {
+      el.guessMapFullscreen.onclick = (e) => {
         e.stopPropagation();
         toggleMapFullscreen(el.guessMapShell);
-      });
+      };
     }
   },
 
@@ -595,6 +595,9 @@ export const pinpointMode = {
   unmount() {
     if (el.mediaFrame) {
       el.mediaFrame.classList.add("hidden");
+    }
+    if (el.quizImageFullscreen) {
+      el.quizImageFullscreen.classList.add("hidden");
     }
     if (state.guessMap) {
       try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) { }
@@ -645,6 +648,9 @@ export const pinpointMode = {
       el.quizImage.removeAttribute("src");
       el.quizImage.onerror = null;
     }
+    if (el.quizImageFullscreen) {
+      el.quizImageFullscreen.classList.add("hidden");
+    }
     if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
 
     resetDateGuess();
@@ -678,6 +684,7 @@ export const pinpointMode = {
     if (el.quizImage && questionData && questionData.media_url) {
       el.quizImage.src = questionData.media_url;
       el.quizImage.classList.remove("hidden");
+      if (el.quizImageFullscreen) el.quizImageFullscreen.classList.remove("hidden");
       if (el.mediaPlaceholder) el.mediaPlaceholder.classList.add("hidden");
     }
     if (questionData && questionData.location_mode) {
@@ -711,6 +718,9 @@ export const pinpointMode = {
     if (shuffleReveal) shuffleReveal.classList.add("hidden");
 
     if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
+    if (el.quizImage) el.quizImage.classList.remove("hidden");
+    if (el.quizImageFullscreen) el.quizImageFullscreen.classList.remove("hidden");
+    if (el.mediaPlaceholder) el.mediaPlaceholder.classList.add("hidden");
     renderRevealSummary(revealData);
     renderRevealMap(revealData);
   },
