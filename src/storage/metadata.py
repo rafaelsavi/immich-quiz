@@ -755,7 +755,7 @@ class MetadataStore:
         - The count for each album option is evaluated using criteria excluding user-selected album_ids.
         """
         # 1. Countries
-        country_crit = replace(criteria, countries=frozenset())
+        country_crit = replace(criteria, countries=())
         c_where, c_params = self._build_filter_clauses(country_crit)
         country_rows = self._db.fetch_all(
             f"""
@@ -772,7 +772,7 @@ class MetadataStore:
         country_counts = {str(r['country']).strip(): int(r['count']) for r in country_rows if r.get('country')}
 
         # 2. Cities
-        city_crit = replace(criteria, cities=frozenset())
+        city_crit = replace(criteria, cities=())
         ct_where, ct_params = self._build_filter_clauses(city_crit)
         city_rows = self._db.fetch_all(
             f"""
@@ -789,7 +789,7 @@ class MetadataStore:
         city_counts = {str(r['city']).strip(): int(r['count']) for r in city_rows if r.get('city')}
 
         # 3. People
-        people_crit = replace(criteria, person_ids=frozenset())
+        people_crit = replace(criteria, person_ids=())
         p_where, p_params = self._build_filter_clauses(people_crit)
         people_rows = self._db.fetch_all(
             f"""
@@ -804,7 +804,7 @@ class MetadataStore:
         people_counts = {str(r['person_id']).strip(): int(r['count']) for r in people_rows if r.get('person_id')}
 
         # 4. Albums
-        album_crit = replace(criteria, album_ids=frozenset())
+        album_crit = replace(criteria, album_ids=())
         al_where, al_params = self._build_filter_clauses(album_crit)
         album_rows = self._db.fetch_all(
             f"""

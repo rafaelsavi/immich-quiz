@@ -71,6 +71,7 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `CITY_WHITELIST`                   | No       | —                      | Comma-separated list of allowed cities/regions in filters (case-insensitive)  |
 | `CITY_BLACKLIST`                   | No       | —                      | Comma-separated list of excluded cities/regions in filters (case-insensitive) |
 | `PEOPLE_WHITELIST`                 | No       | —                      | Comma-separated list of allowed people names in filters (case-insensitive)    |
+| `PEOPLE_BLACKLIST`                 | No       | —                      | Comma-separated list of excluded people names in filters (case-insensitive)   |
 | `DATA_PATH`                        | No       | `data`                 | Directory for SQLite persistence (`metadata.db` and `leaderboard.db`)        |
 | `AUTO_SYNC_ON_STARTUP`             | No       | `true`                 | Auto-trigger metadata sync in the background on server startup                |
 | `APP_HOST`                         | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |

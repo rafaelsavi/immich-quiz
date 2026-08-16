@@ -4,7 +4,7 @@
     {
       "label": "Install Dev Dependencies",
       "type": "shell",
-      "command": "uv sync --dev",
+      "command": "uv sync --extra dev",
       "problemMatcher": []
     },
     {
@@ -87,7 +87,7 @@
         "run",
         "--rm",
         "-p",
-        "8000:8000",
+        "8010:8010",
         "--env-file",
         ".env",
         "immich-quiz"

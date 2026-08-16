@@ -6,15 +6,15 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Future Feature Concepts
 
-- **Online multiplayer**: Extend pass-and-play local multiplayer to support multi-device real-time lobbies. Design specification defined in `docs\next-release-milestone\online-multiplayer`
-- **Improve Audio Effects / Soundtrack**
-- ~~**Add more library filter settings**: Design specification defined in `docs\next-release-milestone\library-filters`~~ *(Completed in v2.0.0)*
-- **Player statistics**: Create a page to show player statistics (best scores, most played modes, etc.)
+- **Online multiplayer**: Extend pass-and-play local multiplayer to support multi-device real-time lobbies with WebSockets. Design specification defined in [`docs/next-release-milestone/online-multiplayer`](file:///d:/Rafael/Projects/immich-quiz/docs/next-release-milestone/online-multiplayer).
+- **Improve Audio Effects / Soundtrack**: Expand runtime Web Audio synthesized tracks and transitional sound cues.
+- ~~**Add more library filter settings**: Design specification defined in `docs/next-release-milestone/library-filters`~~ *(Completed in v2.0.0)*
+- **Player statistics**: Dedicated view displaying player metrics, all-time best scores, accuracy distribution, and favorite game modes.
 - **PWA & Mobile Haptics**: Make the web app installable as a Progressive Web App (manifest, standalone display, icons) with haptic vibration feedback for mobile map interactions, timeline adjustments, and timer alerts.
-- **Safety against attacks**: Protect against attacks from malicious or accidental participants.
+- **Safety against attacks**: Rate limiting and payload sanitation against malicious participants.
 
 ---
 
 ## 🧹 Code Health & Maintenance
 
-- **Automated E2E Testing**: Add Playwright browser end-to-end tests for two-tap map/timeline interactions.
+- **Automated E2E Testing**: Add Playwright browser end-to-end tests for two-tap map and timeline interactions.

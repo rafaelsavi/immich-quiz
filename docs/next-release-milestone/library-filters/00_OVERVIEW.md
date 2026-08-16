@@ -4,7 +4,7 @@
 
 Immich Quiz currently allows users to select a **Library** and optionally one or more **Albums**. We are adding advanced, granular media filtering and settings organization:
 
-1. **Strict Diversity Safeguards (100m / 60s)**: Isolates candidate photo diversity parameters (`PHOTO_DIVERSITY_MIN_DISTANCE_KM` and `PHOTO_DIVERSITY_MIN_TIME_SECONDS`) and enforces hard validation in `preflight` to prevent serving photo clusters or non-diverse candidate matches.
+1. **Smart Photo Diversity (100m / 60s)**: Evaluates candidate photo diversity (spatial separation $\ge 100\text{m}$ and temporal separation $\ge 60\text{s}$) with soft prioritization and unplayed photo fallback, preventing photo clusters while avoiding 404 match aborts on localized albums.
 2. **Dynamic Filter by Date (Year-Month resolution)**: A dual-handle range slider in the GUI that lets players narrow photo eligibility to a specific time span (e.g. `2018-05` to `2022-12`), respecting `.env` boundary limits.
 3. **Geographic Granularity (Filter by Country & Dependent Cities)**: Searchable multi-select dropdowns for countries and cities/states. Cities are dynamically filtered based on currently selected countries (or all cities if no country is selected).
 4. **Filter by People (with `OR` / `AND` match modes)**: A searchable multi-select dropdown to filter photos by named individuals recognized by Immich face recognition (filtered against `.env` whitelist/blacklist rules). When multiple people are selected, players can choose between:
@@ -24,9 +24,8 @@ Immich Quiz currently allows users to select a **Library** and optionally one or
 2. **Strict Selectables & Cascading Geography**:
    - Countries, Cities, and People must be chosen from validated multi-select dropdowns.
    - Selecting one or more countries immediately filters the City dropdown to only show cities belonging to those countries.
-3. **Strict Diversity Hard-Check (100m / 60s)**:
-   - Preflight strictly verifies that at least `round_count` photos satisfy both distance ($\ge 100\text{m}$) and time ($\ge 60\text{s}$) separation. If diversity cannot be guaranteed, the preflight fails and blocks match start with an explicit warning.
-   - Diversity parameters are cleanly isolated in config (`PHOTO_DIVERSITY_MIN_DISTANCE_KM`, `PHOTO_DIVERSITY_MIN_TIME_SECONDS`).
+3. **Smart Photo Diversity Sampling (100m / 60s)**:
+   - Candidate photo selection prioritizes photos with spatial ($\ge 100\text{m}$) and temporal ($\ge 60\text{s}$) separation against previously served match photos, while gracefully falling back to unplayed candidates when playing clustered single-event or local albums.
 4. **Server-Side In-Memory Caching**:
    - Filter metadata (people list, country list, city-country mapping, date bounds) is cached in memory per library on the FastAPI server with a 5-minute TTL to ensure instant 0ms responses on subsequent accesses.
 5. **DRY Component Architecture**:

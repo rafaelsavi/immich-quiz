@@ -42,8 +42,11 @@ src/
 ├── immich/
 │   └── client.py        # Immich HTTP client (DO NOT MODIFY)
 └── storage/
-    ├── session.py        # SessionStore, MatchState, QuestionState (DO NOT MODIFY)
-    └── leaderboard.py    # CSV leaderboard persistence (DO NOT MODIFY)
+    ├── db.py            # SQLite DatabaseManager connection lifecycle (DO NOT MODIFY)
+    ├── metadata.py      # MetadataStore local index (DO NOT MODIFY)
+    ├── sync.py          # SyncEngine background indexing (DO NOT MODIFY)
+    ├── session.py       # SessionStore, MatchState, QuestionState (DO NOT MODIFY)
+    └── leaderboard.py   # SQLite leaderboard persistence (DO NOT MODIFY)
 
 static/
 ├── index.html           # Main HTML (WILL BE MODIFIED)

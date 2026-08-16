@@ -7,23 +7,36 @@ errors return `400`, `404` or `409` with an actionable `detail` message.
 
 ### GET /api/health
 
-- `GET /api/health` -> `{"status": "ok"}`
+Returns backend service health status and application version.
 
-### GET /api/ui-config
-
-Returns frontend configuration parameters:
-
+Response:
 ```json
 {
-  "language": "EN",
-  "score_max_points": 100
+  "status": "ok",
+  "version": "2.0.0"
 }
 ```
 
-## Setup and Metadata
+### GET /api/ui-config
+
+Returns frontend configuration parameters and application version:
+
+Response:
+```json
+{
+  "language": "EN",
+  "score_max_points": 100,
+  "version": "2.0.0"
+}
+```
+
+## Setup, Sync & Metadata
 
 ### GET /api/libraries
 
+Returns all configured libraries and unavailable libraries that failed startup validation.
+
+Response:
 ```json
 {
   "libraries": ["family_library"],
@@ -36,138 +49,424 @@ Libraries whose API key failed validation at startup are reported in
 
 ### GET /api/albums?library_name={name}
 
-Returns `{"albums": [{"id": "...", "name": "..."}]}` containing all albums available in the selected library for selection in the setup filters.
+Returns available albums for the selected library. Queries the local SQLite metadata index first for 0ms response time; falls back to the Immich API if the index is unpopulated.
+
+Response:
+```json
+{
+  "albums": [
+    { "id": "album-uuid-1", "name": "Summer Vacation 2024" },
+    { "id": "album-uuid-2", "name": "Family Roadtrip" }
+  ]
+}
+```
+
+### GET /api/filters?library_name={name}
+
+Returns discovered filter metadata options for the specified library, including timeline month boundaries, recognized people (respecting whitelist/blacklist rules), countries, and cities (with country association). Backed by in-memory `TTLCache` (5-minute TTL) and local SQLite index.
+
+Response:
+```json
+{
+  "date_range": {
+    "min_month": "2018-05",
+    "max_month": "2026-08"
+  },
+  "countries": ["Brazil", "France", "United States"],
+  "cities": [
+    { "name": "Paris", "country": "France" },
+    { "name": "Rio de Janeiro", "country": "Brazil" },
+    { "name": "San Francisco", "country": "United States" }
+  ],
+  "people": [
+    { "id": "person-uuid-1", "name": "Alice" },
+    { "id": "person-uuid-2", "name": "Bob" }
+  ]
+}
+```
+
+### GET /api/sync/status?library_name={name}
+
+Returns current background synchronization status for the specified library.
+
+Response:
+```json
+{
+  "status": "idle",
+  "is_syncing": false,
+  "total_assets": 1240,
+  "synced_assets": 1240,
+  "progress_pct": 100.0,
+  "last_synced_at": "2026-08-16T18:30:00Z",
+  "error": null
+}
+```
+
+### POST /api/sync?library_name={name}
+
+Triggers an asynchronous background metadata sync from Immich into `data/metadata.db` and invalidates the cached filter options. Returns the initial sync status.
+
+---
+
+## Game Setup & Preflight
 
 ### POST /api/game/preflight
 
-Validates whether the selected library or album contains enough eligible media assets for the requested match parameters before starting a game.
+Validates whether the selected library and active filter criteria contain enough eligible media assets for the requested match parameters before starting a game.
 
 Request:
-
 ```json
 {
-  "players": ["Alice", "Bob"],
+  "library_name": "family_library",
   "round_count": 10,
   "location_mode": true,
   "date_mode": true,
-  "library_name": "family_library",
-  "album_ids": []
+  "game_mode": "pinpoint",
+  "players": ["Alice", "Bob"],
+  "album_ids": ["album-uuid-1"],
+  "person_ids": ["person-uuid-1"],
+  "people_mode": "OR",
+  "countries": ["France"],
+  "cities": ["Paris"],
+  "min_date": "2020-01-01",
+  "max_date": "2024-12-31",
+  "include_shared": false
 }
 ```
 
 Response:
-
 ```json
 {
   "eligible_count": 45,
   "required": 10,
   "ok": true,
-  "active_filters": ["location", "date"],
-  "min_date": null,
-  "max_date": null
+  "active_filters": ["location", "date", "album", "country", "city", "people", "date_range"],
+  "min_date": "2020-01-01",
+  "max_date": "2024-12-31",
+  "total_count": 120,
+  "gps_count": 95,
+  "date_count": 120,
+  "location_mode": true,
+  "date_mode": true,
+  "facet_counts": {
+    "countries": { "France": 45 },
+    "cities": { "Paris": 45 },
+    "people": { "person-uuid-1": 30 },
+    "albums": { "album-uuid-1": 45 }
+  }
 }
 ```
 
 ### POST /api/game/setup
 
-Request:
+Initiates a new game match, creates in-memory `MatchState`, pre-computes geographic bounding box for map auto-framing, and returns the match ID.
 
+Request:
 ```json
 {
-  "players": ["Alice", "Bob"],
+  "library_name": "family_library",
   "round_count": 10,
   "round_length": "1m",
   "location_mode": true,
   "date_mode": true,
   "game_mode": "pinpoint",
-  "library_name": "family_library",
-  "album_ids": []
+  "players": ["Alice", "Bob"],
+  "album_ids": ["album-uuid-1"],
+  "person_ids": [],
+  "people_mode": "OR",
+  "countries": [],
+  "cities": [],
+  "min_date": null,
+  "max_date": null,
+  "include_shared": false
 }
 ```
 
 - `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
 - `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
 - `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
-- `album_name` is resolved server-side from `album_ids`, so a client cannot
-  spoof leaderboard metadata. Unknown `album_ids` returns `400`.
-- Responds with `{"match_id": "...", "total_turns": N, "players": ["Alice", "Bob"]}`.
+- `album_name` is resolved server-side from `album_ids`.
+- `people_mode` supports `"OR"` (Any person) or `"AND"` (All selected people together).
+
+Response:
+```json
+{
+  "match_id": "match-uuid-1234",
+  "total_turns": 20,
+  "players": ["Alice", "Bob"],
+  "map_bounds": {
+    "min_lat": 48.81,
+    "max_lat": 48.90,
+    "min_lng": 2.25,
+    "max_lng": 2.42
+  }
+}
+```
+
+---
 
 ## Round Flow
 
 ### POST /api/question
 
-Body: `{"match_id": "...", "played_asset_ids": []}`
+Body: `{"match_id": "match-uuid-1234", "played_asset_ids": []}`
 
 - Returns the sanitized question payload (no EXIF, coordinates or capture date).
-- Response includes round context: `question_id`, `asset_id`, `media_url`, `player_name`, `player_number`, `total_players`, `player_round_number`, `total_rounds_per_player`, `turn_number`, `total_turns`, `location_mode`, `date_mode`, and `round_length`.
-- One photo is drawn per round and shared by every player in that round, so
-  scores within a round are comparable.
-- If the current turn already has an unanswered question, the **same** question
-  is returned. Re-requesting cannot be used to reroll a different photo.
-- Assets already served in the match are never repeated. The exclusion list is
-  tracked server-side; `played_asset_ids` from the client is advisory only.
+- In **Pinpoint** mode: returns a single photo (`asset_id`, `media_url`).
+- In **Album Shuffle** mode: returns a batch of 3 photos (`batch_photos`) and lettered map pins (`batch_pins`).
+- One photo (or batch) is drawn per round and shared by every player in that round so scores are comparable.
+- Tracks candidate diversity ($\ge 100\text{m}$ distance, $\ge 60\text{s}$ time separation) and prioritizes least-played photos (`times_played ASC`).
 - `409` when the match is finished or has no remaining turns.
 - `404` when no eligible asset is available.
 
+Pinpoint Response Example:
+```json
+{
+  "question_id": "q-uuid-1",
+  "asset_id": "asset-uuid-101",
+  "media_url": "/api/media/asset-uuid-101?library_name=family_library",
+  "library_name": "family_library",
+  "album_name": "Summer Vacation 2024",
+  "player_name": "Alice",
+  "player_number": 1,
+  "total_players": 2,
+  "player_round_number": 1,
+  "total_rounds_per_player": 10,
+  "turn_number": 1,
+  "total_turns": 20,
+  "location_mode": true,
+  "date_mode": true,
+  "game_mode": "pinpoint",
+  "round_length": "1m",
+  "batch_photos": null,
+  "batch_pins": null
+}
+```
+
+Album Shuffle Response Example:
+```json
+{
+  "question_id": "q-uuid-1",
+  "asset_id": "asset-uuid-101",
+  "media_url": "/api/media/asset-uuid-101?library_name=family_library",
+  "library_name": "family_library",
+  "album_name": null,
+  "player_name": "Alice",
+  "player_number": 1,
+  "total_players": 2,
+  "player_round_number": 1,
+  "total_rounds_per_player": 10,
+  "turn_number": 1,
+  "total_turns": 20,
+  "location_mode": true,
+  "date_mode": true,
+  "game_mode": "album_shuffle",
+  "round_length": "1m",
+  "batch_photos": [
+    { "photo_id": "asset-uuid-101", "media_url": "/api/media/asset-uuid-101?library_name=family_library" },
+    { "photo_id": "asset-uuid-102", "media_url": "/api/media/asset-uuid-102?library_name=family_library" },
+    { "photo_id": "asset-uuid-103", "media_url": "/api/media/asset-uuid-103?library_name=family_library" }
+  ],
+  "batch_pins": [
+    { "pin_id": "A", "latitude": 48.8584, "longitude": 2.2945 },
+    { "pin_id": "B", "latitude": 40.7128, "longitude": -74.0060 },
+    { "pin_id": "C", "latitude": 35.6762, "longitude": 139.6503 }
+  ]
+}
+```
+
 ### GET /api/media/{asset_id}?library_name={name}
 
-- `library` is accepted as an alias for `library_name`.
-- Only asset ids that were issued as a question in a live match are served.
-  Any other id returns `404`, so the proxy is not an open gateway to the library.
-- Bytes come from the Immich preview thumbnail, which is re-encoded and
-  therefore carries no EXIF/GPS payload.
+- Only asset IDs issued as a question in a live match are served (returns `404` for any unauthorized asset ID).
+- Proxies re-encoded preview thumbnail bytes from Immich (carries no EXIF/GPS payload).
+- If loading fails, marks the asset as invalid in `metadata.db` to prevent future selection.
 
 ### POST /api/answer
 
-Body: `{"match_id": "...", "question_id": "...", "guessed_latitude": 48.85, "guessed_longitude": 2.35, "guessed_year": 2022, "guessed_month": 6, "timed_out": false}`
+Submits a player's guess for the current turn.
 
-- `guessed_year` and `guessed_month` must be supplied together (month resolution).
-- `timed_out` marks an answer that was auto-submitted when the round timer hit zero.
-- Returns an **acknowledgement only**: `{"player_name", "question_id",
-  "round_number", "turn_completed", "total_turns", "round_complete",
-  "waiting_for", "match_finished"}`. No answer data is leaked here, because the
-  next player in the round has not answered yet.
-- A question can be answered **once**. A second submission returns `409`,
-  which prevents score farming and guarantees exactly one leaderboard row per
-  player per match.
+Pinpoint Request:
+```json
+{
+  "match_id": "match-uuid-1234",
+  "question_id": "q-uuid-1",
+  "guessed_latitude": 48.8584,
+  "guessed_longitude": 2.2945,
+  "guessed_year": 2023,
+  "guessed_month": 7,
+  "timed_out": false
+}
+```
+
+Album Shuffle Request:
+```json
+{
+  "match_id": "match-uuid-1234",
+  "question_id": "q-uuid-1",
+  "album_shuffle_answers": [
+    { "photo_id": "asset-uuid-101", "assigned_pin_id": "B", "assigned_timeline_index": 0 },
+    { "photo_id": "asset-uuid-102", "assigned_pin_id": "A", "assigned_timeline_index": 1 },
+    { "photo_id": "asset-uuid-103", "assigned_pin_id": "C", "assigned_timeline_index": 2 }
+  ],
+  "timed_out": false
+}
+```
+
+- Returns **acknowledgement only** (`round_complete`, `waiting_for`, etc.) without revealing answers before other players take their turn.
+- A question can be answered once. Subsequent submissions return `409`.
+
+Response:
+```json
+{
+  "player_name": "Alice",
+  "question_id": "q-uuid-1",
+  "round_number": 1,
+  "turn_completed": 1,
+  "total_turns": 20,
+  "round_complete": false,
+  "waiting_for": ["Bob"],
+  "match_finished": false
+}
+```
 
 ### POST /api/round/result
 
-Body: `{"match_id": "...", "round_number": 1}`
+Body: `{"match_id": "match-uuid-1234", "round_number": 1}`
 
-- Reveals the round: actual coordinates (`actual_latitude`, `actual_longitude`), actual location (`actual_city`, `actual_country`), actual date (`actual_date`, `actual_year`, `actual_month`), `score_max_points`, plus every player's
-  guess, per-task scores, round score, running total, distance error (`distance_km`) and
-  date error (`date_diff_days` drives the score; `date_diff_months`, `date_diff_years_part`, and `date_diff_months_part` are for display).
-- `409` while any player in the round still owes an answer, so results are only
-  ever shown simultaneously.
-- `404` for a round number outside the match.
+- Reveals actual coordinates, city, country, capture date, and all players' guesses and scores.
+- `409` while any player in the round still owes an answer.
+
+Response Example:
+```json
+{
+  "round_number": 1,
+  "total_rounds": 10,
+  "location_mode": true,
+  "date_mode": true,
+  "game_mode": "pinpoint",
+  "library_name": "family_library",
+  "actual_latitude": 48.8584,
+  "actual_longitude": 2.2945,
+  "actual_date": "2023-07-14",
+  "actual_year": 2023,
+  "actual_month": 7,
+  "actual_city": "Paris",
+  "actual_country": "France",
+  "batch_reveal": null,
+  "results": [
+    {
+      "player_name": "Alice",
+      "guessed_latitude": 48.8500,
+      "guessed_longitude": 2.3000,
+      "guessed_year": 2023,
+      "guessed_month": 7,
+      "location_score": 98,
+      "date_score": 100,
+      "round_score": 198,
+      "total_score": 198,
+      "distance_km": 1.02,
+      "date_diff_days": 0,
+      "date_diff_months": 0,
+      "date_diff_years_part": 0,
+      "date_diff_months_part": 0,
+      "date_diff_days_part": 0,
+      "timed_out": false,
+      "album_shuffle_guesses": null
+    }
+  ],
+  "match_finished": false,
+  "score_max_points": 100
+}
+```
 
 ### GET /api/match/{match_id}/summary
 
-- Final overview: match config (`rounds_played`, `location_mode`, `date_mode`, `library_name`, `album_name`), per-player location/date/total scores, `max_possible_score`, `accuracy_pct`, `rank` and `is_winner` flags, plus the `winners` list (multiple entries on a tie).
+Returns final match summary, player rankings, accuracy percentages, and winner list.
+
+Response:
+```json
+{
+  "match_id": "match-uuid-1234",
+  "rounds_played": 10,
+  "location_mode": true,
+  "date_mode": true,
+  "game_mode": "pinpoint",
+  "library_name": "family_library",
+  "album_name": "Summer Vacation 2024",
+  "finished": true,
+  "winners": ["Alice"],
+  "players": [
+    {
+      "player_name": "Alice",
+      "location_score": 940,
+      "date_score": 980,
+      "total_score": 1920,
+      "max_possible_score": 2000,
+      "accuracy_pct": 96.0,
+      "rank": 1,
+      "is_winner": true
+    }
+  ]
+}
+```
+
+---
 
 ## Leaderboard
 
 ### GET /api/leaderboard
 
-Optional query parameters:
+Queries persistent SQLite leaderboard history (`data/leaderboard.db`).
 
+Query Parameters:
 - `rounds`: Filter by round count (`5`, `10`, `20`)
-- `round_length`: Filter by timer setting (`30s`, `1m`, `unlimited`)
+- `round_length`: Filter by timer setting (`30s`, `1m`, `2m`, `5m`, `unlimited`)
 - `location_mode`: Filter by location mode enabled (`true`/`false`)
 - `date_mode`: Filter by date mode enabled (`true`/`false`)
+- `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`)
 - `library`: Filter by library name
-- `album`: Filter by album name
+- `albums`: Filter by album name
+- `player_name`: Filter by player name
+- `is_custom_filtered`: Filter by preset vs customized dataset (`true`/`false`)
+- `limit`: Maximum number of entries to return
 
-Returns rows sorted by newest `played_at` first. Each entry contains `match_id`, `played_at`, `player_name`, `max_possible_score`, `total_score`, and `config` dictionary.
+Response:
+```json
+[
+  {
+    "match_id": "match-uuid-1234",
+    "played_at": "2026-08-16T18:45:00Z",
+    "player_name": "Alice",
+    "max_possible_score": 2000,
+    "total_score": 1920,
+    "location_score": 940,
+    "date_score": 980,
+    "accuracy_pct": 96.0,
+    "rank": 1,
+    "is_winner": true,
+    "awards": ["Sniper", "Speed Demon"],
+    "filter_summary": "Paris • Summer Vacation 2024",
+    "is_custom_filtered": true,
+    "config": {
+      "rounds": 10,
+      "round_length": "1m",
+      "location_mode": true,
+      "date_mode": true,
+      "game_mode": "pinpoint",
+      "library": "family_library",
+      "album": "Summer Vacation 2024"
+    }
+  }
+]
+```
+
+---
 
 ## Anti-Cheat Rules
 
 Question payloads never include answer fields:
+- No EXIF metadata or capture timestamp
+- No GPS coordinates (latitude / longitude)
+- No city or country names
 
-- No EXIF object
-- No latitude/longitude
-- No true capture date
-
-Answer submissions return no reveal data either. Reveal data is only available
-from `POST /api/round/result` once every player in the round has answered.
+Answer submissions return no reveal data. Reveal data is only available from `POST /api/round/result` once every player in the round has completed their turn.

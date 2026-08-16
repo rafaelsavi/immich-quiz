@@ -109,10 +109,10 @@ def _parse_positive_float(value: str, env_name: str) -> float:
     return parsed
 
 
-def _parse_optional_date(value: str, env_name: str) -> date | None:
-    cleaned = value.strip()
-    if not cleaned:
+def _parse_optional_date(value: str | None, env_name: str) -> date | None:
+    if not value or not value.strip():
         return None
+    cleaned = value.strip()
     try:
         return datetime.strptime(cleaned, '%Y-%m-%d').date()
     except ValueError as exc:

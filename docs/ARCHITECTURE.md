@@ -15,28 +15,28 @@
 immich-quiz/
 ├── src/
 │   ├── main.py          App factory and lifespan. Creates ImmichClient,
-│   │                    SessionStore, and LeaderboardStore; validates Immich
-│   │                    access on startup; mounts static files and routes.
+│   │                    SessionStore, MetadataStore, and LeaderboardStore;
+│   │                    validates Immich access on startup; mounts static files and routes.
 │   ├── config.py        AppSettings dataclass. Parses and validates all env
 │   │                    vars at startup; raises ConfigError on bad input.
 │   ├── models.py        Pydantic request/response models for all endpoints.
 │   ├── scoring.py       Pure scoring functions: haversine_km, location_score,
-│   │                    date_diff_days, date_score, timeline_inversion_score,
-│   │                    batch_location_match_score, accuracy_pct.
+│   │                    date_diff_days, date_score, batch_strict_location_score,
+│   │                    batch_strict_date_score, accuracy_pct.
 │   ├── game/            Modular game mode system and session orchestration.
-│   │   ├── modes.py     GameMode abstract base, PinpointGameMode,
-│   │   │                AlbumShuffleGameMode, and GameModeRegistry.
+│   │   ├── modes.py     BaseGameModeEngine, PinpointEngine,
+│   │   │                AlbumShuffleEngine, and GameModeRegistry.
 │   │   ├── selector.py  Candidate asset selection, spatial (≥100m) & temporal (≥60s)
-│   │   │                diversity filters.
+│   │   │                diversity filters, and least-played prioritization.
 │   │   └── service.py   GameService managing match state, question drawing,
-│   │                    and answer scoring.
+│   │                    preflight checks, and answer scoring.
 │   ├── api/
 │   │   └── routes.py    All API endpoints. Depends on SessionStore,
-│   │                    ImmichClient, and LeaderboardStore via FastAPI DI.
+│   │                    ImmichClient, MetadataStore, and LeaderboardStore via FastAPI DI.
 │   ├── immich/
 │   │   └── client.py    ImmichClient adapter. Wraps httpx AsyncClient.
 │   │                    Provides: validate_access, list_albums, search_assets,
-│   │                    search_random_assets, get_asset_bytes.
+│   │                    search_random_assets, list_people, get_timeline_bounds, get_asset_bytes.
 │   └── storage/
 │       ├── db.py        DatabaseManager for SQLite connection lifecycle and WAL mode.
 │       ├── metadata.py  MetadataStore with indexed relational schema, query parity
@@ -75,7 +75,7 @@ immich-quiz/
 
 ```
 GET /api/ui-config
-  └── Returns max image height, language, max score settings to frontend
+  └── Returns max image height, language, max score settings, and version to frontend
 
 GET /api/sync/status?library_name={name}
   └── Returns current synchronization status, total asset count, and synced asset progress
@@ -106,6 +106,7 @@ POST /api/question
   └── Draws candidate asset(s) using selector.py backed by MetadataStore with diversity constraints:
       - Location distance >= 0.1 km (100m) using haversine_km
       - Time separation >= 60 seconds using capture_datetime
+      - Prioritizes unplayed / least-played photos (times_played ASC)
   └── Creates QuestionState with full RoundAsset (lat/lon/date) stored server-side
   └── Returns sanitized QuestionResponse (no coordinates, no capture dates)
 
@@ -117,8 +118,9 @@ GET /api/media/{asset_id}
 
 POST /api/answer
   └── routes.py looks up QuestionState
-  └── Dispatches to active GameMode score_answer method
+  └── Dispatches to active GameMode evaluate_and_apply_answer method
   └── Stores guess + scores in QuestionState
+  └── If match is completed, writes full match entry and awards to SQLite leaderboard
   └── Returns acknowledgement only (no answer data)
 
 POST /api/round/result
@@ -130,14 +132,16 @@ POST /api/round/result
 
 ## Game Mode Extensibility Architecture
 
-Game modes implement the `GameMode` abstract interface in `src/game/modes.py`:
+Game modes implement the `BaseGameModeEngine` abstract interface in `src/game/modes.py`:
 
-- `name`: Unique mode identifier (`"pinpoint"`, `"album_shuffle"`).
-- `prepare_question(...)`: Generates single or batch question payloads.
-- `score_answer(...)`: Evaluates player answers using mode-specific scoring algorithms.
-- `evaluate_awards(...)`: Determines eligibility for performance badges (**Sniper**, **Time Traveler**, **Speed Demon**).
+- `select_question(...)`: Selects candidate photos respecting active filters, candidate diversity, and least-played priority, registering the question in the session store.
+- `build_question_response(...)`: Generates sanitized single (Pinpoint) or batch (Album Shuffle) question payloads for the client.
+- `evaluate_and_apply_answer(...)`: Evaluates player guesses using mode-specific scoring algorithms and records round scores in session state.
+- `format_round_reveal(...)`: Formats round reveal data (actual locations, capture dates, distance/date errors, and player score breakdowns).
 
-New game modes can be added by implementing `GameMode` and registering them with `@GameModeRegistry.register`.
+Performance awards (**Sniper**, **Time Traveler**, **Speed Demon**) are evaluated dynamically on match completion and persisted into SQLite (`leaderboard.db`).
+
+New game modes can be added by implementing `BaseGameModeEngine` and registering them with `default_game_mode_registry.register(GameMode.name, EngineInstance)`.
 
 ---
 
@@ -165,9 +169,8 @@ with the remaining keys rather than refusing to start.
 
 ---
 
-## Future Migration
+## Deployment & Self-Hosting
 
-- All runtime config flows through `AppSettings` (env vars only).
-- No hardcoded paths outside configurable defaults.
-- Moving the folder to a dedicated repository requires only adding a
-  `Dockerfile`. See [MIGRATION.md](MIGRATION.md).
+- All runtime configuration is driven by `AppSettings` through environment variables (`.env`).
+- Persistent state is isolated under `DATA_PATH` (`data/metadata.db` and `data/leaderboard.db`).
+- Containerized deployment is supported out-of-the-box via the root `Dockerfile` and `docker-compose.example.yml`.
