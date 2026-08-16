@@ -10,7 +10,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.api.routes import router
+from src.api.routes import invalidate_filters_cache, router
 from src.config import AppSettings, ConfigError, load_settings
 from src.game.service import GameService
 from src.immich.client import ImmichClient, ImmichClientError
@@ -46,7 +46,11 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     leaderboard_db_manager = DatabaseManager(settings.leaderboard_db_path)
     metadata_store = MetadataStore(metadata_db_manager)
     immich_client = ImmichClient(settings.immich_server_url, settings.immich_libraries)
-    sync_engine = SyncEngine(immich_client, metadata_store)
+    sync_engine = SyncEngine(
+        immich_client,
+        metadata_store,
+        on_sync_complete=invalidate_filters_cache,
+    )
     leaderboard_store = LeaderboardStore(
         leaderboard_db_manager,
         score_max_points=settings.score_max_points,

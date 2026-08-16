@@ -378,7 +378,10 @@ function updateDependentCities(selectedCountryNames) {
   if (!selectedCountryNames || selectedCountryNames.length === 0) {
     cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
   } else {
-    const filtered = cachedRawCities.filter((c) => !c.country || selectedCountryNames.includes(c.country));
+    const lowerCountries = selectedCountryNames.map((c) => (c || "").toLowerCase());
+    const filtered = cachedRawCities.filter(
+      (c) => !c.country || lowerCountries.includes(c.country.toLowerCase())
+    );
     cityMultiSelect.setItems(filtered.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
   }
 }

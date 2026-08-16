@@ -181,6 +181,22 @@ def load_settings() -> AppSettings:
     people_whitelist = _parse_comma_set(os.getenv('PEOPLE_WHITELIST'))
     people_blacklist = _parse_comma_set(os.getenv('PEOPLE_BLACKLIST'))
 
+    country_overlap = country_whitelist & country_blacklist
+    if country_overlap:
+        raise ConfigError(
+            f"COUNTRY_WHITELIST and COUNTRY_BLACKLIST cannot overlap: {', '.join(sorted(country_overlap))}"
+        )
+    city_overlap = city_whitelist & city_blacklist
+    if city_overlap:
+        raise ConfigError(
+            f"CITY_WHITELIST and CITY_BLACKLIST cannot overlap: {', '.join(sorted(city_overlap))}"
+        )
+    people_overlap = people_whitelist & people_blacklist
+    if people_overlap:
+        raise ConfigError(
+            f"PEOPLE_WHITELIST and PEOPLE_BLACKLIST cannot overlap: {', '.join(sorted(people_overlap))}"
+        )
+
     return AppSettings(
         immich_server_url=server_url,
         immich_libraries=libraries,

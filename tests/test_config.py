@@ -278,3 +278,34 @@ def test_data_path_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert settings.data_path == (tmp_path / 'custom_data').resolve()
     assert settings.metadata_db_path == (tmp_path / 'custom_data' / 'metadata.db').resolve()
     assert settings.leaderboard_db_path == (tmp_path / 'custom_data' / 'leaderboard.db').resolve()
+
+
+def test_country_whitelist_blacklist_overlap_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('COUNTRY_WHITELIST', 'Brazil, France')
+    monkeypatch.setenv('COUNTRY_BLACKLIST', 'France, Germany')
+
+    with pytest.raises(ConfigError, match='COUNTRY_WHITELIST and COUNTRY_BLACKLIST cannot overlap: france'):
+        load_settings()
+
+
+def test_city_whitelist_blacklist_overlap_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('CITY_WHITELIST', 'Paris, London')
+    monkeypatch.setenv('CITY_BLACKLIST', 'London, Berlin')
+
+    with pytest.raises(ConfigError, match='CITY_WHITELIST and CITY_BLACKLIST cannot overlap: london'):
+        load_settings()
+
+
+def test_people_whitelist_blacklist_overlap_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('PEOPLE_WHITELIST', 'Alice, Bob')
+    monkeypatch.setenv('PEOPLE_BLACKLIST', 'Bob, Charlie')
+
+    with pytest.raises(ConfigError, match='PEOPLE_WHITELIST and PEOPLE_BLACKLIST cannot overlap: bob'):
+        load_settings()
+

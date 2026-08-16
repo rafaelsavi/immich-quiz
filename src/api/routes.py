@@ -36,6 +36,15 @@ FILTERS_CACHE_TTL_SECONDS: int = 300
 # Module-level cache shared across all requests: library_name -> LibraryFiltersResponse
 _filters_cache: TTLCache = TTLCache(maxsize=64, ttl=FILTERS_CACHE_TTL_SECONDS)
 
+
+def invalidate_filters_cache(library_name: str | None = None) -> None:
+    """Invalidate cached library filter responses (e.g. after sync completion)."""
+    if library_name is not None:
+        _filters_cache.pop(library_name, None)
+    else:
+        _filters_cache.clear()
+
+
 router = APIRouter(prefix='/api')
 
 
@@ -199,7 +208,7 @@ async def trigger_sync(
     library_name: str,
     sync_engine: SyncEngine = Depends(get_sync_engine),
 ) -> dict[str, Any]:
-    _filters_cache.pop(library_name, None)
+    invalidate_filters_cache(library_name)
     sync_engine.trigger_sync(library_name)
     return sync_engine.get_sync_status(library_name)
 

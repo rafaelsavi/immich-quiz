@@ -8,7 +8,14 @@ from typing import Any
 
 from src.config import AppSettings
 from src.immich.client import AssetAnswer, SearchQuery
-from src.models import CityOption, DateRangeOption, FacetCounts, LibraryFiltersResponse, PersonOption
+from src.models import (
+    BaseGameConfig,
+    CityOption,
+    DateRangeOption,
+    FacetCounts,
+    LibraryFiltersResponse,
+    PersonOption,
+)
 from src.storage.db import DatabaseManager
 
 logger = logging.getLogger(__name__)
@@ -111,7 +118,7 @@ class AssetFilterCriteria:
         )
 
     @classmethod
-    def from_setup(cls, setup: Any, settings: AppSettings | None = None) -> AssetFilterCriteria:
+    def from_setup(cls, setup: BaseGameConfig, settings: AppSettings | None = None) -> AssetFilterCriteria:
         """Create unified filter criteria combining user setup and global settings."""
         eff_min = getattr(setup, 'min_date', None)
         eff_max = getattr(setup, 'max_date', None)
@@ -450,7 +457,8 @@ class MetadataStore:
             params.extend(c.lower() for c in criteria.city_whitelist)
 
         # 9. People whitelist baseline (if active and user didn't specify people)
-        # Excludes photos containing non-whitelisted recognized people, while allowing photos with no tagged people
+        # Excludes photos containing non-whitelisted recognized people (photos where ANY attached person
+        # matches neither a whitelisted name nor ID), while allowing photos with no tagged people.
         if criteria.people_whitelist and not criteria.person_ids:
             name_placeholders = ', '.join('?' for _ in criteria.people_whitelist)
             id_placeholders = ', '.join('?' for _ in criteria.people_whitelist)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -23,9 +24,16 @@ def _clean_str(val: Any) -> str | None:
 class SyncEngine:
     """Coordinates background synchronization between Immich and the local SQLite metadata index."""
 
-    def __init__(self, immich: ImmichClient, metadata_store: MetadataStore) -> None:
+    def __init__(
+        self,
+        immich: ImmichClient,
+        metadata_store: MetadataStore,
+        *,
+        on_sync_complete: Callable[[str], None] | None = None,
+    ) -> None:
         self._immich = immich
         self._metadata_store = metadata_store
+        self._on_sync_complete = on_sync_complete
         self._active_sync_tasks: dict[str, asyncio.Task[None]] = {}
         self._sync_warnings: dict[str, str] = {}
 
@@ -298,6 +306,12 @@ class SyncEngine:
                 error=None,
             )
             logger.info('Successfully finished metadata sync for %s (%d assets)', library_name, total_final)
+
+            if self._on_sync_complete is not None:
+                try:
+                    self._on_sync_complete(library_name)
+                except Exception as cb_exc:
+                    logger.warning('on_sync_complete callback failed for library %s: %s', library_name, cb_exc)
 
         except Exception as exc:
             logger.error('Error during metadata sync for %s: %s', library_name, exc, exc_info=True)
