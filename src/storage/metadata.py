@@ -948,6 +948,17 @@ class MetadataStore:
             people=person_options,
         )
 
+    def get_person_names(self, person_ids: list[str]) -> dict[str, str]:
+        """Look up person names by their IDs from indexed metadata."""
+        if not person_ids:
+            return {}
+        placeholders = ', '.join('?' for _ in person_ids)
+        rows = self._db.fetch_all(
+            f"SELECT id, name FROM people WHERE id IN ({placeholders})",
+            person_ids,
+        )
+        return {str(r['id']).strip(): str(r['name']).strip() for r in rows if r.get('id') and r.get('name')}
+
     def get_facet_counts(self, criteria: AssetFilterCriteria) -> FacetCounts:
         """Compute matching photo counts for each facet option under current criteria.
 

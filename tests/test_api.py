@@ -306,6 +306,44 @@ def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
     assert summary['players'][0]['accuracy_pct'] == 100.0
     assert summary['players'][1]['rank'] == 2
     assert summary['players'][1]['is_winner'] is False
+    assert summary['filter_summary'] == 'Full Library'
+    assert summary['is_custom_filtered'] is False
+
+
+def test_match_summary_with_custom_filters(tmp_path: Path) -> None:
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(5)
+        ]
+    )
+    client = build_client(tmp_path, immich)
+    match_id = start_match(client, album_ids=['album-1'], round_count=5)
+
+    for _ in range(5):
+        q = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+        client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': q['question_id'],
+                'guessed_latitude': -27.59,
+                'guessed_longitude': -48.54,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
+        )
+
+    summary = client.get(f'/api/match/{match_id}/summary').json()
+    assert summary['finished'] is True
+    assert summary['is_custom_filtered'] is True
+    assert summary['filter_summary'] == 'Holidays'
+    assert summary['filter_tooltip'] == 'Album: Holidays'
 
 
 def test_repeated_question_request_returns_same_question(client: TestClient) -> None:

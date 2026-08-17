@@ -259,6 +259,7 @@ async def round_result(
 @router.get('/match/{match_id}/summary', response_model=MatchSummaryResponse)
 async def match_summary(
     match_id: str,
+    lang: str | None = None,
     game_service: GameService = Depends(get_game_service),
 ) -> MatchSummaryResponse:
-    return await game_service.get_match_summary(match_id)
+    return await game_service.get_match_summary(match_id, language=lang)

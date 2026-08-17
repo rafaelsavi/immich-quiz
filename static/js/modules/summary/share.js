@@ -23,7 +23,13 @@ export async function shareMatchSummary(summary) {
         : "";
 
   let text = `🏆 Immich Quiz - ${winnerText}\n`;
-  text += `📍 ${summary.library_name} | ${summary.rounds_played} rounds\n\n`;
+  const filterInfo =
+    summary.filter_summary && summary.filter_summary !== "Full Library"
+      ? ` • ${summary.filter_summary}`
+      : summary.album_name && summary.album_name !== "-"
+        ? ` • ${summary.album_name}`
+        : "";
+  text += `📍 ${summary.library_name}${filterInfo} | ${summary.rounds_played} rounds\n\n`;
   text += `Scores:\n`;
   (summary.players || []).forEach((p) => {
     text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;

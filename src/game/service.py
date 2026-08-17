@@ -162,6 +162,21 @@ class GameService:
         names.sort(key=lambda s: (s.lower(), s))
         return ', '.join(names) if names else '-'
 
+    def resolve_person_names(
+        self,
+        person_ids: list[str] | None = None,
+        existing_names: list[str] | None = None,
+    ) -> list[str]:
+        """Resolve person IDs to names server-side from indexed metadata."""
+        if not person_ids:
+            return existing_names or []
+        name_map = self.metadata_store.get_person_names(person_ids)
+        if name_map:
+            names = [name_map.get(pid, pid) for pid in person_ids if pid in name_map or pid]
+            names.sort(key=lambda s: (s.lower(), s))
+            return names
+        return existing_names or person_ids
+
     async def preflight(self, setup: PreflightRequest) -> PreflightResponse:
         criteria = AssetFilterCriteria.from_setup(setup, self.settings)
         effective_min_date = criteria.min_date
@@ -227,6 +242,7 @@ class GameService:
             setup.library_name,
             album_ids=setup.album_ids,
         )
+        setup.person_names = self.resolve_person_names(setup.person_ids, setup.person_names)
         state = self.store.create_match(setup)
 
         map_bounds: MapBounds | None = None
@@ -409,7 +425,11 @@ class GameService:
             match_finished=state.finished,
         )
 
-    async def get_match_summary(self, match_id: str) -> MatchSummaryResponse:
+    async def get_match_summary(
+        self,
+        match_id: str,
+        language: str | None = None,
+    ) -> MatchSummaryResponse:
         try:
             state = self.store.get_match(match_id)
         except KeyError as exc:
@@ -449,6 +469,10 @@ class GameService:
                 )
             )
 
+        target_lang = language or self.settings.language
+        is_custom, filter_summary = state.setup.format_filter_summary(language=target_lang)
+        filter_tooltip = state.setup.format_filter_tooltip(language=target_lang)
+
         return MatchSummaryResponse(
             match_id=state.match_id,
             rounds_played=state.setup.round_count,
@@ -460,4 +484,7 @@ class GameService:
             finished=state.finished,
             winners=winners,
             players=players,
+            filter_summary=filter_summary,
+            filter_tooltip=filter_tooltip,
+            is_custom_filtered=bool(is_custom),
         )

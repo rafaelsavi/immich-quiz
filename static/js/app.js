@@ -233,6 +233,9 @@ async function startMatch(event) {
     album_ids: albumIds,
     album_name: albumName,
     person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+    person_names: peopleMultiSelect
+      ? peopleMultiSelect.getSelectedItems().map((p) => p.name)
+      : [],
     people_mode: getSelectedPeopleMode(),
     countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
     cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
@@ -578,7 +581,10 @@ function renderSummaryContent(summary) {
 }
 
 async function showMatchSummary() {
-  const summary = await api(`/api/match/${encodeURIComponent(state.matchId)}/summary`);
+  const lang = state ? state.language || "EN" : "EN";
+  const summary = await api(
+    `/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`
+  );
   state.lastSummary = summary;
   showCard(el.summaryCard);
   window.scrollTo({ top: 0, behavior: "smooth" });

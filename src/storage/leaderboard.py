@@ -6,7 +6,14 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.models import GameMode, LeaderboardEntry, PeopleMode, PlayMode, RoundLength
+from src.models import (
+    GameMode,
+    LeaderboardEntry,
+    PeopleMode,
+    PlayMode,
+    RoundLength,
+    format_filter_summary,
+)
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.db import DatabaseManager
 
@@ -114,43 +121,6 @@ CREATE INDEX IF NOT EXISTS idx_guesses_asset       ON match_round_guesses(asset_
 CREATE INDEX IF NOT EXISTS idx_challenges_token    ON challenges(capability_token);
 CREATE INDEX IF NOT EXISTS idx_challenges_expires  ON challenges(expires_at);
 """
-
-
-def format_filter_summary(
-    *,
-    album_name: str | None = None,
-    album_ids: list[str] | None = None,
-    countries: list[str] | None = None,
-    cities: list[str] | None = None,
-    person_ids: list[str] | None = None,
-    min_date: date | None = None,
-    max_date: date | None = None,
-    include_shared: bool = False,
-) -> tuple[int, str]:
-    """Return (is_custom_filtered, summary_str) based on active filter parameters."""
-    parts: list[str] = []
-
-    if album_ids or (album_name and album_name != '-'):
-        parts.append(album_name if album_name and album_name != '-' else f'{len(album_ids or [])} albums')
-    if countries:
-        parts.append(', '.join(countries) if len(countries) <= 2 else f'{len(countries)} countries')
-    if cities:
-        parts.append(', '.join(cities) if len(cities) <= 2 else f'{len(cities)} cities')
-    if person_ids:
-        parts.append(f'{len(person_ids)} people' if len(person_ids) > 1 else '1 person')
-    if min_date or max_date:
-        if min_date and max_date:
-            parts.append(f'{min_date.strftime("%Y/%m")} - {max_date.strftime("%Y/%m")}')
-        elif min_date:
-            parts.append(f'from {min_date.strftime("%Y/%m")}')
-        elif max_date:
-            parts.append(f'until {max_date.strftime("%Y/%m")}')
-    if include_shared:
-        parts.append('Shared')
-
-    if not parts:
-        return 0, 'Full Library'
-    return 1, ' • '.join(parts)
 
 
 def _canonicalize_filter_list(val: list[str] | str | None) -> str | None:

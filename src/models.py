@@ -5,6 +5,7 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.i18n import SupportedLanguage, t
 from src.scoring import SCORE_MAX_POINTS
 
 # ---------------------------------------------------------------------------
@@ -135,6 +136,111 @@ class LibraryFiltersResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def format_filter_summary(
+    *,
+    album_name: str | None = None,
+    album_ids: list[str] | None = None,
+    countries: list[str] | None = None,
+    cities: list[str] | None = None,
+    person_ids: list[str] | None = None,
+    person_names: list[str] | None = None,
+    people_mode: PeopleMode | str | None = None,
+    min_date: date | None = None,
+    max_date: date | None = None,
+    include_shared: bool = False,
+    language: SupportedLanguage = SupportedLanguage.EN,
+) -> tuple[int, str]:
+    """Return (is_custom_filtered, summary_str) based on active filter parameters."""
+    lang = SupportedLanguage.from_str(language)
+    parts: list[str] = []
+
+    if album_ids or (album_name and album_name != '-'):
+        if album_name and album_name != '-':
+            parts.append(album_name)
+        else:
+            parts.append(t('filters.albums_count', lang, len(album_ids or [])))
+    if countries:
+        if len(countries) <= 2:
+            parts.append(', '.join(countries))
+        else:
+            parts.append(t('filters.countries_count', lang, len(countries)))
+    if cities:
+        if len(cities) <= 2:
+            parts.append(', '.join(cities))
+        else:
+            parts.append(t('filters.cities_count', lang, len(cities)))
+    if person_names:
+        if len(person_names) <= 2:
+            parts.append(', '.join(person_names))
+        else:
+            parts.append(t('filters.people_count', lang, len(person_names)))
+    elif person_ids:
+        parts.append(t('filters.people_count', lang, len(person_ids)))
+    if min_date or max_date:
+        if min_date and max_date:
+            parts.append(t('filters.date_range', lang, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
+        elif min_date:
+            parts.append(t('filters.date_from', lang, min_date.strftime('%Y/%m')))
+        elif max_date:
+            parts.append(t('filters.date_until', lang, max_date.strftime('%Y/%m')))
+    if include_shared:
+        parts.append(t('filters.shared', lang))
+
+    if not parts:
+        return 0, t('filters.full_library', lang)
+    return 1, ' • '.join(parts)
+
+
+def format_filter_tooltip(
+    *,
+    album_name: str | None = None,
+    album_ids: list[str] | None = None,
+    countries: list[str] | None = None,
+    cities: list[str] | None = None,
+    person_ids: list[str] | None = None,
+    person_names: list[str] | None = None,
+    people_mode: PeopleMode | str | None = None,
+    min_date: date | None = None,
+    max_date: date | None = None,
+    include_shared: bool = False,
+    language: SupportedLanguage = SupportedLanguage.EN,
+) -> str | None:
+    """Return a detailed multiline tooltip string listing all active filter values."""
+    lang = SupportedLanguage.from_str(language)
+    lines: list[str] = []
+
+    if album_ids or (album_name and album_name != '-'):
+        val = album_name if (album_name and album_name != '-') else t('filters.albums_count', lang, len(album_ids or []))
+        lines.append(f'{t("tooltip.album", lang)}: {val}')
+    if countries:
+        lines.append(f'{t("tooltip.countries", lang)}: {", ".join(countries)}')
+    if cities:
+        lines.append(f'{t("tooltip.cities", lang)}: {", ".join(cities)}')
+    if person_names or person_ids:
+        people_list = person_names if person_names else person_ids
+        names_str = ', '.join(people_list) if people_list else ''
+        count = len(people_list or [])
+        if count > 1:
+            is_all = people_mode == PeopleMode.ALL or str(people_mode).upper() == 'ALL'
+            prefix = t('tooltip.people_all', lang) if is_all else t('tooltip.people_any', lang)
+            lines.append(f'{prefix}: {names_str}')
+        elif count == 1:
+            lines.append(f'{t("tooltip.person_single", lang)}: {names_str}')
+    if min_date or max_date:
+        if min_date and max_date:
+            lines.append(t('tooltip.dates_range', lang, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
+        elif min_date:
+            lines.append(t('tooltip.dates_from', lang, min_date.strftime('%Y/%m')))
+        elif max_date:
+            lines.append(t('tooltip.dates_until', lang, max_date.strftime('%Y/%m')))
+    if include_shared:
+        lines.append(t('tooltip.shared', lang))
+
+    if not lines:
+        return None
+    return '\n'.join(lines)
+
+
 class BaseGameConfig(BaseModel):
     """Shared filter and mode configuration for preflight checks and game setup."""
 
@@ -147,6 +253,7 @@ class BaseGameConfig(BaseModel):
     game_mode: GameMode = GameMode.pinpoint
     album_ids: list[str] = Field(default_factory=list)
     person_ids: list[str] = Field(default_factory=list)
+    person_names: list[str] = Field(default_factory=list)
     people_mode: PeopleMode = PeopleMode.ANY
     countries: list[str] = Field(default_factory=list)
     cities: list[str] = Field(default_factory=list)
@@ -163,6 +270,52 @@ class BaseGameConfig(BaseModel):
         if self.min_date and self.max_date and self.min_date > self.max_date:
             raise ValueError('min_date cannot be greater than max_date')
         return self
+
+    def format_filter_summary(
+        self,
+        album_name: str | None = None,
+        person_names: list[str] | None = None,
+        language: SupportedLanguage = SupportedLanguage.EN,
+    ) -> tuple[int, str]:
+        """Return (is_custom_filtered, summary_str) for this configuration."""
+        resolved_album_name = album_name or getattr(self, 'album_name', None)
+        resolved_person_names = person_names or getattr(self, 'person_names', None)
+        return format_filter_summary(
+            album_name=resolved_album_name,
+            album_ids=self.album_ids,
+            countries=self.countries,
+            cities=self.cities,
+            person_ids=self.person_ids,
+            person_names=resolved_person_names,
+            people_mode=self.people_mode,
+            min_date=self.min_date,
+            max_date=self.max_date,
+            include_shared=self.include_shared,
+            language=language,
+        )
+
+    def format_filter_tooltip(
+        self,
+        album_name: str | None = None,
+        person_names: list[str] | None = None,
+        language: SupportedLanguage = SupportedLanguage.EN,
+    ) -> str | None:
+        """Return a detailed multiline tooltip string listing all active filter values."""
+        resolved_album_name = album_name or getattr(self, 'album_name', None)
+        resolved_person_names = person_names or getattr(self, 'person_names', None)
+        return format_filter_tooltip(
+            album_name=resolved_album_name,
+            album_ids=self.album_ids,
+            countries=self.countries,
+            cities=self.cities,
+            person_ids=self.person_ids,
+            person_names=resolved_person_names,
+            people_mode=self.people_mode,
+            min_date=self.min_date,
+            max_date=self.max_date,
+            include_shared=self.include_shared,
+            language=language,
+        )
 
 
 class PreflightRequest(BaseGameConfig):
@@ -389,6 +542,9 @@ class MatchSummaryResponse(BaseModel):
     finished: bool
     winners: list[str]
     players: list[MatchSummaryPlayer]
+    filter_summary: str | None = None
+    filter_tooltip: str | None = None
+    is_custom_filtered: bool = False
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from src.i18n import SupportedLanguage
+
 
 class ConfigError(ValueError):
     pass
@@ -96,7 +98,7 @@ class AppSettings:
 
 def _parse_language(value: str) -> str:
     normalized = value.strip().upper()
-    if normalized not in {'EN', 'PT'}:
+    if normalized not in {lang.value for lang in SupportedLanguage}:
         raise ConfigError("LANGUAGE must be 'EN' or 'PT'")
     return normalized
 
