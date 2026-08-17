@@ -110,7 +110,7 @@ def seed_test_metadata(
 ) -> None:
     # 1. Upsert people (merging from immich.people and any asset people)
     people_map: dict[str, str] = {p.id: p.name for p in immich.people}
-    for a in (immich.assets or []):
+    for a in immich.assets or []:
         p_list = a.get('people') or a.get('faces') or []
         for p in p_list:
             pid = str(p.get('id', '')) if isinstance(p, dict) else str(p)
@@ -141,17 +141,19 @@ def seed_test_metadata(
             city = exif.get('city')
             captured = exif.get('dateTimeOriginal') or a.get('fileCreatedAt') or a.get('createdAt')
 
-            asset_records.append({
-                'id': aid,
-                'is_shared': 1 if a.get('isShared') or a.get('is_shared') else 0,
-                'is_partner': 1 if a.get('isPartner') or a.get('is_partner') else 0,
-                'file_type': a.get('type', 'IMAGE'),
-                'latitude': float(lat) if lat is not None else None,
-                'longitude': float(lon) if lon is not None else None,
-                'country': country,
-                'city': city,
-                'capture_datetime': captured,
-            })
+            asset_records.append(
+                {
+                    'id': aid,
+                    'is_shared': 1 if a.get('isShared') or a.get('is_shared') else 0,
+                    'is_partner': 1 if a.get('isPartner') or a.get('is_partner') else 0,
+                    'file_type': a.get('type', 'IMAGE'),
+                    'latitude': float(lat) if lat is not None else None,
+                    'longitude': float(lon) if lon is not None else None,
+                    'country': country,
+                    'city': city,
+                    'capture_datetime': captured,
+                }
+            )
 
             p_list = a.get('people') or a.get('faces') or []
             for p in p_list:
@@ -178,17 +180,19 @@ def seed_test_metadata(
                 aid = f'filter-asset-{extra_idx}'
                 extra_idx += 1
                 dt_str = min_date_str if i == 0 else (max_date_str if i == len(immich.cities) - 1 else '2020-06-15')
-                asset_records.append({
-                    'id': aid,
-                    'is_shared': 0,
-                    'is_partner': 0,
-                    'file_type': 'IMAGE',
-                    'latitude': -27.59,
-                    'longitude': -48.54,
-                    'country': c.country,
-                    'city': c.name,
-                    'capture_datetime': f'{dt_str}T12:00:00Z',
-                })
+                asset_records.append(
+                    {
+                        'id': aid,
+                        'is_shared': 0,
+                        'is_partner': 0,
+                        'file_type': 'IMAGE',
+                        'latitude': -27.59,
+                        'longitude': -48.54,
+                        'country': c.country,
+                        'city': c.name,
+                        'capture_datetime': f'{dt_str}T12:00:00Z',
+                    }
+                )
                 asset_albums.append((aid, 'album-1'))
 
         if immich.countries:
@@ -197,59 +201,27 @@ def seed_test_metadata(
                 if co not in existing_countries:
                     aid = f'filter-asset-{extra_idx}'
                     extra_idx += 1
-                    asset_records.append({
-                        'id': aid,
-                        'is_shared': 0,
-                        'is_partner': 0,
-                        'file_type': 'IMAGE',
-                        'latitude': -27.59,
-                        'longitude': -48.54,
-                        'country': co,
-                        'city': None,
-                        'capture_datetime': f'{max_date_str}T12:00:00Z',
-                    })
+                    asset_records.append(
+                        {
+                            'id': aid,
+                            'is_shared': 0,
+                            'is_partner': 0,
+                            'file_type': 'IMAGE',
+                            'latitude': -27.59,
+                            'longitude': -48.54,
+                            'country': co,
+                            'city': None,
+                            'capture_datetime': f'{max_date_str}T12:00:00Z',
+                        }
+                    )
                     asset_albums.append((aid, 'album-1'))
 
         if immich.timeline_bounds:
             if not any(r.get('capture_datetime', '')[:7] == min_date_str[:7] for r in asset_records):
                 aid = f'filter-asset-{extra_idx}'
                 extra_idx += 1
-                asset_records.append({
-                    'id': aid,
-                    'is_shared': 0,
-                    'is_partner': 0,
-                    'file_type': 'IMAGE',
-                    'latitude': -27.59,
-                    'longitude': -48.54,
-                    'country': 'Brazil',
-                    'city': 'Florianopolis',
-                    'capture_datetime': f'{min_date_str}T12:00:00Z',
-                })
-                asset_albums.append((aid, 'album-1'))
-            if not any(r.get('capture_datetime', '')[:7] == max_date_str[:7] for r in asset_records):
-                aid = f'filter-asset-{extra_idx}'
-                extra_idx += 1
-                asset_records.append({
-                    'id': aid,
-                    'is_shared': 0,
-                    'is_partner': 0,
-                    'file_type': 'IMAGE',
-                    'latitude': -27.59,
-                    'longitude': -48.54,
-                    'country': 'Brazil',
-                    'city': 'Florianopolis',
-                    'capture_datetime': f'{max_date_str}T12:00:00Z',
-                })
-                asset_albums.append((aid, 'album-1'))
-
-        if immich.people:
-            for i, p in enumerate(immich.people):
-                if i < len(asset_records):
-                    asset_people.append((asset_records[i]['id'], p.id))
-                else:
-                    aid = f'filter-asset-{extra_idx}'
-                    extra_idx += 1
-                    asset_records.append({
+                asset_records.append(
+                    {
                         'id': aid,
                         'is_shared': 0,
                         'is_partner': 0,
@@ -259,7 +231,47 @@ def seed_test_metadata(
                         'country': 'Brazil',
                         'city': 'Florianopolis',
                         'capture_datetime': f'{min_date_str}T12:00:00Z',
-                    })
+                    }
+                )
+                asset_albums.append((aid, 'album-1'))
+            if not any(r.get('capture_datetime', '')[:7] == max_date_str[:7] for r in asset_records):
+                aid = f'filter-asset-{extra_idx}'
+                extra_idx += 1
+                asset_records.append(
+                    {
+                        'id': aid,
+                        'is_shared': 0,
+                        'is_partner': 0,
+                        'file_type': 'IMAGE',
+                        'latitude': -27.59,
+                        'longitude': -48.54,
+                        'country': 'Brazil',
+                        'city': 'Florianopolis',
+                        'capture_datetime': f'{max_date_str}T12:00:00Z',
+                    }
+                )
+                asset_albums.append((aid, 'album-1'))
+
+        if immich.people:
+            for i, p in enumerate(immich.people):
+                if i < len(asset_records):
+                    asset_people.append((asset_records[i]['id'], p.id))
+                else:
+                    aid = f'filter-asset-{extra_idx}'
+                    extra_idx += 1
+                    asset_records.append(
+                        {
+                            'id': aid,
+                            'is_shared': 0,
+                            'is_partner': 0,
+                            'file_type': 'IMAGE',
+                            'latitude': -27.59,
+                            'longitude': -48.54,
+                            'country': 'Brazil',
+                            'city': 'Florianopolis',
+                            'capture_datetime': f'{min_date_str}T12:00:00Z',
+                        }
+                    )
                     asset_people.append((aid, p.id))
                     asset_albums.append((aid, 'album-1'))
 
@@ -279,7 +291,6 @@ def build_client(
     app_tagline: str = '',
     date_lower_bound: date | None = None,
     date_upper_bound: date | None = None,
-    score_max_points: int = 100,
     location_score_decay_km: float = 500.0,
     date_score_decay_days: float = 500.0,
     language: str = 'EN',
@@ -300,7 +311,6 @@ def build_client(
         date_upper_bound=date_upper_bound,
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=score_max_points,
         location_score_decay_km=location_score_decay_km,
         date_score_decay_days=date_score_decay_days,
         language=language,

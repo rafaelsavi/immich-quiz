@@ -1,6 +1,6 @@
-# Phase 5: Reconnection, Edge Cases, Polish
+# Phase 9: Reconnection, Edge Cases, Polish (Milestone 2)
 
-> **Prerequisites**: Phases 1-4 must be complete and working. End-to-end online gameplay must function.
+> **Prerequisites**: Phases 5–8 must be complete and working. End-to-end online gameplay must function.
 
 ## Goal
 

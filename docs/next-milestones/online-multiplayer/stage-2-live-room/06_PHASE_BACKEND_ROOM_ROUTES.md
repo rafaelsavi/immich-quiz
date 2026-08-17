@@ -1,6 +1,6 @@
-# Phase 2: Backend Room API Routes
+# Phase 6: Backend Room API Routes (Milestone 2)
 
-> **Prerequisites**: Phase 1 must be complete. `src/room/manager.py` and `src/room/websocket.py` must exist.
+> **Prerequisites**: Phase 5 must be complete. `src/room/manager.py` and `src/room/websocket.py` must exist.
 
 ## Goal
 

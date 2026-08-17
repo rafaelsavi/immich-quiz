@@ -18,22 +18,23 @@ This guide documents all end-of-match performance awards in **Immich Quiz**, the
 
 ---
 
-## 💾 Persistence & Storage
+## 💾 Presentation & Data Architecture
 
 When a match concludes:
-1. Performance awards are dynamically evaluated and displayed on the match summary screen via `renderAwards(summary)` in `static/js/app.js`.
-2. Award tags are persisted in the SQLite leaderboard database (`data/leaderboard.db`) in the `awards_json` column of the `leaderboard_entries` table.
-3. Historical awards appear in the leaderboard table and modal summaries.
+
+1. Performance awards are dynamically evaluated and rendered on the match summary screen via `renderAwards(summary, playerStats)` in `static/js/modules/summary/awards.js`.
+2. Raw invariant physical metrics (`distance_km`, `date_diff_days`, `time_taken_seconds`) and total player response times (`total_time_seconds`) are persisted in SQLite (`data/leaderboard.db`).
+3. Awards are rendered client-side on-the-fly, allowing award criteria and thresholds to evolve without requiring database schema changes or data migrations.
 
 ---
 
 ## 🛠️ How to Customize Award Conditions & Thresholds
 
-All award presentation logic is located in `static/js/app.js` inside the `renderAwards(summary)` function, and internationalized in `static/js/modules/i18n.js`.
+All award presentation logic is located in `static/js/modules/summary/awards.js` inside the `renderAwards(summary, playerStats)` function, and internationalized in `static/js/modules/i18n.js`.
 
 ### 1. Adjusting Award Criteria
 
-Open `static/js/app.js` and locate `function renderAwards(summary)`:
+Open `static/js/modules/summary/awards.js` and locate `function renderAwards(summary, playerStats)`:
 
 - **Speed Demon time fraction**:
   `elapsedSec <= totalSec / 2` checks for guesses within 50% of the time limit. Change `totalSec / 2` to `totalSec * 0.3` for a stricter 30% speed requirement.
@@ -54,7 +55,7 @@ To add a new award (e.g. "Clutch Finisher" or "Comeback King"):
    "award.my_award_desc": "Highest score in the final round",
    ```
 
-2. **Add condition logic** in `static/js/app.js` inside `renderAwards(summary)`:
+2. **Add condition logic** in `static/js/modules/summary/awards.js` inside `renderAwards(summary, playerStats)`:
 
    ```javascript
    awards.push({

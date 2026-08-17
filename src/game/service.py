@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import time
+from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -18,6 +21,7 @@ from src.models import (
     MatchSummaryPlayer,
     MatchSummaryResponse,
     PeopleMode,
+    PlayMode,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
@@ -29,9 +33,92 @@ from src.models import (
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
-from src.storage.session import SessionStore
+from src.storage.session import MatchState, SessionStore
 
 logger = logging.getLogger(__name__)
+
+
+def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
+    guesses: list[dict[str, Any]] = []
+    ordered_questions = sorted(
+        state.questions.values(),
+        key=lambda q: (q.round_index, q.player_name),
+    )
+    for q in ordered_questions:
+        if not q.answered:
+            continue
+        if state.setup.game_mode == GameMode.album_shuffle and q.batch_assets:
+            guess_map = {g['photo_id']: g for g in (q.album_shuffle_guesses or [])}
+            pin_by_id = {bp['pin_id']: bp for bp in (q.batch_pins or [])}
+
+            for idx, ba in enumerate(q.batch_assets):
+                guessed_item = guess_map.get(ba.asset_id, {})
+                assigned_pin_id = guessed_item.get('assigned_pin_id')
+                assigned_pin = pin_by_id.get(assigned_pin_id) if assigned_pin_id else None
+
+                guess_lat = (
+                    float(assigned_pin['latitude'])
+                    if assigned_pin and assigned_pin.get('latitude') is not None
+                    else None
+                )
+                guess_lng = (
+                    float(assigned_pin['longitude'])
+                    if assigned_pin and assigned_pin.get('longitude') is not None
+                    else None
+                )
+
+                guesses.append(
+                    {
+                        'match_id': state.match_id,
+                        'player_name': q.player_name,
+                        'round_index': q.round_index,
+                        'photo_index': idx,
+                        'asset_id': ba.asset_id,
+                        'guess_latitude': guess_lat,
+                        'guess_longitude': guess_lng,
+                        'actual_latitude': ba.answer.latitude,
+                        'actual_longitude': ba.answer.longitude,
+                        'distance_km': None,
+                        'location_points': None,
+                        'guess_date': None,
+                        'actual_date': ba.answer.capture_date.isoformat() if ba.answer.capture_date else None,
+                        'date_diff_days': None,
+                        'date_points': None,
+                        'round_score': q.location_points + q.date_points if idx == 0 else 0,
+                        'time_taken_seconds': q.time_taken_seconds,
+                        'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+        else:
+            guess_date_str = (
+                f'{q.guessed_year:04d}-{q.guessed_month:02d}-01'
+                if q.guessed_year is not None and q.guessed_month is not None
+                else None
+            )
+            actual_date_str = q.actual_date.isoformat() if q.actual_date else None
+            guesses.append(
+                {
+                    'match_id': state.match_id,
+                    'player_name': q.player_name,
+                    'round_index': q.round_index,
+                    'photo_index': 0,
+                    'asset_id': q.asset_id,
+                    'guess_latitude': q.guessed_latitude,
+                    'guess_longitude': q.guessed_longitude,
+                    'actual_latitude': q.actual_latitude,
+                    'actual_longitude': q.actual_longitude,
+                    'distance_km': q.distance_km,
+                    'location_points': q.location_points if state.setup.location_mode else None,
+                    'guess_date': guess_date_str,
+                    'actual_date': actual_date_str,
+                    'date_diff_days': q.date_diff_days,
+                    'date_points': q.date_points if state.setup.date_mode else None,
+                    'round_score': q.location_points + q.date_points,
+                    'time_taken_seconds': q.time_taken_seconds,
+                    'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
+                }
+            )
+    return guesses
 
 
 class GameService:
@@ -241,6 +328,17 @@ class GameService:
         updated_state = engine.evaluate_and_apply_answer(state, question_state, payload, self.settings, self.store)
 
         if updated_state.finished:
+            duration_sec = max(0.0, time.time() - updated_state.created_at)
+            player_times = {
+                player: sum(
+                    q.time_taken_seconds or 0.0
+                    for q in updated_state.questions.values()
+                    if q.player_name == player and q.answered
+                )
+                for player in updated_state.setup.players
+            }
+            round_guesses = extract_round_guesses(updated_state)
+
             self.leaderboard_store.append_match(
                 match_id=updated_state.match_id,
                 library_name=updated_state.setup.library_name,
@@ -258,6 +356,10 @@ class GameService:
                 cities=updated_state.setup.cities,
                 min_date=updated_state.setup.min_date,
                 max_date=updated_state.setup.max_date,
+                play_mode=PlayMode.local,
+                duration_seconds=duration_sec,
+                player_times=player_times,
+                round_guesses=round_guesses,
             )
 
         return AnswerResponse(
@@ -309,7 +411,6 @@ class GameService:
             batch_reveal=batch_reveal,
             results=results,
             match_finished=state.finished,
-            score_max_points=self.settings.score_max_points,
         )
 
     async def get_match_summary(self, match_id: str) -> MatchSummaryResponse:
@@ -322,7 +423,6 @@ class GameService:
             state.setup.round_count,
             state.setup.location_mode,
             state.setup.date_mode,
-            per_goal_max_points=self.settings.score_max_points,
         )
 
         ordered = sorted(

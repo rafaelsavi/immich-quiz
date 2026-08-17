@@ -200,7 +200,6 @@ class PinpointEngine(BaseGameModeEngine):
             location_points = location_score(
                 distance,
                 decay_km=settings.location_score_decay_km,
-                max_points=settings.score_max_points,
             )
 
         if (
@@ -214,7 +213,6 @@ class PinpointEngine(BaseGameModeEngine):
             date_points = date_score(
                 delta_days,
                 decay_days=settings.date_score_decay_days,
-                max_points=settings.score_max_points,
             )
 
         try:
@@ -231,6 +229,7 @@ class PinpointEngine(BaseGameModeEngine):
                 diff_days=delta_days,
                 diff_months=delta_months,
                 timed_out=payload.timed_out,
+                time_taken_seconds=payload.time_taken_seconds,
             )
         except QuestionAlreadyAnsweredError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -392,7 +391,6 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             batch_strict_location_score(
                 correct_pins,
                 total_photos=len(batch_assets),
-                max_points=settings.score_max_points,
             )
             if state.setup.location_mode
             else 0
@@ -414,11 +412,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     ):
                         correct_ranks += 1
 
-                date_points = batch_strict_date_score(
-                    correct_ranks,
-                    total_photos=len(batch_assets),
-                    max_points=settings.score_max_points,
-                )
+                date_points = batch_strict_date_score(correct_ranks, total_photos=len(batch_assets))
         else:
             date_points = 0
 
@@ -429,6 +423,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 location_points,
                 date_points,
                 timed_out=payload.timed_out,
+                time_taken_seconds=payload.time_taken_seconds,
                 album_shuffle_guesses=album_shuffle_guesses,
             )
         except QuestionAlreadyAnsweredError as exc:

@@ -1,6 +1,6 @@
-# Phase 4: Frontend Online Gameplay Integration
+# Phase 8: Frontend Live Gameplay Integration (Milestone 2)
 
-> **Prerequisites**: Phases 1-3 must be complete. Room UI must be visible and RoomClient must be functional.
+> **Prerequisites**: Phases 5–7 must be complete. Room UI must be visible and RoomClient must be functional.
 
 ## Goal
 

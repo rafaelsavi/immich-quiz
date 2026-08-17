@@ -5,6 +5,8 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.scoring import SCORE_MAX_POINTS
+
 # ---------------------------------------------------------------------------
 # Enums and Shared Primitives
 # ---------------------------------------------------------------------------
@@ -26,6 +28,12 @@ class GameMode(str, Enum):
 class PeopleMode(str, Enum):
     ANY = 'ANY'
     ALL = 'ALL'
+
+
+class PlayMode(str, Enum):
+    local = 'local'
+    challenge = 'challenge'
+    room = 'room'
 
 
 class SyncStatus(str, Enum):
@@ -275,6 +283,7 @@ class AnswerRequest(BaseModel):
     guessed_month: int | None = Field(default=None, ge=1, le=12)
     album_shuffle_answers: list[AlbumShuffleAnswerItem] | None = None
     timed_out: bool = False
+    time_taken_seconds: float | None = None
 
     @model_validator(mode='after')
     def validate_month_pair(self) -> AnswerRequest:
@@ -355,7 +364,7 @@ class RoundResultResponse(BaseModel):
     batch_reveal: list[BatchRevealItem] | None = None
     results: list[PlayerRoundResult]
     match_finished: bool
-    score_max_points: int = 100
+    score_max_points: int = SCORE_MAX_POINTS
 
 
 class MatchSummaryPlayer(BaseModel):

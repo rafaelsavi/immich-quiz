@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from src import config
-from src.config import ConfigError, load_settings
+from src.config import AppSettings, ConfigError, load_settings
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +23,6 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'DATE_UPPER_BOUND',
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
         'FETCH_PHOTOS_DATE_UPPER_BOUND',
-        'SCORE_MAX_POINTS',
         'LOCATION_SCORE_DECAY_KM',
         'DATE_SCORE_DECAY_DAYS',
         'LANGUAGE',
@@ -94,7 +93,6 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.app_port == 8010
     assert settings.date_lower_bound is None
     assert settings.date_upper_bound is None
-    assert settings.score_max_points == 100
     assert settings.location_score_decay_km == 500.0
     assert settings.date_score_decay_days == 500.0
 
@@ -168,15 +166,6 @@ def test_custom_app_title(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = load_settings()
 
     assert settings.app_title == 'Quiz Night'
-
-
-def test_score_max_points_rejects_zero(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('SCORE_MAX_POINTS', '0')
-
-    with pytest.raises(ConfigError, match='SCORE_MAX_POINTS'):
-        load_settings()
 
 
 def test_location_score_decay_km_rejects_non_positive(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -336,4 +325,79 @@ def test_auto_full_sync_interval_hours_config(monkeypatch: pytest.MonkeyPatch) -
         load_settings()
 
 
+def test_app_settings_dataclass_defaults() -> None:
+    settings = AppSettings(
+        immich_server_url='https://example.test',
+        immich_libraries={'family': 'token'},
+    )
+    assert settings.immich_server_url == 'https://example.test/api'
+    assert settings.immich_libraries == {'family': 'token'}
+    assert settings.app_title == 'Immich Quiz'
+    assert settings.app_tagline == ''
+    assert settings.app_host == '127.0.0.1'
+    assert settings.app_port == 8010
+    assert settings.language == 'EN'
+    assert settings.location_score_decay_km == 500.0
+    assert settings.date_score_decay_days == 500.0
+    assert settings.date_lower_bound is None
+    assert settings.date_upper_bound is None
+    assert settings.country_whitelist == frozenset()
+    assert settings.country_blacklist == frozenset()
+    assert settings.city_whitelist == frozenset()
+    assert settings.city_blacklist == frozenset()
+    assert settings.people_whitelist == frozenset()
+    assert settings.people_blacklist == frozenset()
+    assert settings.data_path == Path('data').resolve()
+    assert settings.auto_sync_on_startup is True
+    assert settings.auto_delta_sync_interval_hours == 6
+    assert settings.auto_full_sync_interval_hours == 120
 
+
+def test_app_settings_dataclass_validations() -> None:
+    with pytest.raises(ConfigError, match='IMMICH_SERVER_URL is required'):
+        AppSettings(immich_server_url='', immich_libraries={'a': 'b'})
+
+    with pytest.raises(ConfigError, match='on or before'):
+        AppSettings(
+            immich_server_url='https://example.test',
+            immich_libraries={'a': 'b'},
+            date_lower_bound=date(2025, 1, 1),
+            date_upper_bound=date(2024, 1, 1),
+        )
+
+    with pytest.raises(ConfigError, match='COUNTRY_WHITELIST and COUNTRY_BLACKLIST cannot overlap'):
+        AppSettings(
+            immich_server_url='https://example.test',
+            immich_libraries={'a': 'b'},
+            country_whitelist=frozenset({'brazil'}),
+            country_blacklist=frozenset({'brazil'}),
+        )
+
+
+def test_empty_and_whitespace_env_vars_fallback_to_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('APP_TITLE', '   ')
+    monkeypatch.setenv('APP_TAGLINE', '')
+    monkeypatch.setenv('APP_HOST', '  ')
+    monkeypatch.setenv('APP_PORT', '')
+    monkeypatch.setenv('LOCATION_SCORE_DECAY_KM', '')
+    monkeypatch.setenv('DATE_SCORE_DECAY_DAYS', '')
+    monkeypatch.setenv('LANGUAGE', '  ')
+    monkeypatch.setenv('DATA_PATH', '')
+    monkeypatch.setenv('AUTO_SYNC_ON_STARTUP', '')
+    monkeypatch.setenv('AUTO_DELTA_SYNC_INTERVAL_HOURS', '')
+    monkeypatch.setenv('AUTO_FULL_SYNC_INTERVAL_HOURS', '')
+
+    settings = load_settings()
+    assert settings.app_title == 'Immich Quiz'
+    assert settings.app_tagline == ''
+    assert settings.app_host == '127.0.0.1'
+    assert settings.app_port == 8010
+    assert settings.language == 'EN'
+    assert settings.location_score_decay_km == 500.0
+    assert settings.date_score_decay_days == 500.0
+    assert settings.data_path == Path('data').resolve()
+    assert settings.auto_sync_on_startup is True
+    assert settings.auto_delta_sync_interval_hours == 6
+    assert settings.auto_full_sync_interval_hours == 120

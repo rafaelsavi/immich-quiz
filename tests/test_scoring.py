@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from src.scoring import (
+    SCORE_MAX_POINTS,
     accuracy_pct,
     batch_strict_date_score,
     batch_strict_location_score,
@@ -16,6 +17,10 @@ from src.scoring import (
 )
 
 
+def test_score_max_points_constant() -> None:
+    assert SCORE_MAX_POINTS == 100
+
+
 def test_haversine_zero_distance() -> None:
     assert haversine_km(0.0, 0.0, 0.0, 0.0) == 0.0
 
@@ -25,6 +30,7 @@ def test_haversine_one_degree_of_longitude_at_equator() -> None:
 
 
 def test_location_score_formula() -> None:
+    assert location_score(0.0, decay_km=500.0) == 100
     assert location_score(0.0, decay_km=500.0, max_points=100) == 100
     assert location_score(0.05, decay_km=500.0, max_points=100) == 100
     assert location_score(1.0, decay_km=500.0, max_points=100) == 100
@@ -38,6 +44,7 @@ def test_location_score_supports_custom_parameters() -> None:
 
 
 def test_date_score_formula() -> None:
+    assert date_score(0, decay_days=500.0) == 100
     assert date_score(0, decay_days=500.0, max_points=100) == 100
     assert date_score(500, decay_days=500.0, max_points=100) == 37
     assert date_score(4500, decay_days=500.0, max_points=100) == 0
@@ -85,6 +92,7 @@ def test_date_diff_parts_breakdown() -> None:
 
 
 def test_max_possible_score_respects_enabled_modes() -> None:
+    assert max_possible_score(10, True, True) == 2000
     assert max_possible_score(10, True, True, per_goal_max_points=100) == 2000
     assert max_possible_score(10, True, False, per_goal_max_points=100) == 1000
     assert max_possible_score(10, False, False, per_goal_max_points=100) == 0
@@ -105,12 +113,14 @@ def test_accuracy_uses_half_up_rounding() -> None:
 
 
 def test_batch_strict_location_score() -> None:
+    assert batch_strict_location_score(5, 5) == 100
     assert batch_strict_location_score(5, 5, max_points=100) == 100
     assert batch_strict_location_score(0, 5, max_points=100) == 0
     assert batch_strict_location_score(3, 5, max_points=100) == 60
 
 
 def test_batch_strict_date_score() -> None:
+    assert batch_strict_date_score(3, 3) == 100
     assert batch_strict_date_score(3, 3, max_points=100) == 100
     assert batch_strict_date_score(0, 3, max_points=100) == 0
     assert batch_strict_date_score(1, 3, max_points=100) == 33

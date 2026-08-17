@@ -24,6 +24,7 @@ from src.models import (
     RoundResultResponse,
     SyncStateResponse,
 )
+from src.scoring import SCORE_MAX_POINTS
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import MetadataStore
 from src.storage.session import SessionStore
@@ -88,7 +89,7 @@ async def ui_config(request: Request) -> dict[str, object]:
     settings = request.app.state.settings
     return {
         'language': settings.language,
-        'score_max_points': settings.score_max_points,
+        'score_max_points': SCORE_MAX_POINTS,
         'version': APP_VERSION,
     }
 

@@ -51,10 +51,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         metadata_store,
         on_sync_complete=invalidate_filters_cache,
     )
-    leaderboard_store = LeaderboardStore(
-        leaderboard_db_manager,
-        score_max_points=settings.score_max_points,
-    )
+    leaderboard_store = LeaderboardStore(leaderboard_db_manager)
     session_store = SessionStore()
     game_service = GameService(
         session_store=session_store,
@@ -98,10 +95,11 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         periodic_tasks.append(asyncio.create_task(_periodic_cleanup()))
 
         if settings.auto_delta_sync_interval_hours > 0 or settings.auto_full_sync_interval_hours > 0:
+
             async def _periodic_sync_scheduler() -> None:
                 while True:
                     await asyncio.sleep(60)
-                    for lib_name in (app.state.available_libraries or []):
+                    for lib_name in app.state.available_libraries or []:
                         sync_engine.check_and_trigger_scheduled_sync(
                             lib_name,
                             delta_interval_hours=settings.auto_delta_sync_interval_hours,

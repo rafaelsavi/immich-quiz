@@ -315,6 +315,7 @@ Pinpoint Request:
   "guessed_longitude": 2.2945,
   "guessed_year": 2023,
   "guessed_month": 7,
+  "time_taken_seconds": 12.4,
   "timed_out": false
 }
 ```
@@ -330,6 +331,7 @@ Album Shuffle Request:
     { "photo_id": "asset-uuid-102", "assigned_pin_id": "A", "assigned_timeline_index": 1 },
     { "photo_id": "asset-uuid-103", "assigned_pin_id": "C", "assigned_timeline_index": 2 }
   ],
+  "time_taken_seconds": 18.6,
   "timed_out": false
 }
 ```

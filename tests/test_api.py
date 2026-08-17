@@ -222,7 +222,6 @@ def test_custom_scoring_env_parameters_affect_round_and_summary(tmp_path: Path) 
     client = build_client(
         tmp_path,
         immich,
-        score_max_points=80,
         location_score_decay_km=500.0,
         date_score_decay_days=300.0,
     )
@@ -244,12 +243,12 @@ def test_custom_scoring_env_parameters_affect_round_and_summary(tmp_path: Path) 
     result = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1})
     assert result.status_code == 200
     entry = result.json()['results'][0]
-    assert entry['location_score'] == 80
-    assert entry['date_score'] == 80
-    assert entry['round_score'] == 160
+    assert entry['location_score'] == 100
+    assert entry['date_score'] == 100
+    assert entry['round_score'] == 200
 
     summary = client.get(f'/api/match/{match_id}/summary').json()
-    assert summary['players'][0]['max_possible_score'] == 800
+    assert summary['players'][0]['max_possible_score'] == 1000
 
 
 def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
@@ -1113,3 +1112,61 @@ def test_question_endpoint_records_times_played(tmp_path: Path) -> None:
     row_after = meta_store._db.fetch_one("SELECT times_played, last_played_at FROM assets WHERE id = 'q-test-1'")
     assert row_after['times_played'] == 1
     assert row_after['last_played_at'] is not None
+
+
+def test_finished_match_persists_four_table_relational_schema(tmp_path: Path) -> None:
+    immich = FakeImmichClient(
+        [
+            make_asset(f'asset-{i}', latitude=48.0 + i, longitude=2.0 + i, captured=f'2023-0{i}-15T12:00:00Z')
+            for i in range(1, 6)
+        ]
+    )
+    client = build_client(tmp_path, immich)
+    match_id = start_match(client, players=['Alice', 'Bob'], round_count=5)
+
+    # 5 rounds * 2 players = 10 turns
+    for r_idx in range(5):
+        for p_name in ['Alice', 'Bob']:
+            q = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+            assert q['player_name'] == p_name
+            ans = client.post(
+                '/api/answer',
+                json={
+                    'match_id': match_id,
+                    'question_id': q['question_id'],
+                    'guessed_latitude': 48.0 + r_idx,
+                    'guessed_longitude': 2.0 + r_idx,
+                    'guessed_year': 2023,
+                    'guessed_month': r_idx + 1,
+                    'time_taken_seconds': 10.0,
+                },
+            )
+            assert ans.status_code == 200
+            if r_idx == 4 and p_name == 'Bob':
+                assert ans.json()['match_finished'] is True
+
+    # Check SQLite database persistence
+    db = client.app.state.leaderboard_store._db
+    matches = db.fetch_all('SELECT * FROM matches WHERE match_id = ?', (match_id,))
+    assert len(matches) == 1
+    assert matches[0]['play_mode'] == 'local'
+    assert matches[0]['rounds'] == 5
+
+    entries = db.fetch_all('SELECT * FROM match_entries WHERE match_id = ? ORDER BY player_name', (match_id,))
+    assert len(entries) == 2
+    assert entries[0]['player_name'] == 'Alice'
+    assert entries[0]['total_time_seconds'] == 50.0  # 5 * 10.0
+    assert entries[1]['player_name'] == 'Bob'
+    assert entries[1]['total_time_seconds'] == 50.0
+
+    guesses = db.fetch_all(
+        'SELECT * FROM match_round_guesses WHERE match_id = ? ORDER BY round_index, player_name',
+        (match_id,),
+    )
+    assert len(guesses) == 10  # 5 rounds * 2 players
+    assert guesses[0]['player_name'] == 'Alice'
+    assert guesses[0]['round_index'] == 0
+    assert guesses[0]['photo_index'] == 0
+    assert guesses[0]['time_taken_seconds'] == 10.0
+    assert guesses[0]['location_points'] is not None
+    assert guesses[0]['date_points'] is not None

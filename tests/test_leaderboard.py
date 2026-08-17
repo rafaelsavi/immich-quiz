@@ -1,7 +1,7 @@
 from datetime import date
 from pathlib import Path
 
-from src.models import GameMode, PeopleMode, RoundLength
+from src.models import GameMode, PeopleMode, PlayMode, RoundLength
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore, format_filter_summary
 
@@ -14,8 +14,10 @@ def test_leaderboard_schema_initialization(tmp_path: Path) -> None:
     db = DatabaseManager(db_path)
     tables = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
     table_names = [t['name'] for t in tables]
-    assert 'leaderboard_matches' in table_names
-    assert 'leaderboard_entries' in table_names
+    assert 'challenges' in table_names
+    assert 'matches' in table_names
+    assert 'match_entries' in table_names
+    assert 'match_round_guesses' in table_names
 
 
 def test_format_filter_summary() -> None:
@@ -42,7 +44,29 @@ def test_format_filter_summary() -> None:
 
 def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     db_path = tmp_path / 'leaderboard.db'
-    store = LeaderboardStore(db_path, score_max_points=100)
+    store = LeaderboardStore(db_path)
+
+    round_guesses = [
+        {
+            'match_id': 'm1',
+            'player_name': 'Alice',
+            'round_index': 0,
+            'photo_index': 0,
+            'asset_id': 'a1',
+            'guess_latitude': 35.68,
+            'guess_longitude': 139.69,
+            'actual_latitude': 35.689,
+            'actual_longitude': 139.691,
+            'distance_km': 1.2,
+            'location_points': 90,
+            'guess_date': '2023-01-01',
+            'actual_date': '2023-01-15',
+            'date_diff_days': 14,
+            'date_points': 85,
+            'round_score': 175,
+            'time_taken_seconds': 12.5,
+        }
+    ]
 
     store.append_match(
         match_id='m1',
@@ -61,7 +85,10 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
         cities=['Tokyo'],
         min_date=date(2023, 1, 1),
         max_date=date(2023, 12, 31),
-        awards={'Alice': ['sniper', 'time_traveler']},
+        play_mode=PlayMode.local,
+        duration_seconds=45.0,
+        player_times={'Alice': 12.5},
+        round_guesses=round_guesses,
     )
 
     entries = store.list_entries()
@@ -77,29 +104,27 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     assert entry.accuracy_pct == 85.0
     assert entry.rank == 1
     assert entry.is_winner is True
-    assert entry.awards == ['sniper', 'time_traveler']
     assert entry.is_custom_filtered is True
     assert 'Japan' in entry.filter_summary
     assert 'Tokyo' in entry.filter_summary
 
-    # Check config dict
-    assert entry.config['rounds'] == 5
-    assert entry.config['round_length'] == '1m'
-    assert entry.config['location_mode'] is True
-    assert entry.config['date_mode'] is True
-    assert entry.config['game_mode'] == 'pinpoint'
-    assert entry.config['library'] == 'family'
-    assert entry.config['person_ids'] == ['p1', 'p2']
-    assert entry.config['people_mode'] == 'ALL'
-    assert entry.config['countries'] == ['Japan']
-    assert entry.config['cities'] == ['Tokyo']
-    assert entry.config['min_date'] == '2023-01-01'
-    assert entry.config['max_date'] == '2023-12-31'
+    # Check direct db rows in matches and match_round_guesses
+    db = DatabaseManager(db_path)
+    match_row = db.fetch_one('SELECT * FROM matches WHERE match_id = ?', ('m1',))
+    assert match_row is not None
+    assert match_row['duration_seconds'] == 45.0
+    assert match_row['play_mode'] == 'local'
+
+    guesses = db.fetch_all('SELECT * FROM match_round_guesses WHERE match_id = ?', ('m1',))
+    assert len(guesses) == 1
+    assert guesses[0]['asset_id'] == 'a1'
+    assert guesses[0]['photo_index'] == 0
+    assert guesses[0]['time_taken_seconds'] == 12.5
 
 
 def test_leaderboard_multiplayer_ranking_and_winner(tmp_path: Path) -> None:
     db_path = tmp_path / 'leaderboard.db'
-    store = LeaderboardStore(db_path, score_max_points=100)
+    store = LeaderboardStore(db_path)
 
     store.append_match(
         match_id='m-multi',
@@ -197,3 +222,75 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
     custom_entries = store.list_entries(is_custom_filtered=True)
     assert len(custom_entries) == 1
     assert custom_entries[0].match_id == 'm2'
+
+
+def test_leaderboard_album_shuffle_round_guesses(tmp_path: Path) -> None:
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1 round with 3 batch photos
+    round_guesses = [
+        {
+            'match_id': 'm-shuffle',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 0,
+            'asset_id': 'photo-1',
+            'guess_latitude': 48.85,
+            'guess_longitude': 2.29,
+            'actual_latitude': 48.858,
+            'actual_longitude': 2.294,
+            'round_score': 100,
+            'time_taken_seconds': 18.0,
+        },
+        {
+            'match_id': 'm-shuffle',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 1,
+            'asset_id': 'photo-2',
+            'guess_latitude': 35.68,
+            'guess_longitude': 139.69,
+            'actual_latitude': 35.689,
+            'actual_longitude': 139.691,
+            'round_score': 0,
+            'time_taken_seconds': 18.0,
+        },
+        {
+            'match_id': 'm-shuffle',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 2,
+            'asset_id': 'photo-3',
+            'guess_latitude': 40.71,
+            'guess_longitude': -74.00,
+            'actual_latitude': 40.712,
+            'actual_longitude': -74.006,
+            'round_score': 0,
+            'time_taken_seconds': 18.0,
+        },
+    ]
+
+    store.append_match(
+        match_id='m-shuffle',
+        library_name='vacation',
+        album_name='Trip 2024',
+        rounds_played=1,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=False,
+        game_mode=GameMode.album_shuffle,
+        player_scores={'Bob': {'location': 100, 'total': 100}},
+        player_times={'Bob': 18.0},
+        duration_seconds=20.0,
+        round_guesses=round_guesses,
+    )
+
+    db = DatabaseManager(db_path)
+    guesses = db.fetch_all(
+        'SELECT * FROM match_round_guesses WHERE match_id = ? ORDER BY photo_index',
+        ('m-shuffle',),
+    )
+    assert len(guesses) == 3
+    assert [g['photo_index'] for g in guesses] == [0, 1, 2]
+    assert [g['asset_id'] for g in guesses] == ['photo-1', 'photo-2', 'photo-3']

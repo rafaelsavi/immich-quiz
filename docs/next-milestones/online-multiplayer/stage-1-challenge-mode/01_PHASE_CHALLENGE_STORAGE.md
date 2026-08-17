@@ -1,115 +1,98 @@
 # Phase 1: Challenge Storage & Data Models
 
-> **Prerequisites**: Read `00_OVERVIEW.md` first.
+> **Prerequisites**: Ensure the completed Day-1 4-table schema is in place. Read [`00_OVERVIEW.md`](../00_OVERVIEW.md) first.
 
 ## Goal
 
-1. Implement the clean 4-table SQLite schema in `src/storage/leaderboard.py` (or `src/storage/challenge.py`).
-2. Add `ChallengeStore` for creating, querying, and managing challenge seeds and player attempt records.
+1. Implement `ChallengeStore` in `src/storage/challenge.py` for creating, querying, and managing challenge seeds and player session tokens.
+2. Extend `LeaderboardStore` in `src/storage/leaderboard.py` to query challenge standings, participant counts, and per-round guesses under Fog of War.
 3. Add challenge-related Pydantic models to `src/models.py`.
 
 ---
 
 ## 1. Schema DDL (Clean Day-1 Architecture)
 
-Update `LEADERBOARD_SCHEMA_SQL` in `src/storage/leaderboard.py` with the unified 4-table DDL:
+The unified 4-table DDL is established in `src/storage/leaderboard.py`:
 
 ```sql
 -- 1. Challenges (Match Seeds for Async & Live Multiplayer)
 CREATE TABLE IF NOT EXISTS challenges (
-    challenge_id TEXT PRIMARY KEY,
-    capability_token TEXT UNIQUE NOT NULL,
-    creator_name TEXT NOT NULL,
-    library_name TEXT NOT NULL,
-    config_json TEXT NOT NULL,
-    asset_ids_json TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    expires_at TEXT,                          -- ISO8601 UTC or NULL for Never
-    is_active INTEGER NOT NULL DEFAULT 1
+    challenge_id       TEXT PRIMARY KEY,
+    capability_token   TEXT UNIQUE NOT NULL,
+    creator_name       TEXT NOT NULL,
+    library_name       TEXT NOT NULL,
+    config_json        TEXT NOT NULL,
+    asset_ids_json     TEXT NOT NULL,
+    created_at         TEXT NOT NULL,
+    expires_at         TEXT,                          -- ISO8601 UTC or NULL for Never
+    is_active          INTEGER NOT NULL DEFAULT 1
 );
 
 -- 2. Matches (Every finished local, challenge, or room game)
 CREATE TABLE IF NOT EXISTS matches (
-    match_id TEXT PRIMARY KEY,
-    challenge_id TEXT,
-    play_mode TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
-    played_at TEXT NOT NULL,
-    library_name TEXT NOT NULL,
-    game_mode TEXT NOT NULL,
-    rounds INTEGER NOT NULL,
-    round_length TEXT NOT NULL,
-    location_mode INTEGER NOT NULL,
-    date_mode INTEGER NOT NULL,
-    album_name TEXT,
-    album_ids_json TEXT,
-    person_ids_json TEXT,
-    people_mode TEXT DEFAULT 'ANY',
-    countries_json TEXT,
-    cities_json TEXT,
-    min_date TEXT,
-    max_date TEXT,
+    match_id           TEXT PRIMARY KEY,
+    challenge_id       TEXT,
+    play_mode          TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
+    played_at          TEXT NOT NULL,
+    library_name       TEXT NOT NULL,
+    game_mode          TEXT NOT NULL,
+    rounds             INTEGER NOT NULL,
+    round_length       TEXT NOT NULL,
+    location_mode      INTEGER NOT NULL,
+    date_mode          INTEGER NOT NULL,
+    album_name         TEXT,
+    album_ids_json     TEXT,
+    person_ids_json    TEXT,
+    people_mode        TEXT DEFAULT 'ANY',
+    countries_json     TEXT,
+    cities_json        TEXT,
+    min_date           TEXT,
+    max_date           TEXT,
     is_custom_filtered INTEGER NOT NULL DEFAULT 0,
-    filter_summary TEXT,
-    duration_seconds REAL,
+    filter_summary     TEXT,
+    duration_seconds   REAL,
     FOREIGN KEY(challenge_id) REFERENCES challenges(challenge_id) ON DELETE SET NULL
 );
 
--- 3. Match Entries (Player totals, ranks, and awards)
+-- 3. Match Entries (Player totals, ranks, and response times)
 CREATE TABLE IF NOT EXISTS match_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    match_id TEXT NOT NULL,
-    player_name TEXT NOT NULL,
-    location_score INTEGER,
-    date_score INTEGER,
-    total_score INTEGER NOT NULL,
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id           TEXT NOT NULL,
+    player_name        TEXT NOT NULL,
+    location_score     INTEGER,
+    date_score         INTEGER,
+    total_score        INTEGER NOT NULL,
     max_possible_score INTEGER NOT NULL,
-    accuracy_pct REAL NOT NULL,
-    rank INTEGER NOT NULL DEFAULT 1,
-    is_winner INTEGER NOT NULL DEFAULT 0,
-    total_time_seconds REAL,                  -- Sum of active question response times
-    awards_json TEXT,
+    accuracy_pct       REAL NOT NULL,
+    rank               INTEGER NOT NULL DEFAULT 1,
+    is_winner          INTEGER NOT NULL DEFAULT 0,
+    total_time_seconds REAL,                          -- Sum of active question response times
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
 
--- 4. Match Round Guesses (Per-round coordinates, dates, and times)
+-- 4. Match Round Guesses (Per-photo coordinates, dates, and times)
 CREATE TABLE IF NOT EXISTS match_round_guesses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    match_id TEXT NOT NULL,
-    player_name TEXT NOT NULL,
-    round_index INTEGER NOT NULL,             -- 0-indexed
-    asset_id TEXT NOT NULL,
-    guess_latitude REAL,
-    guess_longitude REAL,
-    actual_latitude REAL,
-    actual_longitude REAL,
-    distance_km REAL,
-    location_points INTEGER,
-    guess_date TEXT,                          -- YYYY-MM-DD
-    actual_date TEXT,                         -- YYYY-MM-DD
-    date_diff_days INTEGER,
-    date_points INTEGER,
-    round_score INTEGER NOT NULL,
-    time_taken_seconds REAL,                  -- Active seconds on question screen
-    submitted_at TEXT NOT NULL,
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id           TEXT NOT NULL,
+    player_name        TEXT NOT NULL,
+    round_index        INTEGER NOT NULL,              -- 0-indexed
+    photo_index        INTEGER NOT NULL DEFAULT 0,    -- 0-indexed (0 for pinpoint; 0, 1, 2 for album shuffle)
+    asset_id           TEXT NOT NULL,
+    guess_latitude     REAL,
+    guess_longitude    REAL,
+    actual_latitude    REAL,
+    actual_longitude   REAL,
+    distance_km        REAL,
+    location_points    INTEGER,
+    guess_date         TEXT,                          -- YYYY-MM-DD
+    actual_date        TEXT,                          -- YYYY-MM-DD
+    date_diff_days     INTEGER,
+    date_points        INTEGER,
+    round_score        INTEGER NOT NULL,
+    time_taken_seconds REAL,                          -- Active seconds on question screen
+    submitted_at       TEXT NOT NULL,
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
-
--- Optimized Indexes
-CREATE INDEX IF NOT EXISTS idx_matches_played_at ON matches(played_at DESC);
-CREATE INDEX IF NOT EXISTS idx_matches_library ON matches(library_name);
-CREATE INDEX IF NOT EXISTS idx_matches_challenge ON matches(challenge_id);
-CREATE INDEX IF NOT EXISTS idx_matches_play_mode ON matches(play_mode);
-
-CREATE INDEX IF NOT EXISTS idx_entries_match ON match_entries(match_id);
-CREATE INDEX IF NOT EXISTS idx_entries_player ON match_entries(player_name);
-CREATE INDEX IF NOT EXISTS idx_entries_ranking ON match_entries(accuracy_pct DESC, total_score DESC);
-
-CREATE INDEX IF NOT EXISTS idx_guesses_match_round ON match_round_guesses(match_id, round_index);
-CREATE INDEX IF NOT EXISTS idx_guesses_player ON match_round_guesses(player_name);
-CREATE INDEX IF NOT EXISTS idx_guesses_asset ON match_round_guesses(asset_id);
-
-CREATE INDEX IF NOT EXISTS idx_challenges_token ON challenges(capability_token);
-CREATE INDEX IF NOT EXISTS idx_challenges_expires ON challenges(expires_at);
 ```
 
 ---
@@ -136,6 +119,8 @@ logger = logging.getLogger(__name__)
 class ChallengeStore:
     def __init__(self, db: DatabaseManager) -> None:
         self._db = db
+        # In-memory session token mapping: session_token -> session_dict
+        self._sessions: dict[str, dict[str, Any]] = {}
 
     def create_challenge(
         self,
@@ -145,7 +130,7 @@ class ChallengeStore:
         asset_ids: list[str],
         expires_in_hours: int | None = 24,
     ) -> dict[str, Any]:
-        challenge_id = f"ch_{uuid4().hex[:12]}"
+        challenge_id = f'ch_{uuid4().hex[:12]}'
         capability_token = secrets.token_urlsafe(16)
         created_at = datetime.now(timezone.utc)
         expires_at = (created_at + timedelta(hours=expires_in_hours)).isoformat() if expires_in_hours else None
@@ -171,45 +156,72 @@ class ChallengeStore:
             )
 
         return {
-            "challenge_id": challenge_id,
-            "capability_token": capability_token,
-            "creator_name": creator_name,
-            "library_name": library_name,
-            "config": config,
-            "asset_ids": asset_ids,
-            "created_at": created_at.isoformat(),
-            "expires_at": expires_at,
-            "is_active": True,
+            'challenge_id': challenge_id,
+            'capability_token': capability_token,
+            'creator_name': creator_name,
+            'library_name': library_name,
+            'config': config,
+            'asset_ids': asset_ids,
+            'created_at': created_at.isoformat(),
+            'expires_at': expires_at,
+            'is_active': True,
         }
 
     def get_challenge_by_token(self, capability_token: str) -> dict[str, Any] | None:
         row = self._db.fetch_one(
-            "SELECT * FROM challenges WHERE capability_token = ?",
+            'SELECT * FROM challenges WHERE capability_token = ?',
             (capability_token,),
         )
         if not row:
             return None
 
         # Check expiration
-        if row["expires_at"]:
-            exp = datetime.fromisoformat(row["expires_at"])
+        if row['expires_at']:
+            exp = datetime.fromisoformat(row['expires_at'])
             if datetime.now(timezone.utc) > exp:
                 return None  # Expired
 
-        if not row["is_active"]:
+        if not row['is_active']:
             return None
 
         return {
-            "challenge_id": row["challenge_id"],
-            "capability_token": row["capability_token"],
-            "creator_name": row["creator_name"],
-            "library_name": row["library_name"],
-            "config": json.loads(row["config_json"]),
-            "asset_ids": json.loads(row["asset_ids_json"]),
-            "created_at": row["created_at"],
-            "expires_at": row["expires_at"],
-            "is_active": bool(row["is_active"]),
+            'challenge_id': row['challenge_id'],
+            'capability_token': row['capability_token'],
+            'creator_name': row['creator_name'],
+            'library_name': row['library_name'],
+            'config': json.loads(row['config_json']),
+            'asset_ids': json.loads(row['asset_ids_json']),
+            'created_at': row['created_at'],
+            'expires_at': row['expires_at'],
+            'is_active': bool(row['is_active']),
         }
+
+    def create_player_session(
+        self,
+        challenge_id: str,
+        capability_token: str,
+        player_name: str,
+    ) -> dict[str, Any]:
+        """Create an active attempt session token for a player."""
+        session_token = secrets.token_urlsafe(24)
+        match_id = f'ch_match_{uuid4().hex[:12]}'
+        session_data = {
+            'session_token': session_token,
+            'match_id': match_id,
+            'challenge_id': challenge_id,
+            'capability_token': capability_token,
+            'player_name': player_name,
+            'current_round': 0,
+            'started_at': datetime.now(timezone.utc).isoformat(),
+            'completed_rounds': 0,
+            'total_score': 0,
+            'total_time_seconds': 0.0,
+        }
+        self._sessions[session_token] = session_data
+        return session_data
+
+    def get_player_session(self, session_token: str) -> dict[str, Any] | None:
+        return self._sessions.get(session_token)
 
     def is_asset_in_active_challenge(self, asset_id: str) -> bool:
         """Verify if an asset is registered to any currently active challenge (for /media proxying)."""
@@ -222,7 +234,7 @@ class ChallengeStore:
             (now_iso,),
         )
         for row in rows:
-            asset_ids = json.loads(row["asset_ids_json"])
+            asset_ids = json.loads(row['asset_ids_json'])
             if asset_id in asset_ids:
                 return True
         return False
@@ -230,7 +242,7 @@ class ChallengeStore:
 
 ---
 
-## 3. Pydantic Models to Append to `src/models.py`
+## 3. Pydantic Models in `src/models.py`
 
 ```python
 # --- Challenge & Async Multiplayer Models ---
@@ -286,6 +298,24 @@ class ChallengeStartResponse(BaseModel):
     player_name: str
     total_rounds: int
     current_round: int
+
+
+class ChallengeQuestionResponse(BaseModel):
+    round_index: int
+    total_rounds: int
+    asset_id: str
+    game_mode: str
+    location_mode: bool
+    date_mode: bool
+    round_length: str
+
+
+class ChallengeAnswerRequest(BaseModel):
+    round_index: int
+    guess_latitude: float | None = None
+    guess_longitude: float | None = None
+    guess_date: str | None = None
+    time_taken_seconds: float = Field(ge=0.0)
 
 
 class ChallengeRoundGuessData(BaseModel):

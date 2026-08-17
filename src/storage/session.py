@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -44,6 +44,8 @@ class QuestionState:
     date_diff_days: int | None = None
     date_diff_months: int | None = None
     timed_out: bool = False
+    time_taken_seconds: float | None = None
+    submitted_at: str | None = None
     batch_assets: list[RoundAsset] | None = None
     batch_pins: list[dict[str, Any]] | None = None
     album_shuffle_guesses: list[dict[str, Any]] | None = None
@@ -195,6 +197,7 @@ class SessionStore:
         diff_days: int | None = None,
         diff_months: int | None = None,
         timed_out: bool = False,
+        time_taken_seconds: float | None = None,
         album_shuffle_guesses: list[dict[str, Any]] | None = None,
     ) -> MatchState:
         state = self.get_match(match_id)
@@ -215,6 +218,8 @@ class SessionStore:
         question.date_diff_days = diff_days
         question.date_diff_months = diff_months
         question.timed_out = timed_out
+        question.time_taken_seconds = time_taken_seconds
+        question.submitted_at = datetime.now(timezone.utc).isoformat()
         question.album_shuffle_guesses = album_shuffle_guesses
 
         if state.active_question_id == question_id:

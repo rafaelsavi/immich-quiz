@@ -5,7 +5,7 @@
 - Backend: FastAPI with async endpoints, served by Uvicorn.
 - Frontend: static HTML/CSS/JS with Leaflet (no build step).
 - Session persistence: in-memory for active games.
-- Historical persistence: SQLite databases (`data/metadata.db` for metadata cache, `data/leaderboard.db` for player match history).
+- Historical persistence: SQLite databases (`data/metadata.db` for metadata cache, `data/leaderboard.db` for the 4-table relational match & leaderboard schema: `challenges`, `matches`, `match_entries`, `match_round_guesses`).
 - Metadata synchronization: Background asynchronous full & delta indexing from Immich (see [`docs/SYNC.md`](SYNC.md) for full architecture).
 
 ---
@@ -21,7 +21,8 @@ immich-quiz/
 │   │                    schedules periodic background delta sync tasks.
 │   ├── config.py        AppSettings dataclass. Parses and validates all env
 │   │                    vars at startup; raises ConfigError on bad input.
-│   ├── models.py        Pydantic request/response models for all endpoints.
+│   ├── models.py        Pydantic request/response models and enums (PlayMode, GameMode,
+│   │                    PeopleMode, RoundLength, SyncStatus, etc.) for all endpoints.
 │   ├── scoring.py       Pure scoring functions: haversine_km, location_score,
 │   │                    date_diff_days, date_score, batch_strict_location_score,
 │   │                    batch_strict_date_score, accuracy_pct.
@@ -31,7 +32,7 @@ immich-quiz/
 │   │   ├── selector.py  Candidate asset selection, spatial (≥100m) & temporal (≥60s)
 │   │   │                diversity filters, and least-played prioritization.
 │   │   └── service.py   GameService managing match state, question drawing,
-│   │                    preflight checks, and answer scoring.
+│   │                    preflight checks, answer scoring, and match finish persistence.
 │   ├── api/
 │   │   └── routes.py    All API endpoints. Depends on SessionStore,
 │   │                    ImmichClient, MetadataStore, and LeaderboardStore via FastAPI DI.
@@ -44,8 +45,10 @@ immich-quiz/
 │       ├── metadata.py  MetadataStore with indexed relational schema, query parity
 │       │                builder, filter options extraction, and asset pruning/invalidation.
 │       ├── sync.py      SyncEngine for full and incremental delta metadata indexing.
-│       ├── session.py   In-memory state. SessionStore holds MatchState objects.
-│       └── leaderboard.py LeaderboardStore appends and reads rows from SQLite.
+│       ├── session.py   In-memory state. SessionStore holds MatchState objects and tracks
+│       │                active response times per turn.
+│       └── leaderboard.py LeaderboardStore managing the 4-table relational match & challenge
+│                        schema (`challenges`, `matches`, `match_entries`, `match_round_guesses`).
 └── static/              Vanilla HTML/CSS/JS frontend.
     ├── index.html       Main quiz application HTML.
     ├── audio-playground.html Interactive Web Audio testing playground page.
@@ -54,13 +57,20 @@ immich-quiz/
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
     │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css, multi_select.css, range_slider.css, filters.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
-    ├── js/app.js        Main application controller & UI router.
+    ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
     └── js/modules/      Modular ES modules:
         ├── components/  Reusable UI components:
         │   ├── multi_select.js Searchable tag-based multi-select with select-all/clear.
-        │   └── range_slider.js Dual-handle Year-Month range slider.
+        │   ├── range_slider.js Dual-handle Year-Month range slider.
+        │   └── player_input.js Interactive player chip input with duplicate detection & colors.
         ├── modes/       Game mode UI controllers (pinpoint.js, album_shuffle.js, common.js).
+        ├── summary/     Post-game summary rendering submodules:
+        │   ├── podium.js    3D podium and winner banner.
+        │   ├── awards.js    Client-side performance awards (Sniper, Time Traveler, Speed Demon).
+        │   ├── table.js     Scores, rankings, and metadata table.
+        │   ├── polaroids.js Memory cards photo gallery and lightbox triggers.
+        │   └── share.js     Web Share API and clipboard copy toast.
         ├── api.js       API HTTP request client.
         ├── audio.js     Zero-dependency Web Audio sound synthesizer engine.
         ├── effects.js   Canvas confetti, animations, and visual transitions.
@@ -68,7 +78,11 @@ immich-quiz/
         ├── i18n.js      Multi-language translation engine (EN/PT) with live switcher.
         ├── leaderboard.js Leaderboard UI rendering and filtering.
         ├── maps.js      Leaflet map wrapper, marker placement, and auto-zoom.
-        └── state.js     Centralized reactive application state store.
+        ├── setup_filters.js Setup filter controls, dependent cities, persistence, and live preflight.
+        ├── shortcuts.js Global keyboard navigation (<kbd>Space</kbd> / <kbd>Enter</kbd>).
+        ├── state.js     Centralized reactive application state store.
+        ├── sync.js      Library metadata sync trigger, polling, and status badges.
+        └── timer.js     Countdown timer, warning pulses, audio ticks, and timeout dispatch.
 ```
 
 ---
@@ -121,8 +135,10 @@ GET /api/media/{asset_id}
 POST /api/answer
   └── routes.py looks up QuestionState
   └── Dispatches to active GameMode evaluate_and_apply_answer method
-  └── Stores guess + scores in QuestionState
-  └── If match is completed, writes full match entry and awards to SQLite leaderboard
+  └── Stores guess, scores, active response time (time_taken_seconds), and timestamp in QuestionState
+  └── If match is completed, aggregates total match duration, player active response times,
+      assembles per-photo round guesses, and writes full match records to SQLite leaderboard
+      (matches, match_entries, match_round_guesses)
   └── Returns acknowledgement only (no answer data)
 
 POST /api/round/result
@@ -141,7 +157,7 @@ Game modes implement the `BaseGameModeEngine` abstract interface in `src/game/mo
 - `evaluate_and_apply_answer(...)`: Evaluates player guesses using mode-specific scoring algorithms and records round scores in session state.
 - `format_round_reveal(...)`: Formats round reveal data (actual locations, capture dates, distance/date errors, and player score breakdowns).
 
-Performance awards (**Sniper**, **Time Traveler**, **Speed Demon**) are evaluated dynamically on match completion and persisted into SQLite (`leaderboard.db`).
+Performance awards (**Sniper**, **Time Traveler**, **Speed Demon**) are dynamically computed and rendered on the client side (`static/js/modules/summary/awards.js`), while raw physical metrics (`distance_km`, `date_diff_days`, `time_taken_seconds`) are persisted in SQLite (`leaderboard.db`).
 
 New game modes can be added by implementing `BaseGameModeEngine` and registering them with `default_game_mode_registry.register(GameMode.name, EngineInstance)`.
 

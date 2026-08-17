@@ -469,9 +469,7 @@ class SyncEngine:
                 synced_count = len(seen_asset_ids)
                 if not is_delta:
                     total_target = (
-                        total_reported
-                        if (total_reported is not None and total_reported >= synced_count)
-                        else 0
+                        total_reported if (total_reported is not None and total_reported >= synced_count) else 0
                     )
                     self._metadata_store.set_sync_state(
                         library_name,

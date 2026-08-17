@@ -1,6 +1,6 @@
-# Phase 1: Backend Room Infrastructure
+# Phase 5: Backend Room Infrastructure (Stage 2)
 
-> **Prerequisites**: Read `00_OVERVIEW.md` first. Do NOT modify any existing files in this phase.
+> **Prerequisites**: Stage 1 (Phases 1–4) must be complete. Read [`00_OVERVIEW.md`](../00_OVERVIEW.md) first.
 
 ## Goal
 

@@ -1,6 +1,6 @@
-# Phase 3: Frontend Room UI
+# Phase 7: Frontend Room UI (Milestone 2)
 
-> **Prerequisites**: Phases 1-2 must be complete. Backend room endpoints must be working.
+> **Prerequisites**: Phases 5–6 must be complete. Backend room endpoints must be working.
 
 ## Goal
 

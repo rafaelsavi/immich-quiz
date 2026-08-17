@@ -10,32 +10,50 @@ import {
 } from "./modules/i18n.js";
 import {
   playSubmitTone,
-  playTick,
-  playBuzzer,
-  playChime,
   playVictoryFanfare,
-  playScoreRollupTick,
   toggleAudio,
   updateAudioUi,
 } from "./modules/audio.js";
 import { api } from "./modules/api.js";
-import { formatPlace, formatMonth, buildCell, playerNameCell, renderRoundMeta } from "./modules/formatters.js";
-import { MultiSelect } from "./modules/components/multi_select.js";
-import { DateRangeSlider } from "./modules/components/range_slider.js";
-import { PlayerInput } from "./modules/components/player_input.js";
+import { formatPlace, renderRoundMeta } from "./modules/formatters.js";
 import {
   updateSubmitState,
   renderJourneyMap,
   toggleMapFullscreen,
   syncFullscreenButtons,
   updateMapLayerControls,
-  refitMap,
   refitAllMaps,
   unregisterActiveMap,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
 import { pinpointMode } from "./modules/modes/pinpoint.js";
-import { albumShuffleMode, openPhotoLightbox, getShuffleMaps } from "./modules/modes/album_shuffle.js";
+import { albumShuffleMode, getShuffleMaps } from "./modules/modes/album_shuffle.js";
+import { renderSyncStatus, getLastSyncStatus } from "./modules/sync.js";
+import { clearTimer, resetTimerBar, startTimer } from "./modules/timer.js";
+import { bindGlobalShortcuts } from "./modules/shortcuts.js";
+import { renderPodium } from "./modules/summary/podium.js";
+import { renderAwards } from "./modules/summary/awards.js";
+import { renderSummaryTable } from "./modules/summary/table.js";
+import { renderPolaroidGallery } from "./modules/summary/polaroids.js";
+import { shareMatchSummary } from "./modules/summary/share.js";
+import {
+  playerInput,
+  albumMultiSelect,
+  countryMultiSelect,
+  cityMultiSelect,
+  peopleMultiSelect,
+  dateRangeSlider,
+  getSelectedPeopleMode,
+  restoreLibraryFilters,
+  triggerPreflightDebounced,
+  initPlayerInput,
+  initLibraries,
+  initWheelScrolls,
+  refreshFilterComponentsLanguage,
+  setGetActiveModeFn,
+  getLastPreflightData,
+  showPreflightWarning,
+} from "./modules/setup_filters.js";
 
 const GAME_MODES = {
   pinpoint: pinpointMode,
@@ -46,952 +64,7 @@ function getActiveMode() {
   return GAME_MODES[state.gameMode] || pinpointMode;
 }
 
-const DEFAULT_MAP_WIDTH_PCT = 67;
-
-/* ------------------------------------------------- filter component instances */
-
-/** @type {MultiSelect|null} */
-let albumMultiSelect = null;
-/** @type {MultiSelect|null} */
-let countryMultiSelect = null;
-/** @type {MultiSelect|null} */
-let cityMultiSelect = null;
-/** @type {MultiSelect|null} */
-let peopleMultiSelect = null;
-/** @type {DateRangeSlider|null} */
-let dateRangeSlider = null;
-/** @type {PlayerInput|null} */
-let playerInput = null;
-
-const PLAYERS_STORAGE_KEY = "immich_quiz_saved_players";
-
-/** Raw city objects from last /api/filters response: [{name, country}, ...] */
-let cachedRawCities = [];
-
-const STORAGE_KEY_PREFIX = "immich_quiz_filters_";
-
-/** Debounce timer handle for live preflight */
-let _preflightDebounceTimer = null;
-/** Last cached preflight response for language refreshes */
-let _lastPreflightData = null;
-
-/* ------------------------------------------------- player input init */
-
-function initPlayerInput() {
-  const root = document.getElementById("player-input-root");
-  if (!root) return;
-
-  let savedPlayers = null;
-  try {
-    const raw = localStorage.getItem(PLAYERS_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        savedPlayers = parsed;
-      }
-    }
-  } catch (e) {
-    console.warn("Failed to load saved players from localStorage:", e);
-  }
-
-  playerInput = new PlayerInput({
-    container: root,
-    hiddenInput: el.players,
-    countBadge: document.getElementById("player-count-badge"),
-    initialPlayers: savedPlayers || [],
-    onChange: (players) => {
-      try {
-        localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(players));
-      } catch (e) {
-        console.warn("Failed to save players to localStorage:", e);
-      }
-      triggerPreflightDebounced();
-    },
-  });
-}
-
-/* ------------------------------------------------- filter components init */
-
-function initFilterComponents() {
-  albumMultiSelect = new MultiSelect({
-    container: document.getElementById("album-multi-select"),
-    placeholderKey: "setup.all_photos",
-    searchPlaceholderKey: "setup.album_search_placeholder",
-    noResultsKey: "setup.no_albums_found",
-    summaryFormatter: (count) => t("setup.albums_selected", count),
-    onChange: () => {
-      saveCurrentLibraryFilters();
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-      loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
-    },
-  });
-
-  countryMultiSelect = new MultiSelect({
-    container: document.getElementById("country-multi-select"),
-    placeholderKey: "setup.all_countries",
-    searchPlaceholderKey: "setup.country_search_placeholder",
-    noResultsKey: "setup.no_countries_found",
-    summaryFormatter: (count) => t("setup.countries_selected", count),
-    onChange: () => {
-      const selectedCountries = countryMultiSelect.getSelectedIds();
-      updateDependentCities(selectedCountries);
-      saveCurrentLibraryFilters();
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-    },
-  });
-
-  cityMultiSelect = new MultiSelect({
-    container: document.getElementById("city-multi-select"),
-    placeholderKey: "setup.all_cities",
-    searchPlaceholderKey: "setup.city_search_placeholder",
-    noResultsKey: "setup.no_cities_found",
-    summaryFormatter: (count) => t("setup.cities_selected", count),
-    onChange: () => {
-      saveCurrentLibraryFilters();
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-    },
-  });
-
-  peopleMultiSelect = new MultiSelect({
-    container: document.getElementById("people-multi-select"),
-    placeholderKey: "setup.all_people",
-    searchPlaceholderKey: "setup.people_search_placeholder",
-    noResultsKey: "setup.no_people_found",
-    summaryFormatter: (count) => t("setup.people_selected", count),
-    onChange: () => {
-      updatePeopleModeToggleVisibility();
-      saveCurrentLibraryFilters();
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-    },
-  });
-
-  dateRangeSlider = new DateRangeSlider({
-    minThumb: document.getElementById("date-slider-min"),
-    maxThumb: document.getElementById("date-slider-max"),
-    fillEl: document.getElementById("date-slider-fill"),
-    readoutEl: document.getElementById("date-slider-readout"),
-    boundMinEl: document.getElementById("date-slider-bound-min"),
-    boundMaxEl: document.getElementById("date-slider-bound-max"),
-    onChange: () => {
-      saveCurrentLibraryFilters();
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-    },
-  });
-
-  if (state.filters) {
-    state.filters.albumMultiSelect = albumMultiSelect;
-    state.filters.countryMultiSelect = countryMultiSelect;
-    state.filters.cityMultiSelect = cityMultiSelect;
-    state.filters.peopleMultiSelect = peopleMultiSelect;
-    state.filters.dateRangeSlider = dateRangeSlider;
-  }
-
-  // People Mode Segmented Toggle (ANY / ALL)
-  const peopleModeToggleEl = document.getElementById("people-mode-toggle");
-  if (peopleModeToggleEl) {
-    peopleModeToggleEl.querySelectorAll(".people-mode-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        peopleModeToggleEl.querySelectorAll(".people-mode-btn").forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        saveCurrentLibraryFilters();
-        triggerPreflightDebounced();
-      });
-    });
-  }
-
-  // Photo Sources Checkboxes
-  if (el.includeSharedCheckbox) {
-    el.includeSharedCheckbox.addEventListener("change", () => {
-      if (el.labelIncludeShared) {
-        el.labelIncludeShared.classList.toggle("active", el.includeSharedCheckbox.checked);
-      }
-      saveCurrentLibraryFilters();
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-    });
-  }
-
-  // Accordion Toggle
-  const toggleBtn = document.getElementById("filters-toggle-btn");
-  const contentEl = document.getElementById("filters-accordion-content");
-  if (toggleBtn && contentEl) {
-    toggleBtn.addEventListener("click", () => {
-      const isExpanded = toggleBtn.getAttribute("aria-expanded") === "true";
-      toggleBtn.setAttribute("aria-expanded", String(!isExpanded));
-      contentEl.classList.toggle("hidden", isExpanded);
-    });
-  }
-
-  // Reset Filters Button
-  const resetBtn = document.getElementById("reset-filters-btn");
-  if (resetBtn) {
-    resetBtn.addEventListener("click", () => {
-      if (albumMultiSelect) albumMultiSelect.clear();
-      if (countryMultiSelect) countryMultiSelect.clear();
-      updateDependentCities([]);
-      if (cityMultiSelect) cityMultiSelect.clear();
-      if (peopleMultiSelect) peopleMultiSelect.clear();
-      if (dateRangeSlider) dateRangeSlider.reset();
-      resetPeopleMode();
-      updatePeopleModeToggleVisibility();
-
-      if (el.includeSharedCheckbox) {
-        el.includeSharedCheckbox.checked = false;
-        if (el.labelIncludeShared) el.labelIncludeShared.classList.remove("active");
-      }
-
-      clearSavedLibraryFilters(el.library ? el.library.value : null);
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-    });
-  }
-
-  // Manual Sync Button
-  if (el.syncLibraryBtn) {
-    el.syncLibraryBtn.addEventListener("click", () => {
-      triggerLibrarySync();
-    });
-  }
-}
-
-/* ------------------------------------------------- library metadata sync */
-
-let _syncPollInterval = null;
-let _lastSyncStatus = null;
-
-function formatSyncDate(isoStr) {
-  if (!isoStr) return "";
-  try {
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return "";
-    const locale = (state && state.language === "PT") ? "pt-BR" : "en-US";
-    return d.toLocaleString(locale, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch (_) {
-    return "";
-  }
-}
-
-function renderSyncStatus(status) {
-  if (!status) return;
-  _lastSyncStatus = status;
-  const isSyncing = status.sync_status === "syncing";
-  const neverSynced = !status.last_sync_at && (status.synced_assets || 0) === 0 && !isSyncing;
-
-  if (el.syncLibraryBtn) {
-    el.syncLibraryBtn.classList.toggle("syncing", isSyncing);
-    el.syncLibraryBtn.classList.toggle("needs-sync", neverSynced);
-    el.syncLibraryBtn.disabled = isSyncing;
-
-    if (isSyncing) {
-      el.syncLibraryBtn.title = t("setup.syncing_label");
-    } else if (neverSynced) {
-      el.syncLibraryBtn.title = t("setup.sync_title_never_synced");
-    } else if (status.last_sync_at) {
-      const formattedDate = formatSyncDate(status.last_sync_at);
-      el.syncLibraryBtn.title = formattedDate
-        ? t("setup.sync_title_with_date", formattedDate)
-        : t("setup.sync_title");
-    } else {
-      el.syncLibraryBtn.title = t("setup.sync_title");
-    }
-  }
-  if (el.syncBtnLabel) {
-    if (isSyncing) {
-      const mode = status.sync_mode || "full";
-      const stage = status.sync_stage || "initializing";
-      const total = status.total_assets || 0;
-      const synced = status.synced_assets || 0;
-
-      if (mode === "delta") {
-        if (stage === "updating_assets" && synced > 0) {
-          el.syncBtnLabel.textContent = t("setup.sync_stage_updating_assets", synced);
-        } else if (stage === "updating_albums") {
-          el.syncBtnLabel.textContent = t("setup.sync_stage_fetching_albums");
-        } else if (stage === "finalizing") {
-          el.syncBtnLabel.textContent = t("setup.sync_stage_finalizing");
-        } else {
-          el.syncBtnLabel.textContent = t("setup.sync_stage_checking_updates");
-        }
-      } else {
-        // Full sync mode
-        if (stage === "fetching_albums") {
-          if (total > 0 && synced > 0) {
-            el.syncBtnLabel.textContent = t("setup.sync_stage_albums_progress", synced, total);
-          } else {
-            el.syncBtnLabel.textContent = t("setup.sync_stage_fetching_albums");
-          }
-        } else if (stage === "scanning_assets" || stage === "indexing_assets" || synced > 0) {
-          if (total > 0 && total >= synced && synced > 0) {
-            const pct = Math.min(100, Math.round((synced / total) * 100));
-            el.syncBtnLabel.textContent = `${synced.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
-          } else if (synced > 0) {
-            el.syncBtnLabel.textContent = `${synced.toLocaleString()} scanned`;
-          } else {
-            el.syncBtnLabel.textContent = t("setup.sync_stage_scanning_assets");
-          }
-        } else if (stage === "pruning") {
-          el.syncBtnLabel.textContent = t("setup.sync_stage_pruning");
-        } else if (stage === "finalizing") {
-          el.syncBtnLabel.textContent = t("setup.sync_stage_finalizing");
-        } else {
-          el.syncBtnLabel.textContent = t("setup.sync_stage_initializing");
-        }
-      }
-    } else if (neverSynced) {
-      el.syncBtnLabel.textContent = t("setup.sync_label_never_synced");
-    } else {
-      el.syncBtnLabel.textContent = t("setup.sync_label");
-    }
-  }
-}
-
-async function checkSyncStatus(libraryName) {
-  if (!libraryName) return;
-  try {
-    const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
-    if (el.library && el.library.value !== libraryName) return;
-    if (status.warning) {
-      console.warn(`[Immich Sync Warning] ${status.warning}`);
-    }
-    if (status.sync_error) {
-      console.error(`[Immich Sync Error] ${status.sync_error}`);
-    }
-    renderSyncStatus(status);
-    if (status.sync_status === "syncing") {
-      startSyncPolling(libraryName);
-    } else if (_syncPollInterval) {
-      clearInterval(_syncPollInterval);
-      _syncPollInterval = null;
-    }
-  } catch (e) {
-    console.warn("Failed to fetch sync status:", e);
-  }
-}
-
-function startSyncPolling(libraryName) {
-  if (_syncPollInterval) clearInterval(_syncPollInterval);
-
-  const poll = async () => {
-    try {
-      const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
-      if (status.warning) {
-        console.warn(`[Immich Sync Warning] ${status.warning}`);
-      }
-      if (status.sync_error) {
-        console.error(`[Immich Sync Error] ${status.sync_error}`);
-      }
-      const isCurrentLibrary = el.library && el.library.value === libraryName;
-      if (isCurrentLibrary) {
-        renderSyncStatus(status);
-      }
-      if (status.sync_status !== "syncing") {
-        if (_syncPollInterval) {
-          clearInterval(_syncPollInterval);
-          _syncPollInterval = null;
-        }
-        // Sync completed: reload filters to show all newly indexed items only if still on this library!
-        if (isCurrentLibrary) {
-          await onLibrarySelected(libraryName);
-        }
-      }
-    } catch (e) {
-      console.warn("Error polling sync status:", e);
-    }
-  };
-
-  // Immediate check for fast delta syncs, then responsive 400ms interval
-  setTimeout(poll, 150);
-  _syncPollInterval = setInterval(poll, 400);
-}
-
-async function triggerLibrarySync() {
-  const libraryName = el.library ? el.library.value : null;
-  if (!libraryName) return;
-  try {
-    const isDelta = Boolean(_lastSyncStatus && _lastSyncStatus.last_sync_at);
-    renderSyncStatus({
-      sync_status: "syncing",
-      sync_mode: isDelta ? "delta" : "full",
-      sync_stage: isDelta ? "checking_updates" : "initializing",
-      total_assets: 0,
-      synced_assets: 0,
-    });
-    const res = await api(`/api/sync?library_name=${encodeURIComponent(libraryName)}`, { method: "POST" });
-    if (res) renderSyncStatus(res);
-    startSyncPolling(libraryName);
-  } catch (err) {
-    console.error("Failed to trigger sync:", err);
-  }
-}
-
-/* ------------------------------------------------- dependent city filtering */
-
-function updateDependentCities(selectedCountryNames) {
-  if (!cityMultiSelect) return;
-  if (!selectedCountryNames || selectedCountryNames.length === 0) {
-    cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
-  } else {
-    const lowerCountries = selectedCountryNames.map((c) => (c || "").toLowerCase());
-    const filtered = cachedRawCities.filter(
-      (c) => !c.country || lowerCountries.includes(c.country.toLowerCase())
-    );
-    cityMultiSelect.setItems(filtered.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
-  }
-}
-
-/* ------------------------------------------------- localStorage persistence */
-
-function saveCurrentLibraryFilters() {
-  const libraryName = el.library ? el.library.value : null;
-  if (!libraryName) return;
-  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
-  const filterState = {
-    album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
-    countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
-    cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
-    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
-    people_mode: getSelectedPeopleMode(),
-    min_month: minDate ? minDate.slice(0, 7) : null,
-    max_month: maxDate ? maxDate.slice(0, 7) : null,
-    include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
-  };
-  try {
-    localStorage.setItem(STORAGE_KEY_PREFIX + libraryName, JSON.stringify(filterState));
-  } catch (e) {
-    console.warn("Failed to persist library filters to localStorage", e);
-  }
-}
-
-function restoreLibraryFilters(libraryName) {
-  if (!libraryName) return;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + libraryName);
-    if (!raw) {
-      if (el.includeSharedCheckbox) {
-        el.includeSharedCheckbox.checked = false;
-        if (el.labelIncludeShared) el.labelIncludeShared.classList.remove("active");
-      }
-      return;
-    }
-    const saved = JSON.parse(raw);
-    if (saved.album_ids && albumMultiSelect) albumMultiSelect.setSelectedIds(saved.album_ids);
-    if (saved.countries && countryMultiSelect) {
-      countryMultiSelect.setSelectedIds(saved.countries);
-      updateDependentCities(saved.countries);
-    }
-    if (saved.cities && cityMultiSelect) cityMultiSelect.setSelectedIds(saved.cities);
-    if (saved.person_ids && peopleMultiSelect) peopleMultiSelect.setSelectedIds(saved.person_ids);
-    if (saved.people_mode) setPeopleMode(saved.people_mode);
-    if (dateRangeSlider && saved.min_month && saved.max_month) {
-      dateRangeSlider.setSelectedRange(saved.min_month, saved.max_month);
-    }
-
-    const sharedChecked = Boolean(saved.include_shared);
-    if (el.includeSharedCheckbox) {
-      el.includeSharedCheckbox.checked = sharedChecked;
-      if (el.labelIncludeShared) el.labelIncludeShared.classList.toggle("active", sharedChecked);
-    }
-  } catch (e) {
-    console.warn("Failed to restore library filters from localStorage", e);
-  }
-}
-
-function clearSavedLibraryFilters(libraryName) {
-  if (!libraryName) return;
-  try {
-    localStorage.removeItem(STORAGE_KEY_PREFIX + libraryName);
-  } catch (e) {
-    console.warn("Failed to clear library filters from localStorage", e);
-  }
-}
-
-/* ------------------------------------------------- people mode helpers */
-
-function getSelectedPeopleMode() {
-  const activeBtn = document.querySelector("#people-mode-toggle .people-mode-btn.active");
-  return activeBtn ? activeBtn.getAttribute("data-people-mode") || "ANY" : "ANY";
-}
-
-function setPeopleMode(mode) {
-  const toggleEl = document.getElementById("people-mode-toggle");
-  if (toggleEl) {
-    toggleEl.querySelectorAll(".people-mode-btn").forEach((b) => {
-      b.classList.toggle("active", b.getAttribute("data-people-mode") === mode);
-    });
-  }
-}
-
-function resetPeopleMode() {
-  setPeopleMode("ANY");
-}
-
-function updatePeopleModeToggleVisibility() {
-  const toggleEl = document.getElementById("people-mode-toggle");
-  if (!toggleEl) return;
-  const selectedCount = peopleMultiSelect ? peopleMultiSelect.getSelectedIds().length : 0;
-  toggleEl.classList.toggle("hidden", selectedCount < 2);
-}
-
-/* ------------------------------------------------- filter summary badge */
-
-function updateFiltersSummaryBadge() {
-  const badge = el.filtersSummaryBadge;
-  if (!badge) return;
-
-  let count = 0;
-  if (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0) count++;
-  if (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0) count++;
-  if (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0) count++;
-  if (peopleMultiSelect && peopleMultiSelect.getSelectedIds().length > 0) count++;
-  if (dateRangeSlider) {
-    const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
-    if (minDate || maxDate) count++;
-  }
-  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) count++;
-
-  if (count === 0) {
-    badge.textContent = t("setup.filters_summary_default");
-  } else {
-    badge.textContent = t("setup.filters_active_count", count);
-  }
-}
-
-/* ------------------------------------------------- live preflight */
-
-function showPreflightWarning(message) {
-  let warningEl = document.getElementById("preflight-warning");
-  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
-  if (!warningEl) {
-    warningEl = document.createElement("div");
-    warningEl.id = "preflight-warning";
-    warningEl.className = "preflight-warning";
-    if (submitBtn) {
-      submitBtn.insertAdjacentElement("beforebegin", warningEl);
-    } else {
-      document.getElementById("setup-form")?.appendChild(warningEl);
-    }
-  }
-  warningEl.textContent = message;
-  warningEl.classList.remove("hidden");
-  if (submitBtn) {
-    submitBtn.disabled = true;
-  }
-}
-
-function hidePreflightWarning() {
-  const warningEl = document.getElementById("preflight-warning");
-  if (warningEl) warningEl.classList.add("hidden");
-  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
-  if (submitBtn) {
-    submitBtn.disabled = false;
-  }
-}
-
-/** 
- * Updates the preflight count indicator with specific requirement info.
- * @param {number|Object} preflight - count number or preflight response object
- */
-function updatePreflightCount(preflight) {
-  const el = document.getElementById("preflight-count");
-  if (!el) return;
-
-  let count, locMode, dtMode, totalCount, gpsCount, dateCount;
-  if (typeof preflight === "number") {
-    count = preflight;
-    const modePayload = getActiveMode().getModePayload();
-    locMode = modePayload.location_mode ?? true;
-    dtMode = modePayload.date_mode ?? true;
-  } else if (preflight && typeof preflight === "object") {
-    count = preflight.eligible_count;
-    locMode = preflight.location_mode ?? true;
-    dtMode = preflight.date_mode ?? true;
-    totalCount = preflight.total_count;
-    gpsCount = preflight.gps_count;
-    dateCount = preflight.date_count;
-  }
-
-  if (count === undefined || count === null || count === 0) {
-    el.classList.add("hidden");
-    el.removeAttribute("title");
-    return;
-  }
-
-  const display = Number(count).toLocaleString();
-  let key = "setup.preflight_count_all";
-  if (locMode && dtMode) {
-    key = "setup.preflight_count_both";
-  } else if (locMode && !dtMode) {
-    key = "setup.preflight_count_gps";
-  } else if (!locMode && dtMode) {
-    key = "setup.preflight_count_date";
-  }
-
-  el.textContent = t(key, display);
-
-  if (totalCount !== undefined && totalCount !== null) {
-    const dispTotal = Number(totalCount).toLocaleString();
-    const dispGps = Number(gpsCount ?? 0).toLocaleString();
-    const dispDate = Number(dateCount ?? 0).toLocaleString();
-    const dispBoth = Number(count).toLocaleString();
-    el.title = t("setup.preflight_count_breakdown_tooltip", dispTotal, dispGps, dispDate, dispBoth);
-  } else {
-    el.removeAttribute("title");
-  }
-
-  el.classList.remove("hidden");
-  el.classList.toggle("preflight-count--ok", count > 0);
-}
-
-function hidePreflightCount() {
-  _lastPreflightData = null;
-  const el = document.getElementById("preflight-count");
-  if (el) {
-    el.classList.add("hidden");
-    el.removeAttribute("title");
-  }
-}
-
-function triggerPreflightDebounced() {
-  if (_preflightDebounceTimer) {
-    clearTimeout(_preflightDebounceTimer);
-  }
-  _preflightDebounceTimer = setTimeout(() => {
-    _preflightDebounceTimer = null;
-    executePreflight().catch((err) => {
-      console.warn("Preflight check failed:", err);
-    });
-  }, 500);
-}
-
-async function executePreflight() {
-  if (!el.library || !el.library.value) return;
-  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
-  const activeMode = getActiveMode();
-  const modePayload = activeMode.getModePayload();
-
-  const payload = {
-    players: playerInput
-      ? playerInput.getPlayers()
-      : el.players
-        ? el.players.value.split(",").map((n) => n.trim()).filter(Boolean)
-        : [],
-    round_count: el.roundCount ? parseInt(el.roundCount.value, 10) : 10,
-    location_mode: modePayload.location_mode ?? true,
-    date_mode: modePayload.date_mode ?? true,
-    game_mode: activeMode.name,
-    library_name: el.library.value,
-    album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
-    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
-    people_mode: getSelectedPeopleMode(),
-    countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
-    cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
-    min_date: minDate,
-    max_date: maxDate,
-    include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
-  };
-
-  try {
-    const preflight = await api("/api/game/preflight", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    _lastPreflightData = {
-      ...preflight,
-      location_mode: payload.location_mode,
-      date_mode: payload.date_mode,
-    };
-
-    updatePreflightCount(_lastPreflightData);
-
-    if (preflight && preflight.facet_counts) {
-      if (countryMultiSelect) countryMultiSelect.updateCounts(preflight.facet_counts.countries);
-      if (cityMultiSelect) cityMultiSelect.updateCounts(preflight.facet_counts.cities);
-      if (peopleMultiSelect) peopleMultiSelect.updateCounts(preflight.facet_counts.people);
-      if (albumMultiSelect) albumMultiSelect.updateCounts(preflight.facet_counts.albums);
-    }
-
-    if (!preflight.ok) {
-      if (preflight.is_synced === false || preflight.sync_status === "never_synced") {
-        showPreflightWarning(t("setup.library_not_synced_warning"));
-      } else {
-        showPreflightWarning(
-          t("setup.not_enough_media", preflight.eligible_count, preflight.required)
-        );
-      }
-    } else {
-      hidePreflightWarning();
-    }
-  } catch (err) {
-    // Network or server errors during live preflight are silently ignored —
-    // the submit button still works; hard errors surface at match start.
-    hidePreflightCount();
-    console.warn("Live preflight error:", err);
-  }
-}
-
-/* -------------------------------------------------------- setup + lookups */
-
-async function onLibrarySelected(libraryName) {
-  if (!libraryName) return;
-
-  try {
-    const [albumsRes, filtersRes] = await Promise.all([
-      api(`/api/albums?library_name=${encodeURIComponent(libraryName)}`),
-      api(`/api/filters?library_name=${encodeURIComponent(libraryName)}`),
-    ]);
-
-    if (el.library && el.library.value !== libraryName) return;
-
-    cachedRawCities = filtersRes.cities || [];
-
-    if (albumMultiSelect) albumMultiSelect.setItems(albumsRes.albums || []);
-    if (countryMultiSelect) countryMultiSelect.setItems((filtersRes.countries || []).map((c) => ({ id: c, name: c })));
-    if (cityMultiSelect) cityMultiSelect.setItems(cachedRawCities.map((c) => ({ id: c.name, name: c.name, subtitle: c.country })));
-    if (peopleMultiSelect) peopleMultiSelect.setItems(filtersRes.people || []);
-
-    if (dateRangeSlider) {
-      if (filtersRes.date_range && filtersRes.date_range.min_month && filtersRes.date_range.max_month) {
-        dateRangeSlider.setBounds(filtersRes.date_range.min_month, filtersRes.date_range.max_month);
-      } else {
-        dateRangeSlider.setBounds(null, null);
-      }
-    }
-
-    // Reset current UI state then restore saved filters for this library
-    if (albumMultiSelect) albumMultiSelect.clear();
-    if (countryMultiSelect) countryMultiSelect.clear();
-    if (cityMultiSelect) cityMultiSelect.clear();
-    if (peopleMultiSelect) peopleMultiSelect.clear();
-    if (dateRangeSlider) dateRangeSlider.reset();
-    resetPeopleMode();
-
-    restoreLibraryFilters(libraryName);
-
-    updatePeopleModeToggleVisibility();
-    updateFiltersSummaryBadge();
-    triggerPreflightDebounced();
-    checkSyncStatus(libraryName);
-  } catch (err) {
-    console.error("Failed to load library filters:", err);
-  }
-}
-
-async function initLibraries() {
-  initFilterComponents();
-  const data = await api("/api/libraries");
-  el.library.replaceChildren();
-  data.libraries.forEach((name) => {
-    const option = document.createElement("option");
-    option.value = name;
-    option.textContent = name;
-    el.library.appendChild(option);
-  });
-
-  el.library.addEventListener("change", () => {
-    onLibrarySelected(el.library.value);
-  });
-
-  if (data.libraries.length > 0) {
-    await onLibrarySelected(data.libraries[0]);
-  }
-}
-
-/* ------------------------------------------------- select wheel scroll */
-
-function initWheelScrolls() {
-  bindSelectWheelScroll(el.roundCount, false);
-  bindSelectWheelScroll(el.roundLength, false);
-  bindSelectWheelScroll(el.library, false);
-}
-
-async function initUiConfig() {
-  const data = await api("/api/ui-config");
-  applyUiConfig(data);
-}
-
-function applyUiConfig(config) {
-  const savedLang = getInitialLanguagePreference();
-  if (savedLang) {
-    state.language = savedLang;
-  } else if (config.language && (config.language === "PT" || config.language === "EN")) {
-    state.language = config.language;
-  }
-  if (config.score_max_points) {
-    state.scoreMaxPoints = Number(config.score_max_points);
-  }
-  if (el.library && el.library.value) {
-    restoreLibraryFilters(el.library.value);
-  }
-  updateLanguageUi();
-  updateAudioUi();
-  applyLanguage();
-}
-
-function applyGuessLayout(locationMode, dateMode) {
-  const hasMapOnly = Boolean(locationMode) && !Boolean(dateMode);
-  if (hasMapOnly) {
-    document.documentElement.style.setProperty("--round-guess-layout-columns", "minmax(0, 1fr)");
-    return;
-  }
-
-  const mapWidthPct = DEFAULT_MAP_WIDTH_PCT;
-  const dateWidthPct = 100 - mapWidthPct;
-  document.documentElement.style.setProperty(
-    "--round-guess-layout-columns",
-    `minmax(0, ${mapWidthPct}fr) minmax(0, ${dateWidthPct}fr)`
-  );
-}
-
-function stepSelectOption(selectEl, direction) {
-  if (!selectEl || selectEl.disabled || selectEl.options.length === 0) {
-    return;
-  }
-
-  const current = selectEl.selectedIndex;
-  const next = Math.max(0, Math.min(selectEl.options.length - 1, current + direction));
-  if (next === current) {
-    return;
-  }
-
-  selectEl.selectedIndex = next;
-  selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-}
-
-function bindSelectWheelScroll(selectEl, invertScroll = false) {
-  if (!selectEl || selectEl.dataset.wheelBound) {
-    return;
-  }
-  selectEl.dataset.wheelBound = "true";
-
-  selectEl.addEventListener(
-    "wheel",
-    (event) => {
-      event.preventDefault();
-      let direction = event.deltaY > 0 ? 1 : -1;
-      if (invertScroll) direction = -direction;
-      stepSelectOption(selectEl, direction);
-    },
-    { passive: false }
-  );
-}
-
-/* ------------------------------------------------------------------ timer */
-
-function clearTimer() {
-  if (state.timerRef) {
-    clearInterval(state.timerRef);
-    state.timerRef = null;
-  }
-}
-
-function resetTimerBar() {
-  clearTimer();
-  el.timerFill.style.width = "100%";
-  el.timerFill.classList.remove("is-warning", "is-critical");
-  el.timerTrack.classList.add("is-idle");
-  el.timerLabel.textContent = "";
-  el.timerRemaining.textContent = "";
-  el.timeoutNotice.classList.add("hidden");
-  el.timeoutNotice.textContent = "";
-
-  // Feature 6: remove timer pulse
-  const timerRow = el.timerTrack.closest(".timer-row");
-  if (timerRow) timerRow.classList.remove("is-pulsing");
-  el.timerRemaining.classList.remove("is-critical-text");
-
-  // Feature 7: reset all fullscreen timer overlays
-  document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
-    const fill = ft.querySelector(".fs-timer-fill");
-    const label = ft.querySelector(".fs-timer-label");
-    const remaining = ft.querySelector(".fs-timer-remaining");
-    if (fill) { fill.style.width = "100%"; fill.className = "fs-timer-fill"; }
-    if (label) label.textContent = "";
-    if (remaining) remaining.textContent = "";
-  });
-}
-
-function startTimer(roundLength) {
-  resetTimerBar();
-  state.timedOut = false;
-
-  if (roundLength === "unlimited") {
-    el.timerLabel.textContent = t("game.timer_unlimited");
-    return;
-  }
-
-  let total = 60;
-  if (roundLength === "30s") total = 30;
-  else if (roundLength === "1m") total = 60;
-  else if (roundLength === "2m") total = 120;
-  else if (roundLength === "5m") total = 300;
-
-  let remaining = total;
-  state.timerTotalSeconds = total;
-  state.timerRemainingSeconds = remaining;
-  el.timerTrack.classList.remove("is-idle");
-  el.timerLabel.textContent = t("game.timer_time_left");
-  el.timerRemaining.textContent = `${remaining}s`;
-
-
-  state.timerRef = setInterval(() => {
-    remaining -= 1;
-    const clamped = Math.max(remaining, 0);
-    state.timerRemainingSeconds = clamped;
-    const ratio = clamped / total;
-    const isCritical = ratio <= 0.2 || clamped <= 5;
-    const isWarning = ratio <= 0.5 && ratio > 0.2 && clamped > 5;
-
-    el.timerRemaining.textContent = `${clamped}s`;
-    el.timerFill.style.width = `${ratio * 100}%`;
-    el.timerFill.classList.toggle("is-warning", isWarning);
-    el.timerFill.classList.toggle("is-critical", isCritical);
-
-    // Feature 6: pulsing timer warning
-    const timerRow = el.timerTrack.closest(".timer-row");
-    if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
-    el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
-
-    // Feature 7: sync fullscreen timer overlays
-    syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
-
-    if (clamped <= 5 && clamped > 0) {
-      playTick(clamped);
-    }
-
-    if (clamped <= 0) {
-      clearTimer();
-      playBuzzer();
-      handleTimeout();
-    }
-  }, 1000);
-}
-
-function handleTimeout() {
-  if (state.timedOut || state.submitting || !state.currentQuestion) {
-    return;
-  }
-  state.timedOut = true;
-  el.timerLabel.textContent = t("game.timer_time_up_label");
-  el.timerRemaining.textContent = "0s";
-  getActiveMode()?.setDisabled?.(true);
-
-  el.timeoutNotice.textContent = t("game.timer_time_up_notice");
-  el.timeoutNotice.classList.remove("hidden");
-
-  // Nothing is submitted until the player acknowledges the timeout.
-  el.submitAnswer.textContent = t("game.continue_btn");
-  updateSubmitState();
-}
+setGetActiveModeFn(getActiveMode);
 
 /* ------------------------------------------------------------- game cycle */
 
@@ -1034,7 +107,7 @@ function resetGameUi() {
 
   try {
     getActiveMode().unmount();
-  } catch (_) { }
+  } catch (_) {}
 
   if (el.roundMeta) el.roundMeta.replaceChildren();
   if (el.passOverlay) el.passOverlay.classList.add("hidden");
@@ -1067,7 +140,7 @@ function resetGameUi() {
     state.revealLayers.forEach((l) => {
       try {
         if (state.revealMap) state.revealMap.removeLayer(l);
-      } catch (_) { }
+      } catch (_) {}
     });
     state.revealLayers = [];
   }
@@ -1075,7 +148,7 @@ function resetGameUi() {
     try {
       unregisterActiveMap(state.revealMap);
       state.revealMap.remove();
-    } catch (_) { }
+    } catch (_) {}
     state.revealMap = null;
   }
 
@@ -1083,7 +156,7 @@ function resetGameUi() {
     state.journeyLayers.forEach((l) => {
       try {
         if (state.journeyMap) state.journeyMap.removeLayer(l);
-      } catch (_) { }
+      } catch (_) {}
     });
     state.journeyLayers = [];
   }
@@ -1091,7 +164,7 @@ function resetGameUi() {
     try {
       unregisterActiveMap(state.journeyMap);
       state.journeyMap.remove();
-    } catch (_) { }
+    } catch (_) {}
     state.journeyMap = null;
   }
   if (el.journeyMapShell) el.journeyMapShell.classList.add("hidden");
@@ -1121,7 +194,8 @@ async function startMatch(event) {
     return;
   }
 
-  if (_lastPreflightData && !_lastPreflightData.ok) {
+  const lastPreflight = getLastPreflightData();
+  if (lastPreflight && !lastPreflight.ok) {
     return;
   }
 
@@ -1203,7 +277,6 @@ async function startMatch(event) {
   state.playerStats = {};
   state.roundHistory = [];
 
-  // Standings stay secret while a match is in progress.
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
 
@@ -1363,7 +436,7 @@ async function loadQuestion() {
   } else {
     el.passOverlay.classList.add("hidden");
     activeMode.onReady(data);
-    startTimer(data.round_length);
+    startTimer(data.round_length, getActiveMode);
   }
 }
 
@@ -1385,10 +458,16 @@ async function submitAnswer(fromTimeout = false) {
     if (playerName && totalSec > 0) {
       if (!state.playerStats[playerName]) {
         state.playerStats[playerName] = {
-          totalDistanceKm: 0, distanceCount: 0,
-          totalDateDiffDays: 0, dateCount: 0,
-          perfectLocationCount: 0, perfectDateCount: 0,
-          perfectRounds: 0, timedOutCount: 0, fastRoundCount: 0, totalDurationSec: 0,
+          totalDistanceKm: 0,
+          distanceCount: 0,
+          totalDateDiffDays: 0,
+          dateCount: 0,
+          perfectLocationCount: 0,
+          perfectDateCount: 0,
+          perfectRounds: 0,
+          timedOutCount: 0,
+          fastRoundCount: 0,
+          totalDurationSec: 0,
         };
       }
       state.playerStats[playerName].totalDurationSec = (state.playerStats[playerName].totalDurationSec || 0) + elapsedSec;
@@ -1399,7 +478,7 @@ async function submitAnswer(fromTimeout = false) {
 
     const activeMode = getActiveMode();
     const payload = activeMode.buildAnswerPayload(question, fromTimeout);
-
+    payload.time_taken_seconds = elapsedSec;
 
     const result = await api("/api/answer", {
       method: "POST",
@@ -1414,7 +493,6 @@ async function submitAnswer(fromTimeout = false) {
       return;
     }
 
-    // Hand over to the next player without leaking any result.
     await loadQuestion();
   } finally {
     state.submitting = false;
@@ -1430,7 +508,6 @@ async function showRoundReveal(roundNumber) {
     body: JSON.stringify({ match_id: state.matchId, round_number: roundNumber }),
   });
 
-  // Record round history for end-game recap (World Journey Map & Polaroid Cards)
   const existingIdx = state.roundHistory.findIndex((r) => r.round_number === reveal.round_number);
   const entry = {
     round_number: reveal.round_number,
@@ -1469,8 +546,6 @@ async function showRoundReveal(roundNumber) {
   }
 }
 
-
-
 async function handleNextRound() {
   if (state.submitting) {
     return;
@@ -1498,74 +573,8 @@ async function handleNextRound() {
 function renderSummaryContent(summary) {
   if (!summary) return;
   renderPodium(summary);
-
-  const modes = [];
-  if (summary.location_mode) {
-    modes.push(t("summary.mode_location"));
-  }
-  if (summary.date_mode) {
-    modes.push(t("summary.mode_date"));
-  }
-  el.summaryMeta.textContent = t(
-    "summary.meta",
-    summary.rounds_played,
-    modes.join(" + "),
-    summary.library_name,
-    summary.album_name
-  );
-
-  renderAwards(summary);
-
-  const columns = [t("summary.col_rank"), t("summary.col_player")];
-  if (summary.location_mode) {
-    columns.push(t("summary.col_location"));
-  }
-  if (summary.date_mode) {
-    columns.push(t("summary.col_date"));
-  }
-  columns.push(t("summary.col_total"), t("summary.col_accuracy"));
-
-  const headRow = document.createElement("tr");
-  columns.forEach((label) => {
-    const cell = buildCell(label, true);
-    if (label === t("summary.col_accuracy")) {
-      cell.className = "col-accuracy hide-on-mobile";
-    }
-    headRow.appendChild(cell);
-  });
-  el.summaryTableHead.replaceChildren(headRow);
-
-  el.summaryTableBody.replaceChildren();
-  summary.players.forEach((player) => {
-    const row = document.createElement("tr");
-    row.classList.toggle("is-winner", player.is_winner);
-
-    row.appendChild(buildCell(String(player.rank)));
-
-    const nameCell = playerNameCell(player.player_name);
-    const count = state.perfectCounts[player.player_name] || 0;
-    if (count > 0) {
-      const countBadge = document.createElement("span");
-      countBadge.className = "perfect-count-badge";
-      countBadge.textContent = t("fmt.perfect_count", count);
-      nameCell.appendChild(countBadge);
-    }
-    row.appendChild(buildCell(nameCell));
-
-    if (summary.location_mode) {
-      row.appendChild(buildCell(String(player.location_score ?? 0)));
-    }
-    if (summary.date_mode) {
-      row.appendChild(buildCell(String(player.date_score ?? 0)));
-    }
-    row.appendChild(buildCell(`${player.total_score}/${player.max_possible_score}`));
-
-    const accCell = buildCell(`${player.accuracy_pct}%`);
-    accCell.className = "col-accuracy hide-on-mobile";
-    row.appendChild(accCell);
-
-    el.summaryTableBody.appendChild(row);
-  });
+  renderAwards(summary, state.playerStats);
+  renderSummaryTable(summary, state.perfectCounts);
 }
 
 async function showMatchSummary() {
@@ -1575,349 +584,11 @@ async function showMatchSummary() {
   playVictoryFanfare();
 
   renderSummaryContent(summary);
-
-  // Render World Journey Map
   renderJourneyMap(state.roundHistory, summary.location_mode);
-
-  // Render Polaroid Memory Cards
-  renderPolaroidGallery(state.roundHistory);
+  renderPolaroidGallery(state.roundHistory, summary.library_name);
 
   el.leaderboardCard.classList.remove("hidden");
   await loadLeaderboard();
-}
-
-function renderPolaroidGallery(roundHistory) {
-  if (!el.polaroidGallery) return;
-  el.polaroidGallery.replaceChildren();
-
-  const defaultLibrary = state.lastSummary
-    ? state.lastSummary.library_name
-    : state.currentQuestion
-      ? state.currentQuestion.library_name
-      : "";
-
-  (roundHistory || []).forEach((round) => {
-    if (round.batch_reveal && Array.isArray(round.batch_reveal) && round.batch_reveal.length > 0) {
-      round.batch_reveal.forEach((item) => {
-        const card = document.createElement("div");
-        card.className = "polaroid-card";
-
-        const imgWrap = document.createElement("div");
-        imgWrap.className = "polaroid-img-wrap";
-
-        const lib = round.library_name || defaultLibrary;
-        const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(lib)}`;
-        const img = document.createElement("img");
-        img.className = "polaroid-img";
-        img.src = imgUrl;
-        img.alt = `Round ${round.round_number} - Pin ${item.true_pin_id}`;
-        img.style.cursor = "pointer";
-        img.addEventListener("click", () => openPhotoLightbox(imgUrl));
-        imgWrap.appendChild(img);
-
-        const caption = document.createElement("div");
-        caption.className = "polaroid-caption";
-
-        const badge = document.createElement("span");
-        badge.className = "polaroid-round-badge";
-        badge.textContent = item.true_pin_id
-          ? `${t("summary.journey_round", round.round_number)} - ${item.true_pin_id}`
-          : t("summary.journey_round", round.round_number);
-
-        const loc = document.createElement("span");
-        loc.className = "polaroid-location";
-        loc.textContent = formatPlace(item) || t("fmt.unknown_place");
-
-        const date = document.createElement("span");
-        date.className = "polaroid-date";
-        date.textContent = formatMonth(item.actual_year, item.actual_month);
-
-        caption.append(badge, loc, date);
-        card.append(imgWrap, caption);
-        el.polaroidGallery.appendChild(card);
-      });
-    } else {
-      const card = document.createElement("div");
-      card.className = "polaroid-card";
-
-      const imgWrap = document.createElement("div");
-      imgWrap.className = "polaroid-img-wrap";
-
-      if (round.media_url) {
-        const img = document.createElement("img");
-        img.className = "polaroid-img";
-        img.src = round.media_url;
-        img.alt = `Round ${round.round_number}`;
-        img.style.cursor = "pointer";
-        img.addEventListener("click", () => openPhotoLightbox(round.media_url));
-        imgWrap.appendChild(img);
-      }
-
-      const caption = document.createElement("div");
-      caption.className = "polaroid-caption";
-
-      const badge = document.createElement("span");
-      badge.className = "polaroid-round-badge";
-      badge.textContent = t("summary.journey_round", round.round_number);
-
-      const loc = document.createElement("span");
-      loc.className = "polaroid-location";
-      loc.textContent = round.location_string || t("fmt.unknown_place");
-
-      const date = document.createElement("span");
-      date.className = "polaroid-date";
-      date.textContent = formatMonth(round.actual_year, round.actual_month);
-
-      caption.append(badge, loc, date);
-      card.append(imgWrap, caption);
-      el.polaroidGallery.appendChild(card);
-    }
-  });
-}
-
-async function shareMatchSummary() {
-  if (!state.lastSummary) return;
-  const summary = state.lastSummary;
-
-  const winnerText =
-    summary.winners.length > 1
-      ? t("summary.tie", summary.winners.join(" & "))
-      : t("summary.winner", summary.winners[0]);
-
-  let text = `🏆 Immich Quiz - ${winnerText}\n`;
-  text += `📍 ${summary.library_name} | ${summary.rounds_played} rounds\n\n`;
-  text += `Scores:\n`;
-  summary.players.forEach((p) => {
-    text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;
-  });
-
-  try {
-    if (navigator.share && navigator.canShare && navigator.canShare({ text })) {
-      await navigator.share({ title: "Immich Quiz Results", text });
-    } else {
-      await navigator.clipboard.writeText(text);
-      showShareToast(t("summary.share_copied"));
-    }
-  } catch (err) {
-    if (err.name !== "AbortError") {
-      try {
-        await navigator.clipboard.writeText(text);
-        showShareToast(t("summary.share_copied"));
-      } catch (clipErr) {
-        showAlert(clipErr.message);
-      }
-    }
-  }
-}
-
-function showShareToast(message) {
-  let toast = document.querySelector(".share-toast");
-  if (!toast) {
-    toast = document.createElement("div");
-    toast.className = "share-toast";
-    document.body.appendChild(toast);
-  }
-  toast.textContent = message;
-  toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 3000);
-}
-
-/* ── Feature 3: Podium ── */
-
-function renderPodium(summary) {
-  const isMultiplayer = summary.players.length > 1;
-
-  const titleText = summary.winners.length > 1
-    ? t("summary.tie", summary.winners.join(" & "))
-    : t("summary.winner", summary.winners[0]);
-
-  el.summaryWinner.replaceChildren();
-  const title = document.createElement("div");
-  title.textContent = titleText;
-  el.summaryWinner.appendChild(title);
-
-  // Do not render podium steps in single-player mode
-  if (!isMultiplayer) {
-    return;
-  }
-
-  const medals = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
-  const top3 = summary.players.slice(0, 3);
-  if (top3.length === 0) return;
-
-  const podium = document.createElement("div");
-  podium.className = "podium";
-
-  top3.forEach((player, index) => {
-    const step = document.createElement("div");
-    step.className = "podium-step";
-
-    const medal = document.createElement("div");
-    medal.className = "podium-medal";
-    medal.textContent = medals[index] || "";
-
-    const name = document.createElement("div");
-    name.className = "podium-name";
-    name.textContent = player.player_name;
-
-    const score = document.createElement("div");
-    score.className = "podium-score";
-    score.textContent = t("summary.podium_score", player.total_score);
-
-    const accuracy = document.createElement("div");
-    accuracy.className = "podium-accuracy";
-    accuracy.textContent = `${player.accuracy_pct}%`;
-
-    step.append(medal, name, score, accuracy);
-    podium.appendChild(step);
-  });
-
-  el.summaryWinner.appendChild(podium);
-}
-
-/* ── Feature 4: Awards ── */
-
-function renderAwards(summary) {
-  // Remove any existing awards row
-  const existingAwards = el.summaryCard.querySelector(".awards-row");
-  if (existingAwards) existingAwards.remove();
-
-  const awards = [];
-  const summaryByName = new Map((summary.players || []).map((player) => [player.player_name, player]));
-
-  const pickAwardWinner = (metricKey, tieBreakValueFn, { tieBreakPreferHigher = true, filterFn = null } = {}) => {
-    let bestName = null;
-    let bestMetricValue = -Infinity;
-    let bestTieValue = null;
-    let hasTie = false;
-
-    for (const [name, stats] of Object.entries(state.playerStats)) {
-      if (filterFn && !filterFn(name, stats)) {
-        continue;
-      }
-
-      const metricValue = stats[metricKey] ?? 0;
-      if (metricValue < 1) {
-        continue;
-      }
-
-      if (metricValue > bestMetricValue) {
-        bestName = name;
-        bestMetricValue = metricValue;
-        bestTieValue = tieBreakValueFn ? tieBreakValueFn(name) : null;
-        hasTie = false;
-      } else if (metricValue === bestMetricValue) {
-        if (tieBreakValueFn) {
-          const tieValue = tieBreakValueFn(name);
-          const isBetter = tieBreakPreferHigher ? tieValue > bestTieValue : tieValue < bestTieValue;
-          const isWorse = tieBreakPreferHigher ? tieValue < bestTieValue : tieValue > bestTieValue;
-
-          if (isBetter) {
-            bestName = name;
-            bestMetricValue = metricValue;
-            bestTieValue = tieValue;
-            hasTie = false;
-          } else if (isWorse) {
-            // Current leader remains ahead; no tie
-          } else {
-            hasTie = true;
-          }
-        } else {
-          hasTie = true;
-        }
-      }
-    }
-
-    return hasTie ? null : bestName;
-  };
-
-  const isAlbumShuffle = summary.game_mode === "album_shuffle";
-
-  // 1. Sniper — most perfect location guesses (0 km / max points)
-  if (summary.location_mode && !isAlbumShuffle) {
-    const bestSniper = pickAwardWinner("perfectLocationCount", (name) => summaryByName.get(name)?.location_score ?? -1);
-    if (bestSniper) {
-      awards.push({
-        titleKey: "award.sniper",
-        descKey: "award.sniper_desc",
-        descArgs: [state.playerStats[bestSniper]?.perfectLocationCount || 0],
-        player: bestSniper,
-      });
-    }
-  }
-
-  // 2. Time Traveler — most perfect date guesses (0 days / exact month / max points)
-  if (summary.date_mode && !isAlbumShuffle) {
-    const bestTimeTraveler = pickAwardWinner("perfectDateCount", (name) => summaryByName.get(name)?.date_score ?? -1);
-    if (bestTimeTraveler) {
-      awards.push({
-        titleKey: "award.time_traveler",
-        descKey: "award.time_traveler_desc",
-        descArgs: [state.playerStats[bestTimeTraveler]?.perfectDateCount || 0],
-        player: bestTimeTraveler,
-      });
-    }
-  }
-
-  // 3. Speed Demon — max fast rounds (<=50% max time) and 0 timeouts
-  const speedDemonPlayer = pickAwardWinner("fastRoundCount", (name) => state.playerStats[name]?.totalDurationSec ?? Infinity, {
-    tieBreakPreferHigher: false,
-    filterFn: (name, stats) => stats.timedOutCount === 0,
-  });
-
-  if (speedDemonPlayer) {
-    awards.push({
-      titleKey: "award.speed_demon",
-      descKey: "award.speed_demon_desc",
-      descArgs: [state.playerStats[speedDemonPlayer]?.fastRoundCount || 0],
-      player: speedDemonPlayer,
-    });
-  }
-
-  if (awards.length === 0) return;
-
-  const row = document.createElement("div");
-  row.className = "awards-row";
-
-  awards.forEach((award) => {
-    const card = document.createElement("div");
-    card.className = "award-card";
-
-    const titleEl = document.createElement("div");
-    titleEl.className = "award-title";
-    titleEl.textContent = t(award.titleKey);
-
-    const playerEl = document.createElement("div");
-    playerEl.className = "award-player";
-    playerEl.textContent = award.player;
-
-    const descEl = document.createElement("div");
-    descEl.className = "award-desc";
-    descEl.textContent = award.descArgs ? t(award.descKey, ...award.descArgs) : t(award.descKey);
-
-    card.append(titleEl, playerEl, descEl);
-    row.appendChild(card);
-  });
-
-  // Insert awards between summaryWinner and the table
-  el.summaryWinner.after(row);
-}
-
-/* ── Feature 7: Fullscreen timer sync ── */
-
-function syncFullscreenTimers(seconds, ratio, isWarning, isCritical) {
-  document.querySelectorAll(".fullscreen-timer").forEach((ft) => {
-    const fill = ft.querySelector(".fs-timer-fill");
-    const label = ft.querySelector(".fs-timer-label");
-    const remaining = ft.querySelector(".fs-timer-remaining");
-    if (fill) {
-      fill.style.width = `${ratio * 100}%`;
-      fill.classList.toggle("is-warning", isWarning);
-      fill.classList.toggle("is-critical", isCritical);
-    }
-    if (label) label.textContent = el.timerLabel.textContent;
-    if (remaining) remaining.textContent = `${seconds}s`;
-  });
 }
 
 function returnToSetup() {
@@ -1973,12 +644,6 @@ el.setupForm.addEventListener("submit", (event) => {
   startMatch(event).catch((err) => showAlert(err.message));
 });
 
-el.library.addEventListener("change", () => {
-  onLibrarySelected(el.library.value)
-    .then(() => loadLeaderboard())
-    .catch((err) => showAlert(err.message));
-});
-
 el.readyBtn.addEventListener("click", () => {
   if (!state.currentQuestion) {
     return;
@@ -1986,7 +651,7 @@ el.readyBtn.addEventListener("click", () => {
   el.passOverlay.classList.add("hidden");
   const activeMode = getActiveMode();
   activeMode.onReady(state.currentQuestion);
-  startTimer(state.currentQuestion.round_length);
+  startTimer(state.currentQuestion.round_length, getActiveMode);
 });
 
 el.submitAnswer.addEventListener("click", () => {
@@ -2001,7 +666,7 @@ el.newMatch.addEventListener("click", returnToSetup);
 
 if (el.shareSummaryBtn) {
   el.shareSummaryBtn.addEventListener("click", () => {
-    shareMatchSummary().catch((err) => showAlert(err.message));
+    shareMatchSummary(state.lastSummary).catch((err) => showAlert(err.message));
   });
 }
 
@@ -2009,7 +674,6 @@ el.gameRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
 el.gameExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
 el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
 el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
-
 
 if (el.revealMapFullscreen) {
   if (window.L && L.DomEvent) {
@@ -2034,8 +698,6 @@ if (el.journeyMapFullscreen) {
 
 document.addEventListener("fullscreenchange", () => {
   syncFullscreenButtons();
-
-  // Leaflet needs to re-measure and refit after the container resizes.
   refitAllMaps();
   setTimeout(() => refitAllMaps(), 120);
 });
@@ -2044,7 +706,6 @@ window.addEventListener("resize", () => {
   refitAllMaps();
 });
 
-// Setup form controls — reload leaderboard whenever any setting changes.
 [el.roundCount, el.roundLength].forEach((control) => {
   if (control) {
     control.addEventListener("change", () => {
@@ -2076,43 +737,26 @@ function refreshActiveScreenLanguage() {
   applyLanguage();
   syncFullscreenButtons();
   updateMapLayerControls(getShuffleMaps());
+  refreshFilterComponentsLanguage();
 
-  // Refresh filter component trigger labels on language change
-  if (playerInput) playerInput.updateLanguage();
-  if (albumMultiSelect) albumMultiSelect.updateTriggerUi();
-  if (countryMultiSelect) countryMultiSelect.updateTriggerUi();
-  if (cityMultiSelect) cityMultiSelect.updateTriggerUi();
-  if (peopleMultiSelect) peopleMultiSelect.updateTriggerUi();
-  if (dateRangeSlider) dateRangeSlider.updateVisuals();
-  updateFiltersSummaryBadge();
-  if (_lastPreflightData) {
-    updatePreflightCount(_lastPreflightData);
-    if (!_lastPreflightData.ok) {
-      showPreflightWarning(
-        t("setup.not_enough_media", _lastPreflightData.eligible_count, _lastPreflightData.required)
-      );
-    }
-  }
-  if (_lastSyncStatus) {
-    renderSyncStatus(_lastSyncStatus);
+  const syncStatus = getLastSyncStatus();
+  if (syncStatus) {
+    renderSyncStatus(syncStatus);
   }
 
   if (!el.setupCard.classList.contains("hidden")) {
-    const settingsContainer = document.getElementById("game-settings-container");
-    if (settingsContainer) {
+    const settingsCont = document.getElementById("game-settings-container");
+    if (settingsCont) {
       const mode = getActiveMode();
-      mode.renderSettings(settingsContainer);
+      mode.renderSettings(settingsCont);
       applyLanguage();
     }
   }
 
-  // Only update the round-meta banner when guessing (on the reveal screen it shows
-  // reveal.title which refreshRevealText will handle).
   if (state.currentQuestion && el.guessingUi && !el.guessingUi.classList.contains("hidden")) {
     updateRoundMeta();
   }
 
-  // Refresh the Album Shuffle help modal body if it is currently open.
   if (state.currentQuestion) {
     const activeMode = getActiveMode();
     activeMode.refreshHelpModal?.(state.currentQuestion);
@@ -2141,7 +785,6 @@ function refreshActiveScreenLanguage() {
   }
 
   if (!el.guessingUi.classList.contains("hidden") && state.currentQuestion) {
-    // Update only dynamic text nodes — never touch image/map/date selects.
     if (state.timedOut) {
       el.timerLabel.textContent = t("game.timer_time_up_label");
       el.timeoutNotice.textContent = t("game.timer_time_up_notice");
@@ -2157,8 +800,6 @@ function refreshActiveScreenLanguage() {
   }
 
   if (!el.revealUi.classList.contains("hidden") && state.lastReveal) {
-    // Refresh all text in the reveal (table headers, actual date/location, buttons)
-    // without re-initializing the map or triggering animations.
     const activeMode = getActiveMode();
     activeMode.refreshRevealText(el.revealUi, state.lastReveal);
     el.nextRound.textContent = state.lastReveal.match_finished
@@ -2192,70 +833,20 @@ if (el.audioToggleBtn) {
 updateLanguageUi();
 updateAudioUi();
 
-/* Enter or Space key triggers the primary action of whatever screen is showing. */
-
-function activeActionButton() {
-  if (state.submitting) {
-    return null;
-  }
-  if (!el.passOverlay.classList.contains("hidden")) {
-    return el.readyBtn;
-  }
-  if (!el.gameCard.classList.contains("hidden")) {
-    if (!el.guessingUi.classList.contains("hidden")) {
-      return el.submitAnswer;
-    }
-    if (!el.revealUi.classList.contains("hidden")) {
-      const activeNextBtn = document.querySelector(
-        "#reveal-ui button#next-round:not(.hidden), #album-shuffle-reveal-ui button.next-round-btn:not(.hidden)"
-      );
-      return activeNextBtn || el.nextRound;
-    }
-  }
-  return null;
-}
-
-document.addEventListener("keydown", (event) => {
-  if ((event.key !== "Enter" && event.key !== " ") || event.isComposing) {
-    return;
-  }
-  if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
-    return;
-  }
-
-  const target = event.target;
-  if (
-    target instanceof HTMLButtonElement ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLSelectElement ||
-    target instanceof HTMLTextAreaElement
-  ) {
-    return;
-  }
-  if (target instanceof HTMLElement && target.closest("#setup-card")) {
-    return;
-  }
-
-  const button = activeActionButton();
-  if (!button || button.disabled) {
-    return;
-  }
-  event.preventDefault();
-  button.click();
-});
+bindGlobalShortcuts();
 
 function initModeButtons() {
   const selector = document.getElementById("game-mode-selector");
-  const settingsContainer = document.getElementById("game-settings-container");
+  const settingsCont = document.getElementById("game-settings-container");
   if (!selector) return;
   const buttons = selector.querySelectorAll(".mode-btn");
 
   function updateModeUI(modeName) {
     state.gameMode = modeName || "pinpoint";
     buttons.forEach((b) => b.classList.toggle("active", b.dataset.mode === state.gameMode));
-    if (settingsContainer) {
+    if (settingsCont) {
       const mode = getActiveMode();
-      mode.renderSettings(settingsContainer);
+      mode.renderSettings(settingsCont);
       applyLanguage();
     }
     loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
@@ -2271,6 +862,28 @@ function initModeButtons() {
   updateModeUI("pinpoint");
 }
 
+async function initUiConfig() {
+  const data = await api("/api/ui-config");
+  applyUiConfig(data);
+}
+
+function applyUiConfig(config) {
+  const savedLang = getInitialLanguagePreference();
+  if (savedLang) {
+    state.language = savedLang;
+  } else if (config.language && (config.language === "PT" || config.language === "EN")) {
+    state.language = config.language;
+  }
+  if (config.score_max_points) {
+    state.scoreMaxPoints = Number(config.score_max_points);
+  }
+  if (el.library && el.library.value) {
+    restoreLibraryFilters(el.library.value);
+  }
+  updateLanguageUi();
+  updateAudioUi();
+  applyLanguage();
+}
 
 (async function bootstrap() {
   initPlayerInput();
@@ -2286,8 +899,6 @@ function initModeButtons() {
     console.error(`Startup error (${scope})`, err);
   };
 
-  // UI config and libraries must complete before the leaderboard so that the
-  // setup form values (library, album) are populated when we build filter params.
   await Promise.all([
     initUiConfig().catch((err) => rememberStartupError("UI config", err)),
     initLibraries().catch((err) => rememberStartupError("Library setup", err)),

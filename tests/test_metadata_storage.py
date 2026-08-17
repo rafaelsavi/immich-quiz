@@ -210,7 +210,6 @@ def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path
         date_upper_bound=None,
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=100,
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
@@ -303,7 +302,6 @@ def test_metadata_store_filter_options_ownership_filtering(meta_store: MetadataS
         date_upper_bound=None,
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=100,
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
@@ -349,7 +347,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         date_upper_bound=date(2030, 1, 1),
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=100,
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
@@ -370,7 +367,6 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         date_upper_bound=date(2022, 12, 31),
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=100,
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
@@ -527,7 +523,6 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
         date_upper_bound=None,
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=100,
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
@@ -668,7 +663,6 @@ def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: M
         date_upper_bound=None,
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=100,
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
@@ -915,7 +909,6 @@ def test_asset_filter_criteria_from_setup_factory() -> None:
         date_upper_bound=date(2024, 12, 31),
         app_host='127.0.0.1',
         app_port=8010,
-        score_max_points=100,
         location_score_decay_km=500.0,
         date_score_decay_days=500.0,
         language='EN',
@@ -1118,18 +1111,27 @@ def test_upsert_assets_batch_clears_stale_junctions(meta_store: MetadataStore) -
     )
 
     def get_junctions():
-        p = [r['person_id'] for r in meta_store._db.fetch_all(
-            'SELECT person_id FROM asset_people WHERE asset_id = ? ORDER BY person_id',
-            ('asset-mod-1',),
-        )]
-        t = [r['tag_id'] for r in meta_store._db.fetch_all(
-            'SELECT tag_id FROM asset_tags WHERE asset_id = ? ORDER BY tag_id',
-            ('asset-mod-1',),
-        )]
-        a = [r['album_id'] for r in meta_store._db.fetch_all(
-            'SELECT album_id FROM asset_albums WHERE asset_id = ? ORDER BY album_id',
-            ('asset-mod-1',),
-        )]
+        p = [
+            r['person_id']
+            for r in meta_store._db.fetch_all(
+                'SELECT person_id FROM asset_people WHERE asset_id = ? ORDER BY person_id',
+                ('asset-mod-1',),
+            )
+        ]
+        t = [
+            r['tag_id']
+            for r in meta_store._db.fetch_all(
+                'SELECT tag_id FROM asset_tags WHERE asset_id = ? ORDER BY tag_id',
+                ('asset-mod-1',),
+            )
+        ]
+        a = [
+            r['album_id']
+            for r in meta_store._db.fetch_all(
+                'SELECT album_id FROM asset_albums WHERE asset_id = ? ORDER BY album_id',
+                ('asset-mod-1',),
+            )
+        ]
         return p, t, a
 
     people, tags, albums = get_junctions()
@@ -1448,6 +1450,3 @@ async def test_check_and_trigger_scheduled_sync(meta_store: MetadataStore) -> No
         now=now,
     )
     assert task3 is None
-
-
-

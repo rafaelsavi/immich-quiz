@@ -289,6 +289,7 @@ def test_map_controls_disable_click_propagation_and_guard_pin_placement() -> Non
 def test_preflight_warning_disables_start_button_and_guards_submission() -> None:
     index_html = INDEX_HTML.read_text(encoding='utf-8')
     state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
 
     # start-match-btn exists in HTML as submit button
@@ -296,12 +297,12 @@ def test_preflight_warning_disables_start_button_and_guards_submission() -> None
     assert 'setupSubmitBtn' in state_js, 'setupSubmitBtn missing from state.js'
 
     # showPreflightWarning must disable the submit button
-    assert 'showPreflightWarning' in app_js
-    assert 'submitBtn.disabled = true' in app_js, 'showPreflightWarning must disable the submit button'
+    assert 'showPreflightWarning' in setup_filters_js
+    assert 'submitBtn.disabled = true' in setup_filters_js, 'showPreflightWarning must disable the submit button'
 
     # hidePreflightWarning must re-enable the submit button
-    assert 'hidePreflightWarning' in app_js
-    assert 'submitBtn.disabled = false' in app_js, 'hidePreflightWarning must re-enable the submit button'
+    assert 'hidePreflightWarning' in setup_filters_js
+    assert 'submitBtn.disabled = false' in setup_filters_js, 'hidePreflightWarning must re-enable the submit button'
 
     # startMatch must guard against starting if button is disabled or preflight warning is visible
     assert 'async function startMatch' in app_js
