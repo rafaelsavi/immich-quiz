@@ -330,3 +330,21 @@ def test_pinpoint_quiz_image_fullscreen_button_handling() -> None:
     assert 'el.quizImageFullscreen.removeAttribute("src")' not in app_js, (
         'app.js must not call removeAttribute("src") on quizImageFullscreen'
     )
+
+
+def test_leaderboard_enhancements_markup_and_modules() -> None:
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
+    leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    i18n_js = (JS_DIR / 'modules' / 'i18n.js').read_text(encoding='utf-8')
+
+    assert 'id="leaderboard-scope-pill"' in index_html, 'leaderboard-scope-pill ID missing from index.html'
+    assert 'leaderboardScopePill' in state_js, 'leaderboardScopePill getter missing from state.js'
+    assert 'leaderboard-empty-row' in leaderboard_js, 'leaderboard.js must handle empty state'
+    assert 'leaderboard-empty-row' in leaderboard_css, 'leaderboard.css must style empty state'
+    assert 'rank-medal' in leaderboard_js, 'leaderboard.js must apply rank medals'
+    assert 'leaderboard-scope-pill' in leaderboard_css, 'leaderboard.css must style scope pill'
+    assert '"leaderboard.empty"' in i18n_js, 'i18n.js must define leaderboard.empty key'
+    assert '"leaderboard.perfect_badge"' in i18n_js, 'i18n.js must define leaderboard.perfect_badge key'
+

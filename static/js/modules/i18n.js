@@ -202,6 +202,9 @@ export const TRANSLATIONS = {
     "leaderboard.col_player": "Player",
     "leaderboard.col_accuracy": "Accuracy %",
     "leaderboard.col_score": "Score",
+    "leaderboard.empty": "No games recorded for this configuration yet.",
+    "leaderboard.perfect_badge": "100%",
+    "leaderboard.scope_all": "Full Library",
     // Formatting
     "fmt.no_guess": "no guess",
     "fmt.unknown_place": "unknown",
@@ -455,6 +458,9 @@ export const TRANSLATIONS = {
     "leaderboard.col_player": "Jogador",
     "leaderboard.col_accuracy": "Precisão %",
     "leaderboard.col_score": "Pontuação",
+    "leaderboard.empty": "Nenhuma partida registrada para esta configuração ainda.",
+    "leaderboard.perfect_badge": "100%",
+    "leaderboard.scope_all": "Toda a Biblioteca",
     // Formatting
     "fmt.no_guess": "sem palpite",
     "fmt.unknown_place": "desconhecido",

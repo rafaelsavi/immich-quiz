@@ -53,10 +53,6 @@
   color: var(--accent);
 }
 
-tr.is-winner td {
-  background: rgba(15, 124, 127, 0.08);
-  font-weight: 700;
-}
 
 #reveal-table .group-head {
   text-align: center;
@@ -75,6 +71,27 @@ tr.is-winner td {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.leaderboard-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.leaderboard-scope-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  background: var(--surface-subtle, #f1f5f9);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(203, 213, 225, 0.6);
+  width: fit-content;
 }
 
 .leaderboard-head button {
@@ -96,6 +113,82 @@ td {
 #leaderboard-table th {
   cursor: pointer;
   white-space: nowrap;
+}
+
+#leaderboard-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+#leaderboard-table tbody tr:hover {
+  background-color: rgba(15, 124, 127, 0.04);
+}
+
+.leaderboard-empty-row td {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--text-muted, #64748b);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+.rank-medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  line-height: 1;
+  width: 1.5rem;
+  flex-shrink: 0;
+}
+
+.rank-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  width: 1.5rem;
+  flex-shrink: 0;
+}
+
+.player-name-text {
+  font-weight: 600;
+  color: var(--ink, #1f2a44);
+}
+
+.accuracy-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.accuracy-tier-perfect {
+  background: linear-gradient(135deg, #fff9db 0%, #ffec99 100%);
+  color: #744210;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1.5px #f59f00, 0 2px 8px rgba(245, 159, 0, 0.25);
+}
+
+.accuracy-tier-high {
+  background: rgba(15, 124, 127, 0.12);
+  color: #0c5c5e;
+}
+
+.accuracy-tier-medium {
+  background: rgba(47, 128, 237, 0.1);
+  color: #1a56a6;
+}
+
+.accuracy-tier-low {
+  background: rgba(100, 116, 139, 0.1);
+  color: #475569;
 }
 
 /* Feature 3: Shiny Gold Table Highlights */
@@ -378,9 +471,12 @@ td.hide-on-desktop {
 
   /* Hide designated sub-columns on mobile */
   .hide-on-mobile,
-  .col-accuracy,
-  th.col-accuracy,
-  td.col-accuracy,
+  #reveal-table .col-accuracy,
+  #reveal-table th.col-accuracy,
+  #reveal-table td.col-accuracy,
+  #summary-table .col-accuracy,
+  #summary-table th.col-accuracy,
+  #summary-table td.col-accuracy,
   th.hide-on-mobile,
   td.hide-on-mobile {
     display: none !important;

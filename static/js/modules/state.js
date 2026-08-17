@@ -45,7 +45,7 @@ export const state = {
   submitting: false,
   matchFinished: false,
   leaderboardRows: [],
-  leaderboardSort: { key: "total_score", asc: false },
+  leaderboardSort: { key: "accuracy_pct", asc: false },
   timerTotalSeconds: 0,
   timerRemainingSeconds: 0,
   /** @type {Record<string, number>} Total perfect rounds per player in current match */
@@ -155,6 +155,7 @@ export const el = {
   revealRestartBtn: document.getElementById("reveal-restart-btn"),
   revealExitBtn: document.getElementById("reveal-exit-btn"),
   refreshLeaderboard: document.getElementById("refresh-leaderboard"),
+  leaderboardScopePill: document.getElementById("leaderboard-scope-pill"),
   leaderboardBody: document.querySelector("#leaderboard-table tbody"),
   leaderboardHead: document.querySelector("#leaderboard-table thead"),
 };

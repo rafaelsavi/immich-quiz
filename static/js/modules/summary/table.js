@@ -49,7 +49,6 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
     el.summaryTableBody.replaceChildren();
     (summary.players || []).forEach((player) => {
       const row = document.createElement("tr");
-      row.classList.toggle("is-winner", player.is_winner);
 
       row.appendChild(buildCell(String(player.rank)));
 

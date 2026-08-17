@@ -398,7 +398,10 @@
 
     <section id="leaderboard-card" class="card">
       <div class="leaderboard-head">
-        <h2 data-i18n="leaderboard.heading">Leaderboard</h2>
+        <div class="leaderboard-title-group">
+          <h2 data-i18n="leaderboard.heading">Leaderboard</h2>
+          <span id="leaderboard-scope-pill" class="leaderboard-scope-pill"></span>
+        </div>
         <button id="refresh-leaderboard" class="btn-secondary" data-i18n="leaderboard.refresh_btn">Refresh</button>
       </div>
       <div class="table-scroll">
@@ -409,9 +412,7 @@
                   aria-hidden="true"></span></th>
               <th data-sort="player_name" data-i18n="leaderboard.col_player">Player<span class="sort-arrow"
                   aria-hidden="true"></span></th>
-              <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy" class="col-accuracy hide-on-mobile">
-                Accuracy %<span class="sort-arrow" aria-hidden="true"></span></th>
-              <th data-sort="total_score" data-i18n="leaderboard.col_score">Score<span class="sort-arrow"
+              <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy">Accuracy %<span class="sort-arrow"
                   aria-hidden="true"></span></th>
             </tr>
           </thead>
