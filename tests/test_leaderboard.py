@@ -1,12 +1,7 @@
 from datetime import date
 from pathlib import Path
 
-from src.models import (
-    GameMode,
-    PeopleMode,
-    PlayMode,
-    RoundLength
-)
+from src.models import GameMode, PeopleMode, PlayMode, RoundLength
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
 
@@ -631,5 +626,3 @@ def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
     assert bob_entry.room_id == 'rm_uuid_456'
     assert bob_entry.room_name == "Rafael's Lounge"
     assert bob_entry.challenge_title is None
-
-

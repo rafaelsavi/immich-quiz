@@ -139,7 +139,9 @@ class RoomManager:
             if code not in self._code_to_room:
                 return code
 
-    def create_room(self, host_name: str, room_name: str | None = None, settings: dict | None = None) -> tuple[GameRoom, str]:
+    def create_room(
+        self, host_name: str, room_name: str | None = None, settings: dict | None = None
+    ) -> tuple[GameRoom, str]:
         """Create a new room. Returns (room, host_token)."""
         host_name = host_name.strip()
         if not host_name:

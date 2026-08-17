@@ -211,9 +211,7 @@ def format_filter_tooltip(
 
     if album_ids or (album_name and album_name != '-'):
         val = (
-            album_name
-            if (album_name and album_name != '-')
-            else t('filters.albums_count', lang, len(album_ids or []))
+            album_name if (album_name and album_name != '-') else t('filters.albums_count', lang, len(album_ids or []))
         )
         lines.append(f'{t("tooltip.album", lang)}: {val}')
     if countries:

@@ -1,9 +1,6 @@
-from src.models import (
-    BaseGameConfig,
-    PeopleMode,
-    format_filter_summary
-)
 from datetime import date
+
+from src.models import BaseGameConfig, PeopleMode, format_filter_summary
 
 
 def test_format_filter_summary() -> None:
@@ -91,4 +88,3 @@ def test_format_filter_summary() -> None:
     assert single_person_config.format_filter_tooltip(language='PT') == 'Pessoa: Charlie'
     assert any_people_config.format_filter_tooltip(language='PT') == 'Pessoas (Qualquer): Charlie, Dana'
     assert config_default.format_filter_summary(language='PT') == (0, 'Toda a Biblioteca')
-
