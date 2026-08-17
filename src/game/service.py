@@ -7,10 +7,10 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from i18n import SupportedLanguage
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, load_asset_pool
+from src.i18n import SupportedLanguage
 from src.immich.client import ImmichClient
 from src.models import (
     AnswerRequest,

@@ -19,7 +19,7 @@ def get_app_version(ignore_rc: bool = False) -> str:
                 version = data.get('project', {}).get('version')
                 if version:
                     if ignore_rc and 'rc' in version:
-                        # Convert 2.0.0rc0 to 2.0.0                        
+                        # Convert 2.0.0rc0 to 2.0.0
                         version = version.split('rc')[0]
                     return str(version)
         except Exception as exc:
