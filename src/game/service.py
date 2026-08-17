@@ -223,11 +223,6 @@ class GameService:
                 detail='This library has not been synced yet. Please sync the library before starting a match.',
             )
 
-        if self.settings.date_lower_bound:
-            setup.min_date = max(filter(None, [self.settings.date_lower_bound, setup.min_date]), default=None)
-        if self.settings.date_upper_bound:
-            setup.max_date = min(filter(None, [self.settings.date_upper_bound, setup.max_date]), default=None)
-
         setup.album_name = await self.resolve_album_name(
             setup.library_name,
             album_ids=setup.album_ids,
@@ -356,6 +351,7 @@ class GameService:
                 cities=updated_state.setup.cities,
                 min_date=updated_state.setup.min_date,
                 max_date=updated_state.setup.max_date,
+                include_shared=updated_state.setup.include_shared,
                 play_mode=PlayMode.local,
                 duration_seconds=duration_sec,
                 player_times=player_times,

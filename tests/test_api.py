@@ -365,6 +365,20 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
     empty_albums = client.get('/api/leaderboard?albums=NonExistent').json()
     assert len(empty_albums) == 0
 
+    # Non-matching min_date
+    empty_date = client.get('/api/leaderboard?min_date=2024-01-01').json()
+    assert len(empty_date) == 0
+
+    # Non-matching countries/cities/person_ids
+    empty_countries = client.get('/api/leaderboard?countries=France').json()
+    assert len(empty_countries) == 0
+
+    empty_cities = client.get('/api/leaderboard?cities=Paris').json()
+    assert len(empty_cities) == 0
+
+    empty_people = client.get('/api/leaderboard?person_ids=p1&people_mode=ANY').json()
+    assert len(empty_people) == 0
+
 
 def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> None:
     immich = FakeImmichClient(

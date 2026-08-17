@@ -4,7 +4,7 @@ import { api } from "./api.js";
 import { MultiSelect } from "./components/multi_select.js";
 import { DateRangeSlider } from "./components/range_slider.js";
 import { PlayerInput } from "./components/player_input.js";
-import { loadLeaderboard } from "./leaderboard.js";
+import { loadLeaderboard, loadLeaderboardDebounced } from "./leaderboard.js";
 import { checkSyncStatus, triggerLibrarySync, renderSyncStatus } from "./sync.js";
 
 /** @type {MultiSelect|null} */
@@ -85,7 +85,7 @@ export function initFilterComponents() {
       saveCurrentLibraryFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
-      loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
+      loadLeaderboardDebounced();
     },
   });
 
@@ -101,6 +101,7 @@ export function initFilterComponents() {
       saveCurrentLibraryFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
+      loadLeaderboardDebounced();
     },
   });
 
@@ -114,6 +115,7 @@ export function initFilterComponents() {
       saveCurrentLibraryFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
+      loadLeaderboardDebounced();
     },
   });
 
@@ -128,6 +130,7 @@ export function initFilterComponents() {
       saveCurrentLibraryFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
+      loadLeaderboardDebounced();
     },
   });
 
@@ -142,6 +145,7 @@ export function initFilterComponents() {
       saveCurrentLibraryFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
+      loadLeaderboardDebounced();
     },
   });
 
@@ -162,6 +166,7 @@ export function initFilterComponents() {
         btn.classList.add("active");
         saveCurrentLibraryFilters();
         triggerPreflightDebounced();
+        loadLeaderboardDebounced();
       });
     });
   }
@@ -175,6 +180,7 @@ export function initFilterComponents() {
       saveCurrentLibraryFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
+      loadLeaderboardDebounced();
     });
   }
 
@@ -210,6 +216,7 @@ export function initFilterComponents() {
       clearSavedLibraryFilters(el.library ? el.library.value : null);
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
+      loadLeaderboardDebounced();
     });
   }
 
@@ -343,6 +350,59 @@ export function updateFiltersSummaryBadge() {
   } else {
     badge.textContent = t("setup.filters_active_count", count);
   }
+}
+
+export function isCustomFilteredActive() {
+  if (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0) return true;
+  if (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0) return true;
+  if (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0) return true;
+  if (peopleMultiSelect && peopleMultiSelect.getSelectedIds().length > 0) return true;
+  if (dateRangeSlider) {
+    const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
+    if (minDate || maxDate) return true;
+  }
+  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) return true;
+  return false;
+}
+
+export function getActiveFilterSummary() {
+  const parts = [];
+  if (albumMultiSelect) {
+    const albums = albumMultiSelect.getSelectedItems();
+    if (albums.length === 1) parts.push(albums[0].name);
+    else if (albums.length > 1) parts.push(`${albums.length} albums`);
+  }
+  if (countryMultiSelect) {
+    const countries = countryMultiSelect.getSelectedItems();
+    if (countries.length === 1) parts.push(countries[0].name);
+    else if (countries.length > 1) parts.push(`${countries.length} countries`);
+  }
+  if (cityMultiSelect) {
+    const cities = cityMultiSelect.getSelectedItems();
+    if (cities.length === 1) parts.push(cities[0].name);
+    else if (cities.length > 1) parts.push(`${cities.length} cities`);
+  }
+  if (peopleMultiSelect) {
+    const people = peopleMultiSelect.getSelectedItems();
+    if (people.length === 1) parts.push(people[0].name);
+    else if (people.length > 1) parts.push(`${people.length} people`);
+  }
+  if (dateRangeSlider) {
+    const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
+    if (minDate && maxDate) {
+      const y1 = minDate.substring(0, 4);
+      const y2 = maxDate.substring(0, 4);
+      parts.push(y1 === y2 ? y1 : `${y1}–${y2}`);
+    } else if (minDate) {
+      parts.push(`from ${minDate.substring(0, 4)}`);
+    } else if (maxDate) {
+      parts.push(`until ${maxDate.substring(0, 4)}`);
+    }
+  }
+  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) {
+    parts.push("Shared");
+  }
+  return parts.length > 0 ? parts.join(" • ") : t("leaderboard.scope_all");
 }
 
 export function showPreflightWarning(message) {
@@ -551,6 +611,7 @@ export async function onLibrarySelected(libraryName) {
     updatePeopleModeToggleVisibility();
     updateFiltersSummaryBadge();
     triggerPreflightDebounced();
+    loadLeaderboardDebounced();
     checkSyncStatus(libraryName, onLibrarySelected);
   } catch (err) {
     console.error("Failed to load library filters:", err);

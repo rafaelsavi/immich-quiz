@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS matches (
     cities_json        TEXT,
     min_date           TEXT,
     max_date           TEXT,
+    include_shared     INTEGER NOT NULL DEFAULT 0,
     is_custom_filtered INTEGER NOT NULL DEFAULT 0,
     filter_summary     TEXT,
     duration_seconds   REAL,
@@ -120,6 +121,7 @@ def format_filter_summary(
     person_ids: list[str] | None = None,
     min_date: date | None = None,
     max_date: date | None = None,
+    include_shared: bool = False,
 ) -> tuple[int, str]:
     """Return (is_custom_filtered, summary_str) based on active filter parameters."""
     parts: list[str] = []
@@ -139,10 +141,35 @@ def format_filter_summary(
             parts.append(f'from {min_date.strftime("%Y/%m")}')
         elif max_date:
             parts.append(f'until {max_date.strftime("%Y/%m")}')
+    if include_shared:
+        parts.append('Shared')
 
     if not parts:
         return 0, 'Full Library'
     return 1, ' • '.join(parts)
+
+
+def _canonicalize_filter_list(val: list[str] | str | None) -> str | None:
+    if val is None:
+        return None
+    if isinstance(val, str):
+        val_str = val.strip()
+        if not val_str:
+            return None
+        if val_str.startswith('[') and val_str.endswith(']'):
+            try:
+                parsed = json.loads(val_str)
+                if isinstance(parsed, list):
+                    items = [str(x).strip() for x in parsed if str(x).strip()]
+                    return json.dumps(sorted(items)) if items else None
+            except Exception:
+                pass
+        items = [x.strip() for x in val_str.split(',') if x.strip()]
+        return json.dumps(sorted(items)) if items else None
+    if isinstance(val, (list, tuple, set)):
+        items = [str(x).strip() for x in val if str(x).strip()]
+        return json.dumps(sorted(items)) if items else None
+    return None
 
 
 class LeaderboardStore:
@@ -178,6 +205,7 @@ class LeaderboardStore:
         cities: list[str] | None = None,
         min_date: date | None = None,
         max_date: date | None = None,
+        include_shared: bool = False,
         play_mode: PlayMode = PlayMode.local,
         challenge_id: str | None = None,
         duration_seconds: float | None = None,
@@ -193,6 +221,7 @@ class LeaderboardStore:
             person_ids=person_ids,
             min_date=min_date,
             max_date=max_date,
+            include_shared=include_shared,
         )
 
         max_score = max_possible_score(
@@ -208,6 +237,11 @@ class LeaderboardStore:
         )
         best_total = player_scores[ordered_players[0]].get('total', 0) if ordered_players else 0
 
+        album_ids_json = _canonicalize_filter_list(album_ids)
+        person_ids_json = _canonicalize_filter_list(person_ids)
+        countries_json = _canonicalize_filter_list(countries)
+        cities_json = _canonicalize_filter_list(cities)
+
         with self._db.connection() as conn:
             conn.execute(
                 """
@@ -216,8 +250,8 @@ class LeaderboardStore:
                     rounds, round_length, location_mode, date_mode,
                     album_name, album_ids_json, person_ids_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
-                    is_custom_filtered, filter_summary, duration_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    include_shared, is_custom_filtered, filter_summary, duration_seconds
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
@@ -231,13 +265,14 @@ class LeaderboardStore:
                     1 if location_mode else 0,
                     1 if date_mode else 0,
                     album_name or '-',
-                    json.dumps(album_ids) if album_ids else None,
-                    json.dumps(person_ids) if person_ids else None,
+                    album_ids_json,
+                    person_ids_json,
                     people_mode.value,
-                    json.dumps(countries) if countries else None,
-                    json.dumps(cities) if cities else None,
+                    countries_json,
+                    cities_json,
                     min_date.isoformat() if min_date else None,
                     max_date.isoformat() if max_date else None,
+                    1 if include_shared else 0,
                     is_custom,
                     summary,
                     duration_seconds,
@@ -326,13 +361,23 @@ class LeaderboardStore:
         game_mode: GameMode | None = None,
         library: str | None = None,
         albums: str | None = None,
+        album_ids: list[str] | str | None = None,
         player_name: str | None = None,
+        min_date: date | str | None = None,
+        max_date: date | str | None = None,
+        countries: list[str] | str | None = None,
+        cities: list[str] | str | None = None,
+        person_ids: list[str] | str | None = None,
+        people_mode: PeopleMode | None = None,
+        include_shared: bool | None = None,
         is_custom_filtered: bool | None = None,
+        exact_filter_match: bool = True,
         limit: int | None = None,
     ) -> list[LeaderboardEntry]:
         clauses: list[str] = []
         params: list[Any] = []
 
+        # Standard game setup fields
         if rounds is not None:
             clauses.append('m.rounds = ?')
             params.append(rounds)
@@ -351,15 +396,125 @@ class LeaderboardStore:
         if library is not None and library != '':
             clauses.append('m.library_name = ?')
             params.append(library)
-        if albums is not None and albums != '':
-            clauses.append('m.album_name = ?')
-            params.append(albums)
         if player_name is not None and player_name != '':
             clauses.append('e.player_name = ?')
             params.append(player_name)
         if is_custom_filtered is not None:
             clauses.append('m.is_custom_filtered = ?')
             params.append(1 if is_custom_filtered else 0)
+
+        is_scoped_filter = any(
+            v is not None
+            for v in (
+                albums,
+                album_ids,
+                countries,
+                cities,
+                person_ids,
+                min_date,
+                max_date,
+                include_shared,
+            )
+        )
+
+        if exact_filter_match and is_scoped_filter:
+            # Exact preset isolation: unprovided filter dimensions MUST be NULL / default
+            aid_json = _canonicalize_filter_list(album_ids)
+            if aid_json:
+                clauses.append('m.album_ids_json = ?')
+                params.append(aid_json)
+            elif albums is not None and albums != '' and albums != '-':
+                clauses.append('m.album_name = ?')
+                params.append(albums)
+            else:
+                clauses.append('(m.album_ids_json IS NULL OR m.album_name = "-" OR m.album_name IS NULL)')
+
+            c_json = _canonicalize_filter_list(countries)
+            if c_json:
+                clauses.append('m.countries_json = ?')
+                params.append(c_json)
+            else:
+                clauses.append('m.countries_json IS NULL')
+
+            ci_json = _canonicalize_filter_list(cities)
+            if ci_json:
+                clauses.append('m.cities_json = ?')
+                params.append(ci_json)
+            else:
+                clauses.append('m.cities_json IS NULL')
+
+            p_json = _canonicalize_filter_list(person_ids)
+            if p_json:
+                clauses.append('m.person_ids_json = ?')
+                params.append(p_json)
+                try:
+                    parsed_pids = json.loads(p_json)
+                    if len(parsed_pids) > 1 and people_mode is not None:
+                        clauses.append('m.people_mode = ?')
+                        params.append(people_mode.value)
+                except Exception:
+                    pass
+            else:
+                clauses.append('m.person_ids_json IS NULL')
+
+            if min_date is not None:
+                min_str = min_date.isoformat() if hasattr(min_date, 'isoformat') else str(min_date)
+                clauses.append('m.min_date = ?')
+                params.append(min_str)
+            else:
+                clauses.append('m.min_date IS NULL')
+
+            if max_date is not None:
+                max_str = max_date.isoformat() if hasattr(max_date, 'isoformat') else str(max_date)
+                clauses.append('m.max_date = ?')
+                params.append(max_str)
+            else:
+                clauses.append('m.max_date IS NULL')
+
+            if include_shared is not None:
+                clauses.append('m.include_shared = ?')
+                params.append(1 if include_shared else 0)
+            else:
+                clauses.append('(m.include_shared IS NULL OR m.include_shared = 0)')
+        else:
+            # Loose querying: only add conditions for explicitly provided filters
+            if include_shared is not None:
+                clauses.append('m.include_shared = ?')
+                params.append(1 if include_shared else 0)
+            aid_json = _canonicalize_filter_list(album_ids)
+            if aid_json:
+                clauses.append('m.album_ids_json = ?')
+                params.append(aid_json)
+            elif albums is not None and albums != '':
+                clauses.append('m.album_name = ?')
+                params.append(albums)
+
+            if min_date is not None:
+                min_str = min_date.isoformat() if hasattr(min_date, 'isoformat') else str(min_date)
+                clauses.append('m.min_date = ?')
+                params.append(min_str)
+            if max_date is not None:
+                max_str = max_date.isoformat() if hasattr(max_date, 'isoformat') else str(max_date)
+                clauses.append('m.max_date = ?')
+                params.append(max_str)
+            if countries is not None:
+                c_json = _canonicalize_filter_list(countries)
+                if c_json:
+                    clauses.append('m.countries_json = ?')
+                    params.append(c_json)
+            if cities is not None:
+                ci_json = _canonicalize_filter_list(cities)
+                if ci_json:
+                    clauses.append('m.cities_json = ?')
+                    params.append(ci_json)
+            if person_ids is not None:
+                p_json = _canonicalize_filter_list(person_ids)
+                if p_json:
+                    clauses.append('m.person_ids_json = ?')
+                    params.append(p_json)
+            if people_mode is not None:
+                clauses.append('m.people_mode = ?')
+                params.append(people_mode.value)
 
         where_sql = f'WHERE {" AND ".join(clauses)}' if clauses else ''
         limit_sql = f'LIMIT {int(limit)}' if limit is not None and limit > 0 else ''
@@ -391,13 +546,14 @@ class LeaderboardStore:
             m.cities_json,
             m.min_date,
             m.max_date,
+            m.include_shared,
             m.is_custom_filtered,
             m.filter_summary,
             m.duration_seconds
         FROM match_entries e
         JOIN matches m ON e.match_id = m.match_id
         {where_sql}
-        ORDER BY m.played_at DESC, e.rank ASC
+        ORDER BY e.accuracy_pct DESC, e.total_score DESC, m.played_at DESC, e.rank ASC
         {limit_sql}
         """
 
@@ -425,6 +581,7 @@ class LeaderboardStore:
                 'cities': cities,
                 'min_date': row['min_date'],
                 'max_date': row['max_date'],
+                'include_shared': bool(row['include_shared']) if 'include_shared' in row.keys() else False,
             }
 
             entries.append(

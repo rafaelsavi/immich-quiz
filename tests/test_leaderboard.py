@@ -108,6 +108,28 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     assert 'Japan' in entry.filter_summary
     assert 'Tokyo' in entry.filter_summary
 
+    # Test min_date and max_date filtering (loose mode)
+    date_filtered = store.list_entries(min_date=date(2023, 1, 1), max_date=date(2023, 12, 31), exact_filter_match=False)
+    assert len(date_filtered) == 1
+    assert date_filtered[0].match_id == 'm1'
+
+    date_non_matching = store.list_entries(min_date=date(2024, 1, 1), exact_filter_match=False)
+    assert len(date_non_matching) == 0
+
+    # Test countries, cities, person_ids, people_mode filtering (loose mode)
+    country_filtered = store.list_entries(countries=['Japan'], exact_filter_match=False)
+    assert len(country_filtered) == 1
+    assert store.list_entries(countries=['France'], exact_filter_match=False) == []
+
+    city_filtered = store.list_entries(cities=['Tokyo'], exact_filter_match=False)
+    assert len(city_filtered) == 1
+    assert store.list_entries(cities=['Paris'], exact_filter_match=False) == []
+
+    person_filtered = store.list_entries(person_ids=['p1', 'p2'], people_mode=PeopleMode.ALL, exact_filter_match=False)
+    assert len(person_filtered) == 1
+    assert store.list_entries(person_ids=['p3'], exact_filter_match=False) == []
+    assert store.list_entries(person_ids=['p1', 'p2'], people_mode=PeopleMode.ANY, exact_filter_match=False) == []
+
     # Check direct db rows in matches and match_round_guesses
     db = DatabaseManager(db_path)
     match_row = db.fetch_one('SELECT * FROM matches WHERE match_id = ?', ('m1',))
@@ -214,12 +236,12 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
     assert len(res) == 1
     assert res[0].player_name == 'Alice'
 
-    # Filter by custom filter flag (standard vs custom)
-    standard_entries = store.list_entries(is_custom_filtered=False)
+    # Filter by album
+    standard_entries = store.list_entries(albums='-')
     assert len(standard_entries) == 1
     assert standard_entries[0].match_id == 'm1'
 
-    custom_entries = store.list_entries(is_custom_filtered=True)
+    custom_entries = store.list_entries(albums='Holidays', exact_filter_match=False)
     assert len(custom_entries) == 1
     assert custom_entries[0].match_id == 'm2'
 
@@ -294,3 +316,249 @@ def test_leaderboard_album_shuffle_round_guesses(tmp_path: Path) -> None:
     assert len(guesses) == 3
     assert [g['photo_index'] for g in guesses] == [0, 1, 2]
     assert [g['asset_id'] for g in guesses] == ['photo-1', 'photo-2', 'photo-3']
+
+
+def test_leaderboard_custom_filter_isolation(tmp_path: Path) -> None:
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1. Full Library match
+    store.append_match(
+        match_id='m-full',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        player_scores={'Alice': {'total': 800}},
+    )
+
+    # 2. Country Japan only
+    store.append_match(
+        match_id='m-japan',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        countries=['Japan'],
+        player_scores={'Alice': {'total': 850}},
+    )
+
+    # 3. City Paris only
+    store.append_match(
+        match_id='m-paris',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        cities=['Paris'],
+        player_scores={'Alice': {'total': 900}},
+    )
+
+    # 4. People ["p1"] only
+    store.append_match(
+        match_id='m-person',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        person_ids=['p1'],
+        people_mode=PeopleMode.ANY,
+        player_scores={'Alice': {'total': 950}},
+    )
+
+    # 5. Date range only
+    store.append_match(
+        match_id='m-dates',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        min_date=date(2022, 1, 1),
+        max_date=date(2022, 12, 31),
+        player_scores={'Alice': {'total': 700}},
+    )
+
+    # 6. Japan + Tokyo
+    store.append_match(
+        match_id='m-japan-tokyo',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        countries=['Japan'],
+        cities=['Tokyo'],
+        player_scores={'Alice': {'total': 600}},
+    )
+
+    # Assertions:
+    # Query Full Library (album = '-') -> should strictly isolate Full Library match only
+    full_res = store.list_entries(albums='-')
+    assert len(full_res) == 1
+    assert full_res[0].match_id == 'm-full'
+
+    # Query Country Japan only -> isolates m-japan (excludes m-japan-tokyo because city is not set)
+    japan_res = store.list_entries(countries=['Japan'])
+    assert len(japan_res) == 1
+    assert japan_res[0].match_id == 'm-japan'
+
+    # Query City Paris only
+    paris_res = store.list_entries(cities=['Paris'])
+    assert len(paris_res) == 1
+    assert paris_res[0].match_id == 'm-paris'
+
+    # Query Person p1 only
+    person_res = store.list_entries(person_ids=['p1'])
+    assert len(person_res) == 1
+    assert person_res[0].match_id == 'm-person'
+
+    # Query Date Range only
+    date_res = store.list_entries(min_date=date(2022, 1, 1), max_date=date(2022, 12, 31))
+    assert len(date_res) == 1
+    assert date_res[0].match_id == 'm-dates'
+
+    # Query Japan + Tokyo
+    combo_res = store.list_entries(countries=['Japan'], cities=['Tokyo'])
+    assert len(combo_res) == 1
+    assert combo_res[0].match_id == 'm-japan-tokyo'
+
+    # Query non-existent Country
+    france_res = store.list_entries(countries=['France'])
+    assert len(france_res) == 0
+
+
+def test_leaderboard_round_count_condensing(tmp_path: Path) -> None:
+    """Ensure round count is ignored and condensed in leaderboard queries when rounds is not specified."""
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1. 5-round match (90% accuracy: 900 / 1000)
+    store.append_match(
+        match_id='m-5',
+        library_name='family',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        player_scores={'Alice': {'total': 900}},
+    )
+
+    # 2. 10-round match (85% accuracy: 1700 / 2000)
+    store.append_match(
+        match_id='m-10',
+        library_name='family',
+        album_name='-',
+        rounds_played=10,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        player_scores={'Bob': {'total': 1700}},
+    )
+
+    # 3. 20-round match (95% accuracy: 3800 / 4000)
+    store.append_match(
+        match_id='m-20',
+        library_name='family',
+        album_name='-',
+        rounds_played=20,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        player_scores={'Charlie': {'total': 3800}},
+    )
+
+    # Default query (rounds=None): all 3 matches are condensed together and ranked by accuracy_pct
+    all_condensed = store.list_entries(albums='-', library='family')
+    assert len(all_condensed) == 3
+    # Ranking by accuracy: Charlie (95%) -> Alice (90%) -> Bob (85%)
+    assert [e.player_name for e in all_condensed] == ['Charlie', 'Alice', 'Bob']
+    assert [e.accuracy_pct for e in all_condensed] == [95.0, 90.0, 85.0]
+
+    # Explicit rounds=10 query: only Bob's 10-round game is returned
+    rounds_10 = store.list_entries(rounds=10, albums='-', library='family')
+    assert len(rounds_10) == 1
+    assert rounds_10[0].player_name == 'Bob'
+
+
+def test_leaderboard_include_shared_and_album_ids_isolation(tmp_path: Path) -> None:
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    store.append_match(
+        match_id='m-standard',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        include_shared=False,
+        player_scores={'Alice': {'total': 800}},
+    )
+
+    store.append_match(
+        match_id='m-shared',
+        library_name='main',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        include_shared=True,
+        player_scores={'Bob': {'total': 850}},
+    )
+
+    store.append_match(
+        match_id='m-album-1',
+        library_name='main',
+        album_name='Vacation',
+        album_ids=['alb-1'],
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        player_scores={'Charlie': {'total': 900}},
+    )
+
+    # Standard (include_shared=False)
+    standard_res = store.list_entries(library='main', albums='-', include_shared=False)
+    assert len(standard_res) == 1
+    assert standard_res[0].match_id == 'm-standard'
+    assert standard_res[0].config['include_shared'] is False
+
+    # Shared (include_shared=True)
+    shared_res = store.list_entries(library='main', albums='-', include_shared=True)
+    assert len(shared_res) == 1
+    assert shared_res[0].match_id == 'm-shared'
+    assert shared_res[0].config['include_shared'] is True
+
+    # Album ID alb-1
+    album_res = store.list_entries(library='main', album_ids=['alb-1'])
+    assert len(album_res) == 1
+    assert album_res[0].match_id == 'm-album-1'
+    assert album_res[0].config['album_ids'] == ['alb-1']
+

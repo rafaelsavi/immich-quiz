@@ -1,4 +1,5 @@
 import { state, el } from "./state.js";
+import { getSelectedPeopleMode } from "./setup_filters.js";
 
 export async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -53,6 +54,8 @@ export function setupFilterParams() {
   const albumText = selectedAlbums.length > 0
     ? selectedAlbums.map((i) => i.name).sort((a, b) => a.localeCompare(b)).join(", ")
     : "-";
+  const albumIds = albumSelect ? albumSelect.getSelectedIds().sort() : [];
+
   const locEl = el.goalLocation;
   const dateEl = el.goalDate;
   const locCard = document.getElementById("card-goal-location");
@@ -60,8 +63,8 @@ export function setupFilterParams() {
   const locationMode = locEl ? Boolean(locEl.checked) : (locCard ? locCard.classList.contains("active") : true);
   const dateMode = dateEl ? Boolean(dateEl.checked) : (dateCard ? dateCard.classList.contains("active") : true);
   const gameMode = (state && state.gameMode) || "pinpoint";
+
   const params = new URLSearchParams({
-    rounds: el.roundCount ? el.roundCount.value : "10",
     round_length: el.roundLength ? el.roundLength.value : "1m",
     location_mode: String(locationMode),
     date_mode: String(dateMode),
@@ -69,5 +72,43 @@ export function setupFilterParams() {
     library: el.library ? el.library.value : "",
     albums: albumText,
   });
+
+  if (albumIds.length > 0) {
+    params.set("album_ids", albumIds.join(","));
+  }
+
+  const slider = state.filters && state.filters.dateRangeSlider;
+  if (slider) {
+    const { minDate, maxDate } = slider.getSelectedRange();
+    if (minDate) params.set("min_date", minDate);
+    if (maxDate) params.set("max_date", maxDate);
+  }
+
+  const countrySelect = state.filters && state.filters.countryMultiSelect;
+  if (countrySelect) {
+    const countries = countrySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
+    if (countries.length > 0) params.set("countries", countries.join(","));
+  }
+
+  const citySelect = state.filters && state.filters.cityMultiSelect;
+  if (citySelect) {
+    const cities = citySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
+    if (cities.length > 0) params.set("cities", cities.join(","));
+  }
+
+  const peopleSelect = state.filters && state.filters.peopleMultiSelect;
+  if (peopleSelect) {
+    const personIds = peopleSelect.getSelectedIds().sort();
+    if (personIds.length > 0) {
+      params.set("person_ids", personIds.join(","));
+      const peopleMode = typeof getSelectedPeopleMode === "function" ? getSelectedPeopleMode() : "ANY";
+      params.set("people_mode", peopleMode);
+    }
+  }
+
+  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) {
+    params.set("include_shared", "true");
+  }
+
   return params;
 }

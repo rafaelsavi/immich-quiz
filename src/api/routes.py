@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any
 
 from cachetools import TTLCache
@@ -15,6 +16,7 @@ from src.models import (
     LeaderboardEntry,
     LibraryFiltersResponse,
     MatchSummaryResponse,
+    PeopleMode,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
@@ -160,7 +162,15 @@ async def leaderboard(
     game_mode: GameMode | None = Query(default=None),
     library: str | None = Query(default=None),
     albums: str | None = Query(default=None),
+    album_ids: str | None = Query(default=None),
     player_name: str | None = Query(default=None),
+    min_date: date | None = Query(default=None),
+    max_date: date | None = Query(default=None),
+    countries: str | None = Query(default=None),
+    cities: str | None = Query(default=None),
+    person_ids: str | None = Query(default=None),
+    people_mode: PeopleMode | None = Query(default=None),
+    include_shared: bool | None = Query(default=None),
     is_custom_filtered: bool | None = Query(default=None),
     limit: int | None = Query(default=None),
 ) -> list[LeaderboardEntry]:
@@ -172,7 +182,15 @@ async def leaderboard(
         game_mode=game_mode,
         library=library,
         albums=albums,
+        album_ids=album_ids,
         player_name=player_name,
+        min_date=min_date,
+        max_date=max_date,
+        countries=countries,
+        cities=cities,
+        person_ids=person_ids,
+        people_mode=people_mode,
+        include_shared=include_shared,
         is_custom_filtered=is_custom_filtered,
         limit=limit,
     )

@@ -339,6 +339,9 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
     i18n_js = (JS_DIR / 'modules' / 'i18n.js').read_text(encoding='utf-8')
 
+    api_js = (JS_DIR / 'modules' / 'api.js').read_text(encoding='utf-8')
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+
     assert 'id="leaderboard-scope-pill"' in index_html, 'leaderboard-scope-pill ID missing from index.html'
     assert 'leaderboardScopePill' in state_js, 'leaderboardScopePill getter missing from state.js'
     assert 'leaderboard-empty-row' in leaderboard_js, 'leaderboard.js must handle empty state'
@@ -347,4 +350,13 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     assert 'leaderboard-scope-pill' in leaderboard_css, 'leaderboard.css must style scope pill'
     assert '"leaderboard.empty"' in i18n_js, 'i18n.js must define leaderboard.empty key'
     assert '"leaderboard.perfect_badge"' in i18n_js, 'i18n.js must define leaderboard.perfect_badge key'
+    assert 'min_date' in api_js, 'api.js must support min_date query parameter'
+    assert 'max_date' in api_js, 'api.js must support max_date query parameter'
+    assert 'countries' in api_js, 'api.js must support countries query parameter'
+    assert 'cities' in api_js, 'api.js must support cities query parameter'
+    assert 'person_ids' in api_js, 'api.js must support person_ids query parameter'
+    assert 'people_mode' in api_js, 'api.js must support people_mode query parameter'
+    assert 'loadLeaderboardDebounced' in leaderboard_js, 'leaderboard.js must export loadLeaderboardDebounced'
+    assert 'getActiveFilterSummary' in setup_filters_js, 'setup_filters.js must export getActiveFilterSummary'
+    assert 'isCustomFilteredActive' in setup_filters_js, 'setup_filters.js must export isCustomFilteredActive'
 

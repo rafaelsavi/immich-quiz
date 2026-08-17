@@ -2,6 +2,7 @@ import { state, el } from "./state.js";
 import { api, setupFilterParams } from "./api.js";
 import { buildCell } from "./formatters.js";
 import { t } from "./i18n.js";
+import { getActiveFilterSummary } from "./setup_filters.js";
 
 export function formatAccuracy(pct) {
   if (typeof pct !== "number" || isNaN(pct)) return "0%";
@@ -12,7 +13,6 @@ export function formatAccuracy(pct) {
 export function updateLeaderboardScope() {
   if (!el.leaderboardScopePill) return;
 
-  const rounds = el.roundCount ? el.roundCount.value : "10";
   const lengthVal = el.roundLength ? el.roundLength.value : "1m";
   const lengthKey = `setup.round_${lengthVal}`;
   const lengthText = t(lengthKey) !== lengthKey ? t(lengthKey) : lengthVal;
@@ -20,35 +20,59 @@ export function updateLeaderboardScope() {
   const gameMode = (state && state.gameMode) || "pinpoint";
   const modeText = gameMode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
 
-  const albumSelect = state.filters && state.filters.albumMultiSelect;
-  const selectedAlbums = albumSelect ? albumSelect.getSelectedItems() : [];
-  let albumScope = t("leaderboard.scope_all");
-  if (selectedAlbums.length === 1) {
-    albumScope = selectedAlbums[0].name;
-  } else if (selectedAlbums.length > 1) {
-    albumScope = `${selectedAlbums.length} albums`;
-  }
+  const filterScope = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : t("leaderboard.scope_all");
 
-  el.leaderboardScopePill.textContent = `${modeText} • ${rounds}R • ${lengthText} • ${albumScope}`;
+  el.leaderboardScopePill.textContent = `${modeText} • ${lengthText} • ${filterScope}`;
 }
+
+let _leaderboardAbortCtrl = null;
+let _leaderboardDebounceTimer = null;
 
 export async function loadLeaderboard() {
   updateLeaderboardScope();
-  const params = setupFilterParams();
-  const raw = await api(`/api/leaderboard?${params}`);
-  state.leaderboardRows = raw.map((row) => {
-    const computedAcc =
-      typeof row.accuracy_pct === "number"
-        ? row.accuracy_pct
-        : row.max_possible_score > 0
-          ? (row.total_score / row.max_possible_score) * 100
-          : 0;
-    return {
-      ...row,
-      accuracy_pct: computedAcc,
-    };
-  });
-  renderLeaderboard();
+  if (_leaderboardAbortCtrl) {
+    _leaderboardAbortCtrl.abort();
+  }
+  _leaderboardAbortCtrl = new AbortController();
+  const signal = _leaderboardAbortCtrl.signal;
+
+  try {
+    const params = setupFilterParams();
+    const raw = await api(`/api/leaderboard?${params}`, { signal });
+    state.leaderboardRows = raw.map((row) => {
+      const computedAcc =
+        typeof row.accuracy_pct === "number"
+          ? row.accuracy_pct
+          : row.max_possible_score > 0
+            ? (row.total_score / row.max_possible_score) * 100
+            : 0;
+      return {
+        ...row,
+        accuracy_pct: computedAcc,
+      };
+    });
+    renderLeaderboard();
+  } catch (err) {
+    if (err.name === "AbortError" || (err.message && err.message.includes("abort"))) {
+      // Ignored intentional request abort
+      return;
+    }
+    throw err;
+  }
+}
+
+export function loadLeaderboardDebounced(delay = 250) {
+  updateLeaderboardScope();
+  if (_leaderboardDebounceTimer) {
+    clearTimeout(_leaderboardDebounceTimer);
+  }
+  _leaderboardDebounceTimer = setTimeout(() => {
+    loadLeaderboard().catch((err) => {
+      if (err.name !== "AbortError") {
+        console.warn("Leaderboard refresh failed:", err);
+      }
+    });
+  }, delay);
 }
 
 export function renderLeaderboard() {
@@ -128,15 +152,24 @@ export function renderLeaderboard() {
 
     const cell2 = buildCell(playerWrap);
 
-    const cell3 = buildCell(formatAccuracy(row.accuracy_pct));
-    cell3.className = "col-accuracy hide-on-mobile";
-
-    const cell4 = buildCell(`${row.total_score}/${row.max_possible_score}`);
+    // Accuracy cell with color-coded tier badge
+    const accBadge = document.createElement("span");
+    accBadge.className = "accuracy-badge";
     if (isPerfect) {
-      cell4.classList.add("is-perfect-cell");
+      accBadge.classList.add("accuracy-tier-perfect");
+    } else if (row.accuracy_pct >= 90) {
+      accBadge.classList.add("accuracy-tier-high");
+    } else if (row.accuracy_pct >= 75) {
+      accBadge.classList.add("accuracy-tier-medium");
+    } else {
+      accBadge.classList.add("accuracy-tier-low");
     }
+    accBadge.textContent = formatAccuracy(row.accuracy_pct);
 
-    tr.append(cell1, cell2, cell3, cell4);
+    const cell3 = buildCell(accBadge);
+    cell3.className = "col-accuracy";
+
+    tr.append(cell1, cell2, cell3);
     el.leaderboardBody.appendChild(tr);
   });
 
