@@ -99,6 +99,7 @@ async def create_challenge(
         library_name=payload.library_name,
         config=payload.model_dump(),
         asset_ids=asset_ids,
+        title=payload.title,
         expires_in_hours=payload.expires_in_hours,
     )
 
@@ -108,6 +109,7 @@ async def create_challenge(
     return ChallengeCreateResponse(
         challenge_id=record['challenge_id'],
         capability_token=record['capability_token'],
+        title=record.get('title'),
         play_url=play_url,
         creator_name=record['creator_name'],
         library_name=record['library_name'],
@@ -133,6 +135,7 @@ async def get_challenge_detail(
     return ChallengeDetailResponse(
         challenge_id=challenge['challenge_id'],
         capability_token=challenge['capability_token'],
+        title=challenge.get('title'),
         creator_name=challenge['creator_name'],
         library_name=challenge['library_name'],
         rounds=len(challenge['asset_ids']),

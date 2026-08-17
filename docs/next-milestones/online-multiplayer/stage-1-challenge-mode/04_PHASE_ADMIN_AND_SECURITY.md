@@ -15,7 +15,8 @@
 Add a "Create Challenge" tab or button in the main setup screen that opens the Challenge Generator modal.
 
 ### UI Controls
-- **Challenge Title / Creator Name:** (Default: saved name from `localStorage`).
+- **Challenge Title:** (Optional, e.g. *"Summer 2024 Roadtrip"*, *"Friday Game Night"*). If blank, auto-generates from creator name and filter summary.
+- **Creator Name:** (Default: saved name from `localStorage`).
 - **Library Selection:** Dropdown of available Immich libraries.
 - **Game Mode & Filters:** Uses existing `multi_select.js` and `range_slider.js` filter components.
 - **Round Count:** 3, 5, 10, or custom.

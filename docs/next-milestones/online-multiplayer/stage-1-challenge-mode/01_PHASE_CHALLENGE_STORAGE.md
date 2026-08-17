@@ -19,6 +19,7 @@ The unified 4-table DDL is established in `src/storage/leaderboard.py`:
 CREATE TABLE IF NOT EXISTS challenges (
     challenge_id       TEXT PRIMARY KEY,
     capability_token   TEXT UNIQUE NOT NULL,
+    title              TEXT,                          -- e.g. "Summer Roadtrip 2024" (NULL = auto-generate)
     creator_name       TEXT NOT NULL,
     library_name       TEXT NOT NULL,
     config_json        TEXT NOT NULL,
@@ -32,6 +33,8 @@ CREATE TABLE IF NOT EXISTS challenges (
 CREATE TABLE IF NOT EXISTS matches (
     match_id           TEXT PRIMARY KEY,
     challenge_id       TEXT,
+    room_id            TEXT,                          -- Secure Room Session UUID (if live multiplayer)
+    room_name          TEXT,                          -- e.g. "Rafael's Lounge" (optional display name)
     play_mode          TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
     played_at          TEXT NOT NULL,
     library_name       TEXT NOT NULL,
@@ -48,6 +51,7 @@ CREATE TABLE IF NOT EXISTS matches (
     cities_json        TEXT,
     min_date           TEXT,
     max_date           TEXT,
+    include_shared     INTEGER NOT NULL DEFAULT 0,
     is_custom_filtered INTEGER NOT NULL DEFAULT 0,
     filter_summary     TEXT,
     duration_seconds   REAL,
@@ -128,6 +132,7 @@ class ChallengeStore:
         library_name: str,
         config: dict[str, Any],
         asset_ids: list[str],
+        title: str | None = None,
         expires_in_hours: int | None = 24,
     ) -> dict[str, Any]:
         challenge_id = f'ch_{uuid4().hex[:12]}'
@@ -139,13 +144,14 @@ class ChallengeStore:
             conn.execute(
                 """
                 INSERT INTO challenges (
-                    challenge_id, capability_token, creator_name, library_name,
+                    challenge_id, capability_token, title, creator_name, library_name,
                     config_json, asset_ids_json, created_at, expires_at, is_active
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                 """,
                 (
                     challenge_id,
                     capability_token,
+                    title,
                     creator_name,
                     library_name,
                     json.dumps(config),
@@ -158,6 +164,7 @@ class ChallengeStore:
         return {
             'challenge_id': challenge_id,
             'capability_token': capability_token,
+            'title': title,
             'creator_name': creator_name,
             'library_name': library_name,
             'config': config,

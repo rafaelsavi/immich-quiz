@@ -562,3 +562,82 @@ def test_leaderboard_include_shared_and_album_ids_isolation(tmp_path: Path) -> N
     assert album_res[0].match_id == 'm-album-1'
     assert album_res[0].config['album_ids'] == ['alb-1']
 
+
+def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+    db = DatabaseManager(db_path)
+
+    # 1. Verify table columns exist in SQLite schema
+    challenge_cols = [c['name'] for c in db.fetch_all("PRAGMA table_info(challenges)")]
+    assert 'title' in challenge_cols
+    assert 'capability_token' in challenge_cols
+
+    match_cols = [c['name'] for c in db.fetch_all("PRAGMA table_info(matches)")]
+    assert 'room_id' in match_cols
+    assert 'room_name' in match_cols
+    assert 'challenge_id' in match_cols
+    assert 'play_mode' in match_cols
+
+    # 2. Insert a challenge seed with a title
+    with db.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO challenges (
+                challenge_id, capability_token, title, creator_name, library_name,
+                config_json, asset_ids_json, created_at, expires_at, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
+            """,
+            ('ch_test1', 'cap_token_123', 'Summer 2024 Roadtrip', 'Rafael', 'family', '{}', '[]', '2026-08-17T12:00:00Z'),
+        )
+
+    # 3. Append a match that links to the challenge
+    store.append_match(
+        match_id='m-challenge-1',
+        library_name='family',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        play_mode=PlayMode.challenge,
+        challenge_id='ch_test1',
+        player_scores={'Alice': {'total': 950}},
+    )
+
+    # 4. Append a match that occurred in a live room
+    store.append_match(
+        match_id='m-room-1',
+        library_name='family',
+        album_name='-',
+        rounds_played=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        play_mode=PlayMode.room,
+        room_id='rm_uuid_456',
+        room_name="Rafael's Lounge",
+        player_scores={'Bob': {'total': 880}},
+    )
+
+    # 5. Query and assert LeaderboardEntry fields
+    entries = store.list_entries(library='family')
+    assert len(entries) == 2
+
+    # Check challenge entry (Alice)
+    alice_entry = next(e for e in entries if e.player_name == 'Alice')
+    assert alice_entry.play_mode == PlayMode.challenge
+    assert alice_entry.challenge_id == 'ch_test1'
+    assert alice_entry.challenge_title == 'Summer 2024 Roadtrip'
+    assert alice_entry.room_id is None
+
+    # Check room entry (Bob)
+    bob_entry = next(e for e in entries if e.player_name == 'Bob')
+    assert bob_entry.play_mode == PlayMode.room
+    assert bob_entry.room_id == 'rm_uuid_456'
+    assert bob_entry.room_name == "Rafael's Lounge"
+    assert bob_entry.challenge_title is None
+
+

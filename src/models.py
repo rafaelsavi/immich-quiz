@@ -410,4 +410,9 @@ class LeaderboardEntry(BaseModel):
     awards: list[str] = Field(default_factory=list)
     filter_summary: str | None = None
     is_custom_filtered: bool = False
+    play_mode: PlayMode = PlayMode.local
+    challenge_id: str | None = None
+    challenge_title: str | None = None
+    room_id: str | None = None
+    room_name: str | None = None
     config: dict = Field(default_factory=dict)

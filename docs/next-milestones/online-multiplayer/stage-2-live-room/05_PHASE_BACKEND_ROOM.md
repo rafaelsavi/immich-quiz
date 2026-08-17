@@ -70,6 +70,7 @@ class RoomPlayer:
 class GameRoom:
     room_id: str
     join_code: str
+    room_name: str | None = None
     players: list[RoomPlayer] = field(default_factory=list)
     current_match_id: str | None = None
     match_history: list[str] = field(default_factory=list)
@@ -138,7 +139,7 @@ class RoomManager:
             if code not in self._code_to_room:
                 return code
 
-    def create_room(self, host_name: str, settings: dict | None = None) -> tuple[GameRoom, str]:
+    def create_room(self, host_name: str, room_name: str | None = None, settings: dict | None = None) -> tuple[GameRoom, str]:
         """Create a new room. Returns (room, host_token)."""
         host_name = host_name.strip()
         if not host_name:
@@ -151,6 +152,7 @@ class RoomManager:
         room = GameRoom(
             room_id=room_id,
             join_code=join_code,
+            room_name=room_name.strip() if room_name else None,
             players=[host],
             settings=settings or {},
         )

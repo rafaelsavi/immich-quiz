@@ -17,6 +17,7 @@ LEADERBOARD_SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS challenges (
     challenge_id       TEXT PRIMARY KEY,
     capability_token   TEXT UNIQUE NOT NULL,
+    title              TEXT,                          -- e.g. "Summer Roadtrip 2024" (NULL = auto-generate)
     creator_name       TEXT NOT NULL,
     library_name       TEXT NOT NULL,
     config_json        TEXT NOT NULL,
@@ -30,6 +31,8 @@ CREATE TABLE IF NOT EXISTS challenges (
 CREATE TABLE IF NOT EXISTS matches (
     match_id           TEXT PRIMARY KEY,
     challenge_id       TEXT,
+    room_id            TEXT,                          -- Secure Room Session UUID (if live multiplayer)
+    room_name          TEXT,                          -- e.g. "Rafael's Lounge" (optional display name)
     play_mode          TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
     played_at          TEXT NOT NULL,
     library_name       TEXT NOT NULL,
@@ -97,6 +100,7 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
 CREATE INDEX IF NOT EXISTS idx_matches_played_at   ON matches(played_at DESC);
 CREATE INDEX IF NOT EXISTS idx_matches_library     ON matches(library_name);
 CREATE INDEX IF NOT EXISTS idx_matches_challenge   ON matches(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_matches_room        ON matches(room_id);
 CREATE INDEX IF NOT EXISTS idx_matches_play_mode   ON matches(play_mode);
 
 CREATE INDEX IF NOT EXISTS idx_entries_match       ON match_entries(match_id);
@@ -208,6 +212,8 @@ class LeaderboardStore:
         include_shared: bool = False,
         play_mode: PlayMode = PlayMode.local,
         challenge_id: str | None = None,
+        room_id: str | None = None,
+        room_name: str | None = None,
         duration_seconds: float | None = None,
         player_times: dict[str, float] | None = None,
         round_guesses: list[dict[str, Any]] | None = None,
@@ -246,16 +252,18 @@ class LeaderboardStore:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO matches (
-                    match_id, challenge_id, play_mode, played_at, library_name, game_mode,
+                    match_id, challenge_id, room_id, room_name, play_mode, played_at, library_name, game_mode,
                     rounds, round_length, location_mode, date_mode,
                     album_name, album_ids_json, person_ids_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
                     challenge_id,
+                    room_id,
+                    room_name,
                     play_mode.value,
                     played_at,
                     library_name,
@@ -549,9 +557,15 @@ class LeaderboardStore:
             m.include_shared,
             m.is_custom_filtered,
             m.filter_summary,
-            m.duration_seconds
+            m.duration_seconds,
+            m.play_mode,
+            m.challenge_id,
+            m.room_id,
+            m.room_name,
+            c.title AS challenge_title
         FROM match_entries e
         JOIN matches m ON e.match_id = m.match_id
+        LEFT JOIN challenges c ON m.challenge_id = c.challenge_id
         {where_sql}
         ORDER BY e.accuracy_pct DESC, e.total_score DESC, m.played_at DESC, e.rank ASC
         {limit_sql}
@@ -598,6 +612,11 @@ class LeaderboardStore:
                     is_winner=bool(row['is_winner']),
                     filter_summary=row['filter_summary'],
                     is_custom_filtered=bool(row['is_custom_filtered']),
+                    play_mode=PlayMode(row['play_mode']) if row.get('play_mode') else PlayMode.local,
+                    challenge_id=row.get('challenge_id'),
+                    challenge_title=row.get('challenge_title'),
+                    room_id=row.get('room_id'),
+                    room_name=row.get('room_name'),
                     config=config,
                 )
             )

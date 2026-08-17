@@ -34,10 +34,13 @@ We introduce two multiplayer paradigms built on a single unified data foundation
 | :--- | :--- | :--- | :--- |
 | **`matches.play_mode`** | `PlayMode.local` (`'local'`) | `PlayMode.challenge` (`'challenge'`) | `PlayMode.room` (`'room'`) |
 | **`matches.challenge_id`** | `NULL` | Links to `challenges.challenge_id` | Links to `challenges.challenge_id` |
+| **`matches.room_id`** | `NULL` | `NULL` | Unique Room UUID4 session ID |
+| **`matches.room_name`** | `NULL` | `NULL` | Optional Room display name |
 | **`matches.duration_seconds`** | Total game wall-clock time | Total player attempt duration | Total live room duration |
 | **`match_entries.total_time_seconds`** | Sum of player's active turn times | Sum of player's active answer times (Fair tiebreaker) | Sum of player's active answer times |
 | **`match_round_guesses.photo_index`** | `0` (Pinpoint) / `0, 1, 2` (Album Shuffle) | `0` (Pinpoint) / `0, 1, 2` (Album Shuffle) | `0` (Pinpoint) / `0, 1, 2` (Album Shuffle) |
 | **`match_round_guesses.time_taken_seconds`** | Active seconds from question render to "Submit" | Active seconds from question render to "Submit" | Active seconds from question render to "Submit" |
+| **`challenges.title`** | `NULL` | Custom challenge title (or auto fallback) | Custom challenge title (or room name) |
 | **`challenges.expires_at`** | `NULL` | ISO8601 UTC (Customizable) or `NULL` (Never) | Session TTL |
 
 > [!NOTE]
