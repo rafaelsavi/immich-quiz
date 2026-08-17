@@ -1,7 +1,7 @@
 from datetime import date
 
 from src.i18n import SupportedLanguage, t, translate
-from src.models import BaseGameConfig, PeopleMode, format_filter_summary, format_filter_tooltip
+from src.models import BaseGameConfig, PeopleMode
 
 
 def test_supported_language_from_str() -> None:

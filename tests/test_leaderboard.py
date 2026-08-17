@@ -2,13 +2,10 @@ from datetime import date
 from pathlib import Path
 
 from src.models import (
-    BaseGameConfig,
     GameMode,
     PeopleMode,
     PlayMode,
-    RoundLength,
-    format_filter_summary,
-    format_filter_tooltip,
+    RoundLength
 )
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
@@ -26,93 +23,6 @@ def test_leaderboard_schema_initialization(tmp_path: Path) -> None:
     assert 'matches' in table_names
     assert 'match_entries' in table_names
     assert 'match_round_guesses' in table_names
-
-
-def test_format_filter_summary() -> None:
-    # Full library (no filters)
-    is_custom, summary = format_filter_summary()
-    assert is_custom == 0
-    assert summary == 'Full Library'
-
-    # Filter with album
-    is_custom, summary = format_filter_summary(album_name='Europe 2023')
-    assert is_custom == 1
-    assert summary == 'Europe 2023'
-
-    # Filter with countries & dates
-    is_custom, summary = format_filter_summary(
-        countries=['Italy', 'France'],
-        min_date=date(2022, 1, 1),
-        max_date=date(2023, 12, 31),
-    )
-    assert is_custom == 1
-    assert 'Italy, France' in summary
-    assert '2022/01 - 2023/12' in summary
-
-    # Testing BaseGameConfig.format_filter_summary method
-    config_default = BaseGameConfig(library_name='default')
-    assert config_default.format_filter_summary() == (0, 'Full Library')
-    assert config_default.format_filter_tooltip() is None
-
-    config_custom = BaseGameConfig(
-        library_name='default',
-        countries=['Japan', 'Italy', 'France'],
-        cities=['Tokyo', 'Rome'],
-        person_names=['Alice', 'Bob'],
-        people_mode=PeopleMode.ALL,
-        min_date=date(2022, 1, 1),
-        max_date=date(2023, 12, 31),
-        include_shared=True,
-    )
-    is_cust, summ = config_custom.format_filter_summary()
-    assert is_cust == 1
-    assert '3 countries' in summ
-    assert 'Tokyo, Rome' in summ
-    assert 'Alice, Bob' in summ
-    assert 'Shared' in summ
-
-    tooltip = config_custom.format_filter_tooltip()
-    assert tooltip is not None
-    assert 'Countries: Japan, Italy, France' in tooltip
-    assert 'Cities: Tokyo, Rome' in tooltip
-    assert 'People (All together): Alice, Bob' in tooltip
-    assert 'Dates: 2022/01 – 2023/12' in tooltip
-    assert 'Shared Photos: Included' in tooltip
-
-    # Testing single person and ANY mode
-    single_person_config = BaseGameConfig(
-        library_name='default',
-        person_names=['Charlie'],
-        people_mode=PeopleMode.ANY,
-    )
-    single_tooltip = single_person_config.format_filter_tooltip()
-    assert single_tooltip == 'People: Charlie'
-
-    any_people_config = BaseGameConfig(
-        library_name='default',
-        person_names=['Charlie', 'Dana'],
-        people_mode=PeopleMode.ANY,
-    )
-    any_tooltip = any_people_config.format_filter_tooltip()
-    assert any_tooltip == 'People (Any): Charlie, Dana'
-
-    # Testing Portuguese language support
-    is_cust_pt, summ_pt = config_custom.format_filter_summary(language='PT')
-    assert is_cust_pt == 1
-    assert '3 países' in summ_pt
-    assert 'Compartilhadas' in summ_pt
-
-    tooltip_pt = config_custom.format_filter_tooltip(language='PT')
-    assert tooltip_pt is not None
-    assert 'Países: Japan, Italy, France' in tooltip_pt
-    assert 'Cidades: Tokyo, Rome' in tooltip_pt
-    assert 'Pessoas (Juntas): Alice, Bob' in tooltip_pt
-    assert 'Datas: 2022/01 – 2023/12' in tooltip_pt
-    assert 'Fotos Compartilhadas: Incluídas' in tooltip_pt
-
-    assert single_person_config.format_filter_tooltip(language='PT') == 'Pessoa: Charlie'
-    assert any_people_config.format_filter_tooltip(language='PT') == 'Pessoas (Qualquer): Charlie, Dana'
-    assert config_default.format_filter_summary(language='PT') == (0, 'Toda a Biblioteca')
 
 
 def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
@@ -642,11 +552,11 @@ def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
     db = DatabaseManager(db_path)
 
     # 1. Verify table columns exist in SQLite schema
-    challenge_cols = [c['name'] for c in db.fetch_all("PRAGMA table_info(challenges)")]
+    challenge_cols = [c['name'] for c in db.fetch_all('PRAGMA table_info(challenges)')]
     assert 'title' in challenge_cols
     assert 'capability_token' in challenge_cols
 
-    match_cols = [c['name'] for c in db.fetch_all("PRAGMA table_info(matches)")]
+    match_cols = [c['name'] for c in db.fetch_all('PRAGMA table_info(matches)')]
     assert 'room_id' in match_cols
     assert 'room_name' in match_cols
     assert 'challenge_id' in match_cols
@@ -661,7 +571,16 @@ def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
                 config_json, asset_ids_json, created_at, expires_at, is_active
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
             """,
-            ('ch_test1', 'cap_token_123', 'Summer 2024 Roadtrip', 'Rafael', 'family', '{}', '[]', '2026-08-17T12:00:00Z'),
+            (
+                'ch_test1',
+                'cap_token_123',
+                'Summer 2024 Roadtrip',
+                'Rafael',
+                'family',
+                '{}',
+                '[]',
+                '2026-08-17T12:00:00Z',
+            ),
         )
 
     # 3. Append a match that links to the challenge

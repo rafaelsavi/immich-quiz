@@ -26,6 +26,8 @@ immich-quiz/
 │   ├── scoring.py       Pure scoring functions: haversine_km, location_score,
 │   │                    date_diff_days, date_score, batch_strict_location_score,
 │   │                    batch_strict_date_score, accuracy_pct.
+│   ├── i18n.py          Backend localization for filter summaries and tooltips.
+│   ├── version.py       Semantic application version string (APP_VERSION).
 │   ├── game/            Modular game mode system and session orchestration.
 │   │   ├── modes.py     BaseGameModeEngine, PinpointEngine,
 │   │   │                AlbumShuffleEngine, and GameModeRegistry.
@@ -55,7 +57,7 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css, multi_select.css, range_slider.css, filters.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css, multi_select.css, player_input.css, range_slider.css, filters.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
@@ -91,7 +93,7 @@ immich-quiz/
 
 ```
 GET /api/ui-config
-  └── Returns max image height, language, max score settings, and version to frontend
+  └── Returns language, max score settings, and version to frontend
 
 GET /api/sync/status?library_name={name}
   └── Returns current synchronization status, total asset count, and synced asset progress

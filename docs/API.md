@@ -101,13 +101,15 @@ Response:
   "library_name": "family",
   "sync_status": "idle",
   "sync_mode": "delta",
+  "sync_stage": "idle",
   "last_sync_at": "2026-08-17T10:15:30.123456+00:00",
   "last_full_sync_at": "2026-08-17T08:00:00.000000+00:00",
   "last_immich_updated_at": "2026-08-17T10:14:02.000Z",
   "total_assets": 1240,
   "synced_assets": 1240,
   "last_sync_duration_seconds": 0.35,
-  "sync_error": null
+  "sync_error": null,
+  "warning": null
 }
 ```
 
@@ -169,7 +171,9 @@ Response:
     "cities": { "Paris": 45 },
     "people": { "person-uuid-1": 30 },
     "albums": { "album-uuid-1": 45 }
-  }
+  },
+  "is_synced": true,
+  "sync_status": "idle"
 }
 ```
 
@@ -405,9 +409,9 @@ Response Example:
 }
 ```
 
-### GET /api/match/{match_id}/summary
+### GET /api/match/{match_id}/summary?lang={en|pt}
 
-Returns final match summary, player rankings, accuracy percentages, and winner list.
+Returns final match summary, player rankings, accuracy percentages, filter metadata, and winner list. Supports optional `lang` query parameter (`en` or `pt`) for localized filter summary and tooltip text.
 
 Response:
 
@@ -433,7 +437,10 @@ Response:
       "rank": 1,
       "is_winner": true
     }
-  ]
+  ],
+  "filter_summary": "Paris • Summer Vacation 2024",
+  "filter_tooltip": "Album: Summer Vacation 2024\nCities: Paris",
+  "is_custom_filtered": true
 }
 ```
 
@@ -453,8 +460,16 @@ Query Parameters:
 * `date_mode`: Filter by date mode enabled (`true`/`false`)
 * `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`)
 * `library`: Filter by library name
-* `albums`: Filter by album name
+* `albums`: Filter by album name (legacy display name)
+* `album_ids`: Filter by JSON array or comma-separated album IDs
 * `player_name`: Filter by player name
+* `countries`: Filter by JSON array or comma-separated countries
+* `cities`: Filter by JSON array or comma-separated cities
+* `person_ids`: Filter by JSON array or comma-separated person IDs
+* `people_mode`: Filter by person match mode (`ANY`, `ALL`)
+* `min_date`: Filter by earliest capture date (`YYYY-MM-DD`)
+* `max_date`: Filter by latest capture date (`YYYY-MM-DD`)
+* `include_shared`: Filter by shared album media inclusion (`true`/`false`)
 * `is_custom_filtered`: Filter by preset vs customized dataset (`true`/`false`)
 * `limit`: Maximum number of entries to return
 
@@ -476,6 +491,11 @@ Response:
     "awards": ["Sniper", "Speed Demon"],
     "filter_summary": "Paris • Summer Vacation 2024",
     "is_custom_filtered": true,
+    "play_mode": "local",
+    "challenge_id": null,
+    "challenge_title": null,
+    "room_id": null,
+    "room_name": null,
     "config": {
       "rounds": 10,
       "round_length": "1m",
@@ -490,7 +510,8 @@ Response:
       "countries": ["France"],
       "cities": ["Paris"],
       "min_date": null,
-      "max_date": null
+      "max_date": null,
+      "include_shared": false
     }
   }
 ]

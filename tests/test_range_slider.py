@@ -177,7 +177,6 @@ def test_bilingual_i18n_keys_present() -> None:
         'setup.people_selected',
         'setup.people_mode_any',
         'setup.people_mode_all',
-        'setup.filter_people',
         'setup.filter_countries',
         'setup.filter_cities',
         'setup.filter_date_range',

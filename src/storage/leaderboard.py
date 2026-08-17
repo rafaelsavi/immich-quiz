@@ -565,7 +565,7 @@ class LeaderboardStore:
                 'cities': cities,
                 'min_date': row['min_date'],
                 'max_date': row['max_date'],
-                'include_shared': bool(row['include_shared']) if 'include_shared' in row.keys() else False,
+                'include_shared': bool(row['include_shared']) if 'include_shared' in row else False,
             }
 
             entries.append(

@@ -13,10 +13,15 @@ class SupportedLanguage(str, Enum):
     PT = 'PT'
 
     @classmethod
-    def from_str(cls, value: str | SupportedLanguage | None, default: SupportedLanguage = EN) -> SupportedLanguage:
+    def from_str(
+        cls,
+        value: str | SupportedLanguage | None,
+        default: SupportedLanguage | None = None,
+    ) -> SupportedLanguage:
         """Parse language code case-insensitively with default fallback."""
+        fallback = default if default is not None else cls.EN
         if not value:
-            return default
+            return fallback
         if isinstance(value, cls):
             return value
         normalized = str(value).strip().upper()
@@ -27,7 +32,7 @@ class SupportedLanguage(str, Enum):
         try:
             return cls(normalized)
         except ValueError:
-            return default
+            return fallback
 
 
 # Centralized Message Catalogs

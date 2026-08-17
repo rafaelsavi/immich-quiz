@@ -954,7 +954,7 @@ class MetadataStore:
             return {}
         placeholders = ', '.join('?' for _ in person_ids)
         rows = self._db.fetch_all(
-            f"SELECT id, name FROM people WHERE id IN ({placeholders})",
+            f'SELECT id, name FROM people WHERE id IN ({placeholders})',
             person_ids,
         )
         return {str(r['id']).strip(): str(r['name']).strip() for r in rows if r.get('id') and r.get('name')}
