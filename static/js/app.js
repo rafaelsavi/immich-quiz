@@ -581,6 +581,7 @@ async function showMatchSummary() {
   const summary = await api(`/api/match/${encodeURIComponent(state.matchId)}/summary`);
   state.lastSummary = summary;
   showCard(el.summaryCard);
+  window.scrollTo({ top: 0, behavior: "smooth" });
   playVictoryFanfare();
 
   renderSummaryContent(summary);
@@ -595,6 +596,7 @@ function returnToSetup() {
   resetGameUi();
   showCard(el.setupCard);
   el.leaderboardCard.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function handleAbandonGame(action) {
