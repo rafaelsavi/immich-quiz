@@ -67,7 +67,7 @@ export function setupFilterParams() {
     date_mode: String(dateMode),
     game_mode: gameMode,
     library: el.library ? el.library.value : "",
-    album: albumText,
+    albums: albumText,
   });
   return params;
 }

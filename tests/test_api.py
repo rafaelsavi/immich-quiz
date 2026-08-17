@@ -362,6 +362,9 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
     assert len(filtered_albums) == 1
     assert filtered_albums[0]['config']['albums'] == '-'
 
+    empty_albums = client.get('/api/leaderboard?albums=NonExistent').json()
+    assert len(empty_albums) == 0
+
 
 def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> None:
     immich = FakeImmichClient(

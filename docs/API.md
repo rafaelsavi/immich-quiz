@@ -483,7 +483,14 @@ Response:
       "date_mode": true,
       "game_mode": "pinpoint",
       "library": "family_library",
-      "album": "Summer Vacation 2024"
+      "albums": "Summer Vacation 2024",
+      "album_ids": ["album-uuid-1"],
+      "person_ids": [],
+      "people_mode": "ANY",
+      "countries": ["France"],
+      "cities": ["Paris"],
+      "min_date": null,
+      "max_date": null
     }
   }
 ]
