@@ -1,20 +1,46 @@
 import { t } from "./i18n.js";
 import { playScoreRollupTick } from "./audio.js";
 
-export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 200) {
-  if (!cellElement || targetScore <= 0) {
-    if (cellElement) cellElement.textContent = String(targetScore);
+export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 200, suffix = "", skipAnimation = false, startScore = 0) {
+  if (!cellElement) return;
+
+  const scoreNum = typeof targetScore === "number" ? targetScore : parseInt(targetScore, 10);
+  if (isNaN(scoreNum) || targetScore === null || targetScore === undefined || targetScore === "-") {
     return;
   }
-  const maxPossible = maxPossibleScore || 200;
-  const scoreRatio = Math.max(0.05, Math.min(1, targetScore / maxPossible));
-  const durationMs = Math.round(150 + scoreRatio * 1250);
-  const tickInterval = 45;
+
+  const initialNum = typeof startScore === "number" ? Math.max(0, startScore) : parseInt(startScore, 10) || 0;
+
+  // Preserve existing non-text children (like badges and subtext)
+  const existingExtraNodes = Array.from(cellElement.children).filter(
+    (child) => !child.classList.contains("score-rollup")
+  );
 
   const span = document.createElement("span");
-  span.className = "score-rollup is-rolling";
-  span.textContent = "0";
-  cellElement.replaceChildren(span);
+  span.className = "score-rollup";
+
+  const fragment = document.createDocumentFragment();
+  fragment.appendChild(span);
+  if (suffix) {
+    fragment.appendChild(document.createTextNode(suffix));
+  }
+  existingExtraNodes.forEach((node) => fragment.appendChild(node));
+
+  cellElement.replaceChildren(fragment);
+
+  if (skipAnimation || scoreNum <= initialNum) {
+    span.textContent = String(Math.max(0, scoreNum));
+    return;
+  }
+
+  span.classList.add("is-rolling");
+  span.textContent = String(initialNum);
+
+  const delta = scoreNum - initialNum;
+  const maxPossible = maxPossibleScore || 200;
+  const scoreRatio = Math.max(0.05, Math.min(1, delta / maxPossible));
+  const durationMs = Math.round(300 + scoreRatio * 1500);
+  const tickInterval = 45;
 
   let startTime = null;
   let lastTickTime = 0;
@@ -22,7 +48,7 @@ export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 
   function step(timestamp) {
     if (!startTime) startTime = timestamp;
     const progress = Math.min(1, (timestamp - startTime) / durationMs);
-    const currentVal = Math.floor(progress * targetScore);
+    const currentVal = Math.floor(initialNum + progress * delta);
     span.textContent = String(currentVal);
 
     if (timestamp - lastTickTime > tickInterval && progress < 1) {
@@ -33,10 +59,11 @@ export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 
     if (progress < 1) {
       requestAnimationFrame(step);
     } else {
-      span.textContent = String(targetScore);
+      span.textContent = String(scoreNum);
       span.classList.remove("is-rolling");
     }
   }
+
   requestAnimationFrame(step);
 }
 
@@ -237,28 +264,5 @@ export function launchStarBurst(originX, originY) {
   }
 
   requestAnimationFrame(frame);
-}
-
-export function spawnFloatingScorePop(targetElement, text, variant = "bullseye") {
-  if (!targetElement) return;
-  const rect = targetElement.getBoundingClientRect();
-  const pop = document.createElement("div");
-  pop.className = `floating-score-pop pop-variant-${variant}`;
-  pop.textContent = text;
-
-  // Position floating pop near center top of target element
-  const x = rect.left + rect.width / 2;
-  const y = rect.top + window.scrollY;
-
-  pop.style.left = `${x}px`;
-  pop.style.top = `${y}px`;
-
-  document.body.appendChild(pop);
-
-  setTimeout(() => {
-    if (pop.parentNode) {
-      pop.parentNode.removeChild(pop);
-    }
-  }, 1800);
 }
 

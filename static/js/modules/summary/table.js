@@ -1,6 +1,7 @@
 import { el } from "../state.js";
 import { t } from "../i18n.js";
 import { buildCell, playerNameCell } from "../formatters.js";
+import { animateScoreRollup } from "../effects.js";
 
 export function renderSummaryTable(summary, perfectCounts = {}) {
   if (!summary) return;
@@ -63,12 +64,18 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
       row.appendChild(buildCell(nameCell));
 
       if (summary.location_mode) {
-        row.appendChild(buildCell(String(player.location_score ?? 0)));
+        const locCell = buildCell(String(player.location_score ?? 0));
+        animateScoreRollup(locCell, player.location_score ?? 0, summary.max_possible_score || 100);
+        row.appendChild(locCell);
       }
       if (summary.date_mode) {
-        row.appendChild(buildCell(String(player.date_score ?? 0)));
+        const dateCell = buildCell(String(player.date_score ?? 0));
+        animateScoreRollup(dateCell, player.date_score ?? 0, summary.max_possible_score || 100);
+        row.appendChild(dateCell);
       }
-      row.appendChild(buildCell(`${player.total_score}/${player.max_possible_score}`));
+      const totalCell = buildCell(`${player.total_score}/${player.max_possible_score}`);
+      animateScoreRollup(totalCell, player.total_score ?? 0, player.max_possible_score || 100, `/${player.max_possible_score}`);
+      row.appendChild(totalCell);
 
       const accCell = buildCell(`${player.accuracy_pct}%`);
       accCell.className = "col-accuracy hide-on-mobile";

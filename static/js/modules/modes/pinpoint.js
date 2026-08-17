@@ -18,7 +18,6 @@ import {
 import {
   createPerfectBadge,
   animateScoreRollup,
-  spawnFloatingScorePop,
   launchGoldConfetti,
   launchStarBurst,
 } from "../effects.js";
@@ -346,6 +345,9 @@ function renderRevealSummary(reveal, skipEffects = false) {
         items: [
           {
             value: result.location_score === null ? "-" : String(result.location_score),
+            scoreNum: result.location_score,
+            isScore: result.location_score !== null && result.location_score !== undefined,
+            maxScore: maxPoints,
             subtext: distStr !== t("fmt.no_guess") ? distStr : null,
             class: "",
           },
@@ -364,6 +366,9 @@ function renderRevealSummary(reveal, skipEffects = false) {
         items: [
           {
             value: result.date_score === null ? "-" : String(result.date_score),
+            scoreNum: result.date_score,
+            isScore: result.date_score !== null && result.date_score !== undefined,
+            maxScore: maxPoints,
             subtext: dateErrStr !== "-" ? dateErrStr : null,
             class: "",
           },
@@ -379,14 +384,24 @@ function renderRevealSummary(reveal, skipEffects = false) {
       });
     }
 
-    const isTotalScoreGroup = true;
     valueGroups.push({
       isPerfect: isPerfectRound,
-      isScoreGroup: isTotalScoreGroup,
-      roundScoreNum: result.round_score,
       items: [
-        { value: String(result.round_score), class: "hide-on-mobile" },
-        { value: String(result.total_score), class: "group-start-mobile" },
+        {
+          value: String(result.round_score ?? 0),
+          scoreNum: result.round_score ?? 0,
+          isScore: true,
+          maxScore: maxRoundPoints,
+          class: "hide-on-mobile",
+        },
+        {
+          value: String(result.total_score ?? 0),
+          scoreNum: result.total_score ?? 0,
+          startScore: Math.max(0, (result.total_score ?? 0) - (result.round_score ?? 0)),
+          isScore: true,
+          maxScore: maxRoundPoints * (reveal.round_number || 1),
+          class: "group-start-mobile",
+        },
       ],
     });
 
@@ -409,26 +424,14 @@ function renderRevealSummary(reveal, skipEffects = false) {
             cell.appendChild(createPerfectBadge());
           }
         }
-        if (group.isScoreGroup && index === 0) {
-          animateScoreRollup(cell, group.roundScoreNum, maxRoundPoints);
+        if (itemObj.isScore) {
+          animateScoreRollup(cell, itemObj.scoreNum, itemObj.maxScore, "", skipEffects, itemObj.startScore || 0);
         }
         row.appendChild(cell);
       });
     });
 
     el.revealTableBody.appendChild(row);
-
-    if (!skipEffects) {
-      setTimeout(() => {
-        if (isPerfectLocation) {
-          spawnFloatingScorePop(row, `🎯 BULLSEYE! +${result.location_score}`, "bullseye");
-        } else if (isPerfectDate) {
-          spawnFloatingScorePop(row, `⏳ TIME TRAVELER! +${result.date_score}`, "perfect");
-        } else if (result.round_score > 0) {
-          spawnFloatingScorePop(row, `+${result.round_score} pts`, "good");
-        }
-      }, rIdx * 250);
-    }
   });
 
   if (!skipEffects && hasAnyPerfectInRound) {

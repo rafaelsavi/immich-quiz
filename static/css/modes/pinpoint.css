@@ -117,36 +117,6 @@
   margin-bottom: 0.8rem;
 }
 
-.score-popup {
-  position: fixed;
-  z-index: 4000;
-  pointer-events: none;
-  font-family: "Fraunces", serif;
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--accent);
-  text-shadow: 0 2px 8px rgba(15, 124, 127, 0.35);
-  transform: translateX(-50%);
-  animation: floatUp 1.5s ease-out forwards;
-}
-
-@keyframes floatUp {
-  0% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0) scale(1);
-  }
-
-  50% {
-    opacity: 1;
-    transform: translateX(-50%) translateY(-40px) scale(1.15);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-70px) scale(0.9);
-  }
-}
-
 .timer-row.is-pulsing {
   background: rgba(242, 95, 92, 0.12) !important;
   border-color: #f25f5c !important;
