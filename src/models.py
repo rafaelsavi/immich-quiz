@@ -151,43 +151,42 @@ def format_filter_summary(
     language: SupportedLanguage = SupportedLanguage.EN,
 ) -> tuple[int, str]:
     """Return (is_custom_filtered, summary_str) based on active filter parameters."""
-    lang = SupportedLanguage.from_str(language)
     parts: list[str] = []
 
     if album_ids or (album_name and album_name != '-'):
         if album_name and album_name != '-':
             parts.append(album_name)
         else:
-            parts.append(t('filters.albums_count', lang, len(album_ids or [])))
+            parts.append(t('filters.albums_count', language, len(album_ids or [])))
     if countries:
         if len(countries) <= 2:
             parts.append(', '.join(countries))
         else:
-            parts.append(t('filters.countries_count', lang, len(countries)))
+            parts.append(t('filters.countries_count', language, len(countries)))
     if cities:
         if len(cities) <= 2:
             parts.append(', '.join(cities))
         else:
-            parts.append(t('filters.cities_count', lang, len(cities)))
+            parts.append(t('filters.cities_count', language, len(cities)))
     if person_names:
         if len(person_names) <= 2:
             parts.append(', '.join(person_names))
         else:
-            parts.append(t('filters.people_count', lang, len(person_names)))
+            parts.append(t('filters.people_count', language, len(person_names)))
     elif person_ids:
-        parts.append(t('filters.people_count', lang, len(person_ids)))
+        parts.append(t('filters.people_count', language, len(person_ids)))
     if min_date or max_date:
         if min_date and max_date:
-            parts.append(t('filters.date_range', lang, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
+            parts.append(t('filters.date_range', language, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
         elif min_date:
-            parts.append(t('filters.date_from', lang, min_date.strftime('%Y/%m')))
+            parts.append(t('filters.date_from', language, min_date.strftime('%Y/%m')))
         elif max_date:
-            parts.append(t('filters.date_until', lang, max_date.strftime('%Y/%m')))
+            parts.append(t('filters.date_until', language, max_date.strftime('%Y/%m')))
     if include_shared:
-        parts.append(t('filters.shared', lang))
+        parts.append(t('filters.shared', language))
 
     if not parts:
-        return 0, t('filters.full_library', lang)
+        return 0, t('filters.full_library', language)
     return 1, ' • '.join(parts)
 
 
@@ -206,37 +205,38 @@ def format_filter_tooltip(
     language: SupportedLanguage = SupportedLanguage.EN,
 ) -> str | None:
     """Return a detailed multiline tooltip string listing all active filter values."""
-    lang = SupportedLanguage.from_str(language)
     lines: list[str] = []
 
     if album_ids or (album_name and album_name != '-'):
         val = (
-            album_name if (album_name and album_name != '-') else t('filters.albums_count', lang, len(album_ids or []))
+            album_name
+            if (album_name and album_name != '-')
+            else t('filters.albums_count', language, len(album_ids or []))
         )
-        lines.append(f'{t("tooltip.album", lang)}: {val}')
+        lines.append(f'{t("tooltip.album", language)}: {val}')
     if countries:
-        lines.append(f'{t("tooltip.countries", lang)}: {", ".join(countries)}')
+        lines.append(f'{t("tooltip.countries", language)}: {", ".join(countries)}')
     if cities:
-        lines.append(f'{t("tooltip.cities", lang)}: {", ".join(cities)}')
+        lines.append(f'{t("tooltip.cities", language)}: {", ".join(cities)}')
     if person_names or person_ids:
         people_list = person_names if person_names else person_ids
         names_str = ', '.join(people_list) if people_list else ''
         count = len(people_list or [])
         if count > 1:
             is_all = people_mode == PeopleMode.ALL or str(people_mode).upper() == 'ALL'
-            prefix = t('tooltip.people_all', lang) if is_all else t('tooltip.people_any', lang)
+            prefix = t('tooltip.people_all', language) if is_all else t('tooltip.people_any', language)
             lines.append(f'{prefix}: {names_str}')
         elif count == 1:
-            lines.append(f'{t("tooltip.person_single", lang)}: {names_str}')
+            lines.append(f'{t("tooltip.person_single", language)}: {names_str}')
     if min_date or max_date:
         if min_date and max_date:
-            lines.append(t('tooltip.dates_range', lang, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
+            lines.append(t('tooltip.dates_range', language, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
         elif min_date:
-            lines.append(t('tooltip.dates_from', lang, min_date.strftime('%Y/%m')))
+            lines.append(t('tooltip.dates_from', language, min_date.strftime('%Y/%m')))
         elif max_date:
-            lines.append(t('tooltip.dates_until', lang, max_date.strftime('%Y/%m')))
+            lines.append(t('tooltip.dates_until', language, max_date.strftime('%Y/%m')))
     if include_shared:
-        lines.append(t('tooltip.shared', lang))
+        lines.append(t('tooltip.shared', language))
 
     if not lines:
         return None

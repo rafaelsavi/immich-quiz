@@ -7,6 +7,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from i18n import SupportedLanguage
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, load_asset_pool
@@ -469,9 +470,9 @@ class GameService:
                 )
             )
 
-        target_lang = language or self.settings.language
-        is_custom, filter_summary = state.setup.format_filter_summary(language=target_lang)
-        filter_tooltip = state.setup.format_filter_tooltip(language=target_lang)
+        lang = SupportedLanguage.from_str(language) if language else self.settings.language
+        is_custom, filter_summary = state.setup.format_filter_summary(language=lang)
+        filter_tooltip = state.setup.format_filter_tooltip(language=lang)
 
         return MatchSummaryResponse(
             match_id=state.match_id,

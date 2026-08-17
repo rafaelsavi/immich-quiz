@@ -40,7 +40,7 @@ class AppSettings:
     app_tagline: str = ''
     app_host: str = '127.0.0.1'
     app_port: int = 8010
-    language: str = 'EN'
+    language: SupportedLanguage = SupportedLanguage.EN
 
     # Scoring
     location_score_decay_km: float = 500.0
