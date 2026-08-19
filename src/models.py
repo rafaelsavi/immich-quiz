@@ -151,6 +151,18 @@ def format_filter_summary(
     language: SupportedLanguage = SupportedLanguage.EN,
 ) -> tuple[int, str]:
     """Return (is_custom_filtered, summary_str) based on active filter parameters."""
+    active_filters_count = sum(
+        [
+            bool(album_ids or (album_name and album_name != '-')),
+            bool(countries),
+            bool(cities),
+            bool(person_names or person_ids),
+            bool(min_date or max_date),
+            bool(include_shared),
+        ]
+    )
+    max_items = 1 if active_filters_count > 1 else 2
+
     parts: list[str] = []
 
     if album_ids or (album_name and album_name != '-'):
@@ -159,17 +171,17 @@ def format_filter_summary(
         else:
             parts.append(t('filters.albums_count', language, len(album_ids or [])))
     if countries:
-        if len(countries) <= 2:
+        if len(countries) <= max_items:
             parts.append(', '.join(countries))
         else:
             parts.append(t('filters.countries_count', language, len(countries)))
     if cities:
-        if len(cities) <= 2:
+        if len(cities) <= max_items:
             parts.append(', '.join(cities))
         else:
             parts.append(t('filters.cities_count', language, len(cities)))
     if person_names:
-        if len(person_names) <= 2:
+        if len(person_names) <= max_items:
             parts.append(', '.join(person_names))
         else:
             parts.append(t('filters.people_count', language, len(person_names)))

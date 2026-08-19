@@ -14,15 +14,38 @@ def test_format_filter_summary() -> None:
     assert is_custom == 1
     assert summary == 'Europe 2023'
 
-    # Filter with countries & dates
+    # Single filter category with up to 2 items (limit is 2)
+    is_custom, summary = format_filter_summary(countries=['Italy', 'France'])
+    assert is_custom == 1
+    assert summary == 'Italy, France'
+
+    # Filter with countries & dates (multiple categories -> limit is 1)
     is_custom, summary = format_filter_summary(
         countries=['Italy', 'France'],
         min_date=date(2022, 1, 1),
         max_date=date(2023, 12, 31),
     )
     assert is_custom == 1
-    assert 'Italy, France' in summary
+    assert '2 countries' in summary
     assert '2022/01 - 2023/12' in summary
+
+    # Multiple categories with multiple items (2 countries, 2 cities, 2 persons -> all collapsed to count)
+    is_custom, summary = format_filter_summary(
+        countries=['Italy', 'France'],
+        cities=['Rome', 'Paris'],
+        person_names=['Alice', 'Bob'],
+    )
+    assert is_custom == 1
+    assert summary == '2 countries • 2 cities • 2 people'
+
+    # Multiple categories with 1 element each (displayed as names)
+    is_custom, summary = format_filter_summary(
+        countries=['Italy'],
+        cities=['Rome'],
+        person_names=['Alice'],
+    )
+    assert is_custom == 1
+    assert summary == 'Italy • Rome • Alice'
 
     # Testing BaseGameConfig.format_filter_summary method
     config_default = BaseGameConfig(library_name='default')
@@ -42,8 +65,8 @@ def test_format_filter_summary() -> None:
     is_cust, summ = config_custom.format_filter_summary()
     assert is_cust == 1
     assert '3 countries' in summ
-    assert 'Tokyo, Rome' in summ
-    assert 'Alice, Bob' in summ
+    assert '2 cities' in summ
+    assert '2 people' in summ
     assert 'Shared' in summ
 
     tooltip = config_custom.format_filter_tooltip()
@@ -75,6 +98,8 @@ def test_format_filter_summary() -> None:
     is_cust_pt, summ_pt = config_custom.format_filter_summary(language='PT')
     assert is_cust_pt == 1
     assert '3 países' in summ_pt
+    assert '2 cidades' in summ_pt
+    assert '2 pessoas' in summ_pt
     assert 'Compartilhadas' in summ_pt
 
     tooltip_pt = config_custom.format_filter_tooltip(language='PT')

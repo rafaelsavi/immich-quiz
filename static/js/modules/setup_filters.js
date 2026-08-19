@@ -366,26 +366,35 @@ export function isCustomFilteredActive() {
 }
 
 export function getActiveFilterSummary() {
+  const activeCount =
+    (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
+    (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
+    (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
+    (peopleMultiSelect && peopleMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
+    (dateRangeSlider && (dateRangeSlider.getSelectedRange().minDate || dateRangeSlider.getSelectedRange().maxDate) ? 1 : 0) +
+    (el.includeSharedCheckbox && el.includeSharedCheckbox.checked ? 1 : 0);
+
+  const maxItems = activeCount > 1 ? 1 : 2;
   const parts = [];
   if (albumMultiSelect) {
     const albums = albumMultiSelect.getSelectedItems();
-    if (albums.length === 1) parts.push(albums[0].name);
-    else if (albums.length > 1) parts.push(`${albums.length} albums`);
+    if (albums.length > 0 && albums.length <= maxItems) parts.push(albums.map((a) => a.name).join(", "));
+    else if (albums.length > maxItems) parts.push(`${albums.length} albums`);
   }
   if (countryMultiSelect) {
     const countries = countryMultiSelect.getSelectedItems();
-    if (countries.length === 1) parts.push(countries[0].name);
-    else if (countries.length > 1) parts.push(`${countries.length} countries`);
+    if (countries.length > 0 && countries.length <= maxItems) parts.push(countries.map((c) => c.name).join(", "));
+    else if (countries.length > maxItems) parts.push(`${countries.length} countries`);
   }
   if (cityMultiSelect) {
     const cities = cityMultiSelect.getSelectedItems();
-    if (cities.length === 1) parts.push(cities[0].name);
-    else if (cities.length > 1) parts.push(`${cities.length} cities`);
+    if (cities.length > 0 && cities.length <= maxItems) parts.push(cities.map((c) => c.name).join(", "));
+    else if (cities.length > maxItems) parts.push(`${cities.length} cities`);
   }
   if (peopleMultiSelect) {
     const people = peopleMultiSelect.getSelectedItems();
-    if (people.length === 1) parts.push(people[0].name);
-    else if (people.length > 1) parts.push(`${people.length} people`);
+    if (people.length > 0 && people.length <= maxItems) parts.push(people.map((p) => p.name).join(", "));
+    else if (people.length > maxItems) parts.push(`${people.length} people`);
   }
   if (dateRangeSlider) {
     const { minDate, maxDate } = dateRangeSlider.getSelectedRange();

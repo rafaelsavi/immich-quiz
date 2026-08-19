@@ -37,6 +37,20 @@ def test_translate_callable_formatting() -> None:
 
 
 def test_format_filter_summary_and_tooltip_i18n() -> None:
+    # Single category config (limit is 2)
+    single_cat_config = BaseGameConfig(
+        library_name='default',
+        countries=['France', 'Germany'],
+    )
+    is_cust_single, sum_single_en = single_cat_config.format_filter_summary(language='EN')
+    assert is_cust_single == 1
+    assert sum_single_en == 'France, Germany'
+
+    is_cust_single_pt, sum_single_pt = single_cat_config.format_filter_summary(language='PT')
+    assert is_cust_single_pt == 1
+    assert sum_single_pt == 'France, Germany'
+
+    # Multi-category config (limit is 1)
     config = BaseGameConfig(
         library_name='default',
         countries=['France', 'Germany', 'Spain'],
@@ -52,8 +66,8 @@ def test_format_filter_summary_and_tooltip_i18n() -> None:
     is_cust_en, sum_en = config.format_filter_summary(language='EN')
     assert is_cust_en == 1
     assert '3 countries' in sum_en
-    assert 'Paris, Berlin' in sum_en
-    assert 'Alice, Bob' in sum_en
+    assert '2 cities' in sum_en
+    assert '2 people' in sum_en
     assert 'Shared' in sum_en
 
     tip_en = config.format_filter_tooltip(language='EN')
@@ -68,8 +82,8 @@ def test_format_filter_summary_and_tooltip_i18n() -> None:
     is_cust_pt, sum_pt = config.format_filter_summary(language='PT')
     assert is_cust_pt == 1
     assert '3 países' in sum_pt
-    assert 'Paris, Berlin' in sum_pt
-    assert 'Alice, Bob' in sum_pt
+    assert '2 cidades' in sum_pt
+    assert '2 pessoas' in sum_pt
     assert 'Compartilhadas' in sum_pt
 
     tip_pt = config.format_filter_tooltip(language='PT')
