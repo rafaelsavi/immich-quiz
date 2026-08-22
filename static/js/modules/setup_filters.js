@@ -27,6 +27,7 @@ const STORAGE_KEY_PREFIX = "immich_quiz_filters_";
 
 let cachedRawCities = [];
 let _preflightDebounceTimer = null;
+let _preflightAbortCtrl = null;
 let _lastPreflightData = null;
 
 let _getActiveModeFn = null;
@@ -528,19 +529,27 @@ export function hidePreflightCount() {
   }
 }
 
-export function triggerPreflightDebounced() {
+export function triggerPreflightDebounced(delay = 10) {
   if (_preflightDebounceTimer) {
     clearTimeout(_preflightDebounceTimer);
   }
   _preflightDebounceTimer = setTimeout(() => {
     _preflightDebounceTimer = null;
     executePreflight().catch((err) => {
-      console.warn("Preflight check failed:", err);
+      if (err.name !== "AbortError" && !err.message?.includes("abort")) {
+        console.warn("Preflight check failed:", err);
+      }
     });
-  }, 500);
+  }, delay);
 }
 
 export async function executePreflight() {
+  if (_preflightAbortCtrl) {
+    _preflightAbortCtrl.abort();
+  }
+  _preflightAbortCtrl = new AbortController();
+  const signal = _preflightAbortCtrl.signal;
+
   const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
   const activeMode = getActiveMode();
   const modePayload = activeMode ? activeMode.getModePayload() : {};
@@ -578,6 +587,7 @@ export async function executePreflight() {
   try {
     const preflight = await api("/api/game/preflight", {
       method: "POST",
+      signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
@@ -609,6 +619,9 @@ export async function executePreflight() {
       hidePreflightWarning();
     }
   } catch (err) {
+    if (err.name === "AbortError" || (err.message && err.message.includes("abort"))) {
+      return;
+    }
     hidePreflightCount();
     console.warn("Live preflight error:", err);
   }
