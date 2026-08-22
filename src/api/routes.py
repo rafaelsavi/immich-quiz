@@ -1,5 +1,4 @@
-"""FastAPI REST API routes and dependency providers for Immich Quiz."""
-
+import asyncio
 from typing import Annotated, Any
 
 from cachetools import TTLCache
@@ -120,7 +119,8 @@ async def albums(
     libraries: list[str] | None = Query(default=None),
     metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> dict[str, list[dict[str, str]]]:
-    return {'albums': metadata_store.get_albums(libraries, include_shared=True)}
+    res = await asyncio.to_thread(metadata_store.get_albums, libraries, True)
+    return {'albums': res}
 
 
 @router.get('/filters', response_model=LibraryFiltersResponse)
@@ -137,7 +137,7 @@ async def library_filters(
     if cached is not None:
         return cached
 
-    response = metadata_store.get_filter_options(libraries, settings)
+    response = await asyncio.to_thread(metadata_store.get_filter_options, libraries, settings)
     _filters_cache[cache_key] = response
     return response
 

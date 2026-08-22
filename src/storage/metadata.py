@@ -66,6 +66,7 @@ CREATE INDEX IF NOT EXISTS idx_assets_lib_datetime ON assets(library_name, captu
 CREATE INDEX IF NOT EXISTS idx_assets_lib_coords ON assets(library_name, latitude, longitude);
 CREATE INDEX IF NOT EXISTS idx_assets_lib_updated ON assets(library_name, immich_updated_at);
 CREATE INDEX IF NOT EXISTS idx_assets_lib_times_played ON assets(library_name, times_played);
+CREATE INDEX IF NOT EXISTS idx_assets_lib_shared_partner ON assets(library_name, is_shared, is_partner);
 
 CREATE TABLE IF NOT EXISTS people (
     id TEXT NOT NULL,
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS asset_people (
     FOREIGN KEY(person_id, library_name) REFERENCES people(id, library_name) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_asset_people_person ON asset_people(library_name, person_id);
+CREATE INDEX IF NOT EXISTS idx_asset_people_asset_lib ON asset_people(asset_id, library_name);
 
 CREATE TABLE IF NOT EXISTS albums (
     id TEXT NOT NULL,
@@ -101,6 +103,7 @@ CREATE TABLE IF NOT EXISTS asset_albums (
     FOREIGN KEY(album_id, library_name) REFERENCES albums(id, library_name) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_asset_albums_album ON asset_albums(library_name, album_id);
+CREATE INDEX IF NOT EXISTS idx_asset_albums_asset_lib ON asset_albums(asset_id, library_name);
 
 CREATE TABLE IF NOT EXISTS tags (
     id TEXT NOT NULL,
@@ -119,6 +122,7 @@ CREATE TABLE IF NOT EXISTS asset_tags (
     FOREIGN KEY(tag_id, library_name) REFERENCES tags(id, library_name) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_asset_tags_tag ON asset_tags(library_name, tag_id);
+CREATE INDEX IF NOT EXISTS idx_asset_tags_asset_lib ON asset_tags(asset_id, library_name);
 """
 
 
@@ -676,12 +680,12 @@ class MetadataStore:
             name_placeholders = ', '.join('?' for _ in criteria.people_blacklist)
             id_placeholders = ', '.join('?' for _ in criteria.people_blacklist)
             clauses.append(
-                f"""a.id NOT IN (
-                    SELECT ap.asset_id
+                f"""NOT EXISTS (
+                    SELECT 1
                     FROM asset_people ap
                     JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
-                    WHERE (LOWER(p.name) IN ({name_placeholders}) OR LOWER(ap.person_id) IN ({id_placeholders}))
-                      AND ap.library_name = a.library_name
+                    WHERE ap.asset_id = a.id AND ap.library_name = a.library_name
+                      AND (LOWER(p.name) IN ({name_placeholders}) OR LOWER(ap.person_id) IN ({id_placeholders}))
                 )"""
             )
             params.extend(p.lower() for p in criteria.people_blacklist)
@@ -706,13 +710,13 @@ class MetadataStore:
             name_placeholders = ', '.join('?' for _ in criteria.people_whitelist)
             id_placeholders = ', '.join('?' for _ in criteria.people_whitelist)
             clauses.append(
-                f"""a.id NOT IN (
-                    SELECT ap.asset_id
+                f"""NOT EXISTS (
+                    SELECT 1
                     FROM asset_people ap
                     JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
-                    WHERE (LOWER(p.name) NOT IN ({name_placeholders})
+                    WHERE ap.asset_id = a.id AND ap.library_name = a.library_name
+                      AND (LOWER(p.name) NOT IN ({name_placeholders})
                            AND LOWER(ap.person_id) NOT IN ({id_placeholders}))
-                      AND ap.library_name = a.library_name
                 )"""
             )
             params.extend(p.lower() for p in criteria.people_whitelist)
@@ -723,12 +727,12 @@ class MetadataStore:
             tag_name_placeholders = ', '.join('?' for _ in criteria.tag_blacklist)
             tag_id_placeholders = ', '.join('?' for _ in criteria.tag_blacklist)
             clauses.append(
-                f"""a.id NOT IN (
-                    SELECT at.asset_id
+                f"""NOT EXISTS (
+                    SELECT 1
                     FROM asset_tags at
                     JOIN tags t ON at.tag_id = t.id AND at.library_name = t.library_name
-                    WHERE (LOWER(t.name) IN ({tag_name_placeholders}) OR LOWER(at.tag_id) IN ({tag_id_placeholders}))
-                      AND at.library_name = a.library_name
+                    WHERE at.asset_id = a.id AND at.library_name = a.library_name
+                      AND (LOWER(t.name) IN ({tag_name_placeholders}) OR LOWER(at.tag_id) IN ({tag_id_placeholders}))
                 )"""
             )
             params.extend(t.lower() for t in criteria.tag_blacklist)
@@ -739,12 +743,12 @@ class MetadataStore:
             tag_name_placeholders = ', '.join('?' for _ in criteria.tag_whitelist)
             tag_id_placeholders = ', '.join('?' for _ in criteria.tag_whitelist)
             clauses.append(
-                f"""a.id IN (
-                    SELECT at.asset_id
+                f"""EXISTS (
+                    SELECT 1
                     FROM asset_tags at
                     JOIN tags t ON at.tag_id = t.id AND at.library_name = t.library_name
-                    WHERE (LOWER(t.name) IN ({tag_name_placeholders}) OR LOWER(at.tag_id) IN ({tag_id_placeholders}))
-                      AND at.library_name = a.library_name
+                    WHERE at.asset_id = a.id AND at.library_name = a.library_name
+                      AND (LOWER(t.name) IN ({tag_name_placeholders}) OR LOWER(at.tag_id) IN ({tag_id_placeholders}))
                 )"""
             )
             params.extend(t.lower() for t in criteria.tag_whitelist)
@@ -758,10 +762,10 @@ class MetadataStore:
         has_selected_albums = bool(criteria.album_ids)
         if not has_selected_albums and not criteria.include_shared:
             clauses.append(
-                'a.is_shared = 0 AND a.is_partner = 0 AND a.id NOT IN ('
-                'SELECT aa.asset_id FROM asset_albums aa '
+                'a.is_shared = 0 AND a.is_partner = 0 AND NOT EXISTS ('
+                'SELECT 1 FROM asset_albums aa '
                 'JOIN albums alb ON aa.album_id = alb.id AND aa.library_name = alb.library_name '
-                'WHERE alb.is_shared = 1 AND aa.library_name = a.library_name'
+                'WHERE aa.asset_id = a.id AND aa.library_name = a.library_name AND alb.is_shared = 1'
                 ')'
             )
 
@@ -795,10 +799,10 @@ class MetadataStore:
             else:
                 placeholders = ', '.join('?' for _ in criteria.person_ids)
                 clauses.append(
-                    f"""a.id IN (
-                        SELECT ap.asset_id
+                    f"""EXISTS (
+                        SELECT 1
                         FROM asset_people ap
-                        WHERE ap.person_id IN ({placeholders}) AND ap.library_name = a.library_name
+                        WHERE ap.asset_id = a.id AND ap.library_name = a.library_name AND ap.person_id IN ({placeholders})
                     )"""
                 )
                 params.extend(criteria.person_ids)
@@ -807,10 +811,10 @@ class MetadataStore:
         if criteria.album_ids:
             placeholders = ', '.join('?' for _ in criteria.album_ids)
             clauses.append(
-                f"""a.id IN (
-                    SELECT aa.asset_id
+                f"""EXISTS (
+                    SELECT 1
                     FROM asset_albums aa
-                    WHERE aa.album_id IN ({placeholders}) AND aa.library_name = a.library_name
+                    WHERE aa.asset_id = a.id AND aa.library_name = a.library_name AND aa.album_id IN ({placeholders})
                 )"""
             )
             params.extend(criteria.album_ids)

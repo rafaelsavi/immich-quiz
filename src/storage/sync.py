@@ -101,11 +101,12 @@ class SyncEngine:
                 syncing_found = True
                 break
 
-        if not syncing_found and states:
-            most_recent = max(states, key=lambda s: s.get('last_sync_at') or '', default=None)
-            if most_recent and most_recent.get('sync_mode'):
-                active_mode = most_recent['sync_mode']
-                active_stage = most_recent.get('sync_stage', SyncStage.idle.value)
+        if not syncing_found:
+            active_stage = SyncStage.idle.value
+            if states:
+                most_recent = max(states, key=lambda s: s.get('last_sync_at') or '', default=None)
+                if most_recent and most_recent.get('sync_mode'):
+                    active_mode = most_recent['sync_mode']
 
         sync_dates = [s.get('last_sync_at') for s in states if s.get('last_sync_at')]
         last_sync_at = max(sync_dates) if sync_dates else None

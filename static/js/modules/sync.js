@@ -124,9 +124,11 @@ export async function checkSyncStatus(onSyncComplete = null) {
 export function startSyncPolling(onSyncComplete = null) {
   if (_syncPollInterval) clearInterval(_syncPollInterval);
 
+  let consecutiveErrors = 0;
   const poll = async () => {
     try {
       const status = await api("/api/sync/status");
+      consecutiveErrors = 0;
       if (status.warnings && Object.keys(status.warnings).length > 0) {
         Object.entries(status.warnings).forEach(([lib, msg]) => {
           console.warn(`[Immich Sync Warning (${lib})] ${msg}`);
@@ -146,7 +148,17 @@ export function startSyncPolling(onSyncComplete = null) {
         }
       }
     } catch (e) {
+      consecutiveErrors += 1;
       console.warn("Error polling sync status:", e);
+      if (consecutiveErrors >= 10) {
+        if (_syncPollInterval) {
+          clearInterval(_syncPollInterval);
+          _syncPollInterval = null;
+        }
+        if (_lastSyncStatus) {
+          renderSyncStatus({ ..._lastSyncStatus, sync_status: _lastSyncStatus.sync_status === "syncing" ? "idle" : _lastSyncStatus.sync_status });
+        }
+      }
     }
   };
 
@@ -170,5 +182,7 @@ export async function triggerLibrarySync(onSyncComplete = null) {
     startSyncPolling(onSyncComplete);
   } catch (err) {
     console.error("Failed to trigger sync:", err);
+    await checkSyncStatus(onSyncComplete);
   }
 }
+

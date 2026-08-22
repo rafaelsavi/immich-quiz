@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from datetime import date, datetime, timezone
@@ -243,12 +244,12 @@ class GameService:
         raw_status = sync_state.get('sync_status', SyncStatus.idle.value)
         sync_status = SyncStatus(raw_status) if raw_status in SyncStatus._value2member_map_ else SyncStatus.idle
 
-        counts = self.metadata_store.get_asset_counts(criteria)
+        counts = await asyncio.to_thread(self.metadata_store.get_asset_counts, criteria)
         eligible_count = counts['eligible_count']
         total_count = counts['total_count']
         gps_count = counts['gps_count']
         date_count = counts['date_count']
-        facet_counts = self.metadata_store.get_facet_counts(criteria)
+        facet_counts = await asyncio.to_thread(self.metadata_store.get_facet_counts, criteria)
 
         active_filters: list[str] = []
         if setup.location_mode:

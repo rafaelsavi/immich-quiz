@@ -62,6 +62,7 @@ export function setupFilterParams() {
 
   const selectedLibs = state.filters && state.filters.libraryMultiSelect
     ? state.filters.libraryMultiSelect.getSelectedIds()
+    : [];
   const params = new URLSearchParams({
     round_length: el.roundLength ? el.roundLength.value : "1m",
     location_mode: String(locationMode),

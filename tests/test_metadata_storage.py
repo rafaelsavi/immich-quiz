@@ -1602,3 +1602,40 @@ def test_multi_album_filtering_across_libraries(meta_store: MetadataStore) -> No
     assert facets.albums.get('alb-d') == 1
 
 
+def test_optimized_ownership_and_safeguards_query(meta_store: MetadataStore) -> None:
+    """Verify that get_asset_counts and get_facet_counts correctly exclude shared/partner assets."""
+    meta_store.upsert_albums('lib1', [{'id': 'shared-alb', 'name': 'Shared Trip', 'isShared': 1}])
+    meta_store.upsert_people('lib1', [{'id': 'p-black', 'name': 'Blocked Person'}, {'id': 'p-ok', 'name': 'Good Person'}])
+
+    assets = [
+        {'id': 'a-ok', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+        {'id': 'a-shared', 'is_shared': 1, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+        {'id': 'a-partner', 'is_shared': 0, 'is_partner': 1, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+        {'id': 'a-in-shared-alb', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+        {'id': 'a-blocked-person', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+    ]
+
+    meta_store.upsert_assets_batch(
+        'lib1',
+        assets,
+        [('a-ok', 'p-ok'), ('a-blocked-person', 'p-black')],
+        [('a-in-shared-alb', 'shared-alb')],
+    )
+
+    criteria = AssetFilterCriteria(
+        library_names=('lib1',),
+        location_mode=True,
+        date_mode=True,
+        include_shared=False,
+        people_blacklist=frozenset({'Blocked Person'}),
+    )
+
+    counts = meta_store.get_asset_counts(criteria)
+    assert counts['eligible_count'] == 1
+    assert counts['total_count'] == 1
+
+    candidates = meta_store.fetch_candidate_assets(criteria)
+    assert list(candidates.keys()) == ['a-ok']
+
+
+

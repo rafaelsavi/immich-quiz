@@ -179,6 +179,16 @@ def test_js_files_have_valid_syntax() -> None:
 
     node_bin = shutil.which('node')
     if not node_bin:
+        for candidate in [
+            r'C:\Program Files\nodejs\node.exe',
+            r'C:\Program Files (x86)\nodejs\node.exe',
+            r'C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe',
+            r'C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe',
+        ]:
+            if Path(candidate).is_file():
+                node_bin = candidate
+                break
+    if not node_bin:
         return
 
     syntax_errors: list[str] = []
