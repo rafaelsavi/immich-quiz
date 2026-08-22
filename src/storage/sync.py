@@ -1,3 +1,5 @@
+"""Background metadata synchronization coordinator between Immich API and local SQLite cache."""
+
 from __future__ import annotations
 
 import asyncio
@@ -15,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _clean_str(val: Any) -> str | None:
+    """Normalize string value, stripping whitespace and filtering placeholder null values."""
     if val is None:
         return None
     s = str(val).strip()
@@ -33,6 +36,7 @@ class SyncEngine:
         *,
         on_sync_complete: Callable[[str], None] | None = None,
     ) -> None:
+        """Initialize SyncEngine with Immich client, metadata store, and optional completion callback."""
         self._immich = immich
         self._metadata_store = metadata_store
         self._on_sync_complete = on_sync_complete
@@ -40,16 +44,20 @@ class SyncEngine:
         self._sync_warnings: dict[str, str] = {}
 
     def is_syncing(self, library_name: str) -> bool:
+        """Check whether a background synchronization task is actively running for a library."""
         task = self._active_sync_tasks.get(library_name)
         return task is not None and not task.done()
 
     def is_any_syncing(self) -> bool:
+        """Check whether any background synchronization task is actively running across all libraries."""
         return any(not t.done() for t in self._active_sync_tasks.values())
 
     def get_sync_status(self, available_libraries: list[str] | str | None = None) -> dict[str, Any]:
+        """Fetch consolidated synchronization status dictionary for the given libraries."""
         return self.get_global_sync_status(available_libraries=available_libraries)
 
     def get_global_sync_status(self, available_libraries: list[str] | str | None = None) -> dict[str, Any]:
+        """Compute aggregated progress, stage, error, and timestamp metrics across libraries."""
         if isinstance(available_libraries, str):
             libs = [available_libraries]
         elif available_libraries is not None:
@@ -67,7 +75,10 @@ class SyncEngine:
 
         # Determine overall sync status
         has_error = any(s.get('sync_status') == SyncStatus.error.value for s in states)
-        never_synced = all(not s.get('last_sync_at') and (s.get('synced_assets') or 0) == 0 for s in states) and not is_syncing
+        never_synced = (
+            all(not s.get('last_sync_at') and (s.get('synced_assets') or 0) == 0 for s in states)
+            and not is_syncing
+        )
 
         if is_syncing:
             status = SyncStatus.syncing
@@ -108,6 +119,9 @@ class SyncEngine:
         errors = [s.get('sync_error') for s in states if s.get('sync_error')]
         sync_error = '; '.join(errors) if errors else None
 
+        target_warning_libs = libs or list(self._sync_warnings.keys())
+        warnings_dict = {lib: self._sync_warnings[lib] for lib in target_warning_libs if lib in self._sync_warnings}
+
         return {
             'libraries': libs,
             'is_syncing': is_syncing,
@@ -120,7 +134,7 @@ class SyncEngine:
             'sync_error': sync_error,
             'total_assets': total_assets,
             'synced_assets': synced_assets,
-            'warnings': {lib: self._sync_warnings[lib] for lib in (libs or list(self._sync_warnings.keys())) if lib in self._sync_warnings},
+            'warnings': warnings_dict,
         }
 
     def trigger_sync_all(
@@ -129,6 +143,7 @@ class SyncEngine:
         force_full: bool = False,
         available_libraries: list[str] | None = None,
     ) -> list[asyncio.Task[None]]:
+        """Trigger background synchronization for all configured and available libraries."""
         libs = available_libraries if available_libraries is not None else self._immich.list_libraries()
         tasks = []
         for lib in libs:
@@ -210,6 +225,7 @@ class SyncEngine:
         known_album_ids: set[str],
         known_tag_ids: set[str],
     ) -> tuple[dict[str, Any] | None, list[tuple[str, str]], list[tuple[str, str]], list[tuple[str, str]]]:
+        """Extract metadata, EXIF details, and junction relations from raw Immich asset JSON payload."""
         aid = str(item.get('id', '') or item.get('assetId', '')).strip()
         if not aid:
             return None, [], [], []

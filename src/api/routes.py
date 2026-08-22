@@ -1,4 +1,5 @@
-from datetime import date
+"""FastAPI REST API routes and dependency providers for Immich Quiz."""
+
 from typing import Annotated, Any
 
 from cachetools import TTLCache
@@ -10,19 +11,16 @@ from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     AnswerRequest,
     AnswerResponse,
-    GameMode,
     GameSetupRequest,
     GameSetupResponse,
     LeaderboardEntry,
     LeaderboardQuery,
     LibraryFiltersResponse,
     MatchSummaryResponse,
-    PeopleMode,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
     QuestionResponse,
-    RoundLength,
     RoundResultRequest,
     RoundResultResponse,
     SyncStateResponse,
@@ -56,26 +54,32 @@ router = APIRouter(prefix='/api')
 
 
 def get_session_store(request: Request) -> SessionStore:
+    """FastAPI dependency yielding the in-memory session store."""
     return request.app.state.session_store
 
 
 def get_immich_client(request: Request) -> ImmichClient:
+    """FastAPI dependency yielding the configured Immich HTTP client."""
     return request.app.state.immich_client
 
 
 def get_leaderboard_store(request: Request) -> LeaderboardStore:
+    """FastAPI dependency yielding the SQLite leaderboard store."""
     return request.app.state.leaderboard_store
 
 
 def get_metadata_store(request: Request) -> MetadataStore:
+    """FastAPI dependency yielding the SQLite metadata store."""
     return request.app.state.metadata_store
 
 
 def get_sync_engine(request: Request) -> SyncEngine:
+    """FastAPI dependency yielding the background metadata sync engine."""
     return request.app.state.sync_engine
 
 
 def get_game_service(request: Request) -> GameService:
+    """FastAPI dependency yielding a configured GameService instance."""
     return GameService(
         session_store=request.app.state.session_store,
         metadata_store=request.app.state.metadata_store,

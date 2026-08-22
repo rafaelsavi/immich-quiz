@@ -1,3 +1,5 @@
+"""High-level game orchestration service coordinating sessions, metadata, and scoring."""
+
 from __future__ import annotations
 
 import logging
@@ -40,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
+    """Extract structured per-photo guess records from match state for leaderboard persistence."""
     guesses: list[dict[str, Any]] = []
     ordered_questions = sorted(
         state.questions.values(),
@@ -84,7 +87,9 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     dist_km = haversine_km(ba.answer.latitude, ba.answer.longitude, guess_lat, guess_lng)
 
                 if state.setup.location_mode:
-                    is_correct_loc: int | None = 1 if (ba.asset_id in true_pin_map and assigned_pin_id == true_pin_map[ba.asset_id]) else 0
+                    is_correct_loc: int | None = (
+                        1 if (ba.asset_id in true_pin_map and assigned_pin_id == true_pin_map[ba.asset_id]) else 0
+                    )
                     loc_points: int | None = per_photo_max if is_correct_loc == 1 else 0
                 else:
                     is_correct_loc = None
@@ -168,6 +173,8 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
 
 
 class GameService:
+    """High-level game domain service orchestrating preflight checks, setup, turns, and summaries."""
+
     def __init__(
         self,
         session_store: SessionStore,
@@ -177,6 +184,7 @@ class GameService:
         settings: AppSettings,
         registry: GameModeRegistry | None = None,
     ) -> None:
+        """Initialize GameService with required storage backends and settings."""
         self.store = session_store
         self.metadata_store = metadata_store
         self.immich = immich_client
@@ -224,6 +232,7 @@ class GameService:
         return existing_names or person_ids
 
     async def preflight(self, setup: PreflightRequest) -> PreflightResponse:
+        """Perform live preflight check evaluating candidate asset counts against game requirements."""
         criteria = AssetFilterCriteria.from_setup(setup, self.settings)
         effective_min_date = criteria.min_date
         effective_max_date = criteria.max_date
@@ -281,6 +290,7 @@ class GameService:
         )
 
     async def setup_game(self, setup: GameSetupRequest) -> GameSetupResponse:
+        """Create and initialize a new match session, resolving names and computing map bounds."""
         target_libs = setup.libraries or None
         if not self.metadata_store.has_synced_assets(target_libs):
             raise HTTPException(
@@ -315,6 +325,7 @@ class GameService:
         )
 
     async def get_question(self, payload: QuestionRequest) -> QuestionResponse:
+        """Fetch or create the next question state for an active match turn."""
         try:
             state = self.store.get_match(payload.match_id)
         except KeyError as exc:
@@ -374,6 +385,7 @@ class GameService:
         return engine.build_question_response(state, question_state)
 
     async def submit_answer(self, payload: AnswerRequest) -> AnswerResponse:
+        """Submit player answer, evaluate points, advance turn, and record finished match history."""
         try:
             state = self.store.get_match(payload.match_id)
         except KeyError as exc:
@@ -465,6 +477,7 @@ class GameService:
         match_id: str,
         language: str | None = None,
     ) -> MatchSummaryResponse:
+        """Compute end-of-game summary, final rankings, and filter descriptions."""
         try:
             state = self.store.get_match(match_id)
         except KeyError as exc:

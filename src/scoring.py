@@ -1,3 +1,5 @@
+"""Scoring algorithms, geographical distance formulas, and temporal deviation calculations."""
+
 from __future__ import annotations
 
 import math
@@ -9,6 +11,7 @@ SCORE_MAX_POINTS: int = 100
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Calculate the great-circle distance between two GPS coordinates in kilometers."""
     earth_radius_km = 6371.0
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)
@@ -26,6 +29,7 @@ def location_score(
     decay_km: float = 500.0,
     max_points: int = SCORE_MAX_POINTS,
 ) -> int:
+    """Calculate location score using exponential distance decay."""
     return max(0, round(max_points * math.exp(-distance_km / decay_km)))
 
 
@@ -35,6 +39,7 @@ def month_index(year: int, month: int) -> int:
 
 
 def date_diff_months(guessed_year: int, guessed_month: int, actual: date) -> int:
+    """Calculate absolute difference in months between a guessed year/month and actual date."""
     return abs(month_index(guessed_year, guessed_month) - month_index(actual.year, actual.month))
 
 
@@ -127,6 +132,7 @@ def date_diff_parts(guessed_year: int, guessed_month: int, actual: date) -> tupl
 
 
 def date_score(delta_days: int, *, decay_days: float = 500.0, max_points: int = SCORE_MAX_POINTS) -> int:
+    """Calculate date score using exponential day-difference decay."""
     return max(0, round(max_points * math.exp(-delta_days / decay_days)))
 
 
@@ -137,11 +143,13 @@ def max_possible_score(
     *,
     per_goal_max_points: int = SCORE_MAX_POINTS,
 ) -> int:
+    """Compute maximum possible score achievable in a match given active modes and round count."""
     per_round = (per_goal_max_points if location_mode else 0) + (per_goal_max_points if date_mode else 0)
     return rounds_played * per_round
 
 
 def accuracy_pct(total_score: int, max_score: int) -> float:
+    """Calculate player accuracy percentage rounded to one decimal place."""
     if max_score <= 0:
         return 0.0
     value = Decimal(total_score) / Decimal(max_score) * Decimal(100)

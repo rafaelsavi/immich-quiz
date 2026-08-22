@@ -1,3 +1,5 @@
+"""In-memory match session management, turn tracking, and score accumulation."""
+
 from __future__ import annotations
 
 import time
@@ -24,6 +26,8 @@ class RoundAsset:
 
 @dataclass
 class QuestionState:
+    """Turn-specific question instance, candidate asset(s), and submitted player response."""
+
     question_id: str
     asset_id: str
     player_name: str
@@ -53,6 +57,8 @@ class QuestionState:
 
 @dataclass
 class MatchState:
+    """Comprehensive in-memory state tracking for an active or finished match session."""
+
     match_id: str
     setup: GameSetupRequest
     turn_index: int = 0
@@ -77,6 +83,7 @@ class MatchState:
         self.last_activity_at = now
 
     def touch(self) -> None:
+        """Update last_activity_at timestamp to now."""
         self.last_activity_at = time.time()
 
     @property
@@ -104,25 +111,31 @@ class MatchState:
         return [by_player[player] for player in self.setup.players if player in by_player]
 
     def is_round_complete(self, round_index: int) -> bool:
+        """Check whether every player in the round has completed their turn."""
         answered = self.round_questions(round_index)
         return len(answered) == len(self.setup.players) and all(q.answered for q in answered)
 
     def players_pending_in_round(self, round_index: int) -> list[str]:
+        """Return list of players who have not yet answered in the specified round."""
         answered = {q.player_name for q in self.round_questions(round_index) if q.answered}
         return [player for player in self.setup.players if player not in answered]
 
 
 class SessionStore:
+    """In-memory session registry managing active matches and question states."""
+
     def __init__(self) -> None:
         self._matches: dict[str, MatchState] = {}
 
     def create_match(self, setup: GameSetupRequest) -> MatchState:
+        """Create and register a new match session."""
         match_id = str(uuid4())
         state = MatchState(match_id=match_id, setup=setup)
         self._matches[match_id] = state
         return state
 
     def get_match(self, match_id: str) -> MatchState:
+        """Retrieve active match state or raise KeyError."""
         state = self._matches.get(match_id)
         if state is None:
             raise KeyError(f'Unknown match_id: {match_id}')
@@ -155,6 +168,7 @@ class SessionStore:
         batch_assets: list[RoundAsset] | None = None,
         batch_pins: list[dict[str, object]] | None = None,
     ) -> QuestionState:
+        """Create and record a new question turn state for the active player."""
         state = self.get_match(match_id)
         question = QuestionState(
             question_id=str(uuid4()),
@@ -200,6 +214,7 @@ class SessionStore:
         time_taken_seconds: float | None = None,
         album_shuffle_guesses: list[dict[str, Any]] | None = None,
     ) -> MatchState:
+        """Apply points and player submission details to an active question and match."""
         state = self.get_match(match_id)
         question = state.questions.get(question_id)
         if question is None:

@@ -375,3 +375,470 @@ def test_leaderboard_entry_model_validation() -> None:
             config=config,
         )
 
+
+def test_sync_state_and_map_bounds_validation() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import MapBounds, SyncStateResponse
+
+    # Valid SyncStateResponse
+    sync_ok = SyncStateResponse(total_assets=100, synced_assets=50, last_sync_duration_seconds=12.5)
+    assert sync_ok.total_assets == 100
+    assert sync_ok.synced_assets == 50
+    assert sync_ok.last_sync_duration_seconds == 12.5
+
+    # Negative total_assets
+    with pytest.raises(ValidationError):
+        SyncStateResponse(total_assets=-1)
+
+    # Negative synced_assets
+    with pytest.raises(ValidationError):
+        SyncStateResponse(synced_assets=-5)
+
+    # Negative sync duration
+    with pytest.raises(ValidationError):
+        SyncStateResponse(last_sync_duration_seconds=-0.5)
+
+    # Valid MapBounds
+    bounds_ok = MapBounds(min_lat=-45.0, max_lat=45.0, min_lng=-120.0, max_lng=120.0)
+    assert bounds_ok.min_lat == -45.0
+    assert bounds_ok.max_lat == 45.0
+
+    # Latitude out of bounds
+    with pytest.raises(ValidationError):
+        MapBounds(min_lat=-91.0, max_lat=45.0, min_lng=0.0, max_lng=10.0)
+    with pytest.raises(ValidationError):
+        MapBounds(min_lat=0.0, max_lat=91.0, min_lng=0.0, max_lng=10.0)
+
+    # Longitude out of bounds
+    with pytest.raises(ValidationError):
+        MapBounds(min_lat=0.0, max_lat=10.0, min_lng=-181.0, max_lng=10.0)
+    with pytest.raises(ValidationError):
+        MapBounds(min_lat=0.0, max_lat=10.0, min_lng=0.0, max_lng=181.0)
+
+    # Inverted min/max bounds
+    with pytest.raises(ValidationError):
+        MapBounds(min_lat=50.0, max_lat=10.0, min_lng=0.0, max_lng=10.0)
+    with pytest.raises(ValidationError):
+        MapBounds(min_lat=0.0, max_lat=10.0, min_lng=50.0, max_lng=10.0)
+
+
+def test_option_and_date_range_validation() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import CityOption, DateRangeOption, PersonOption
+
+    # Valid options
+    p = PersonOption(id=' p1 ', name=' Alice ')
+    assert p.id == 'p1'
+    assert p.name == 'Alice'
+
+    c = CityOption(name=' Rome ')
+    assert c.name == 'Rome'
+
+    # Empty string rejected
+    with pytest.raises(ValidationError):
+        PersonOption(id='', name='Bob')
+    with pytest.raises(ValidationError):
+        PersonOption(id='p2', name='   ')
+    with pytest.raises(ValidationError):
+        CityOption(name='')
+
+    # Valid DateRangeOption
+    d_ok = DateRangeOption(min_month='2023-01', max_month='2023-12')
+    assert d_ok.min_month == '2023-01'
+
+    # Invalid regex pattern (not YYYY-MM)
+    with pytest.raises(ValidationError):
+        DateRangeOption(min_month='2023/01')
+    with pytest.raises(ValidationError):
+        DateRangeOption(min_month='2023-13')
+    with pytest.raises(ValidationError):
+        DateRangeOption(min_month='2023-00')
+
+    # min_month > max_month
+    with pytest.raises(ValidationError):
+        DateRangeOption(min_month='2023-10', max_month='2023-05')
+
+
+def test_photo_filter_scope_and_facet_counts_validation() -> None:
+    from datetime import date
+
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import FacetCounts, PhotoFilterScope
+
+    # Valid PhotoFilterScope
+    scope_ok = PhotoFilterScope(min_date=date(2023, 1, 1), max_date=date(2023, 12, 31))
+    assert scope_ok.min_date == date(2023, 1, 1)
+
+    # Inverted date range
+    with pytest.raises(ValidationError):
+        PhotoFilterScope(min_date=date(2023, 12, 31), max_date=date(2023, 1, 1))
+
+    # Valid FacetCounts
+    facets_ok = FacetCounts(countries={'Italy': 10}, cities={'Rome': 5})
+    assert facets_ok.countries['Italy'] == 10
+
+    # Negative facet count
+    with pytest.raises(ValidationError):
+        FacetCounts(countries={'Italy': -1})
+    with pytest.raises(ValidationError):
+        FacetCounts(people={'Alice': -3})
+
+
+def test_preflight_and_setup_response_validation() -> None:
+    from datetime import date
+
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import GameSetupResponse, PreflightResponse
+
+    # Valid PreflightResponse
+    resp_ok = PreflightResponse(
+        eligible_count=25,
+        required=10,
+        ok=True,
+        active_filters=['Europe'],
+        total_count=100,
+        gps_count=50,
+        date_count=80,
+        min_date=date(2020, 1, 1),
+        max_date=date(2023, 1, 1),
+    )
+    assert resp_ok.eligible_count == 25
+
+    # Negative counts in PreflightResponse
+    with pytest.raises(ValidationError):
+        PreflightResponse(eligible_count=-1, required=10, ok=True, active_filters=[])
+    with pytest.raises(ValidationError):
+        PreflightResponse(eligible_count=10, required=-5, ok=True, active_filters=[])
+    with pytest.raises(ValidationError):
+        PreflightResponse(eligible_count=10, required=10, ok=True, active_filters=[], total_count=-10)
+
+    # Inverted dates in PreflightResponse
+    with pytest.raises(ValidationError):
+        PreflightResponse(
+            eligible_count=10,
+            required=10,
+            ok=True,
+            active_filters=[],
+            min_date=date(2024, 1, 1),
+            max_date=date(2020, 1, 1),
+        )
+
+    # GameSetupResponse validation
+    setup_resp = GameSetupResponse(match_id=' m123 ', total_turns=10, players=[' Alice ', ' Bob '])
+    assert setup_resp.match_id == 'm123'
+    assert setup_resp.total_turns == 10
+
+    with pytest.raises(ValidationError):
+        GameSetupResponse(match_id='', total_turns=10, players=['Alice'])
+    with pytest.raises(ValidationError):
+        GameSetupResponse(match_id='m1', total_turns=0, players=['Alice'])
+    with pytest.raises(ValidationError):
+        GameSetupResponse(match_id='m1', total_turns=10, players=[])
+
+
+def test_gameplay_question_and_answer_validation() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import (
+        AlbumShuffleAnswerItem,
+        AnswerRequest,
+        AnswerResponse,
+        BatchPinItem,
+        QuestionRequest,
+        QuestionResponse,
+        RoundLength,
+    )
+
+    # QuestionRequest
+    q_req = QuestionRequest(match_id='  m1  ')
+    assert q_req.match_id == 'm1'
+    with pytest.raises(ValidationError):
+        QuestionRequest(match_id='')
+
+    # BatchPinItem
+    pin_ok = BatchPinItem(pin_id='p1', latitude=45.0, longitude=9.0)
+    assert pin_ok.latitude == 45.0
+    with pytest.raises(ValidationError):
+        BatchPinItem(pin_id='p1', latitude=95.0, longitude=0.0)
+    with pytest.raises(ValidationError):
+        BatchPinItem(pin_id='p1', latitude=0.0, longitude=-190.0)
+
+    # QuestionResponse
+    q_resp = QuestionResponse(
+        question_id='q1',
+        asset_id='a1',
+        media_url='/api/media/a1',
+        player_name='Alice',
+        player_number=1,
+        total_players=2,
+        player_round_number=1,
+        total_rounds_per_player=5,
+        turn_number=1,
+        total_turns=10,
+        location_mode=True,
+        date_mode=True,
+        round_length=RoundLength.minute_1,
+    )
+    assert q_resp.question_id == 'q1'
+
+    # Turn / round out of bounds in QuestionResponse
+    with pytest.raises(ValidationError):
+        QuestionResponse(
+            question_id='q1',
+            asset_id='a1',
+            media_url='/api/media/a1',
+            player_name='Alice',
+            player_number=3,
+            total_players=2,
+            player_round_number=1,
+            total_rounds_per_player=5,
+            turn_number=1,
+            total_turns=10,
+            location_mode=True,
+            date_mode=True,
+            round_length=RoundLength.minute_1,
+        )
+    with pytest.raises(ValidationError):
+        QuestionResponse(
+            question_id='q1',
+            asset_id='a1',
+            media_url='/api/media/a1',
+            player_name='Alice',
+            player_number=1,
+            total_players=2,
+            player_round_number=6,
+            total_rounds_per_player=5,
+            turn_number=1,
+            total_turns=10,
+            location_mode=True,
+            date_mode=True,
+            round_length=RoundLength.minute_1,
+        )
+
+    # AlbumShuffleAnswerItem
+    shuffle_item = AlbumShuffleAnswerItem(photo_id='ph1', assigned_timeline_index=2)
+    assert shuffle_item.assigned_timeline_index == 2
+    with pytest.raises(ValidationError):
+        AlbumShuffleAnswerItem(photo_id='ph1', assigned_timeline_index=-1)
+
+    # AnswerRequest
+    ans_ok = AnswerRequest(
+        match_id='m1',
+        question_id='q1',
+        guessed_latitude=45.0,
+        guessed_longitude=10.0,
+        guessed_year=2023,
+        guessed_month=5,
+        time_taken_seconds=4.5,
+    )
+    assert ans_ok.guessed_latitude == 45.0
+
+    # Unpaired coordinates
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', guessed_latitude=45.0, guessed_longitude=None)
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', guessed_latitude=None, guessed_longitude=10.0)
+
+    # Unpaired dates
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', guessed_year=2023, guessed_month=None)
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', guessed_year=None, guessed_month=5)
+
+    # Out-of-range coordinates / dates
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', guessed_latitude=-95.0, guessed_longitude=0.0)
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', guessed_year=1800, guessed_month=1)
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', guessed_year=2023, guessed_month=13)
+    with pytest.raises(ValidationError):
+        AnswerRequest(match_id='m1', question_id='q1', time_taken_seconds=-1.0)
+
+    # AnswerResponse
+    ans_resp = AnswerResponse(
+        player_name='Alice',
+        question_id='q1',
+        round_number=1,
+        turn_completed=2,
+        total_turns=5,
+        round_complete=False,
+        waiting_for=['Bob'],
+        match_finished=False,
+    )
+    assert ans_resp.turn_completed == 2
+    with pytest.raises(ValidationError):
+        AnswerResponse(
+            player_name='Alice',
+            question_id='q1',
+            round_number=1,
+            turn_completed=6,
+            total_turns=5,
+            round_complete=True,
+            waiting_for=[],
+            match_finished=True,
+        )
+
+
+def test_results_and_summary_validation() -> None:
+    from datetime import date
+
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import (
+        BatchRevealItem,
+        MatchSummaryPlayer,
+        MatchSummaryResponse,
+        PlayerRoundResult,
+        RoundResultRequest,
+        RoundResultResponse,
+    )
+
+    # PlayerRoundResult
+    res_ok = PlayerRoundResult(
+        player_name='Alice',
+        round_score=80,
+        total_score=150,
+        distance_km=12.4,
+        date_diff_days=3,
+        date_diff_months=0,
+        date_diff_years_part=0,
+        date_diff_months_part=0,
+        date_diff_days_part=3,
+    )
+    assert res_ok.round_score == 80
+
+    with pytest.raises(ValidationError):
+        PlayerRoundResult(player_name='Alice', round_score=-10, total_score=0)
+    with pytest.raises(ValidationError):
+        PlayerRoundResult(player_name='Alice', round_score=0, total_score=0, distance_km=-5.0)
+    with pytest.raises(ValidationError):
+        PlayerRoundResult(player_name='Alice', round_score=0, total_score=0, date_diff_months_part=12)
+
+    # RoundResultRequest
+    req_ok = RoundResultRequest(match_id='m1', round_number=1)
+    assert req_ok.round_number == 1
+    with pytest.raises(ValidationError):
+        RoundResultRequest(match_id='m1', round_number=0)
+
+    # BatchRevealItem
+    reveal_item = BatchRevealItem(
+        photo_id='ph1',
+        true_pin_id='pin1',
+        actual_latitude=45.0,
+        actual_longitude=10.0,
+        actual_date=date(2023, 5, 1),
+        actual_year=2023,
+        actual_month=5,
+    )
+    assert reveal_item.photo_id == 'ph1'
+    with pytest.raises(ValidationError):
+        BatchRevealItem(photo_id='ph1', true_pin_id='pin1', actual_latitude=95.0)
+
+    # RoundResultResponse
+    round_resp = RoundResultResponse(
+        round_number=2,
+        total_rounds=5,
+        location_mode=True,
+        date_mode=True,
+        results=[res_ok],
+        match_finished=False,
+    )
+    assert round_resp.round_number == 2
+
+    with pytest.raises(ValidationError):
+        RoundResultResponse(
+            round_number=6,
+            total_rounds=5,
+            location_mode=True,
+            date_mode=True,
+            results=[res_ok],
+            match_finished=True,
+        )
+
+    # MatchSummaryPlayer and MatchSummaryResponse
+    player_summary = MatchSummaryPlayer(
+        player_name='Alice',
+        total_score=500,
+        max_possible_score=1000,
+        accuracy_pct=50.0,
+        rank=1,
+        is_winner=True,
+    )
+    assert player_summary.player_name == 'Alice'
+
+    summary_resp = MatchSummaryResponse(
+        match_id='m1',
+        rounds_played=5,
+        location_mode=True,
+        date_mode=True,
+        finished=True,
+        winners=['Alice'],
+        players=[player_summary],
+    )
+    assert summary_resp.rounds_played == 5
+
+    with pytest.raises(ValidationError):
+        MatchSummaryPlayer(
+            player_name='Alice',
+            total_score=500,
+            max_possible_score=1000,
+            accuracy_pct=-1.0,
+            rank=1,
+            is_winner=True,
+        )
+
+
+def test_supporting_dataclasses_validation() -> None:
+    from datetime import date
+
+    import pytest
+
+    from src.config import AppSettings, ConfigError
+    from src.immich.client import AssetAnswer
+    from src.storage.metadata import AssetFilterCriteria
+
+    # AppSettings port & decay validations
+    with pytest.raises(ConfigError, match='APP_PORT'):
+        AppSettings(
+            immich_server_url='http://localhost:2283/api',
+            immich_libraries={'lib1': 'key1'},
+            app_port=70000,
+        )
+
+    with pytest.raises(ConfigError, match='LOCATION_SCORE_DECAY_KM'):
+        AppSettings(
+            immich_server_url='http://localhost:2283/api',
+            immich_libraries={'lib1': 'key1'},
+            location_score_decay_km=-10.0,
+        )
+
+    with pytest.raises(ConfigError, match='AUTO_DELTA_SYNC_INTERVAL_HOURS'):
+        AppSettings(
+            immich_server_url='http://localhost:2283/api',
+            immich_libraries={'lib1': 'key1'},
+            auto_delta_sync_interval_hours=-1,
+        )
+
+    # AssetFilterCriteria date range
+    with pytest.raises(ValueError, match='min_date cannot be greater than max_date'):
+        AssetFilterCriteria(min_date=date(2025, 1, 1), max_date=date(2024, 1, 1))
+
+    # AssetAnswer coordinate validation
+    with pytest.raises(ValueError, match='latitude must be between -90.0 and 90.0'):
+        AssetAnswer(latitude=95.0, longitude=0.0)
+
+    with pytest.raises(ValueError, match='longitude must be between -180.0 and 180.0'):
+        AssetAnswer(latitude=0.0, longitude=185.0)
+
+

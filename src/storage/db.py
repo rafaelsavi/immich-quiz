@@ -1,3 +1,5 @@
+"""SQLite database connection manager and helper utilities."""
+
 from __future__ import annotations
 
 import logging
@@ -44,21 +46,25 @@ class DatabaseManager:
             conn.close()
 
     def execute_script(self, script: str) -> None:
+        """Execute a multi-statement SQL script in a transaction."""
         with self.connection() as conn:
             conn.executescript(script)
 
     def fetch_all(self, sql: str, params: tuple[Any, ...] | list[Any] = ()) -> list[dict[str, Any]]:
+        """Execute a query and return all matching rows as dictionaries."""
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
             return [dict(row) for row in cursor.fetchall()]
 
     def fetch_one(self, sql: str, params: tuple[Any, ...] | list[Any] = ()) -> dict[str, Any] | None:
+        """Execute a query and return the first matching row as a dictionary or None."""
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
             row = cursor.fetchone()
             return dict(row) if row is not None else None
 
     def fetch_val(self, sql: str, params: tuple[Any, ...] | list[Any] = ()) -> Any:
+        """Execute a query and return the single scalar value of the first column or None."""
         with self.connection() as conn:
             cursor = conn.execute(sql, params)
             row = cursor.fetchone()

@@ -1,3 +1,5 @@
+"""Gameplay mode engine implementations for Pinpoint and Album Shuffle modes."""
+
 from __future__ import annotations
 
 import logging
@@ -42,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 def split_month_delta(delta_months: int | None) -> tuple[int | None, int | None]:
+    """Split total month delta into (years, months) tuple."""
     if delta_months is None:
         return None, None
     return divmod(delta_months, 12)
@@ -53,6 +56,7 @@ def build_common_question_response(
     batch_photos: list[BatchPhotoItem] | None = None,
     batch_pins: list[BatchPinItem] | None = None,
 ) -> QuestionResponse:
+    """Construct standardized QuestionResponse payload with turn and player metadata."""
     players = state.setup.players
     player_index = players.index(question.player_name) if question.player_name in players else 0
 
@@ -77,6 +81,8 @@ def build_common_question_response(
 
 
 class BaseGameModeEngine(ABC):
+    """Abstract base class defining gameplay mechanics for different game modes."""
+
     @abstractmethod
     async def select_question(
         self,
@@ -87,6 +93,7 @@ class BaseGameModeEngine(ABC):
         immich: ImmichClient,
         metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
+        """Select or retrieve question asset(s) for the current turn."""
         pass
 
     @abstractmethod
@@ -95,6 +102,7 @@ class BaseGameModeEngine(ABC):
         state: MatchState,
         question: QuestionState,
     ) -> QuestionResponse:
+        """Construct turn payload tailored to the specific game mode."""
         pass
 
     @abstractmethod
@@ -106,6 +114,7 @@ class BaseGameModeEngine(ABC):
         settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
+        """Score player submissions according to mode rules and update match state."""
         pass
 
     @abstractmethod
@@ -116,10 +125,13 @@ class BaseGameModeEngine(ABC):
         questions: list[QuestionState],
         round_index: int,
     ) -> tuple[list[BatchRevealItem] | None, list[PlayerRoundResult]]:
+        """Format ground truth reveal and player score breakdowns for completed rounds."""
         pass
 
 
 class PinpointEngine(BaseGameModeEngine):
+    """Standard single-photo pinpoint game mode engine (map pinning and date guessing)."""
+
     async def select_question(
         self,
         state: MatchState,
@@ -280,6 +292,8 @@ class PinpointEngine(BaseGameModeEngine):
 
 
 class AlbumShuffleEngine(BaseGameModeEngine):
+    """Album shuffle game mode engine (batch photo-to-pin mapping and timeline ordering)."""
+
     async def select_question(
         self,
         state: MatchState,
@@ -506,13 +520,17 @@ class AlbumShuffleEngine(BaseGameModeEngine):
 
 
 class GameModeRegistry:
+    """Registry mapping GameMode enum members to their execution engine instances."""
+
     def __init__(self) -> None:
         self._engines: dict[GameMode, BaseGameModeEngine] = {}
 
     def register(self, mode: GameMode, engine: BaseGameModeEngine) -> None:
+        """Register an engine instance for a game mode."""
         self._engines[mode] = engine
 
     def get(self, mode: GameMode) -> BaseGameModeEngine:
+        """Retrieve registered engine for a game mode or raise HTTPException."""
         if mode not in self._engines:
             raise HTTPException(status_code=400, detail=f'Unsupported game mode: {mode}')
         return self._engines[mode]

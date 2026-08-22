@@ -1,3 +1,5 @@
+"""SQLite leaderboard storage, match history tracking, and ranking query engine."""
+
 from __future__ import annotations
 
 import json
@@ -98,39 +100,36 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     actual_longitude   REAL,
     distance_km        REAL,
     location_points    INTEGER,
-    guess_date         TEXT,                          -- YYYY-MM-DD
-    actual_date        TEXT,                          -- YYYY-MM-DD
+    guess_date         TEXT,                          -- 'YYYY-MM-DD'
+    actual_date        TEXT,                          -- 'YYYY-MM-DD'
     date_diff_days     INTEGER,
     date_points        INTEGER,
-    round_score        INTEGER NOT NULL,
-    is_correct_location   INTEGER,                    -- 1/0/NULL
-    is_correct_date_order INTEGER,                    -- 1/0/NULL
-    time_taken_seconds REAL,                          -- Active seconds on question screen
+    round_score        INTEGER NOT NULL,              -- sum of location_points + date_points for this photo
+    is_correct_location   INTEGER,                    -- 1 if correct, 0 if wrong, NULL for pinpoint
+    is_correct_date_order INTEGER,                    -- 1 if correct, 0 if wrong, NULL for pinpoint
+    time_taken_seconds REAL,                          -- Time spent answering this specific turn/question
     submitted_at       TEXT NOT NULL,
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
 
--- Optimized Indexes
-CREATE INDEX IF NOT EXISTS idx_matches_played_at   ON matches(played_at DESC);
-CREATE INDEX IF NOT EXISTS idx_matches_libs_json   ON matches(libraries_json);
-CREATE INDEX IF NOT EXISTS idx_matches_challenge   ON matches(challenge_id);
-CREATE INDEX IF NOT EXISTS idx_matches_room        ON matches(room_id);
-CREATE INDEX IF NOT EXISTS idx_matches_play_mode   ON matches(play_mode);
-
-CREATE INDEX IF NOT EXISTS idx_entries_match       ON match_entries(match_id);
-CREATE INDEX IF NOT EXISTS idx_entries_player      ON match_entries(player_name);
-CREATE INDEX IF NOT EXISTS idx_entries_ranking     ON match_entries(accuracy_pct DESC, total_score DESC);
-
-CREATE INDEX IF NOT EXISTS idx_guesses_match_round ON match_round_guesses(match_id, round_index, photo_index);
-CREATE INDEX IF NOT EXISTS idx_guesses_player      ON match_round_guesses(player_name);
-CREATE INDEX IF NOT EXISTS idx_guesses_asset       ON match_round_guesses(asset_id);
-
-CREATE INDEX IF NOT EXISTS idx_challenges_token    ON challenges(capability_token);
-CREATE INDEX IF NOT EXISTS idx_challenges_expires  ON challenges(expires_at);
+-- Indices for rapid querying and filtering
+CREATE INDEX IF NOT EXISTS idx_matches_played_at ON matches(played_at DESC);
+CREATE INDEX IF NOT EXISTS idx_matches_challenge_id ON matches(challenge_id);
+CREATE INDEX IF NOT EXISTS idx_matches_room_id ON matches(room_id);
+CREATE INDEX IF NOT EXISTS idx_matches_play_mode ON matches(play_mode);
+CREATE INDEX IF NOT EXISTS idx_matches_filter_scope ON matches(
+    rounds, round_length, location_mode, date_mode, game_mode, is_custom_filtered
+);
+CREATE INDEX IF NOT EXISTS idx_match_entries_match_id ON match_entries(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_entries_player ON match_entries(player_name);
+CREATE INDEX IF NOT EXISTS idx_match_entries_accuracy ON match_entries(accuracy_pct DESC, total_score DESC);
+CREATE INDEX IF NOT EXISTS idx_match_round_guesses_match ON match_round_guesses(match_id);
+CREATE INDEX IF NOT EXISTS idx_challenges_capability ON challenges(capability_token);
 """
 
 
 def _canonicalize_filter_list(items: list[str] | None) -> str | None:
+    """Sort and serialize string list to JSON or return None if empty."""
     if not items:
         return None
     cleaned = [str(x).strip() for x in items if str(x).strip()]
@@ -138,10 +137,13 @@ def _canonicalize_filter_list(items: list[str] | None) -> str | None:
 
 
 def _parse_json_list(val: str | None) -> list[str]:
+    """Parse JSON array string to Python list of strings."""
     return json.loads(val) if val else []
 
 
 class LeaderboardStore:
+    """Manages persistent match history, player leaderboards, and detailed round guesses in SQLite."""
+
     def __init__(self, db_path: Path | DatabaseManager) -> None:
         if isinstance(db_path, DatabaseManager):
             self._db = db_path
@@ -166,6 +168,7 @@ class LeaderboardStore:
         player_times: dict[str, float] | None = None,
         round_guesses: list[dict[str, Any]] | None = None,
     ) -> None:
+        """Persist a completed match with match metadata, player entries, and detailed guesses."""
         played_at = datetime.now(timezone.utc).isoformat()
         is_custom, summary = config.format_filter_summary()
 
@@ -311,6 +314,7 @@ class LeaderboardStore:
         self,
         query: LeaderboardQuery | None = None,
     ) -> list[LeaderboardEntry]:
+        """Query and return sorted leaderboard entries matching the provided filter parameters."""
         q = query or LeaderboardQuery()
 
         clauses: list[str] = []

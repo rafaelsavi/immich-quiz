@@ -401,3 +401,61 @@ def test_empty_and_whitespace_env_vars_fallback_to_defaults(monkeypatch: pytest.
     assert settings.auto_sync_on_startup is True
     assert settings.auto_delta_sync_interval_hours == 6
     assert settings.auto_full_sync_interval_hours == 120
+
+
+@pytest.mark.parametrize('invalid_port', ['0', '-1', '65536', '70000'])
+def test_app_port_rejects_out_of_range(monkeypatch: pytest.MonkeyPatch, invalid_port: str) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('APP_PORT', invalid_port)
+
+    with pytest.raises(ConfigError, match='APP_PORT must be between 1 and 65535'):
+        load_settings()
+
+
+@pytest.mark.parametrize('invalid_float', ['nan', 'inf', '-inf', '0', '-5.0'])
+def test_location_score_decay_rejects_non_finite_or_non_positive(
+    monkeypatch: pytest.MonkeyPatch, invalid_float: str
+) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('LOCATION_SCORE_DECAY_KM', invalid_float)
+
+    with pytest.raises(ConfigError, match='LOCATION_SCORE_DECAY_KM must be greater than 0'):
+        load_settings()
+
+
+@pytest.mark.parametrize('invalid_float', ['nan', 'inf', '-inf', '0', '-10.0'])
+def test_date_score_decay_rejects_non_finite_or_non_positive(
+    monkeypatch: pytest.MonkeyPatch, invalid_float: str
+) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('DATE_SCORE_DECAY_DAYS', invalid_float)
+
+    with pytest.raises(ConfigError, match='DATE_SCORE_DECAY_DAYS must be greater than 0'):
+        load_settings()
+
+
+def test_app_settings_dataclass_port_and_decay_validation() -> None:
+    with pytest.raises(ConfigError, match='APP_PORT must be between 1 and 65535'):
+        AppSettings(
+            immich_server_url='https://example.test',
+            immich_libraries={'a': 'b'},
+            app_port=0,
+        )
+
+    with pytest.raises(ConfigError, match='LOCATION_SCORE_DECAY_KM must be greater than 0'):
+        AppSettings(
+            immich_server_url='https://example.test',
+            immich_libraries={'a': 'b'},
+            location_score_decay_km=float('nan'),
+        )
+
+    with pytest.raises(ConfigError, match='DATE_SCORE_DECAY_DAYS must be greater than 0'):
+        AppSettings(
+            immich_server_url='https://example.test',
+            immich_libraries={'a': 'b'},
+            date_score_decay_days=float('inf'),
+        )
+

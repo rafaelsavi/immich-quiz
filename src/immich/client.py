@@ -1,3 +1,5 @@
+"""Immich API client for remote metadata fetching, authentication, and thumbnail streaming."""
+
 from __future__ import annotations
 
 import logging
@@ -16,11 +18,13 @@ logger.setLevel(logging.INFO)
 
 
 class ImmichClientError(RuntimeError):
-    pass
+    """Raised when an error occurs communicating with or authenticating to the Immich server."""
 
 
 @dataclass
 class AssetAnswer:
+    """Ground truth geographic and temporal metadata for an indexed or candidate photo asset."""
+
     latitude: float | None
     longitude: float | None
     capture_datetime: datetime | None = None
@@ -28,12 +32,20 @@ class AssetAnswer:
     state: str | None = None
     country: str | None = None
 
+    def __post_init__(self) -> None:
+        if self.latitude is not None and not (-90.0 <= self.latitude <= 90.0):
+            raise ValueError(f'latitude must be between -90.0 and 90.0, got {self.latitude}')
+        if self.longitude is not None and not (-180.0 <= self.longitude <= 180.0):
+            raise ValueError(f'longitude must be between -180.0 and 180.0, got {self.longitude}')
+
     @property
     def capture_date(self) -> date | None:
         return self.capture_datetime.date() if self.capture_datetime is not None else None
 
 
 class ImmichClient:
+    """Asynchronous HTTP client for interacting with one or more Immich server libraries."""
+
     def __init__(
         self,
         server_url: str,
@@ -41,6 +53,7 @@ class ImmichClient:
         timeout_seconds: int = 25,
         client: httpx.AsyncClient | None = None,
     ) -> None:
+        """Initialize client with Immich server URL, library API key map, and request timeout."""
         url = server_url.strip().rstrip('/')
         if not url.endswith('/api'):
             url = f'{url}/api'
@@ -73,14 +86,17 @@ class ImmichClient:
             self._client = None
 
     def list_libraries(self) -> list[str]:
+        """Return sorted list of configured library names."""
         return sorted(self._library_keys.keys())
 
     async def validate_access(self, library_name: str) -> None:
+        """Verify API key validity and access permissions for a specific library."""
         key = self._library_key(library_name)
         payload = {'size': 1, 'page': 1, 'withExif': True}
         await self._request_json('POST', '/search/metadata', key, json=payload)
 
     async def list_albums(self, library_name: str, include_shared: bool = False) -> list[dict[str, str]]:
+        """Fetch and return all albums for a library, optionally filtering out shared albums."""
         key = self._library_key(library_name)
         raw = await self._request_json('GET', '/albums', key)
         items: list[dict[str, str]] = []
@@ -109,6 +125,7 @@ class ImmichClient:
         return items
 
     async def list_tags(self, library_name: str) -> list[dict[str, str]]:
+        """Fetch and return all user tags for a library."""
         key = self._library_key(library_name)
         raw = await self._request_json('GET', '/tags', key)
         items: list[dict[str, str]] = []
@@ -124,6 +141,7 @@ class ImmichClient:
         return items
 
     async def get_asset_count(self, library_name: str) -> int | None:
+        """Retrieve total photo/video asset count from Immich statistics endpoint."""
         key = self._library_key(library_name)
         try:
             stats = await self._request_json('POST', '/search/statistics', key, json={})
@@ -157,6 +175,7 @@ class ImmichClient:
 
     @staticmethod
     def _extract_owner_id(item: dict[str, Any]) -> str:
+        """Extract user or owner ID string from an album or asset JSON dictionary."""
         owner_id = item.get('ownerId')
         if owner_id is not None and str(owner_id).strip():
             return str(owner_id).strip()
@@ -215,6 +234,7 @@ class ImmichClient:
 
     @staticmethod
     def _unwrap_asset(item: dict[str, Any]) -> dict[str, Any]:
+        """Unwrap nested asset dictionary structure if returned inside an envelope."""
         if isinstance(item.get('asset'), dict) and (item['asset'].get('id') or item['asset'].get('assetId')):
             unwrapped = dict(item['asset'])
             for k, v in item.items():
@@ -225,6 +245,7 @@ class ImmichClient:
 
     @staticmethod
     def _extract_total_assets(raw: Any) -> int | None:
+        """Extract total count integer from Immich metadata search response."""
         if not isinstance(raw, dict):
             return None
 
@@ -240,6 +261,7 @@ class ImmichClient:
 
     @staticmethod
     def _extract_asset_items(raw: Any) -> list[dict[str, Any]]:
+        """Extract list of asset dictionaries from various Immich API response formats."""
         items: list[dict[str, Any]] = []
         if isinstance(raw, list):
             items = [x for x in raw if isinstance(x, dict)]
@@ -254,6 +276,7 @@ class ImmichClient:
         return [ImmichClient._unwrap_asset(item) for item in items]
 
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
+        """Download thumbnail preview bytes and content type for an asset."""
         key = self._library_key(library_name)
         preview = await self._request_raw('GET', f'/assets/{asset_id}/thumbnail?size=preview', key, accept='*/*')
         content_type = preview.headers.get('content-type', 'image/jpeg')
@@ -261,6 +284,7 @@ class ImmichClient:
 
     @staticmethod
     def _exif(asset: dict[str, Any]) -> dict[str, Any]:
+        """Extract and normalize EXIF metadata dictionary from an asset payload."""
         exif = asset.get('exifInfo') or asset.get('exif')
         res = dict(exif) if isinstance(exif, dict) else {}
         for key in ('latitude', 'longitude', 'city', 'country', 'state', 'dateTimeOriginal'):
@@ -286,6 +310,7 @@ class ImmichClient:
         people_whitelist: frozenset[str] = frozenset(),
         people_blacklist: frozenset[str] = frozenset(),
     ) -> bool:
+        """Check whether an asset satisfies location, date, and whitelist/blacklist constraints."""
         # 1. Reject videos
         if asset.get('type') == 'VIDEO':
             return False
@@ -398,6 +423,7 @@ class ImmichClient:
 
     @staticmethod
     def extract_answer(asset: dict[str, Any]) -> AssetAnswer:
+        """Construct an AssetAnswer instance from asset metadata and EXIF dictionary."""
         exif = ImmichClient._exif(asset)
 
         lat: float | None = None
@@ -431,6 +457,7 @@ class ImmichClient:
 
     @staticmethod
     def extract_capture_datetime(asset: dict[str, Any]) -> datetime | None:
+        """Parse capture datetime from asset EXIF or file timestamp properties."""
         exif = ImmichClient._exif(asset)
         date_str = (
             exif.get('dateTimeOriginal')
@@ -464,6 +491,7 @@ class ImmichClient:
         return None
 
     def _library_key(self, library_name: str) -> str:
+        """Retrieve API key for a library name or raise ImmichClientError."""
         key = self._library_keys.get(library_name)
         if not key:
             available = ', '.join(sorted(self._library_keys.keys()))
@@ -471,6 +499,7 @@ class ImmichClient:
         return key
 
     async def _current_user_id(self, key: str) -> str | None:
+        """Fetch and cache the current authenticated user's ID for an API key."""
         if key in self._user_id_by_key:
             return self._user_id_by_key[key]
 
@@ -492,6 +521,7 @@ class ImmichClient:
         api_key: str,
         json: dict[str, Any] | None = None,
     ) -> Any:
+        """Send HTTP request and parse JSON response with error handling."""
         res = await self._request_raw(method, path, api_key, json=json)
         try:
             return res.json()
@@ -506,6 +536,7 @@ class ImmichClient:
         json: dict[str, Any] | None = None,
         accept: str = 'application/json',
     ) -> httpx.Response:
+        """Send raw HTTP request with API key authentication headers."""
         url = f'{self._server_url}{path}'
         headers = {
             'x-api-key': api_key,

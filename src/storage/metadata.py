@@ -1,3 +1,5 @@
+"""SQLite photo metadata cache, faceted indexing, and query evaluation engine."""
+
 from __future__ import annotations
 
 import contextlib
@@ -122,6 +124,8 @@ CREATE INDEX IF NOT EXISTS idx_asset_tags_tag ON asset_tags(library_name, tag_id
 
 @dataclass(frozen=True)
 class AssetFilterCriteria:
+    """Unified query filter parameters combining user match settings with server safeguards."""
+
     library_names: tuple[str, ...] = ()
     location_mode: bool = False
     date_mode: bool = False
@@ -140,6 +144,10 @@ class AssetFilterCriteria:
     city_blacklist: frozenset[str] = frozenset()
     people_whitelist: frozenset[str] = frozenset()
     people_blacklist: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        if self.min_date is not None and self.max_date is not None and self.min_date > self.max_date:
+            raise ValueError('min_date cannot be greater than max_date')
 
     @classmethod
     def from_setup(cls, setup: BaseGameConfig, settings: AppSettings | None = None) -> AssetFilterCriteria:
@@ -182,9 +190,11 @@ class MetadataStore:
         self.init_schema()
 
     def init_schema(self) -> None:
+        """Initialize metadata database schema tables and indices."""
         self._db.execute_script(SCHEMA_SQL)
 
     def has_synced_assets(self, libraries: list[str] | tuple[str, ...] | None = None) -> bool:
+        """Check if any photo assets are indexed for the given libraries (or across all if None)."""
         if not libraries:
             count = self._db.fetch_val('SELECT COUNT(*) FROM assets')
             return bool(count and count > 0)
@@ -201,6 +211,7 @@ class MetadataStore:
         return str(row['library_name']) if row and row.get('library_name') else None
 
     def get_sync_state(self, library_name: str) -> dict[str, Any]:
+        """Fetch current sync progress and state record for a library."""
         row = self._db.fetch_one(
             'SELECT * FROM sync_state WHERE library_name = ?',
             (library_name,),
@@ -222,6 +233,7 @@ class MetadataStore:
         }
 
     def get_all_sync_states(self) -> list[dict[str, Any]]:
+        """Fetch sync state records for all configured libraries."""
         return self._db.fetch_all('SELECT * FROM sync_state ORDER BY library_name')
 
     def set_sync_state(
@@ -239,6 +251,7 @@ class MetadataStore:
         sync_mode: SyncMode | None = None,
         last_sync_duration_seconds: float | None = None,
     ) -> None:
+        """Update or insert sync state and progress information for a library."""
         with self._db.connection() as conn:
             existing = conn.execute(
                 """
@@ -322,6 +335,7 @@ class MetadataStore:
         return {str(r['id']) for r in rows}
 
     def upsert_people(self, library_name: str, people: list[dict[str, str]]) -> None:
+        """Insert or update recognized people metadata for a library."""
         rows = [
             (str(p.get('id', '')).strip(), library_name, str(p.get('name', '')).strip())
             for p in people
@@ -341,6 +355,7 @@ class MetadataStore:
             )
 
     def upsert_albums(self, library_name: str, albums: list[dict[str, Any]]) -> None:
+        """Insert or update album metadata for a library."""
         rows = []
         for a in albums:
             aid = str(a.get('id', '')).strip()
@@ -385,6 +400,7 @@ class MetadataStore:
             return deleted_count
 
     def upsert_tags(self, library_name: str, tags: list[dict[str, str]]) -> None:
+        """Insert or update user tag metadata for a library."""
         rows = [
             (str(t.get('id', '')).strip(), library_name, str(t.get('name', '')).strip())
             for t in tags
@@ -452,6 +468,7 @@ class MetadataStore:
         asset_albums: list[tuple[str, str]],
         asset_tags: list[tuple[str, str]] | None = None,
     ) -> None:
+        """Insert or update batch of asset records along with people/album/tag junction rows."""
         if not assets:
             return
 

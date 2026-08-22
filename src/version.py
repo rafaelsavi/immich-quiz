@@ -1,3 +1,5 @@
+"""Application version retrieval and package metadata utilities."""
+
 from __future__ import annotations
 
 import importlib.metadata

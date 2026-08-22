@@ -1,3 +1,5 @@
+"""Shared pytest fixtures, test data builders, and mock helpers for Immich Quiz test suite."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

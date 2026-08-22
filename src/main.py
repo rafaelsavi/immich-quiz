@@ -1,3 +1,5 @@
+"""FastAPI application entrypoint, lifespan management, middleware, and route mounting."""
+
 from __future__ import annotations
 
 import asyncio
@@ -25,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 def _render_index_html(static_path: Path, settings: AppSettings) -> str:
+    """Interpolate dynamic settings and version information into the single-page HTML template."""
     lang_code = 'pt-BR' if settings.language == 'PT' else 'en'
     template = (static_path / 'index.html').read_text(encoding='utf-8')
     version_badge = f'<span class="app-version-badge">v{APP_VERSION}</span>' if APP_VERSION else ''
@@ -39,6 +42,7 @@ def _render_index_html(static_path: Path, settings: AppSettings) -> str:
 
 
 def create_app(settings: AppSettings | None = None) -> FastAPI:
+    """Application factory initializing storage managers, Immich client, sync engine, and FastAPI app."""
     if settings is None:
         settings = load_settings()
 
