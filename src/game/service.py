@@ -1,13 +1,20 @@
+"""High-level game orchestration service coordinating sessions, metadata, and scoring."""
+
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
+from datetime import date, datetime, timezone
+from typing import Any
 
 from fastapi import HTTPException
 
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, load_asset_pool
-from src.immich.client import ImmichClient, ImmichClientError
+from src.i18n import SupportedLanguage
+from src.immich.client import ImmichClient
 from src.models import (
     AnswerRequest,
     AnswerResponse,
@@ -17,39 +24,185 @@ from src.models import (
     MapBounds,
     MatchSummaryPlayer,
     MatchSummaryResponse,
+    PeopleMode,
+    PlayMode,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
     QuestionResponse,
     RoundResultRequest,
     RoundResultResponse,
+    SyncStatus,
 )
-from src.scoring import accuracy_pct, max_possible_score
+from src.scoring import SCORE_MAX_POINTS, accuracy_pct, haversine_km, max_possible_score
 from src.storage.leaderboard import LeaderboardStore
-from src.storage.session import SessionStore
+from src.storage.metadata import AssetFilterCriteria, MetadataStore
+from src.storage.session import MatchState, SessionStore
 
 logger = logging.getLogger(__name__)
 
 
+def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
+    """Extract structured per-photo guess records from match state for leaderboard persistence."""
+    guesses: list[dict[str, Any]] = []
+    ordered_questions = sorted(
+        state.questions.values(),
+        key=lambda q: (q.round_index, q.player_name),
+    )
+    for q in ordered_questions:
+        if not q.answered:
+            continue
+        if state.setup.game_mode == GameMode.album_shuffle and q.batch_assets:
+            guess_map = {g['photo_id']: g for g in (q.album_shuffle_guesses or [])}
+            pin_by_id = {bp['pin_id']: bp for bp in (q.batch_pins or [])}
+            true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in (q.batch_pins or [])}
+            sorted_by_date = sorted(q.batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
+            true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
+            total_photos = len(q.batch_assets)
+            per_photo_max = (SCORE_MAX_POINTS // total_photos) if total_photos > 0 else 0
+
+            for idx, ba in enumerate(q.batch_assets):
+                guessed_item = guess_map.get(ba.asset_id, {})
+                assigned_pin_id = guessed_item.get('assigned_pin_id')
+                assigned_timeline_index = guessed_item.get('assigned_timeline_index')
+                assigned_pin = pin_by_id.get(assigned_pin_id) if assigned_pin_id else None
+
+                guess_lat = (
+                    float(assigned_pin['latitude'])
+                    if assigned_pin and assigned_pin.get('latitude') is not None
+                    else None
+                )
+                guess_lng = (
+                    float(assigned_pin['longitude'])
+                    if assigned_pin and assigned_pin.get('longitude') is not None
+                    else None
+                )
+
+                dist_km: float | None = None
+                if (
+                    guess_lat is not None
+                    and guess_lng is not None
+                    and ba.answer.latitude is not None
+                    and ba.answer.longitude is not None
+                ):
+                    dist_km = haversine_km(ba.answer.latitude, ba.answer.longitude, guess_lat, guess_lng)
+
+                if state.setup.location_mode:
+                    is_correct_loc: int | None = (
+                        1 if (ba.asset_id in true_pin_map and assigned_pin_id == true_pin_map[ba.asset_id]) else 0
+                    )
+                    loc_points: int | None = per_photo_max if is_correct_loc == 1 else 0
+                else:
+                    is_correct_loc = None
+                    loc_points = None
+
+                if state.setup.date_mode:
+                    is_correct_date: int | None = (
+                        1
+                        if (
+                            ba.asset_id in true_rank_map
+                            and assigned_timeline_index is not None
+                            and assigned_timeline_index == true_rank_map[ba.asset_id]
+                        )
+                        else 0
+                    )
+                    dt_points: int | None = per_photo_max if is_correct_date == 1 else 0
+                else:
+                    is_correct_date = None
+                    dt_points = None
+
+                photo_score = (loc_points or 0) + (dt_points or 0)
+
+                guesses.append(
+                    {
+                        'match_id': state.match_id,
+                        'player_name': q.player_name,
+                        'round_index': q.round_index,
+                        'photo_index': idx,
+                        'game_mode': state.setup.game_mode.value,
+                        'asset_id': ba.asset_id,
+                        'guess_latitude': guess_lat,
+                        'guess_longitude': guess_lng,
+                        'actual_latitude': ba.answer.latitude,
+                        'actual_longitude': ba.answer.longitude,
+                        'distance_km': dist_km,
+                        'location_points': loc_points,
+                        'guess_date': None,
+                        'actual_date': ba.answer.capture_date.isoformat() if ba.answer.capture_date else None,
+                        'date_diff_days': None,
+                        'date_points': dt_points,
+                        'round_score': photo_score,
+                        'is_correct_location': is_correct_loc,
+                        'is_correct_date_order': is_correct_date,
+                        'time_taken_seconds': q.time_taken_seconds,
+                        'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+        else:
+            guess_date_str = (
+                f'{q.guessed_year:04d}-{q.guessed_month:02d}-01'
+                if q.guessed_year is not None and q.guessed_month is not None
+                else None
+            )
+            actual_date_str = q.actual_date.isoformat() if q.actual_date else None
+            guesses.append(
+                {
+                    'match_id': state.match_id,
+                    'player_name': q.player_name,
+                    'round_index': q.round_index,
+                    'photo_index': 0,
+                    'game_mode': state.setup.game_mode.value,
+                    'asset_id': q.asset_id,
+                    'guess_latitude': q.guessed_latitude,
+                    'guess_longitude': q.guessed_longitude,
+                    'actual_latitude': q.actual_latitude,
+                    'actual_longitude': q.actual_longitude,
+                    'distance_km': q.distance_km,
+                    'location_points': q.location_points if state.setup.location_mode else None,
+                    'guess_date': guess_date_str,
+                    'actual_date': actual_date_str,
+                    'date_diff_days': q.date_diff_days,
+                    'date_points': q.date_points if state.setup.date_mode else None,
+                    'round_score': q.location_points + q.date_points,
+                    'is_correct_location': None,
+                    'is_correct_date_order': None,
+                    'time_taken_seconds': q.time_taken_seconds,
+                    'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
+                }
+            )
+    return guesses
+
+
 class GameService:
-    def __init__(self, registry: GameModeRegistry | None = None) -> None:
+    """High-level game domain service orchestrating preflight checks, setup, turns, and summaries."""
+
+    def __init__(
+        self,
+        session_store: SessionStore,
+        metadata_store: MetadataStore,
+        immich_client: ImmichClient,
+        leaderboard_store: LeaderboardStore,
+        settings: AppSettings,
+        registry: GameModeRegistry | None = None,
+    ) -> None:
+        """Initialize GameService with required storage backends and settings."""
+        self.store = session_store
+        self.metadata_store = metadata_store
+        self.immich = immich_client
+        self.leaderboard_store = leaderboard_store
+        self.settings = settings
         self.registry = registry or default_game_mode_registry
 
-    async def resolve_album_name(
+    async def resolve_album_names(
         self,
-        immich: ImmichClient,
-        library_name: str,
+        libraries: list[str] | tuple[str, ...] | None,
         album_ids: list[str] | None = None,
-    ) -> str:
-        """Resolve the album label server-side so clients cannot spoof leaderboard metadata."""
+    ) -> list[str]:
+        """Resolve album IDs to human-readable names server-side from indexed metadata."""
         if not album_ids:
-            return '-'
+            return []
 
-        try:
-            albums = await immich.list_albums(library_name, include_shared_albums=True)
-        except ImmichClientError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
+        albums = self.metadata_store.get_albums(libraries, include_shared=True)
         album_map = {
             str(album.get('id', '')).strip(): str(album.get('name', '-')).strip()
             for album in albums
@@ -58,93 +211,108 @@ class GameService:
         names: list[str] = []
         for aid in album_ids:
             if aid not in album_map:
-                raise HTTPException(status_code=400, detail=f'Unknown album_id for library {library_name}')
+                raise HTTPException(status_code=400, detail=f'Unknown album_id: {aid}')
             names.append(album_map[aid])
 
         names.sort(key=lambda s: (s.lower(), s))
-        return ', '.join(names) if names else '-'
+        return names
 
-    async def preflight(
+    def resolve_person_names(
         self,
-        setup: PreflightRequest,
-        settings: AppSettings,
-        immich: ImmichClient,
-    ) -> PreflightResponse:
-        try:
-            raw_assets = await immich.search_random_assets(
-                setup.library_name,
-                album_ids=setup.album_ids,
-                include_shared_albums=settings.include_shared_albums,
-                include_partner_assets=settings.include_partner_assets,
-                min_date=settings.fetch_photos_date_lower_bound,
-                max_date=settings.fetch_photos_date_upper_bound,
-            )
-        except ImmichClientError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        person_ids: list[str] | None = None,
+        existing_names: list[str] | None = None,
+    ) -> list[str]:
+        """Resolve person IDs to names server-side from indexed metadata."""
+        if not person_ids:
+            return existing_names or []
+        name_map = self.metadata_store.get_person_names(person_ids)
+        if name_map:
+            names = [name_map.get(pid, pid) for pid in person_ids if pid in name_map or pid]
+            names.sort(key=lambda s: (s.lower(), s))
+            return names
+        return existing_names or person_ids
+
+    async def preflight(self, setup: PreflightRequest) -> PreflightResponse:
+        """Perform live preflight check evaluating candidate asset counts against game requirements."""
+        criteria = AssetFilterCriteria.from_setup(setup, self.settings)
+        effective_min_date = criteria.min_date
+        effective_max_date = criteria.max_date
+
+        target_libs = setup.libraries or None
+        is_synced = self.metadata_store.has_synced_assets(target_libs)
+        sync_state = self.metadata_store.get_sync_state(target_libs[0]) if target_libs and len(target_libs) == 1 else {}
+        raw_status = sync_state.get('sync_status', SyncStatus.idle.value)
+        sync_status = SyncStatus(raw_status) if raw_status in SyncStatus._value2member_map_ else SyncStatus.idle
+
+        counts = await asyncio.to_thread(self.metadata_store.get_asset_counts, criteria)
+        eligible_count = counts['eligible_count']
+        total_count = counts['total_count']
+        gps_count = counts['gps_count']
+        date_count = counts['date_count']
+        facet_counts = await asyncio.to_thread(self.metadata_store.get_facet_counts, criteria)
 
         active_filters: list[str] = []
         if setup.location_mode:
             active_filters.append('location')
         if setup.date_mode:
             active_filters.append('date')
-        if settings.fetch_photos_date_lower_bound or settings.fetch_photos_date_upper_bound:
+        if setup.libraries:
+            active_filters.append('libraries')
+        if setup.album_ids:
+            active_filters.append('albums')
+        if setup.person_ids:
+            active_filters.append(
+                'people_all' if setup.people_mode == PeopleMode.ALL and len(setup.person_ids) > 1 else 'people'
+            )
+        if setup.countries:
+            active_filters.append('countries')
+        if setup.cities:
+            active_filters.append('cities')
+        if effective_min_date or effective_max_date:
             active_filters.append('date_range')
 
-        logger.debug(
-            'preflight: album_ids=%s, library=%s, location_mode=%s, date_mode=%s, raw_assets_count=%d',
-            setup.album_ids,
-            setup.library_name,
-            setup.location_mode,
-            setup.date_mode,
-            len(raw_assets),
-        )
-
-        eligible_count = sum(
-            1
-            for asset in raw_assets
-            if ImmichClient.is_eligible_asset(
-                asset,
-                setup.location_mode,
-                setup.date_mode,
-                settings.fetch_photos_date_lower_bound,
-                settings.fetch_photos_date_upper_bound,
-            )
-        )
-
         required = 3 * setup.round_count if setup.game_mode == GameMode.album_shuffle else setup.round_count
+
         return PreflightResponse(
             eligible_count=eligible_count,
             required=required,
             ok=eligible_count >= required,
             active_filters=active_filters,
-            min_date=settings.fetch_photos_date_lower_bound,
-            max_date=settings.fetch_photos_date_upper_bound,
+            min_date=effective_min_date,
+            max_date=effective_max_date,
+            total_count=total_count,
+            gps_count=gps_count,
+            date_count=date_count,
+            location_mode=setup.location_mode,
+            date_mode=setup.date_mode,
+            facet_counts=facet_counts,
+            is_synced=is_synced,
+            sync_status=sync_status,
         )
 
-    async def setup_game(
-        self,
-        setup: GameSetupRequest,
-        settings: AppSettings,
-        store: SessionStore,
-        immich: ImmichClient,
-    ) -> GameSetupResponse:
-        setup.album_name = await self.resolve_album_name(
-            immich,
-            setup.library_name,
+    async def setup_game(self, setup: GameSetupRequest) -> GameSetupResponse:
+        """Create and initialize a new match session, resolving names and computing map bounds."""
+        target_libs = setup.libraries or None
+        if not self.metadata_store.has_synced_assets(target_libs):
+            raise HTTPException(
+                status_code=400,
+                detail='Selected libraries have not been synced yet. Please sync before starting a match.',
+            )
+
+        setup.album_names = await self.resolve_album_names(
+            target_libs,
             album_ids=setup.album_ids,
         )
-        state = store.create_match(setup)
+        setup.person_names = self.resolve_person_names(setup.person_ids, setup.person_names)
+        state = self.store.create_match(setup)
 
         map_bounds: MapBounds | None = None
-        if setup.location_mode and setup.smart_map_zoom and setup.game_mode == GameMode.pinpoint:
+        if setup.location_mode and setup.game_mode == GameMode.pinpoint:
             try:
-                await load_asset_pool(
+                load_asset_pool(
                     state,
-                    immich,
-                    min_capture_date=settings.fetch_photos_date_lower_bound,
-                    max_capture_date=settings.fetch_photos_date_upper_bound,
-                    include_shared_albums=settings.include_shared_albums,
-                    include_partner_assets=settings.include_partner_assets,
+                    self.metadata_store,
+                    settings=self.settings,
                 )
                 map_bounds = calculate_match_bounds(state.asset_pool)
             except Exception as exc:
@@ -157,15 +325,10 @@ class GameService:
             map_bounds=map_bounds,
         )
 
-    async def get_question(
-        self,
-        payload: QuestionRequest,
-        settings: AppSettings,
-        store: SessionStore,
-        immich: ImmichClient,
-    ) -> QuestionResponse:
+    async def get_question(self, payload: QuestionRequest) -> QuestionResponse:
+        """Fetch or create the next question state for an active match turn."""
         try:
-            state = store.get_match(payload.match_id)
+            state = self.store.get_match(payload.match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -177,7 +340,7 @@ class GameService:
 
         engine = self.registry.get(state.setup.game_mode)
 
-        active = store.active_question(payload.match_id)
+        active = self.store.active_question(payload.match_id)
         if active is not None:
             active_failed = False
             if (
@@ -202,8 +365,12 @@ class GameService:
                     for ba in active.batch_assets:
                         if ba.asset_id in payload.played_asset_ids:
                             state.played_asset_ids.add(ba.asset_id)
+                            if self.metadata_store is not None:
+                                self.metadata_store.mark_asset_invalid(ba.asset_id)
                 else:
                     state.played_asset_ids.add(active.asset_id)
+                    if self.metadata_store is not None:
+                        self.metadata_store.mark_asset_invalid(active.asset_id)
                 active = None
             else:
                 return engine.build_question_response(state, active)
@@ -211,21 +378,17 @@ class GameService:
         question_state = await engine.select_question(
             state,
             payload.played_asset_ids,
-            settings,
-            store,
-            immich,
+            self.settings,
+            self.store,
+            self.immich,
+            metadata_store=self.metadata_store,
         )
         return engine.build_question_response(state, question_state)
 
-    async def submit_answer(
-        self,
-        payload: AnswerRequest,
-        settings: AppSettings,
-        store: SessionStore,
-        leaderboard_store: LeaderboardStore,
-    ) -> AnswerResponse:
+    async def submit_answer(self, payload: AnswerRequest) -> AnswerResponse:
+        """Submit player answer, evaluate points, advance turn, and record finished match history."""
         try:
-            state = store.get_match(payload.match_id)
+            state = self.store.get_match(payload.match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -236,19 +399,28 @@ class GameService:
             raise HTTPException(status_code=409, detail='Question already answered')
 
         engine = self.registry.get(state.setup.game_mode)
-        updated_state = engine.evaluate_and_apply_answer(state, question_state, payload, settings, store)
+        updated_state = engine.evaluate_and_apply_answer(state, question_state, payload, self.settings, self.store)
 
         if updated_state.finished:
-            leaderboard_store.append_match(
+            duration_sec = max(0.0, time.time() - updated_state.created_at)
+            player_times = {
+                player: sum(
+                    q.time_taken_seconds or 0.0
+                    for q in updated_state.questions.values()
+                    if q.player_name == player and q.answered
+                )
+                for player in updated_state.setup.players
+            }
+            round_guesses = extract_round_guesses(updated_state)
+
+            self.leaderboard_store.append_match(
                 match_id=updated_state.match_id,
-                library_name=updated_state.setup.library_name,
-                album_name=updated_state.setup.album_name or '-',
-                rounds_played=updated_state.setup.round_count,
-                round_length=updated_state.setup.round_length.value,
-                location_mode=updated_state.setup.location_mode,
-                date_mode=updated_state.setup.date_mode,
-                game_mode=updated_state.setup.game_mode.value,
+                config=updated_state.setup,
                 player_scores=updated_state.scores,
+                play_mode=PlayMode.local,
+                duration_seconds=duration_sec,
+                player_times=player_times,
+                round_guesses=round_guesses,
             )
 
         return AnswerResponse(
@@ -262,15 +434,10 @@ class GameService:
             match_finished=updated_state.finished,
         )
 
-    async def get_round_result(
-        self,
-        payload: RoundResultRequest,
-        settings: AppSettings,
-        store: SessionStore,
-    ) -> RoundResultResponse:
+    async def get_round_result(self, payload: RoundResultRequest) -> RoundResultResponse:
         """Reveal a round only once every player in it has locked in an answer."""
         try:
-            state = store.get_match(payload.match_id)
+            state = self.store.get_match(payload.match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -294,7 +461,6 @@ class GameService:
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
-            library_name=state.setup.library_name,
             actual_latitude=reference.actual_latitude,
             actual_longitude=reference.actual_longitude,
             actual_date=reference.actual_date,
@@ -305,17 +471,16 @@ class GameService:
             batch_reveal=batch_reveal,
             results=results,
             match_finished=state.finished,
-            score_max_points=settings.score_max_points,
         )
 
     async def get_match_summary(
         self,
         match_id: str,
-        settings: AppSettings,
-        store: SessionStore,
+        language: str | None = None,
     ) -> MatchSummaryResponse:
+        """Compute end-of-game summary, final rankings, and filter descriptions."""
         try:
-            state = store.get_match(match_id)
+            state = self.store.get_match(match_id)
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
@@ -323,7 +488,6 @@ class GameService:
             state.setup.round_count,
             state.setup.location_mode,
             state.setup.date_mode,
-            per_goal_max_points=settings.score_max_points,
         )
 
         ordered = sorted(
@@ -354,15 +518,22 @@ class GameService:
                 )
             )
 
+        lang = SupportedLanguage.from_str(language) if language else self.settings.language
+        is_custom, filter_summary = state.setup.format_filter_summary(language=lang)
+        filter_tooltip = state.setup.format_filter_tooltip(language=lang)
+
         return MatchSummaryResponse(
             match_id=state.match_id,
             rounds_played=state.setup.round_count,
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
-            library_name=state.setup.library_name,
-            album_name=state.setup.album_name or '-',
+            libraries=state.setup.libraries,
+            album_names=state.setup.album_names,
             finished=state.finished,
             winners=winners,
             players=players,
+            filter_summary=filter_summary,
+            filter_tooltip=filter_tooltip,
+            is_custom_filtered=bool(is_custom),
         )

@@ -29,10 +29,17 @@
       <div class="header-controls">
         <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
           aria-label="Switch Language">
-          <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#012169"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6"/><path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16"/><path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10"/></svg></span>
+          <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"
+              aria-hidden="true">
+              <rect width="60" height="60" fill="#012169" />
+              <path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10" />
+              <path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6" />
+              <path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16" />
+              <path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10" />
+            </svg></span>
         </button>
-        <button type="button" id="audio-toggle-btn" class="header-icon-btn audio-toggle-btn" title="Toggle Sound Effects"
-          aria-label="Toggle Sound Effects">
+        <button type="button" id="audio-toggle-btn" class="header-icon-btn audio-toggle-btn"
+          title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
           <span id="audio-icon">🔊</span>
         </button>
       </div>
@@ -41,61 +48,119 @@
     <section id="setup-card" class="card">
       <h2 data-i18n="setup.heading">Game Setup</h2>
       <form id="setup-form">
-        <label data-i18n="setup.players_label">Players (comma separated)</label>
-        <input id="players" required placeholder="" />
-
-        <div class="grid-2">
-          <div>
-            <label data-i18n="setup.library_label">Library</label>
-            <select id="library" required></select>
+        <div class="form-group player-input-group">
+          <div class="field-head-inline">
+            <label data-i18n="setup.players_label">Players</label>
+            <span class="player-count-badge" id="player-count-badge">1 player (Solo)</span>
           </div>
-          <div class="album-select-group">
-            <label id="album-select-label" data-i18n="setup.album_label">Album</label>
-            <div id="album-multi-select" class="multi-select" aria-expanded="false" role="combobox" aria-haspopup="listbox">
-              <div class="multi-select-trigger" tabindex="0" id="album-select-trigger">
-                <div class="multi-select-value" id="album-select-value">
-                  <span class="placeholder" data-i18n="setup.all_photos">-</span>
+          <div id="player-input-root" class="player-input-root"></div>
+          <input type="hidden" id="players" name="players" value="" />
+        </div>
+
+        <!-- Expandable Media & Library Filters Section -->
+        <div class="filters-accordion" id="filters-accordion">
+          <div class="filters-accordion-header" id="filters-accordion-header">
+            <button type="button" class="accordion-toggle-btn" id="filters-toggle-btn" aria-expanded="false" aria-controls="filters-accordion-content">
+              <div class="accordion-title-wrap">
+                <span class="accordion-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </span>
+                <span class="accordion-title" data-i18n="setup.filters_heading">Library & Photo Filters</span>
+              </div>
+              <span class="filters-summary-badge" id="filters-summary-badge"
+                data-i18n="setup.filters_summary_default">All media</span>
+            </button>
+            <div class="accordion-meta-wrap">
+              <button type="button" class="sync-library-btn" id="sync-library-btn"
+                title="Sync metadata from Immich">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"
+                  class="sync-icon">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                <span id="sync-btn-label">Sync</span>
+              </button>
+              <span class="select-arrow accordion-arrow" id="accordion-arrow-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="filters-accordion-content hidden" id="filters-accordion-content">
+            <!-- Row 1: Library & Albums -->
+            <div class="grid-2">
+              <div class="library-select-group">
+                <div class="field-head-inline">
+                  <label data-i18n="setup.libraries_label">Libraries</label>
                 </div>
-                <div class="multi-select-controls">
-                  <button type="button" class="multi-select-clear hidden" id="album-select-clear" title="Clear selection" aria-label="Clear selection">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                  <span class="select-arrow multi-select-arrow" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                  </span>
+                <div id="library-multi-select" class="multi-select"></div>
+                <!-- Photo Sources / Ownership -->
+                <div class="filter-sources-row">
+                  <label class="filter-source-pill" id="label-include-shared" for="include-shared-checkbox">
+                    <input type="checkbox" id="include-shared-checkbox" />
+                    <span data-i18n="setup.include_shared_photos">Include shared photos</span>
+                  </label>
                 </div>
               </div>
-              <div class="multi-select-dropdown hidden" id="album-select-dropdown" role="listbox">
-                <div class="multi-select-search-wrap">
-                  <svg class="search-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                  </svg>
-                  <input type="text" class="multi-select-search" id="album-search-input" placeholder="Search albums..." data-i18n-placeholder="setup.album_search_placeholder" autocomplete="off" />
-                  <button type="button" class="search-clear-btn hidden" id="album-search-clear" title="Clear search" aria-label="Clear search" data-i18n-title="setup.clear_search" data-i18n-aria-label="setup.clear_search">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                  </button>
-                </div>
-                <div class="multi-select-actions">
-                  <button type="button" class="btn-text-action" id="album-select-all" data-i18n="setup.select_all">Select All</button>
-                  <button type="button" class="btn-text-action" id="album-deselect-all" data-i18n="setup.deselect_all">Deselect All</button>
-                </div>
-                <div class="multi-select-options" id="album-options-list">
-                  <!-- Dynamically populated options -->
-                </div>
+              <div class="album-select-group">
+                <label data-i18n="setup.album_label">Album</label>
+                <div id="album-multi-select" class="multi-select"></div>
               </div>
             </div>
-            <select id="album" class="hidden-select" multiple tabindex="-1" aria-hidden="true">
-              <option value="" selected data-i18n="setup.all_photos">-</option>
-            </select>
+
+            <!-- Row 2: Date Range Slider -->
+            <div class="form-group date-slider-group">
+              <div class="field-head-inline">
+                <label data-i18n="setup.date_range_label">Date Range</label>
+                <span class="slider-value-readout" id="date-slider-readout">All Time</span>
+              </div>
+              <div class="range-slider-wrap" id="date-range-slider">
+                <div class="range-slider-track">
+                  <div class="range-slider-fill" id="date-slider-fill"></div>
+                </div>
+                <input type="range" class="range-thumb thumb-min" id="date-slider-min" min="0" max="100" value="0" />
+                <input type="range" class="range-thumb thumb-max" id="date-slider-max" min="0" max="100" value="100" />
+              </div>
+              <div class="range-slider-ticks">
+                <span id="date-slider-bound-min">-</span>
+                <span id="date-slider-bound-max">-</span>
+              </div>
+            </div>
+
+            <!-- Row 3: Geographic & People Filters -->
+            <div class="grid-3 filters-sub-grid">
+              <div>
+                <label data-i18n="setup.countries_label">Countries</label>
+                <div id="country-multi-select" class="multi-select"></div>
+              </div>
+              <div>
+                <label data-i18n="setup.cities_label">Cities</label>
+                <div id="city-multi-select" class="multi-select"></div>
+              </div>
+              <div>
+                <div class="field-head-inline">
+                  <label data-i18n="setup.people_label">People</label>
+                  <div class="people-mode-toggle hidden" id="people-mode-toggle" title="Match mode for selected people">
+                    <button type="button" class="people-mode-btn active" data-people-mode="ANY"
+                      data-i18n="setup.people_mode_any">Any</button>
+                    <button type="button" class="people-mode-btn" data-people-mode="ALL"
+                      data-i18n="setup.people_mode_all">All</button>
+                  </div>
+                </div>
+                <div id="people-multi-select" class="multi-select"></div>
+              </div>
+            </div>
+
+            <!-- Filter Actions -->
+            <div class="filters-footer-actions">
+              <div id="preflight-count" class="preflight-count hidden" aria-live="polite"></div>
+              <button type="button" class="btn-text-action" id="reset-filters-btn" data-i18n="setup.reset_filters">
+                Reset filters
+              </button>
+            </div>
           </div>
         </div>
 
@@ -104,46 +169,51 @@
           <div class="mode-buttons" id="game-mode-selector">
             <button type="button" class="mode-btn active" data-mode="pinpoint" id="mode-pinpoint-btn">
               <span class="mode-title" data-i18n="mode.pinpoint">Pinpoint</span>
-              <span class="mode-desc" data-i18n="mode.pinpoint_desc">One photo per turn. Guess location pin & capture
-                date.</span>
+              <span class="mode-desc" data-i18n="mode.pinpoint_desc">1 photo per round. Place a pin on the map & guess
+                the date.</span>
             </button>
             <button type="button" class="mode-btn" data-mode="album_shuffle" id="mode-album-shuffle-btn">
               <span class="mode-title" data-i18n="mode.album_shuffle">Album Shuffle</span>
-              <span class="mode-desc" data-i18n="mode.album_shuffle_desc">Match photo set to map pins & order
-                chronologically.</span>
+              <span class="mode-desc" data-i18n="mode.album_shuffle_desc">3 photos per round. Match photos to map pins &
+                sort the timeline.</span>
             </button>
           </div>
         </div>
 
-        <div class="grid-2">
-          <div>
-            <label data-i18n="setup.rounds_label">Rounds</label>
-            <select id="round-count">
-              <option value="5">5</option>
-              <option value="10" selected>10</option>
-              <option value="20">20</option>
-            </select>
+        <div class="form-group game-settings-group">
+          <div class="field-head-inline">
+            <label data-i18n="setup.game_settings_label">What to Guess</label>
+            <span class="field-hint-badge" data-i18n="setup.challenges_hint">Select 1 or both</span>
           </div>
-          <div>
-            <label data-i18n="setup.round_length_label">Round Length</label>
-            <select id="round-length">
-              <option value="30s" data-i18n="setup.round_30s">30s</option>
-              <option value="1m" selected data-i18n="setup.round_1m">1 min</option>
-              <option value="2m" data-i18n="setup.round_2m">2 min</option>
-              <option value="5m" data-i18n="setup.round_5m">5 min</option>
-              <option value="unlimited" data-i18n="setup.round_unlimited">Unlimited</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group mode-selection-group">
-          <label data-i18n="setup.game_settings_label">Guessing mode</label>
           <div id="game-settings-container" class="game-settings-container">
             <!-- Dynamically populated by active game mode module (e.g. pinpoint.js, album_shuffle.js) -->
           </div>
         </div>
 
-        <button type="submit" class="btn-primary" data-i18n="setup.start_btn">Start Match</button>
+        <div class="form-group match-settings-group">
+          <div class="grid-2 round-settings-grid">
+            <div>
+              <label data-i18n="setup.rounds_label">Rounds</label>
+              <select id="round-count">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+              </select>
+            </div>
+            <div>
+              <label data-i18n="setup.round_length_label">Round Length</label>
+              <select id="round-length">
+                <option value="30s" data-i18n="setup.round_30s">30s</option>
+                <option value="1m" selected data-i18n="setup.round_1m">1 min</option>
+                <option value="2m" data-i18n="setup.round_2m">2 min</option>
+                <option value="5m" data-i18n="setup.round_5m">5 min</option>
+                <option value="unlimited" data-i18n="setup.round_unlimited">Unlimited</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" id="start-match-btn" class="btn-primary" data-i18n="setup.start_btn">Start Match</button>
       </form>
     </section>
 
@@ -163,9 +233,10 @@
           you
           press "I'm Ready".</p>
         <img id="quiz-image" class="hidden" alt="Quiz media" />
-        <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+        <button type="button" id="quiz-image-fullscreen" class="map-fullscreen-btn hidden" aria-pressed="false"
           title="Toggle fullscreen image" data-i18n-title="game.fullscreen_image_title">
-          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+            stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 3 21 3 21 9"></polyline>
             <polyline points="9 21 3 21 3 15"></polyline>
             <line x1="21" y1="3" x2="14" y2="10"></line>
@@ -194,7 +265,8 @@
                 <div id="guess-map"></div>
                 <button type="button" id="guess-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
                   title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
-                  <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                  <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                    stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="15 3 21 3 21 9"></polyline>
                     <polyline points="9 21 3 21 3 15"></polyline>
                     <line x1="21" y1="3" x2="14" y2="10"></line>
@@ -260,7 +332,8 @@
             <div id="reveal-map"></div>
             <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
               title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
-              <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="15 3 21 3 21 9"></polyline>
                 <polyline points="9 21 3 21 3 15"></polyline>
                 <line x1="21" y1="3" x2="14" y2="10"></line>
@@ -276,7 +349,8 @@
           </div>
           <button id="next-round" class="btn-primary" data-i18n="reveal.next_round_btn">Next Round</button>
           <div class="game-actions">
-            <button type="button" id="reveal-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
+            <button type="button" id="reveal-restart-btn" class="btn-danger"
+              data-i18n="game.restart_btn">Restart</button>
             <button type="button" id="reveal-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
           </div>
         </div>
@@ -302,7 +376,8 @@
         <div id="journey-map"></div>
         <button type="button" id="journey-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
           title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
-          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+            stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="15 3 21 3 21 9"></polyline>
             <polyline points="9 21 3 21 3 15"></polyline>
             <line x1="21" y1="3" x2="14" y2="10"></line>
@@ -325,7 +400,10 @@
 
     <section id="leaderboard-card" class="card">
       <div class="leaderboard-head">
-        <h2 data-i18n="leaderboard.heading">Leaderboard</h2>
+        <div class="leaderboard-title-group">
+          <h2 data-i18n="leaderboard.heading">Leaderboard</h2>
+          <span id="leaderboard-scope-pill" class="leaderboard-scope-pill"></span>
+        </div>
         <button id="refresh-leaderboard" class="btn-secondary" data-i18n="leaderboard.refresh_btn">Refresh</button>
       </div>
       <div class="table-scroll">
@@ -336,9 +414,7 @@
                   aria-hidden="true"></span></th>
               <th data-sort="player_name" data-i18n="leaderboard.col_player">Player<span class="sort-arrow"
                   aria-hidden="true"></span></th>
-              <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy" class="col-accuracy hide-on-mobile">Accuracy %<span class="sort-arrow"
-                  aria-hidden="true"></span></th>
-              <th data-sort="total_score" data-i18n="leaderboard.col_score">Score<span class="sort-arrow"
+              <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy">Accuracy %<span class="sort-arrow"
                   aria-hidden="true"></span></th>
             </tr>
           </thead>

@@ -1,3 +1,5 @@
+"""Gameplay mode engine implementations for Pinpoint and Album Shuffle modes."""
+
 from __future__ import annotations
 
 import logging
@@ -30,6 +32,7 @@ from src.scoring import (
     haversine_km,
     location_score,
 )
+from src.storage.metadata import MetadataStore
 from src.storage.session import (
     MatchState,
     QuestionAlreadyAnsweredError,
@@ -41,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 
 def split_month_delta(delta_months: int | None) -> tuple[int | None, int | None]:
+    """Split total month delta into (years, months) tuple."""
     if delta_months is None:
         return None, None
     return divmod(delta_months, 12)
@@ -52,15 +56,14 @@ def build_common_question_response(
     batch_photos: list[BatchPhotoItem] | None = None,
     batch_pins: list[BatchPinItem] | None = None,
 ) -> QuestionResponse:
+    """Construct standardized QuestionResponse payload with turn and player metadata."""
     players = state.setup.players
     player_index = players.index(question.player_name) if question.player_name in players else 0
 
     return QuestionResponse(
         question_id=question.question_id,
         asset_id=question.asset_id,
-        media_url=f'/api/media/{question.asset_id}?library_name={state.setup.library_name}',
-        library_name=state.setup.library_name,
-        album_name=state.setup.album_name,
+        media_url=f'/api/media/{question.asset_id}',
         player_name=question.player_name,
         player_number=player_index + 1,
         total_players=len(state.setup.players),
@@ -78,6 +81,8 @@ def build_common_question_response(
 
 
 class BaseGameModeEngine(ABC):
+    """Abstract base class defining gameplay mechanics for different game modes."""
+
     @abstractmethod
     async def select_question(
         self,
@@ -86,7 +91,9 @@ class BaseGameModeEngine(ABC):
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
+        """Select or retrieve question asset(s) for the current turn."""
         pass
 
     @abstractmethod
@@ -95,6 +102,7 @@ class BaseGameModeEngine(ABC):
         state: MatchState,
         question: QuestionState,
     ) -> QuestionResponse:
+        """Construct turn payload tailored to the specific game mode."""
         pass
 
     @abstractmethod
@@ -106,6 +114,7 @@ class BaseGameModeEngine(ABC):
         settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
+        """Score player submissions according to mode rules and update match state."""
         pass
 
     @abstractmethod
@@ -116,10 +125,13 @@ class BaseGameModeEngine(ABC):
         questions: list[QuestionState],
         round_index: int,
     ) -> tuple[list[BatchRevealItem] | None, list[PlayerRoundResult]]:
+        """Format ground truth reveal and player score breakdowns for completed rounds."""
         pass
 
 
 class PinpointEngine(BaseGameModeEngine):
+    """Standard single-photo pinpoint game mode engine (map pinning and date guessing)."""
+
     async def select_question(
         self,
         state: MatchState,
@@ -127,6 +139,7 @@ class PinpointEngine(BaseGameModeEngine):
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
         round_index = state.current_round_index
         selection = state.round_assets.get(round_index)
@@ -136,10 +149,10 @@ class PinpointEngine(BaseGameModeEngine):
                     state,
                     immich,
                     set(payload_played_asset_ids),
-                    settings.fetch_photos_date_lower_bound,
-                    settings.fetch_photos_date_upper_bound,
-                    include_shared_albums=settings.include_shared_albums,
-                    include_partner_assets=settings.include_partner_assets,
+                    settings.date_lower_bound,
+                    settings.date_upper_bound,
+                    metadata_store=metadata_store,
+                    settings=settings,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -147,6 +160,8 @@ class PinpointEngine(BaseGameModeEngine):
             if selection is None:
                 raise HTTPException(status_code=404, detail='No eligible assets available')
             state.round_assets[round_index] = selection
+            if metadata_store is not None:
+                metadata_store.record_asset_played(selection.asset_id)
 
         return store.register_question(
             state.match_id,
@@ -195,7 +210,6 @@ class PinpointEngine(BaseGameModeEngine):
             location_points = location_score(
                 distance,
                 decay_km=settings.location_score_decay_km,
-                max_points=settings.score_max_points,
             )
 
         if (
@@ -209,7 +223,6 @@ class PinpointEngine(BaseGameModeEngine):
             date_points = date_score(
                 delta_days,
                 decay_days=settings.date_score_decay_days,
-                max_points=settings.score_max_points,
             )
 
         try:
@@ -226,6 +239,7 @@ class PinpointEngine(BaseGameModeEngine):
                 diff_days=delta_days,
                 diff_months=delta_months,
                 timed_out=payload.timed_out,
+                time_taken_seconds=payload.time_taken_seconds,
             )
         except QuestionAlreadyAnsweredError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -278,6 +292,8 @@ class PinpointEngine(BaseGameModeEngine):
 
 
 class AlbumShuffleEngine(BaseGameModeEngine):
+    """Album shuffle game mode engine (batch photo-to-pin mapping and timeline ordering)."""
+
     async def select_question(
         self,
         state: MatchState,
@@ -285,6 +301,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         settings: AppSettings,
         store: SessionStore,
         immich: ImmichClient,
+        metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
         round_index = state.current_round_index
         batch_selection = state.batch_round_assets.get(round_index)
@@ -297,10 +314,10 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     immich,
                     3,
                     set(payload_played_asset_ids),
-                    settings.fetch_photos_date_lower_bound,
-                    settings.fetch_photos_date_upper_bound,
-                    include_shared_albums=settings.include_shared_albums,
-                    include_partner_assets=settings.include_partner_assets,
+                    settings.date_lower_bound,
+                    settings.date_upper_bound,
+                    metadata_store=metadata_store,
+                    settings=settings,
                 )
             except ImmichClientError as exc:
                 raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -310,6 +327,8 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             batch_selection, batch_pins = res
             state.batch_round_assets[round_index] = batch_selection
             state.batch_round_pins[round_index] = batch_pins
+            if metadata_store is not None:
+                metadata_store.record_assets_played([ra.asset_id for ra in batch_selection])
 
         return store.register_question(
             state.match_id,
@@ -335,7 +354,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             batch_photos = [
                 BatchPhotoItem(
                     photo_id=ba.asset_id,
-                    media_url=f'/api/media/{ba.asset_id}?library_name={state.setup.library_name}',
+                    media_url=f'/api/media/{ba.asset_id}',
                 )
                 for ba in question.batch_assets
             ]
@@ -384,7 +403,6 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             batch_strict_location_score(
                 correct_pins,
                 total_photos=len(batch_assets),
-                max_points=settings.score_max_points,
             )
             if state.setup.location_mode
             else 0
@@ -406,11 +424,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     ):
                         correct_ranks += 1
 
-                date_points = batch_strict_date_score(
-                    correct_ranks,
-                    total_photos=len(batch_assets),
-                    max_points=settings.score_max_points,
-                )
+                date_points = batch_strict_date_score(correct_ranks, total_photos=len(batch_assets))
         else:
             date_points = 0
 
@@ -421,6 +435,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 location_points,
                 date_points,
                 timed_out=payload.timed_out,
+                time_taken_seconds=payload.time_taken_seconds,
                 album_shuffle_guesses=album_shuffle_guesses,
             )
         except QuestionAlreadyAnsweredError as exc:
@@ -505,13 +520,17 @@ class AlbumShuffleEngine(BaseGameModeEngine):
 
 
 class GameModeRegistry:
+    """Registry mapping GameMode enum members to their execution engine instances."""
+
     def __init__(self) -> None:
         self._engines: dict[GameMode, BaseGameModeEngine] = {}
 
     def register(self, mode: GameMode, engine: BaseGameModeEngine) -> None:
+        """Register an engine instance for a game mode."""
         self._engines[mode] = engine
 
     def get(self, mode: GameMode) -> BaseGameModeEngine:
+        """Retrieve registered engine for a game mode or raise HTTPException."""
         if mode not in self._engines:
             raise HTTPException(status_code=400, detail=f'Unsupported game mode: {mode}')
         return self._engines[mode]

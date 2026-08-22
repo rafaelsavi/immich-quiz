@@ -8,6 +8,14 @@
   --round-guess-layout-columns: minmax(0, 67fr) minmax(0, 33fr);
   --quiz-image-max-height: 440px;
   --quiz-map-height: 420px;
+
+  /* Shared Semantic Design Tokens */
+  --text-dark: var(--ink);
+  --text-main: var(--ink);
+  --text-muted: #64748b;
+  --border: #cbd5e1;
+  --border-light: #e2e8f0;
+  --bg-surface-secondary: #f8fafc;
 }
 
 @media (min-width: 1200px) {

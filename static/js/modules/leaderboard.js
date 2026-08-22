@@ -1,22 +1,82 @@
 import { state, el } from "./state.js";
 import { api, setupFilterParams } from "./api.js";
 import { buildCell } from "./formatters.js";
+import { t } from "./i18n.js";
+import { getActiveFilterSummary } from "./setup_filters.js";
+
+export function formatAccuracy(pct) {
+  if (typeof pct !== "number" || isNaN(pct)) return "0%";
+  const rounded = Math.round(pct * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}%` : `${rounded.toFixed(1)}%`;
+}
+
+export function updateLeaderboardScope() {
+  if (!el.leaderboardScopePill) return;
+
+  const lengthVal = el.roundLength ? el.roundLength.value : "1m";
+  const lengthKey = `setup.round_${lengthVal}`;
+  const lengthText = t(lengthKey) !== lengthKey ? t(lengthKey) : lengthVal;
+
+  const gameMode = (state && state.gameMode) || "pinpoint";
+  const modeText = gameMode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+
+  const filterScope = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : t("leaderboard.scope_all");
+
+  el.leaderboardScopePill.textContent = `${modeText} • ${lengthText} • ${filterScope}`;
+}
+
+let _leaderboardAbortCtrl = null;
+let _leaderboardDebounceTimer = null;
 
 export async function loadLeaderboard() {
-  const params = setupFilterParams();
-  const raw = await api(`/api/leaderboard?${params}`);
-  // Compute accuracy_pct client-side so it can be sorted and displayed.
-  state.leaderboardRows = raw.map((row) => ({
-    ...row,
-    accuracy_pct:
-      row.max_possible_score > 0
-        ? Math.round((row.total_score / row.max_possible_score) * 100)
-        : 0,
-  }));
-  renderLeaderboard();
+  updateLeaderboardScope();
+  if (_leaderboardAbortCtrl) {
+    _leaderboardAbortCtrl.abort();
+  }
+  _leaderboardAbortCtrl = new AbortController();
+  const signal = _leaderboardAbortCtrl.signal;
+
+  try {
+    const params = setupFilterParams();
+    const raw = await api(`/api/leaderboard?${params}`, { signal });
+    state.leaderboardRows = raw.map((row) => {
+      const computedAcc =
+        typeof row.accuracy_pct === "number"
+          ? row.accuracy_pct
+          : row.max_possible_score > 0
+            ? (row.total_score / row.max_possible_score) * 100
+            : 0;
+      return {
+        ...row,
+        accuracy_pct: computedAcc,
+      };
+    });
+    renderLeaderboard();
+  } catch (err) {
+    if (err.name === "AbortError" || (err.message && err.message.includes("abort"))) {
+      // Ignored intentional request abort
+      return;
+    }
+    throw err;
+  }
+}
+
+export function loadLeaderboardDebounced(delay = 250) {
+  updateLeaderboardScope();
+  if (_leaderboardDebounceTimer) {
+    clearTimeout(_leaderboardDebounceTimer);
+  }
+  _leaderboardDebounceTimer = setTimeout(() => {
+    loadLeaderboard().catch((err) => {
+      if (err.name !== "AbortError") {
+        console.warn("Leaderboard refresh failed:", err);
+      }
+    });
+  }, delay);
 }
 
 export function renderLeaderboard() {
+  updateLeaderboardScope();
   const { key, asc } = state.leaderboardSort;
   const rows = [...state.leaderboardRows].sort((a, b) => {
     const av = a[key];
@@ -29,14 +89,87 @@ export function renderLeaderboard() {
   });
 
   el.leaderboardBody.replaceChildren();
-  rows.forEach((row) => {
+
+  if (rows.length === 0) {
     const tr = document.createElement("tr");
+    tr.className = "leaderboard-empty-row";
+    const td = document.createElement("td");
+    td.colSpan = 3;
+    td.className = "leaderboard-empty-cell";
+    td.textContent = t("leaderboard.empty");
+    tr.appendChild(td);
+    el.leaderboardBody.appendChild(tr);
+    renderSortIndicators();
+    return;
+  }
+
+  rows.forEach((row, index) => {
+    const tr = document.createElement("tr");
+    const isPerfect = row.accuracy_pct >= 99.99;
+    if (isPerfect) {
+      tr.classList.add("is-perfect-row");
+    }
+
     const cell1 = buildCell(new Date(row.played_at).toLocaleString(state.language));
-    const cell2 = buildCell(row.player_name);
-    const cell3 = buildCell(`${row.accuracy_pct}%`);
-    cell3.className = "col-accuracy hide-on-mobile";
-    const cell4 = buildCell(`${row.total_score}/${row.max_possible_score}`);
-    tr.append(cell1, cell2, cell3, cell4);
+
+    // Player cell with rank medal and optional perfect badge
+    const playerWrap = document.createElement("span");
+    playerWrap.className = "player-cell";
+
+    const rankSpan = document.createElement("span");
+    const isRankingDescending = (key === "accuracy_pct" || key === "total_score") && !asc;
+    const effectiveRank = isRankingDescending ? index + 1 : row.rank;
+
+    if (effectiveRank === 1) {
+      rankSpan.className = "rank-medal";
+      rankSpan.textContent = "🥇";
+      rankSpan.setAttribute("title", "1st Place");
+    } else if (effectiveRank === 2) {
+      rankSpan.className = "rank-medal";
+      rankSpan.textContent = "🥈";
+      rankSpan.setAttribute("title", "2nd Place");
+    } else if (effectiveRank === 3) {
+      rankSpan.className = "rank-medal";
+      rankSpan.textContent = "🥉";
+      rankSpan.setAttribute("title", "3rd Place");
+    } else {
+      rankSpan.className = "rank-num";
+      rankSpan.textContent = `${effectiveRank || index + 1}.`;
+    }
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "player-name-text";
+    nameSpan.textContent = row.player_name;
+
+    playerWrap.append(rankSpan, nameSpan);
+
+    if (isPerfect) {
+      const perfectBadge = document.createElement("span");
+      perfectBadge.className = "perfect-badge";
+      perfectBadge.innerHTML = `<span>★</span><span class="perfect-badge-text">${t("leaderboard.perfect_badge")}</span>`;
+      playerWrap.appendChild(perfectBadge);
+    }
+
+    const cell2 = buildCell(playerWrap);
+
+    // Accuracy cell with color-coded tier badge
+    const accBadge = document.createElement("span");
+    accBadge.className = "accuracy-badge";
+    if (isPerfect) {
+      accBadge.classList.add("accuracy-tier-perfect");
+    } else if (row.accuracy_pct >= 90) {
+      accBadge.classList.add("accuracy-tier-high");
+    } else if (row.accuracy_pct >= 75) {
+      accBadge.classList.add("accuracy-tier-medium");
+    } else {
+      accBadge.classList.add("accuracy-tier-low");
+    }
+    accBadge.textContent = formatAccuracy(row.accuracy_pct);
+
+    const cell3 = buildCell(accBadge);
+    cell3.className = "col-accuracy";
+
+    tr.append(cell1, cell2, cell3);
     el.leaderboardBody.appendChild(tr);
   });
 

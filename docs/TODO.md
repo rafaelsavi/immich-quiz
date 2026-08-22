@@ -4,21 +4,19 @@ This document lists planned features, design ideas, and technical debt items for
 
 ---
 
-## 🚀 Future Feature Concepts
+## 🚀 Active & Planned Milestones
 
-- **Online multiplayer**: Extend pass-and-play local multiplayer to support multi-device real-time lobbies. Design specification defined in docs\next-release-milestone\online-multiplayer
-
-- **Improve Audio Effects / Soundtrack**
-
-- **Add more library filter settings**
-  - **Filter & Quiz by Country**: Add an alternative photo selection filter based on Country (e.g., "Quiz photos from Japan only").
-    - **Immich API & Performance**: Immich natively supports `country` parameter filtering in `POST /search/metadata` and `POST /search/random`. Because filtering is processed server-side via Immich's indexed database, performance is fast and sub-second (< 200ms) even with thousands of photos per country.
-    - **Implementation**: Add `list_countries(library_name)` to `ImmichClient`, support `country` in `search_assets`/`search_random_assets` payloads, and add a Country selector in the frontend lobby setup UI.
-
-- **Player statistics**: Create a page to show player statistics (best scores, most played modes, etc.)
+- **Multiplayer challenges**: Asynchronous and hybrid multi-device trivia with capability links, customizable expiration windows, server-enforced Fog of War, 3-second polling intermission with animated Leaflet pin drops, and grand reveal map/timeline. Specified in [`docs/next-milestones/online-multiplayer`](next-milestones/online-multiplayer/00_OVERVIEW.md).
+- **Multiplayer live game**: Real-time host-controlled lobbies with WebSockets, live countdown timers, and synchronized auto-advance built on top of the Challenge seed engine.
+- **Improve Audio Effects / Soundtrack**: Expand runtime Web Audio synthesized tracks and transitional sound cues.
+- **Player Statistics & Match Replays**: Dedicated view displaying player metrics, all-time best scores, distance accuracy distribution, and round replay maps.
+- **PWA & Mobile Haptics**: Make the web app installable as a Progressive Web App (manifest, standalone display, icons) with haptic vibration feedback for mobile map interactions, timeline adjustments, and timer alerts.
+- **Safety Against Attacks**: Cloudflare Zero Trust path-based rules, rate limiting, and capability URL security.
+- **Add support for videos**
+- **Add option to report map or date inconsistencies in round reveal**
 
 ---
 
 ## 🧹 Code Health & Maintenance
 
-- **Automated E2E Testing**: Add Playwright browser end-to-end tests for two-tap map/timeline interactions.
+- **Automated E2E Testing**: Add Playwright browser end-to-end tests for two-tap map and timeline interactions.

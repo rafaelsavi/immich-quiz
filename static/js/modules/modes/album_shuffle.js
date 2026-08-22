@@ -3,7 +3,7 @@ import { state, el } from "../state.js";
 import { createStandardMap, createBadgePinIcon, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
-import { animateScoreRollup, spawnFloatingScorePop, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
+import { animateScoreRollup, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
 import { playChime } from "../audio.js";
 
 let shuffleMap = null;
@@ -124,7 +124,7 @@ export const albumShuffleMode = {
   },
 
   renderSettings(containerEl) {
-    renderGuessingModeSettings(containerEl);
+    renderGuessingModeSettings(containerEl, "album_shuffle");
   },
 
   getModePayload() {
@@ -133,8 +133,13 @@ export const albumShuffleMode = {
     const dateCard = document.getElementById("card-goal-date");
     const dateCheckbox = document.getElementById("goal-date");
 
-    const locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
-    const dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+    let locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
+    let dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+
+    if (!locationMode && !dateMode) {
+      locationMode = true;
+      dateMode = true;
+    }
 
     return {
       game_mode: "album_shuffle",
@@ -162,11 +167,11 @@ export const albumShuffleMode = {
   unmount() {
     state.albumShuffleDisabled = false;
     if (shuffleMap) {
-      try { unregisterActiveMap(shuffleMap); shuffleMap.remove(); } catch (_) {}
+      try { unregisterActiveMap(shuffleMap); shuffleMap.remove(); } catch (_) { }
       shuffleMap = null;
     }
     if (revealShuffleMap) {
-      try { unregisterActiveMap(revealShuffleMap); revealShuffleMap.remove(); } catch (_) {}
+      try { unregisterActiveMap(revealShuffleMap); revealShuffleMap.remove(); } catch (_) { }
       revealShuffleMap = null;
     }
     shuffleMarkers = {};
@@ -297,7 +302,6 @@ export const albumShuffleMode = {
 
     const batchReveal = revealData.batch_reveal || [];
     const playerResults = revealData.results || [];
-    const libraryName = revealData.library_name || (state.currentQuestion ? state.currentQuestion.library_name : "");
     const totalPhotos = batchReveal.length;
 
     // Sort batch items in TRUE chronological order (earliest #1 to latest #N)
@@ -441,6 +445,9 @@ export const albumShuffleMode = {
           items: [
             {
               value: pRes.location_score === null || pRes.location_score === undefined ? "-" : String(pRes.location_score),
+              scoreNum: pRes.location_score,
+              isScore: pRes.location_score !== null && pRes.location_score !== undefined,
+              maxScore: maxPoints,
               class: "",
             },
             {
@@ -456,6 +463,9 @@ export const albumShuffleMode = {
           items: [
             {
               value: pRes.date_score === null || pRes.date_score === undefined ? "-" : String(pRes.date_score),
+              scoreNum: pRes.date_score,
+              isScore: pRes.date_score !== null && pRes.date_score !== undefined,
+              maxScore: maxPoints,
               class: "",
             },
             {
@@ -467,11 +477,22 @@ export const albumShuffleMode = {
       }
       valueGroups.push({
         isPerfect: isPerfectRound,
-        isScoreGroup: true,
-        roundScoreNum: pRes.round_score ?? 0,
         items: [
-          { value: String(pRes.round_score ?? 0), class: "hide-on-mobile" },
-          { value: String(pRes.total_score ?? 0), class: "group-start-mobile" },
+          {
+            value: String(pRes.round_score ?? 0),
+            scoreNum: pRes.round_score ?? 0,
+            isScore: true,
+            maxScore: maxRoundPoints,
+            class: "hide-on-mobile",
+          },
+          {
+            value: String(pRes.total_score ?? 0),
+            scoreNum: pRes.total_score ?? 0,
+            startScore: Math.max(0, (pRes.total_score ?? 0) - (pRes.round_score ?? 0)),
+            isScore: true,
+            maxScore: maxRoundPoints * (revealData.round_number || 1),
+            class: "group-start-mobile",
+          },
         ],
       });
 
@@ -494,28 +515,14 @@ export const albumShuffleMode = {
               cell.appendChild(createPerfectBadge());
             }
           }
-          if (group.isScoreGroup && index === 0) {
-            animateScoreRollup(cell, group.roundScoreNum, maxRoundPoints);
+          if (itemObj.isScore) {
+            animateScoreRollup(cell, itemObj.scoreNum, itemObj.maxScore, "", skipEffects, itemObj.startScore || 0);
           }
           row.appendChild(cell);
         });
       });
 
       tbody.appendChild(row);
-
-      if (!skipEffects) {
-        setTimeout(() => {
-          if (isPerfectLocation && isPerfectDate) {
-            spawnFloatingScorePop(row, `🎯 PERFECT ROUND! +${pRes.round_score}`, "bullseye");
-          } else if (isPerfectLocation) {
-            spawnFloatingScorePop(row, `🎯 ALL PINS CORRECT! +${pRes.location_score}`, "bullseye");
-          } else if (isPerfectDate) {
-            spawnFloatingScorePop(row, `⏳ PERFECT ORDER! +${pRes.date_score}`, "perfect");
-          } else if ((pRes.round_score ?? 0) > 0) {
-            spawnFloatingScorePop(row, `+${pRes.round_score} pts`, "good");
-          }
-        }, rIdx * 250);
-      }
     });
 
     // --- SECTION 2: MAP LAYOUT (ONLY IF LOCATION MODE IS ACTIVE) ---
@@ -542,7 +549,7 @@ export const albumShuffleMode = {
     const breakdownContainer = document.createElement("div");
     breakdownContainer.className = "shuffle-breakdown-container";
 
-    renderPhotoCardsView(breakdownContainer, sortedTrueBatch, playerResults, revealData, libraryName);
+    renderPhotoCardsView(breakdownContainer, sortedTrueBatch, playerResults, revealData);
 
     // --- SECTION 4: NEXT ROUND BUTTON & ACTIONS ---
     const nextBtn = document.createElement("button");
@@ -613,13 +620,13 @@ export function getPinColor(pinId) {
   return rawColor;
 }
 
-function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData, libraryName) {
+function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData) {
   container.replaceChildren();
   const grid = document.createElement("div");
   grid.className = "shuffle-breakdown-grid";
 
   sortedTrueBatch.forEach((item, trueRankIdx) => {
-    const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(libraryName)}`;
+    const imgUrl = `/api/media/${item.photo_id}`;
     const dateStr = item.actual_date
       ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
       : "Unknown date";

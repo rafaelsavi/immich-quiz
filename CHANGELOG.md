@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-08-17
+
+### Added
+
+- **Local Metadata Storage & Sync Engine**: SQLite-backed metadata caching layer (`data/metadata.db`) storing assets, albums, recognized faces, and geographic places locally. Includes manual and automatic background sync (`SyncEngine`) with real-time indexing status indicators and instant 0ms query response times.
+- **Library & Photo Filters Accordion**: Collapsible section grouping dataset filters (Library, Multi-Album, Date Range, Geography, People) with dynamic active filter count badge and one-click reset.
+- **Dynamic Date Range Slider**: Dual-handle interactive range slider with year-month resolution, live readouts, and automatic Immich timeline bucket boundary discovery.
+- **Geographic Granularity (Countries & Dependent Cities)**: Searchable multi-select dropdowns for countries and cities with cascading dependencies (selecting a country dynamically filters the available cities).
+- **Face Recognition / People Filter with Match Modes**: Searchable multi-select dropdown for recognized people with support for both `ANY` (Any person) and `ALL` (All people together in the same photo).
+- **Photo Play Frequency Tracking & Least-Played Prioritization**: Automatically tracks `times_played` and `last_played_at` per asset in SQLite to prioritize unplayed and least-frequently seen photos (`ORDER BY a.times_played ASC, RANDOM()`), maximizing photo discovery and freshness across matches without sync data loss.
+- **Smart Photo Diversity Downsampling**: Soft prioritization sampling strategy in candidate photo selection that prioritizes photos with spatial (>= 100m) and temporal (>= 60s) separation against previously played match photos, while gracefully falling back to unplayed candidates when playing clustered single-event or local albums (preventing premature 404 match aborts).
+- **Dynamic Shared & Partner Library Toggles**: Added setup filter toggles to dynamically include or exclude shared albums and partner assets per-match without restarting the server.
+- **Modern Interactive Player Input**: Tag/chip based player management component with avatar badges, game-matched player colors, duplicate detection, keyboard shortcuts, paste splitting, and touch-screen virtual keyboard optimizations.
+- **Live Preflight Counter**: Live feedback counter displaying eligible photos and breakdown tooltips (GPS, Date, Eligible total) dynamically updating on every filter or game mode change.
+- **Per-Library Filter Persistence**: Active filter selections saved in `localStorage` per library, automatically restoring when switching libraries.
+- **Asset Tag Whitelist & Blacklist**: Added `TAG_WHITELIST` and `TAG_BLACKLIST` configuration settings enforcing global server-level safeguards across SQLite metadata queries and in-memory asset filtering. Assets labeled with any blacklisted tag are strictly excluded from candidate pools, and when a whitelist is specified, only assets tagged with at least one whitelisted tag are eligible.
+- **Unified 4-Table Relational Match & Multiplayer Foundation**: Implemented a comprehensive relational SQLite schema (`challenges`, `matches`, `match_entries`, `match_round_guesses`) under `data/leaderboard.db`. Features type-safe `PlayMode` enum (`local`, `challenge`, `room`), exact per-photo round guess records (`photo_index`), actual and guessed coordinates/dates, sub-score breakdowns, and active response time tracking (`time_taken_seconds`, `total_time_seconds`) for fair tiebreaking.
+
+### Changed
+
+- **Photo Diversity Decoupling**: Decoupled candidate diversity checks from global configuration parameters into internal defaults within the sampling engine, ensuring Preflight filtering remains the single source of truth for photo eligibility.
+- **Setup Screen Hierarchy**: Reorganized match setup into top-down logical flow: Players, Library & Photo Filters, Game Mode, and Guessing Mode settings.
+- **Preflight & Setup Validation**: Hardened validation to disable start match button and show informative warnings when insufficient matching media is available.
+- **Leaderboard API & Querying**: Updated `/api/leaderboard` endpoint with support for querying by `player_name`, `is_custom_filtered`, and `limit`.
+
+### Removed
+
+- **Photo Diversity Configuration**: Removed `PHOTO_DIVERSITY_MIN_DISTANCE_KM` and `PHOTO_DIVERSITY_MIN_TIME_SECONDS` configuration parameters from `AppSettings` and `.env` in favor of internal sampling parameters.
+- **Smart Map Zoom Config**: Removed `SMART_MAP_ZOOM` environment toggle in favor of built-in internal safeguards.
+- **Legacy CSV Storage**: Removed `LEADERBOARD_CSV_PATH` configuration and CSV-based leaderboard persistence in favor of dedicated SQLite storage under `DATA_PATH` (`metadata.db` and `leaderboard.db`).
+
 ## [1.2.1] - 2026-08-15
 
 ### Fixed

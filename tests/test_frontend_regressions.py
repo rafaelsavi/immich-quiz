@@ -12,6 +12,7 @@ DYNAMIC_IDS = frozenset(
         'goal-location',
         'photo-lightbox',
         'photo-lightbox-img',
+        'preflight-warning',
         'reveal-shuffle-map-shell',
         'shuffle-cards-list',
         'shuffle-map-shell',
@@ -178,6 +179,16 @@ def test_js_files_have_valid_syntax() -> None:
 
     node_bin = shutil.which('node')
     if not node_bin:
+        for candidate in [
+            r'C:\Program Files\nodejs\node.exe',
+            r'C:\Program Files (x86)\nodejs\node.exe',
+            r'C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe',
+            r'C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe',
+        ]:
+            if Path(candidate).is_file():
+                node_bin = candidate
+                break
+    if not node_bin:
         return
 
     syntax_errors: list[str] = []
@@ -241,3 +252,120 @@ def test_app_js_does_not_reference_template_owned_el_properties() -> None:
             violations.append(f'app.js directly references template-owned el.{prop_name}')
 
     assert not violations, f'Direct references to template-owned el properties in app.js: {violations}'
+
+
+def test_event_listener_callbacks_are_defined() -> None:
+    js_files = list(JS_DIR.rglob('*.js'))
+    callback_errors: list[str] = []
+
+    listener_pattern = re.compile(r'addEventListener\(\s*["\'][^"\']+["\']\s*,\s*([a-zA-Z0-9_$]+)\s*[,)]')
+
+    for js_file in js_files:
+        content = js_file.read_text(encoding='utf-8')
+        for match in listener_pattern.finditer(content):
+            cb_name = match.group(1)
+            has_import = bool(re.search(rf'\bimport\s+[^;]*\b{re.escape(cb_name)}\b[^;]*from', content, re.DOTALL))
+            has_fn_def = bool(re.search(rf'\bfunction\s+{re.escape(cb_name)}\b', content))
+            has_var_def = bool(
+                re.search(rf'\b(?:const|let|var)\s+.*?(\b{re.escape(cb_name)}\b)\s*[:=,]', content, re.DOTALL)
+            )
+            has_param = bool(re.search(rf'function[^(]*\([^)]*\b{re.escape(cb_name)}\b[^)]*\)', content, re.DOTALL))
+            if not (has_import or has_fn_def or has_var_def or has_param):
+                rel_path = js_file.relative_to(STATIC_DIR)
+                callback_errors.append(f"Callback '{cb_name}' in {rel_path} is neither imported nor defined")
+
+    assert not callback_errors, f'Undefined event listener callbacks:\n{chr(10).join(callback_errors)}'
+
+
+def test_map_controls_disable_click_propagation_and_guard_pin_placement() -> None:
+    maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+
+    # maps.js must call disableClickPropagation for controls and buttons
+    assert 'L.DomEvent.disableClickPropagation' in maps_js, 'maps.js must disable click propagation for controls'
+    assert 'L.DomEvent.disableScrollPropagation' in maps_js, 'maps.js must disable scroll propagation for controls'
+
+    # ensureGuessMap must guard click event target against control/button elements
+    assert 'origTarget.closest' in maps_js, (
+        'ensureGuessMap in maps.js must check origTarget.closest to avoid setting pin on control clicks'
+    )
+
+    # pinpoint.js must also disable propagation on guessMapFullscreen
+    assert 'L.DomEvent.disableClickPropagation(el.guessMapFullscreen)' in pinpoint_js, (
+        'pinpoint.js must disable click propagation on guessMapFullscreen'
+    )
+
+
+def test_preflight_warning_disables_start_button_and_guards_submission() -> None:
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    # start-match-btn exists in HTML as submit button
+    assert 'id="start-match-btn"' in index_html, 'start-match-btn ID missing from index.html'
+    assert 'setupSubmitBtn' in state_js, 'setupSubmitBtn missing from state.js'
+
+    # showPreflightWarning must disable the submit button
+    assert 'showPreflightWarning' in setup_filters_js
+    assert 'submitBtn.disabled = true' in setup_filters_js, 'showPreflightWarning must disable the submit button'
+
+    # hidePreflightWarning must re-enable the submit button
+    assert 'hidePreflightWarning' in setup_filters_js
+    assert 'submitBtn.disabled = false' in setup_filters_js, 'hidePreflightWarning must re-enable the submit button'
+
+    # startMatch must guard against starting if button is disabled or preflight warning is visible
+    assert 'async function startMatch' in app_js
+    assert 'submitBtn.disabled' in app_js, 'startMatch must check submitBtn.disabled'
+
+
+def test_pinpoint_quiz_image_fullscreen_button_handling() -> None:
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    assert 'id="quiz-image-fullscreen"' in index_html, 'quiz-image-fullscreen ID missing from index.html'
+    assert 'quizImageFullscreen' in state_js, 'quizImageFullscreen getter missing from state.js'
+
+    # pinpoint.js onReady must unhide quizImageFullscreen
+    assert 'el.quizImageFullscreen.classList.remove("hidden")' in pinpoint_js, (
+        'pinpoint.js must unhide quizImageFullscreen on onReady / reveal'
+    )
+    # pinpoint.js unmount / renderQuestion must hide quizImageFullscreen
+    assert 'el.quizImageFullscreen.classList.add("hidden")' in pinpoint_js, (
+        'pinpoint.js must hide quizImageFullscreen on renderQuestion / unmount'
+    )
+    # app.js must not call removeAttribute('src') on quizImageFullscreen
+    assert 'el.quizImageFullscreen.removeAttribute("src")' not in app_js, (
+        'app.js must not call removeAttribute("src") on quizImageFullscreen'
+    )
+
+
+def test_leaderboard_enhancements_markup_and_modules() -> None:
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
+    leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    i18n_js = (JS_DIR / 'modules' / 'i18n.js').read_text(encoding='utf-8')
+
+    api_js = (JS_DIR / 'modules' / 'api.js').read_text(encoding='utf-8')
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+
+    assert 'id="leaderboard-scope-pill"' in index_html, 'leaderboard-scope-pill ID missing from index.html'
+    assert 'leaderboardScopePill' in state_js, 'leaderboardScopePill getter missing from state.js'
+    assert 'leaderboard-empty-row' in leaderboard_js, 'leaderboard.js must handle empty state'
+    assert 'leaderboard-empty-row' in leaderboard_css, 'leaderboard.css must style empty state'
+    assert 'rank-medal' in leaderboard_js, 'leaderboard.js must apply rank medals'
+    assert 'leaderboard-scope-pill' in leaderboard_css, 'leaderboard.css must style scope pill'
+    assert '"leaderboard.empty"' in i18n_js, 'i18n.js must define leaderboard.empty key'
+    assert '"leaderboard.perfect_badge"' in i18n_js, 'i18n.js must define leaderboard.perfect_badge key'
+    assert 'min_date' in api_js, 'api.js must support min_date query parameter'
+    assert 'max_date' in api_js, 'api.js must support max_date query parameter'
+    assert 'countries' in api_js, 'api.js must support countries query parameter'
+    assert 'cities' in api_js, 'api.js must support cities query parameter'
+    assert 'person_ids' in api_js, 'api.js must support person_ids query parameter'
+    assert 'people_mode' in api_js, 'api.js must support people_mode query parameter'
+    assert 'loadLeaderboardDebounced' in leaderboard_js, 'leaderboard.js must export loadLeaderboardDebounced'
+    assert 'getActiveFilterSummary' in setup_filters_js, 'setup_filters.js must export getActiveFilterSummary'
+    assert 'isCustomFilteredActive' in setup_filters_js, 'setup_filters.js must export isCustomFilteredActive'

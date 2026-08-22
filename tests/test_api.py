@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from src.game.selector import calculate_match_bounds, is_asset_valid_for_batch
 from src.immich.client import AssetAnswer
+from src.storage.metadata import MetadataStore
 from src.storage.session import RoundAsset
 
 
@@ -59,8 +60,8 @@ def test_question_selection_honors_photo_date_bounds(tmp_path: Path) -> None:
     client = build_client(
         tmp_path,
         immich,
-        fetch_photos_date_lower_bound=date(2020, 1, 1),
-        fetch_photos_date_upper_bound=date(2024, 12, 31),
+        date_lower_bound=date(2020, 1, 1),
+        date_upper_bound=date(2024, 12, 31),
     )
     match_id = start_match(client)
 
@@ -69,11 +70,12 @@ def test_question_selection_honors_photo_date_bounds(tmp_path: Path) -> None:
     assert response.json()['asset_id'] == 'in-range'
 
 
-def test_albums_default_to_owned_only(client: TestClient, immich: FakeImmichClient) -> None:
-    response = client.get('/api/albums', params={'library_name': 'family'})
+def test_albums_fetches_all_albums(client: TestClient) -> None:
+    response = client.get('/api/albums', params={'libraries': ['family']})
 
     assert response.status_code == 200
-    assert immich.last_include_shared_albums is False
+    assert len(response.json()['albums']) >= 1
+    assert response.json()['albums'][0]['name'] == 'Holidays'
 
 
 def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
@@ -83,16 +85,6 @@ def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
     body = response.json()
     assert body['language'] == 'EN'
     assert body['score_max_points'] == 100
-
-
-def test_albums_respects_include_shared_albums_settings(tmp_path: Path) -> None:
-    immich = FakeImmichClient()
-    client = build_client(tmp_path, immich, include_shared_albums=True)
-
-    response = client.get('/api/albums', params={'library_name': 'family'})
-
-    assert response.status_code == 200
-    assert immich.last_include_shared_albums is True
 
 
 def test_answer_response_hides_the_solution(client: TestClient) -> None:
@@ -230,7 +222,6 @@ def test_custom_scoring_env_parameters_affect_round_and_summary(tmp_path: Path) 
     client = build_client(
         tmp_path,
         immich,
-        score_max_points=80,
         location_score_decay_km=500.0,
         date_score_decay_days=300.0,
     )
@@ -252,23 +243,45 @@ def test_custom_scoring_env_parameters_affect_round_and_summary(tmp_path: Path) 
     result = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1})
     assert result.status_code == 200
     entry = result.json()['results'][0]
-    assert entry['location_score'] == 80
-    assert entry['date_score'] == 80
-    assert entry['round_score'] == 160
+    assert entry['location_score'] == 100
+    assert entry['date_score'] == 100
+    assert entry['round_score'] == 200
 
     summary = client.get(f'/api/match/{match_id}/summary').json()
-    assert summary['players'][0]['max_possible_score'] == 800
+    assert summary['players'][0]['max_possible_score'] == 1000
 
 
 def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(10)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(10)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, players=['Alice', 'Bob'], round_count=5)
+    asset_map = {a['id']: a for a in immich.assets}
 
     for _ in range(10):
         question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
         if question['player_name'] == 'Alice':
-            answer_question(client, match_id, question['question_id'])
+            asset = asset_map[question['asset_id']]
+            client.post(
+                '/api/answer',
+                json={
+                    'match_id': match_id,
+                    'question_id': question['question_id'],
+                    'guessed_latitude': asset['exifInfo']['latitude'],
+                    'guessed_longitude': asset['exifInfo']['longitude'],
+                    'guessed_year': 2024,
+                    'guessed_month': 1,
+                },
+            )
         else:
             client.post(
                 '/api/answer',
@@ -293,10 +306,47 @@ def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
     assert summary['players'][0]['accuracy_pct'] == 100.0
     assert summary['players'][1]['rank'] == 2
     assert summary['players'][1]['is_winner'] is False
+    assert summary['filter_summary'] == 'Full Library'
+    assert summary['is_custom_filtered'] is False
 
 
-def test_repeated_question_request_returns_same_question(client: TestClient, immich: FakeImmichClient) -> None:
-    immich.assets = [make_asset(f'asset-{index}') for index in range(10)]
+def test_match_summary_with_custom_filters(tmp_path: Path) -> None:
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(5)
+        ]
+    )
+    client = build_client(tmp_path, immich)
+    match_id = start_match(client, album_ids=['album-1'], round_count=5)
+
+    for _ in range(5):
+        q = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+        client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': q['question_id'],
+                'guessed_latitude': -27.59,
+                'guessed_longitude': -48.54,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
+        )
+
+    summary = client.get(f'/api/match/{match_id}/summary').json()
+    assert summary['finished'] is True
+    assert summary['is_custom_filtered'] is True
+    assert summary['filter_summary'] == 'Holidays'
+    assert summary['filter_tooltip'] == 'Album: Holidays'
+
+
+def test_repeated_question_request_returns_same_question(client: TestClient) -> None:
     match_id = start_match(client)
 
     first = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
@@ -304,19 +354,41 @@ def test_repeated_question_request_returns_same_question(client: TestClient, imm
 
     assert first['question_id'] == second['question_id']
     assert first['asset_id'] == second['asset_id']
-    assert immich.search_calls == 1
 
 
 def test_answer_replay_is_rejected(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(10)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(10)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, round_count=5)
+    asset_map = {a['id']: a for a in immich.assets}
 
     last_question_id = ''
     for _ in range(5):
         question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
         last_question_id = question['question_id']
-        assert answer_question(client, match_id, last_question_id)['status'] == 200
+        asset = asset_map[question['asset_id']]
+        res = client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': last_question_id,
+                'guessed_latitude': asset['exifInfo']['latitude'],
+                'guessed_longitude': asset['exifInfo']['longitude'],
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
+        )
+        assert res.status_code == 200
 
     assert answer_question(client, match_id, last_question_id)['status'] == 409
 
@@ -324,13 +396,40 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
     assert len(entries) == 1
     assert entries[0]['total_score'] == 1000
 
-    filtered_albums = client.get('/api/leaderboard?albums=-').json()
+    filtered_albums = client.get('/api/leaderboard').json()
     assert len(filtered_albums) == 1
-    assert filtered_albums[0]['config']['albums'] == '-'
+    assert filtered_albums[0]['config']['album_ids'] == []
+
+    empty_albums = client.get('/api/leaderboard?album_ids=non-existent-id').json()
+    assert len(empty_albums) == 0
+
+    # Non-matching min_date
+    empty_date = client.get('/api/leaderboard?min_date=2024-01-01').json()
+    assert len(empty_date) == 0
+
+    # Non-matching countries/cities/person_ids
+    empty_countries = client.get('/api/leaderboard?countries=France').json()
+    assert len(empty_countries) == 0
+
+    empty_cities = client.get('/api/leaderboard?cities=Paris').json()
+    assert len(empty_cities) == 0
+
+    empty_people = client.get('/api/leaderboard?person_ids=p1&people_mode=ANY').json()
+    assert len(empty_people) == 0
 
 
 def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(6)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(6)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, round_count=5)
 
@@ -344,7 +443,17 @@ def test_duplicate_assets_never_repeat_even_if_client_lies(tmp_path: Path) -> No
 
 
 def test_all_players_in_a_round_share_the_same_photo(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(20)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(20)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, players=['Alice', 'Bob', 'Cara'], round_count=5)
 
@@ -366,7 +475,17 @@ def test_all_players_in_a_round_share_the_same_photo(tmp_path: Path) -> None:
 
 
 def test_players_rotate_within_a_round(tmp_path: Path) -> None:
-    immich = FakeImmichClient([make_asset(f'asset-{index}') for index in range(20)])
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(20)
+        ]
+    )
     client = build_client(tmp_path, immich)
     match_id = start_match(client, players=['Alice', 'Bob'], round_count=5)
 
@@ -380,7 +499,7 @@ def test_players_rotate_within_a_round(tmp_path: Path) -> None:
 
 
 def test_media_rejects_asset_outside_any_match(client: TestClient) -> None:
-    response = client.get('/api/media/asset-1?library_name=family')
+    response = client.get('/api/media/asset-1')
     assert response.status_code == 404
 
 
@@ -388,16 +507,16 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
     match_id = start_match(client)
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
 
-    response = client.get(f'/api/media/{question["asset_id"]}?library_name=family')
+    response = client.get(f'/api/media/{question["asset_id"]}')
     assert response.status_code == 200
     assert response.headers['content-type'].startswith('image/jpeg')
     assert response.content == b'fake-jpg'
 
 
-def test_album_name_is_resolved_server_side(client: TestClient) -> None:
-    match_id = start_match(client, album_ids=['album-1'], album_name='Spoofed Album')
-    question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
-    assert question['album_name'] == 'Holidays'
+def test_album_names_are_resolved_server_side(client: TestClient) -> None:
+    match_id = start_match(client, album_ids=['album-1'])
+    summary = client.get(f'/api/match/{match_id}/summary').json()
+    assert summary['album_names'] == ['Holidays']
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
@@ -409,7 +528,7 @@ def test_preflight_checks_eligible_asset_count(tmp_path: Path) -> None:
     immich = FakeImmichClient(
         [
             make_asset('photo1', latitude=-27.5, longitude=-48.5, captured='2024-01-01T10:00:00Z'),
-            make_asset('photo2', latitude=-27.5, longitude=-48.5, captured='2024-01-02T10:00:00Z'),
+            make_asset('photo2', latitude=-27.6, longitude=-48.6, captured='2024-01-02T10:00:00Z'),
             make_asset('no-gps', latitude=None, longitude=None, captured='2024-01-03T10:00:00Z'),
         ]
     )
@@ -428,13 +547,21 @@ def test_preflight_checks_eligible_asset_count(tmp_path: Path) -> None:
 
     # 5 rounds requested, with 5 eligible photos -> ok is True
     immich_enough = FakeImmichClient(
-        [make_asset(f'photo_{i}', latitude=-27.5, longitude=-48.5, captured='2024-01-01T10:00:00Z') for i in range(5)]
+        [
+            make_asset(
+                f'photo_{i}',
+                latitude=-27.5 + i * 0.05,
+                longitude=-48.5 + i * 0.05,
+                captured=f'2024-01-0{i + 1}T10:00:00Z',
+            )
+            for i in range(5)
+        ]
     )
     client_enough = build_client(
         tmp_path,
         immich_enough,
-        fetch_photos_date_lower_bound=date(2020, 1, 1),
-        fetch_photos_date_upper_bound=date(2024, 12, 31),
+        date_lower_bound=date(2020, 1, 1),
+        date_upper_bound=date(2024, 12, 31),
     )
     payload_enough = setup_payload(round_count=5, location_mode=True, date_mode=True)
     res_enough = client_enough.post('/api/game/preflight', json=payload_enough)
@@ -501,7 +628,15 @@ def test_audio_playground_endpoint(client: TestClient) -> None:
 
 
 def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(30)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(30)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -569,7 +704,15 @@ def test_batch_validation_distance_and_time_constraints() -> None:
 
 
 def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(10)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -600,7 +743,15 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
 
 
 def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(10)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -644,7 +795,15 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
 
 
 def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> None:
-    assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(10)]
+    assets = [
+        make_asset(
+            f'asset-{i}',
+            latitude=-27.5969 + i * 0.05,
+            longitude=-48.5495 + i * 0.05,
+            captured=f'2024-01-{i + 1:02d}T10:00:00Z',
+        )
+        for i in range(10)
+    ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
@@ -716,8 +875,8 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
 
 def test_question_reselects_asset_when_cached_asset_marked_played(tmp_path: Path) -> None:
     assets = [
-        make_asset('asset-1', captured='2024-01-01T10:00:00Z'),
-        make_asset('asset-2', captured='2024-01-02T10:00:00Z'),
+        make_asset('asset-1', latitude=-27.5969, longitude=-48.5495, captured='2024-01-01T10:00:00Z'),
+        make_asset('asset-2', latitude=-27.6500, longitude=-48.6000, captured='2024-01-02T10:00:00Z'),
     ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
@@ -737,8 +896,8 @@ def test_question_reselects_asset_when_cached_asset_marked_played(tmp_path: Path
 
 def test_all_players_in_same_round_receive_same_photo_even_with_played_asset_ids(tmp_path: Path) -> None:
     assets = [
-        make_asset('asset-1', captured='2024-01-01T10:00:00Z'),
-        make_asset('asset-2', captured='2024-01-02T10:00:00Z'),
+        make_asset('asset-1', latitude=-27.5969, longitude=-48.5495, captured='2024-01-01T10:00:00Z'),
+        make_asset('asset-2', latitude=-27.6500, longitude=-48.6000, captured='2024-01-02T10:00:00Z'),
     ]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
@@ -798,7 +957,6 @@ def test_setup_returns_smart_map_bounds_for_regional_album(tmp_path: Path) -> No
         game_mode='pinpoint',
         location_mode=True,
         date_mode=True,
-        smart_map_zoom=True,
     )
     res = client.post('/api/game/setup', json=payload)
     assert res.status_code == 200
@@ -812,25 +970,6 @@ def test_setup_returns_smart_map_bounds_for_regional_album(tmp_path: Path) -> No
     assert bounds['max_lng'] >= 11.3308
 
 
-def test_setup_smart_map_zoom_disabled_returns_none(tmp_path: Path) -> None:
-    assets = [
-        make_asset('photo-1', latitude=43.7696, longitude=11.2558),
-        make_asset('photo-2', latitude=43.7228, longitude=10.4017),
-    ]
-    immich = FakeImmichClient(assets)
-    client = build_client(tmp_path, immich)
-
-    payload = setup_payload(
-        game_mode='pinpoint',
-        location_mode=True,
-        date_mode=True,
-        smart_map_zoom=False,
-    )
-    res = client.post('/api/game/setup', json=payload)
-    assert res.status_code == 200
-    assert res.json()['map_bounds'] is None
-
-
 def test_setup_smart_map_zoom_disabled_when_location_mode_false(tmp_path: Path) -> None:
     assets = [make_asset('photo-1', latitude=43.7696, longitude=11.2558)]
     immich = FakeImmichClient(assets)
@@ -840,7 +979,6 @@ def test_setup_smart_map_zoom_disabled_when_location_mode_false(tmp_path: Path) 
         game_mode='pinpoint',
         location_mode=False,
         date_mode=True,
-        smart_map_zoom=True,
     )
     res = client.post('/api/game/setup', json=payload)
     assert res.status_code == 200
@@ -856,7 +994,6 @@ def test_setup_smart_map_zoom_disabled_for_album_shuffle(tmp_path: Path) -> None
         game_mode='album_shuffle',
         location_mode=True,
         date_mode=True,
-        smart_map_zoom=True,
     )
     res = client.post('/api/game/setup', json=payload)
     assert res.status_code == 200
@@ -911,3 +1048,306 @@ def test_ui_config_returns_runtime_metadata(tmp_path: Path) -> None:
     assert data['language'] == 'EN'
     assert data['score_max_points'] == 100
     assert 'version' in data
+
+
+def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: Path) -> None:
+    from src.storage.db import DatabaseManager
+
+    db = DatabaseManager(tmp_path / 'metadata.db')
+    meta_store = MetadataStore(db)
+
+    # Insert 1 owned asset, 1 partner asset, 1 shared asset
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            {
+                'id': 'owned-1',
+                'file_type': 'IMAGE',
+                'latitude': 10.0,
+                'longitude': 20.0,
+                'capture_datetime': '2023-01-01T12:00:00',
+                'is_shared': 0,
+                'is_partner': 0,
+            },
+            {
+                'id': 'partner-1',
+                'file_type': 'IMAGE',
+                'latitude': 10.0,
+                'longitude': 20.0,
+                'capture_datetime': '2023-01-02T12:00:00',
+                'is_shared': 0,
+                'is_partner': 1,
+            },
+            {
+                'id': 'shared-1',
+                'file_type': 'IMAGE',
+                'latitude': 10.0,
+                'longitude': 20.0,
+                'capture_datetime': '2023-01-03T12:00:00',
+                'is_shared': 1,
+                'is_partner': 0,
+            },
+        ],
+        [],
+        [],
+    )
+
+    immich = FakeImmichClient([])
+    client = build_client(tmp_path, immich)
+
+    # 1. By default (include_shared=False), only owned-1 is eligible (count = 1)
+    res = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['family'],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+            'include_shared': False,
+        },
+    )
+    assert res.status_code == 200
+    assert res.json()['eligible_count'] == 1
+
+    # 2. Enabling include_shared yields all 3 assets (count = 3)
+    res = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['family'],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+            'include_shared': True,
+        },
+    )
+    assert res.status_code == 200
+    assert res.json()['eligible_count'] == 3
+
+
+def test_question_endpoint_records_times_played(tmp_path: Path) -> None:
+    asset = make_asset('q-test-1', latitude=48.8584, longitude=2.2945, captured='2024-01-01T12:00:00Z')
+    immich = FakeImmichClient([asset])
+    client = build_client(tmp_path, immich)
+
+    # Populate metadata.db with this asset
+    meta_store: MetadataStore = client.app.state.metadata_store
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            {
+                'id': 'q-test-1',
+                'is_shared': 0,
+                'is_partner': 0,
+                'file_type': 'IMAGE',
+                'latitude': 48.8584,
+                'longitude': 2.2945,
+                'capture_datetime': '2024-01-01T12:00:00',
+            }
+        ],
+        [],
+        [],
+    )
+
+    # Setup match
+    payload = setup_payload(players=['Player 1'], round_count=5, library_name='family')
+    setup_res = client.post('/api/game/setup', json=payload)
+    assert setup_res.status_code == 200
+    match_id = setup_res.json()['match_id']
+
+    # Initial play count is 0
+    row_before = meta_store._db.fetch_one("SELECT times_played FROM assets WHERE id = 'q-test-1'")
+    assert row_before['times_played'] == 0
+
+    # Fetch question for round 1
+    q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+    assert q_res.status_code == 200
+    assert q_res.json()['asset_id'] == 'q-test-1'
+
+    # Verify play count is incremented to 1
+    row_after = meta_store._db.fetch_one("SELECT times_played, last_played_at FROM assets WHERE id = 'q-test-1'")
+    assert row_after['times_played'] == 1
+    assert row_after['last_played_at'] is not None
+
+
+def test_finished_match_persists_four_table_relational_schema(tmp_path: Path) -> None:
+    immich = FakeImmichClient(
+        [
+            make_asset(f'asset-{i}', latitude=48.0 + i, longitude=2.0 + i, captured=f'2023-0{i}-15T12:00:00Z')
+            for i in range(1, 6)
+        ]
+    )
+    client = build_client(tmp_path, immich)
+    match_id = start_match(client, players=['Alice', 'Bob'], round_count=5)
+
+    # 5 rounds * 2 players = 10 turns
+    for r_idx in range(5):
+        for p_name in ['Alice', 'Bob']:
+            q = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+            assert q['player_name'] == p_name
+            ans = client.post(
+                '/api/answer',
+                json={
+                    'match_id': match_id,
+                    'question_id': q['question_id'],
+                    'guessed_latitude': 48.0 + r_idx,
+                    'guessed_longitude': 2.0 + r_idx,
+                    'guessed_year': 2023,
+                    'guessed_month': r_idx + 1,
+                    'time_taken_seconds': 10.0,
+                },
+            )
+            assert ans.status_code == 200
+            if r_idx == 4 and p_name == 'Bob':
+                assert ans.json()['match_finished'] is True
+
+    # Check SQLite database persistence
+    db = client.app.state.leaderboard_store._db
+    matches = db.fetch_all('SELECT * FROM matches WHERE match_id = ?', (match_id,))
+    assert len(matches) == 1
+    assert matches[0]['play_mode'] == 'local'
+    assert matches[0]['rounds'] == 5
+
+    entries = db.fetch_all('SELECT * FROM match_entries WHERE match_id = ? ORDER BY player_name', (match_id,))
+    assert len(entries) == 2
+    assert entries[0]['player_name'] == 'Alice'
+    assert entries[0]['total_time_seconds'] == 50.0  # 5 * 10.0
+    assert entries[1]['player_name'] == 'Bob'
+    assert entries[1]['total_time_seconds'] == 50.0
+
+    guesses = db.fetch_all(
+        'SELECT * FROM match_round_guesses WHERE match_id = ? ORDER BY round_index, player_name',
+        (match_id,),
+    )
+    assert len(guesses) == 10  # 5 rounds * 2 players
+    assert guesses[0]['player_name'] == 'Alice'
+    assert guesses[0]['round_index'] == 0
+    assert guesses[0]['photo_index'] == 0
+    assert guesses[0]['time_taken_seconds'] == 10.0
+    assert guesses[0]['location_points'] is not None
+    assert guesses[0]['date_points'] is not None
+
+
+def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
+    """Test full match setup and question selection with multiple albums across libraries."""
+    immich = FakeImmichClient()
+    client = build_client(
+        tmp_path,
+        immich,
+        immich_libraries={'lib1': 'key1', 'lib2': 'key2'},
+        auto_seed=False,
+    )
+    meta_store = client.app.state.metadata_store  # type: ignore
+
+    meta_store.upsert_albums('lib1', [{'id': 'alb-1', 'name': 'Album 1'}])
+    meta_store.upsert_albums('lib2', [{'id': 'alb-2', 'name': 'Album 2'}])
+
+    assets1 = [
+        {
+            'id': 'a-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'a-2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 20.0,
+            'longitude': 20.0,
+            'country': 'Brazil',
+            'city': 'Sao Paulo',
+            'capture_datetime': '2023-02-01T12:00:00',
+        },
+        {
+            'id': 'a-3',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 25.0,
+            'longitude': 25.0,
+            'country': 'Brazil',
+            'city': 'Curitiba',
+            'capture_datetime': '2023-02-15T12:00:00',
+        },
+    ]
+    assets2 = [
+        {
+            'id': 'a-4',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 30.0,
+            'longitude': 30.0,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2023-03-01T12:00:00',
+        },
+        {
+            'id': 'a-5',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 40.0,
+            'longitude': 40.0,
+            'country': 'France',
+            'city': 'Lyon',
+            'capture_datetime': '2023-04-01T12:00:00',
+        },
+        {
+            'id': 'a-6',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 45.0,
+            'longitude': 45.0,
+            'country': 'France',
+            'city': 'Nice',
+            'capture_datetime': '2023-05-01T12:00:00',
+        },
+    ]
+    meta_store.upsert_assets_batch('lib1', assets1, [], [('a-1', 'alb-1'), ('a-2', 'alb-1'), ('a-3', 'alb-1')])
+    meta_store.upsert_assets_batch('lib2', assets2, [], [('a-4', 'alb-2'), ('a-5', 'alb-2'), ('a-6', 'alb-2')])
+
+    # Start match selecting both libraries and both albums
+    res = client.post(
+        '/api/game/setup',
+        json={
+            'players': ['Alice'],
+            'round_count': 5,
+            'round_length': '1m',
+            'location_mode': True,
+            'date_mode': True,
+            'game_mode': 'pinpoint',
+            'libraries': ['lib1', 'lib2'],
+            'album_ids': ['alb-1', 'alb-2'],
+        },
+    )
+    assert res.status_code == 200
+    match_id = res.json()['match_id']
+
+    # Draw questions - verify only assets from alb-1 and alb-2 are drawn
+    drawn_ids = []
+    for _ in range(5):
+        q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': drawn_ids})
+        assert q_res.status_code == 200
+        q = q_res.json()
+        assert q['asset_id'] in {'a-1', 'a-2', 'a-3', 'a-4', 'a-5', 'a-6'}
+        drawn_ids.append(q['asset_id'])
+        # Answer to advance
+        client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': q['question_id'],
+                'guessed_latitude': 10.0,
+                'guessed_longitude': 10.0,
+            },
+        )
+
+    assert len(set(drawn_ids)) == 5
