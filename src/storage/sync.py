@@ -107,16 +107,16 @@ class SyncEngine:
                 if most_recent and most_recent.get('sync_mode'):
                     active_mode = most_recent['sync_mode']
 
-        sync_dates = [s.get('last_sync_at') for s in states if s.get('last_sync_at')]
+        sync_dates = [str(s['last_sync_at']) for s in states if s.get('last_sync_at')]
         last_sync_at = max(sync_dates) if sync_dates else None
 
-        full_sync_dates = [s.get('last_full_sync_at') for s in states if s.get('last_full_sync_at')]
+        full_sync_dates = [str(s['last_full_sync_at']) for s in states if s.get('last_full_sync_at')]
         last_full_sync_at = max(full_sync_dates) if full_sync_dates else None
 
-        immich_dates = [s.get('last_immich_updated_at') for s in states if s.get('last_immich_updated_at')]
+        immich_dates = [str(s['last_immich_updated_at']) for s in states if s.get('last_immich_updated_at')]
         last_immich_updated_at = max(immich_dates) if immich_dates else None
 
-        errors = [s.get('sync_error') for s in states if s.get('sync_error')]
+        errors = [str(s['sync_error']) for s in states if s.get('sync_error')]
         sync_error = '; '.join(errors) if errors else None
 
         target_warning_libs = libs or list(self._sync_warnings.keys())

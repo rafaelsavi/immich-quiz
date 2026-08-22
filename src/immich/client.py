@@ -393,8 +393,8 @@ class ImmichClient:
 
         # Tag blacklist (by name or by ID)
         if tag_blacklist:
-            bl_lower = {w.lower() for w in tag_blacklist}
-            if asset_tag_names.intersection(bl_lower) or asset_tag_ids.intersection(bl_lower):
+            tag_bl_lower = {w.lower() for w in tag_blacklist}
+            if asset_tag_names.intersection(tag_bl_lower) or asset_tag_ids.intersection(tag_bl_lower):
                 return False
 
         # Country whitelist baseline (when user didn't specify countries)
