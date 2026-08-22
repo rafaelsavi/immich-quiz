@@ -207,9 +207,9 @@ def test_multi_album_filter_summary_and_tooltip() -> None:
     assert summary == '3 albums'
 
     # Three albums in PT
-    is_cust, summary_pt = GameFilterConfig(
-        album_names=['Trip 1', 'Trip 2', 'Trip 3']
-    ).format_filter_summary(language='PT')
+    is_cust, summary_pt = GameFilterConfig(album_names=['Trip 1', 'Trip 2', 'Trip 3']).format_filter_summary(
+        language='PT'
+    )
     assert is_cust == 1
     assert summary_pt == '3 álbuns'
 
@@ -840,5 +840,3 @@ def test_supporting_dataclasses_validation() -> None:
 
     with pytest.raises(ValueError, match='longitude must be between -180.0 and 180.0'):
         AssetAnswer(latitude=0.0, longitude=185.0)
-
-

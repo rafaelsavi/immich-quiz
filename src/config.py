@@ -315,4 +315,3 @@ def load_settings() -> AppSettings:
         kwargs['tag_blacklist'] = _parse_comma_set(val)
 
     return AppSettings(**kwargs)
-

@@ -150,6 +150,14 @@ POST /api/round/result
 
 ---
 
+## Setup Filters & Multi-Select Data Flow
+
+The `filters-accordion` UI dynamically coordinates multi-select controls, dependent geographic options (Countries $\rightarrow$ Cities), people match modes (ANY/ALL), date sliders, and live preflight validation.
+
+See [`docs/FILTERS.md`](FILTERS.md) for the full architecture, interaction matrix, cascading dependency graph, and preflight feedback loop.
+
+---
+
 ## Game Mode Extensibility Architecture
 
 Game modes implement the `BaseGameModeEngine` abstract interface in `src/game/modes.py`:

@@ -1500,9 +1500,39 @@ def test_multi_library_isolated_sync(meta_store: MetadataStore) -> None:
     meta_store.upsert_tags('Rafael', [{'id': 't1', 'name': 'Vacation'}, {'id': 't2', 'name': 'Favorites'}])
 
     assets_lib1 = [
-        {'id': 'ast-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 20.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2022-01-01T12:00:00'},
-        {'id': 'ast-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 11.0, 'longitude': 21.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2022-02-01T12:00:00'},
-        {'id': 'ast-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 12.0, 'longitude': 22.0, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2022-03-01T12:00:00'},
+        {
+            'id': 'ast-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 20.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2022-01-01T12:00:00',
+        },
+        {
+            'id': 'ast-2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 11.0,
+            'longitude': 21.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2022-02-01T12:00:00',
+        },
+        {
+            'id': 'ast-3',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 12.0,
+            'longitude': 22.0,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2022-03-01T12:00:00',
+        },
     ]
     meta_store.upsert_assets_batch(
         'Rafael',
@@ -1517,13 +1547,45 @@ def test_multi_library_isolated_sync(meta_store: MetadataStore) -> None:
 
     # 2. Setup Library 2: Savi-Japjec (assets 2, 3 overlapping with Rafael, plus 4)
     meta_store.upsert_people('Savi-Japjec', [{'id': 'p2', 'name': 'Bob'}, {'id': 'p3', 'name': 'Charlie'}])
-    meta_store.upsert_albums('Savi-Japjec', [{'id': 'alb2', 'name': 'Family Shared'}, {'id': 'alb3', 'name': 'Savi Wedding'}])
+    meta_store.upsert_albums(
+        'Savi-Japjec', [{'id': 'alb2', 'name': 'Family Shared'}, {'id': 'alb3', 'name': 'Savi Wedding'}]
+    )
     meta_store.upsert_tags('Savi-Japjec', [{'id': 't2', 'name': 'Favorites'}, {'id': 't3', 'name': 'Nature'}])
 
     assets_lib2 = [
-        {'id': 'ast-2', 'is_shared': 1, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 11.0, 'longitude': 21.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2022-02-01T12:00:00'},
-        {'id': 'ast-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 12.0, 'longitude': 22.0, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2022-03-01T12:00:00'},
-        {'id': 'ast-4', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 13.0, 'longitude': 23.0, 'country': 'Japan', 'city': 'Tokyo', 'capture_datetime': '2022-04-01T12:00:00'},
+        {
+            'id': 'ast-2',
+            'is_shared': 1,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 11.0,
+            'longitude': 21.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2022-02-01T12:00:00',
+        },
+        {
+            'id': 'ast-3',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 12.0,
+            'longitude': 22.0,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2022-03-01T12:00:00',
+        },
+        {
+            'id': 'ast-4',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 13.0,
+            'longitude': 23.0,
+            'country': 'Japan',
+            'city': 'Tokyo',
+            'capture_datetime': '2022-04-01T12:00:00',
+        },
     ]
     meta_store.upsert_assets_batch(
         'Savi-Japjec',
@@ -1573,12 +1635,52 @@ def test_multi_album_filtering_across_libraries(meta_store: MetadataStore) -> No
     meta_store.upsert_albums('lib2', [{'id': 'alb-c', 'name': 'Spring'}, {'id': 'alb-d', 'name': 'Autumn'}])
 
     assets1 = [
-        {'id': 'img-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Italy', 'city': 'Rome', 'capture_datetime': '2023-01-01T12:00:00'},
-        {'id': 'img-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 20.0, 'longitude': 20.0, 'country': 'Spain', 'city': 'Madrid', 'capture_datetime': '2023-02-01T12:00:00'},
+        {
+            'id': 'img-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Italy',
+            'city': 'Rome',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'img-2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 20.0,
+            'longitude': 20.0,
+            'country': 'Spain',
+            'city': 'Madrid',
+            'capture_datetime': '2023-02-01T12:00:00',
+        },
     ]
     assets2 = [
-        {'id': 'img-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 30.0, 'longitude': 30.0, 'country': 'Germany', 'city': 'Berlin', 'capture_datetime': '2023-03-01T12:00:00'},
-        {'id': 'img-4', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 40.0, 'longitude': 40.0, 'country': 'Japan', 'city': 'Kyoto', 'capture_datetime': '2023-04-01T12:00:00'},
+        {
+            'id': 'img-3',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 30.0,
+            'longitude': 30.0,
+            'country': 'Germany',
+            'city': 'Berlin',
+            'capture_datetime': '2023-03-01T12:00:00',
+        },
+        {
+            'id': 'img-4',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 40.0,
+            'longitude': 40.0,
+            'country': 'Japan',
+            'city': 'Kyoto',
+            'capture_datetime': '2023-04-01T12:00:00',
+        },
     ]
 
     meta_store.upsert_assets_batch('lib1', assets1, [], [('img-1', 'alb-a'), ('img-2', 'alb-b')])
@@ -1605,14 +1707,66 @@ def test_multi_album_filtering_across_libraries(meta_store: MetadataStore) -> No
 def test_optimized_ownership_and_safeguards_query(meta_store: MetadataStore) -> None:
     """Verify that get_asset_counts and get_facet_counts correctly exclude shared/partner assets."""
     meta_store.upsert_albums('lib1', [{'id': 'shared-alb', 'name': 'Shared Trip', 'isShared': 1}])
-    meta_store.upsert_people('lib1', [{'id': 'p-black', 'name': 'Blocked Person'}, {'id': 'p-ok', 'name': 'Good Person'}])
+    meta_store.upsert_people(
+        'lib1', [{'id': 'p-black', 'name': 'Blocked Person'}, {'id': 'p-ok', 'name': 'Good Person'}]
+    )
 
     assets = [
-        {'id': 'a-ok', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
-        {'id': 'a-shared', 'is_shared': 1, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
-        {'id': 'a-partner', 'is_shared': 0, 'is_partner': 1, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
-        {'id': 'a-in-shared-alb', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
-        {'id': 'a-blocked-person', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+        {
+            'id': 'a-ok',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'a-shared',
+            'is_shared': 1,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'a-partner',
+            'is_shared': 0,
+            'is_partner': 1,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'a-in-shared-alb',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'a-blocked-person',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
     ]
 
     meta_store.upsert_assets_batch(
@@ -1636,6 +1790,3 @@ def test_optimized_ownership_and_safeguards_query(meta_store: MetadataStore) -> 
 
     candidates = meta_store.fetch_candidate_assets(criteria)
     assert list(candidates.keys()) == ['a-ok']
-
-
-

@@ -1242,14 +1242,74 @@ def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
     meta_store.upsert_albums('lib2', [{'id': 'alb-2', 'name': 'Album 2'}])
 
     assets1 = [
-        {'id': 'a-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
-        {'id': 'a-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 20.0, 'longitude': 20.0, 'country': 'Brazil', 'city': 'Sao Paulo', 'capture_datetime': '2023-02-01T12:00:00'},
-        {'id': 'a-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 25.0, 'longitude': 25.0, 'country': 'Brazil', 'city': 'Curitiba', 'capture_datetime': '2023-02-15T12:00:00'},
+        {
+            'id': 'a-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'a-2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 20.0,
+            'longitude': 20.0,
+            'country': 'Brazil',
+            'city': 'Sao Paulo',
+            'capture_datetime': '2023-02-01T12:00:00',
+        },
+        {
+            'id': 'a-3',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 25.0,
+            'longitude': 25.0,
+            'country': 'Brazil',
+            'city': 'Curitiba',
+            'capture_datetime': '2023-02-15T12:00:00',
+        },
     ]
     assets2 = [
-        {'id': 'a-4', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 30.0, 'longitude': 30.0, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2023-03-01T12:00:00'},
-        {'id': 'a-5', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 40.0, 'longitude': 40.0, 'country': 'France', 'city': 'Lyon', 'capture_datetime': '2023-04-01T12:00:00'},
-        {'id': 'a-6', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 45.0, 'longitude': 45.0, 'country': 'France', 'city': 'Nice', 'capture_datetime': '2023-05-01T12:00:00'},
+        {
+            'id': 'a-4',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 30.0,
+            'longitude': 30.0,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2023-03-01T12:00:00',
+        },
+        {
+            'id': 'a-5',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 40.0,
+            'longitude': 40.0,
+            'country': 'France',
+            'city': 'Lyon',
+            'capture_datetime': '2023-04-01T12:00:00',
+        },
+        {
+            'id': 'a-6',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 45.0,
+            'longitude': 45.0,
+            'country': 'France',
+            'city': 'Nice',
+            'capture_datetime': '2023-05-01T12:00:00',
+        },
     ]
     meta_store.upsert_assets_batch('lib1', assets1, [], [('a-1', 'alb-1'), ('a-2', 'alb-1'), ('a-3', 'alb-1')])
     meta_store.upsert_assets_batch('lib2', assets2, [], [('a-4', 'alb-2'), ('a-5', 'alb-2'), ('a-6', 'alb-2')])
@@ -1280,7 +1340,14 @@ def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
         assert q['asset_id'] in {'a-1', 'a-2', 'a-3', 'a-4', 'a-5', 'a-6'}
         drawn_ids.append(q['asset_id'])
         # Answer to advance
-        client.post('/api/answer', json={'match_id': match_id, 'question_id': q['question_id'], 'guessed_latitude': 10.0, 'guessed_longitude': 10.0})
+        client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': q['question_id'],
+                'guessed_latitude': 10.0,
+                'guessed_longitude': 10.0,
+            },
+        )
 
     assert len(set(drawn_ids)) == 5
-

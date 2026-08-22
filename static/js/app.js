@@ -223,6 +223,7 @@ async function startMatch(event) {
   const albumIds = albumMultiSelect ? albumMultiSelect.getSelectedIds() : [];
   const albumNames = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((i) => i.name) : [];
   const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
+  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
 
   const payload = {
     players,

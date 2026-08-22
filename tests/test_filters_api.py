@@ -193,7 +193,16 @@ def test_preflight_custom_filters_validation(tmp_path: Path) -> None:
     response = client.post('/api/game/preflight', json=payload)
     assert response.status_code == 200
     res_data = response.json()
-    assert res_data['active_filters'] == ['location', 'date', 'libraries', 'albums', 'people', 'countries', 'cities', 'date_range']
+    assert res_data['active_filters'] == [
+        'location',
+        'date',
+        'libraries',
+        'albums',
+        'people',
+        'countries',
+        'cities',
+        'date_range',
+    ]
     assert res_data['min_date'] == '2022-01-01'
     assert res_data['max_date'] == '2024-01-01'
 
@@ -654,33 +663,43 @@ def test_multi_library_filters_and_preflight(tmp_path: Path) -> None:
     meta_store.upsert_albums('travel', [{'id': 'alb-2', 'name': 'Travel Album'}])
 
     # Seed assets into distinct libraries in metadata store
-    meta_store.upsert_assets_batch('family', [
-        {
-            'id': 'fam-1',
-            'file_type': 'IMAGE',
-            'latitude': -22.90,
-            'longitude': -43.17,
-            'capture_datetime': '2023-01-01T12:00:00',
-            'country': 'Brazil',
-            'city': 'Rio',
-            'is_shared': 0,
-            'is_partner': 0,
-        }
-    ], [('fam-1', 'p1')], [('fam-1', 'alb-1')])
+    meta_store.upsert_assets_batch(
+        'family',
+        [
+            {
+                'id': 'fam-1',
+                'file_type': 'IMAGE',
+                'latitude': -22.90,
+                'longitude': -43.17,
+                'capture_datetime': '2023-01-01T12:00:00',
+                'country': 'Brazil',
+                'city': 'Rio',
+                'is_shared': 0,
+                'is_partner': 0,
+            }
+        ],
+        [('fam-1', 'p1')],
+        [('fam-1', 'alb-1')],
+    )
 
-    meta_store.upsert_assets_batch('travel', [
-        {
-            'id': 'trv-1',
-            'file_type': 'IMAGE',
-            'latitude': 35.67,
-            'longitude': 139.65,
-            'capture_datetime': '2023-06-01T12:00:00',
-            'country': 'Japan',
-            'city': 'Tokyo',
-            'is_shared': 0,
-            'is_partner': 0,
-        }
-    ], [('trv-1', 'p2')], [('trv-1', 'alb-2')])
+    meta_store.upsert_assets_batch(
+        'travel',
+        [
+            {
+                'id': 'trv-1',
+                'file_type': 'IMAGE',
+                'latitude': 35.67,
+                'longitude': 139.65,
+                'capture_datetime': '2023-06-01T12:00:00',
+                'country': 'Japan',
+                'city': 'Tokyo',
+                'is_shared': 0,
+                'is_partner': 0,
+            }
+        ],
+        [('trv-1', 'p2')],
+        [('trv-1', 'alb-2')],
+    )
 
     # 1. Test /api/albums across multiple libraries
     res_albums = client.get('/api/albums?libraries=family&libraries=travel')
@@ -764,10 +783,30 @@ def test_multi_library_and_multi_album_filters_api(tmp_path: Path) -> None:
     meta_store.upsert_albums('lib2', [{'id': 'alb-2', 'name': 'Lib2 Album'}])
 
     assets1 = [
-        {'id': 'p-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': -22.9, 'longitude': -43.1, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+        {
+            'id': 'p-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': -22.9,
+            'longitude': -43.1,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
     ]
     assets2 = [
-        {'id': 'p-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 48.8, 'longitude': 2.3, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2023-02-01T12:00:00'},
+        {
+            'id': 'p-2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 48.8,
+            'longitude': 2.3,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2023-02-01T12:00:00',
+        },
     ]
     meta_store.upsert_assets_batch('lib1', assets1, [], [('p-1', 'alb-1')])
     meta_store.upsert_assets_batch('lib2', assets2, [], [('p-2', 'alb-2')])
@@ -802,4 +841,3 @@ def test_multi_library_and_multi_album_filters_api(tmp_path: Path) -> None:
     assert pf['eligible_count'] == 2
     assert pf['facet_counts']['albums']['alb-1'] == 1
     assert pf['facet_counts']['albums']['alb-2'] == 1
-

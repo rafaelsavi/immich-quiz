@@ -195,3 +195,14 @@ def test_bilingual_i18n_keys_present() -> None:
     for key in required_keys:
         matches = len(re.findall(rf'"{re.escape(key)}":', content))
         assert matches >= 2, f"Key '{key}' should exist in both EN and PT dictionaries (found {matches} occurrences)"
+
+
+def test_start_match_includes_date_range_slider_payload() -> None:
+    app_js = STATIC_DIR / 'js' / 'app.js'
+    assert app_js.exists(), f'{app_js} does not exist'
+    content = app_js.read_text(encoding='utf-8')
+
+    # Verify startMatch extracts minDate and maxDate from dateRangeSlider before constructing payload
+    assert 'const { minDate, maxDate } = dateRangeSlider' in content
+    assert 'min_date: minDate' in content
+    assert 'max_date: maxDate' in content

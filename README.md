@@ -151,6 +151,8 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 - [CHANGELOG.md](CHANGELOG.md) — release history and notable changes
 - [docs/GAMEPLAY.md](docs/GAMEPLAY.md) — gameplay rules, setup parameters, and UI walkthrough
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module design, anti-cheat boundary, and data flow
+- [docs/FILTERS.md](docs/FILTERS.md) — setup filter architecture, cascading multi-selects, and live preflight validation
+- [docs/SYNC.md](docs/SYNC.md) — metadata synchronization engine, SQLite schema, and background worker architecture
 - [docs/API.md](docs/API.md) — full API contract and response schemas
 - [docs/SCORING.md](docs/SCORING.md) — mathematical scoring formulas and decay reference tables
 - [docs/AUDIO_PLAYGROUND.md](docs/AUDIO_PLAYGROUND.md) — Web Audio sound engine documentation and testing playground guide

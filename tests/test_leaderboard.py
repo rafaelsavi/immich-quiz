@@ -102,7 +102,9 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     assert entry.config.libraries == ['family']
 
     # Test min_date and max_date filtering (loose mode)
-    date_filtered = store.list_entries(LeaderboardQuery(min_date=date(2023, 1, 1), max_date=date(2023, 12, 31), exact_filter_match=False))
+    date_filtered = store.list_entries(
+        LeaderboardQuery(min_date=date(2023, 1, 1), max_date=date(2023, 12, 31), exact_filter_match=False)
+    )
     assert len(date_filtered) == 1
     assert date_filtered[0].match_id == 'm1'
 
@@ -118,10 +120,17 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     assert len(city_filtered) == 1
     assert store.list_entries(LeaderboardQuery(cities=['Paris'], exact_filter_match=False)) == []
 
-    person_filtered = store.list_entries(LeaderboardQuery(person_ids=['p1', 'p2'], people_mode=PeopleMode.ALL, exact_filter_match=False))
+    person_filtered = store.list_entries(
+        LeaderboardQuery(person_ids=['p1', 'p2'], people_mode=PeopleMode.ALL, exact_filter_match=False)
+    )
     assert len(person_filtered) == 1
     assert store.list_entries(LeaderboardQuery(person_ids=['p3'], exact_filter_match=False)) == []
-    assert store.list_entries(LeaderboardQuery(person_ids=['p1', 'p2'], people_mode=PeopleMode.ANY, exact_filter_match=False)) == []
+    assert (
+        store.list_entries(
+            LeaderboardQuery(person_ids=['p1', 'p2'], people_mode=PeopleMode.ANY, exact_filter_match=False)
+        )
+        == []
+    )
 
     # Check direct db rows in matches and match_round_guesses
     db = DatabaseManager(db_path)
@@ -352,7 +361,9 @@ def test_leaderboard_custom_filter_isolation(tmp_path: Path) -> None:
     # 5. Date range only
     store.append_match(
         match_id='m-dates',
-        config=BaseGameConfig(libraries=['main'], round_count=5, min_date=date(2022, 1, 1), max_date=date(2022, 12, 31)),
+        config=BaseGameConfig(
+            libraries=['main'], round_count=5, min_date=date(2022, 1, 1), max_date=date(2022, 12, 31)
+        ),
         player_scores={'Alice': {'total': 700}},
     )
 
@@ -391,7 +402,9 @@ def test_leaderboard_custom_filter_isolation(tmp_path: Path) -> None:
     assert person_res[0].match_id == 'm-person'
 
     # Query Date Range only
-    date_res = store.list_entries(LeaderboardQuery(libraries=['main'], min_date=date(2022, 1, 1), max_date=date(2022, 12, 31)))
+    date_res = store.list_entries(
+        LeaderboardQuery(libraries=['main'], min_date=date(2022, 1, 1), max_date=date(2022, 12, 31))
+    )
     assert len(date_res) == 1
     assert date_res[0].match_id == 'm-dates'
 
@@ -668,7 +681,9 @@ def test_leaderboard_player_count_and_play_mode_filters(tmp_path: Path) -> None:
     assert row_local['player_count'] == 2
     assert row_local['play_mode'] == 'local'
 
-    row_ch = db.fetch_one('SELECT player_count, play_mode, challenge_id FROM matches WHERE match_id = ?', ('m-challenge-1p',))
+    row_ch = db.fetch_one(
+        'SELECT player_count, play_mode, challenge_id FROM matches WHERE match_id = ?', ('m-challenge-1p',)
+    )
     assert row_ch is not None
     assert row_ch['player_count'] == 1
     assert row_ch['play_mode'] == 'challenge'
@@ -782,7 +797,8 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
 
     db = DatabaseManager(db_path)
     guesses = db.fetch_all(
-        'SELECT photo_index, game_mode, round_score, is_correct_location, is_correct_date_order, distance_km FROM match_round_guesses WHERE match_id = ? ORDER BY photo_index ASC',
+        'SELECT photo_index, game_mode, round_score, is_correct_location, is_correct_date_order, distance_km '
+        'FROM match_round_guesses WHERE match_id = ? ORDER BY photo_index ASC',
         ('m-shuffle',),
     )
     assert len(guesses) == 3

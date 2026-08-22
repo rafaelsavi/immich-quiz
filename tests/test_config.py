@@ -478,4 +478,3 @@ def test_app_settings_dataclass_port_and_decay_validation() -> None:
             immich_libraries={'a': 'b'},
             date_score_decay_days=float('inf'),
         )
-

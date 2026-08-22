@@ -76,8 +76,7 @@ class SyncEngine:
         # Determine overall sync status
         has_error = any(s.get('sync_status') == SyncStatus.error.value for s in states)
         never_synced = (
-            all(not s.get('last_sync_at') and (s.get('synced_assets') or 0) == 0 for s in states)
-            and not is_syncing
+            all(not s.get('last_sync_at') and (s.get('synced_assets') or 0) == 0 for s in states) and not is_syncing
         )
 
         if is_syncing:

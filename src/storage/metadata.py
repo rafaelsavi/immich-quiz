@@ -802,7 +802,9 @@ class MetadataStore:
                     f"""EXISTS (
                         SELECT 1
                         FROM asset_people ap
-                        WHERE ap.asset_id = a.id AND ap.library_name = a.library_name AND ap.person_id IN ({placeholders})
+                        WHERE ap.asset_id = a.id
+                          AND ap.library_name = a.library_name
+                          AND ap.person_id IN ({placeholders})
                     )"""
                 )
                 params.extend(criteria.person_ids)
@@ -1148,7 +1150,7 @@ class MetadataStore:
             params.extend(tuple(libraries))
         if not include_shared:
             clauses.append('is_shared = 0')
-        where_str = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+        where_str = f'WHERE {" AND ".join(clauses)}' if clauses else ''
         sql = f'SELECT DISTINCT id, name FROM albums {where_str} ORDER BY name COLLATE NOCASE'
         rows = self._db.fetch_all(sql, tuple(params))
         return [{'id': str(r['id']), 'name': str(r['name'])} for r in rows]
@@ -1165,7 +1167,7 @@ class MetadataStore:
             placeholders = ', '.join('?' for _ in libraries)
             clauses.append(f'library_name IN ({placeholders})')
             params.extend(tuple(libraries))
-        where_str = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+        where_str = f'WHERE {" AND ".join(clauses)}' if clauses else ''
         sql = f'SELECT DISTINCT id, name FROM tags {where_str} ORDER BY name COLLATE NOCASE'
         rows = self._db.fetch_all(sql, tuple(params))
         tags: list[dict[str, str]] = []
