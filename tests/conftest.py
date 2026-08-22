@@ -58,9 +58,9 @@ def setup_payload(**overrides: Any) -> dict[str, Any]:
         'round_length': '1m',
         'location_mode': True,
         'date_mode': True,
-        'library_name': 'family',
+        'libraries': [],
         'album_ids': [],
-        'album_name': '-',
+        'album_names': [],
     }
     payload.update(overrides)
     return payload
@@ -300,11 +300,12 @@ def build_client(
     city_blacklist: frozenset[str] = frozenset(),
     people_whitelist: frozenset[str] = frozenset(),
     people_blacklist: frozenset[str] = frozenset(),
+    immich_libraries: dict[str, str] | None = None,
     auto_seed: bool = True,
 ) -> TestClient:
     settings = AppSettings(
         immich_server_url='https://placeholder.example.com/api',
-        immich_libraries={'family': 'token'},
+        immich_libraries=immich_libraries or {'family': 'token'},
         app_title=app_title,
         app_tagline=app_tagline,
         date_lower_bound=date_lower_bound,
@@ -326,7 +327,8 @@ def build_client(
     app = create_app(settings=settings)
     app.state.immich_client = immich
     if auto_seed and hasattr(app.state, 'metadata_store'):
-        seed_test_metadata(app.state.metadata_store, 'family', immich)
+        for lib in settings.immich_libraries:
+            seed_test_metadata(app.state.metadata_store, lib, immich)
     return TestClient(app)
 
 

@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Any
+from typing import Annotated, Any
 
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
@@ -14,6 +14,7 @@ from src.models import (
     GameSetupRequest,
     GameSetupResponse,
     LeaderboardEntry,
+    LeaderboardQuery,
     LibraryFiltersResponse,
     MatchSummaryResponse,
     PeopleMode,
@@ -44,6 +45,9 @@ def invalidate_filters_cache(library_name: str | None = None) -> None:
     """Invalidate cached library filter responses (e.g. after sync completion)."""
     if library_name is not None:
         _filters_cache.pop(library_name, None)
+        to_remove = [k for k in _filters_cache if isinstance(k, tuple) and library_name in k]
+        for k in to_remove:
+            _filters_cache.pop(k, None)
     else:
         _filters_cache.clear()
 
@@ -109,91 +113,58 @@ async def libraries(request: Request, immich: ImmichClient = Depends(get_immich_
 
 @router.get('/albums')
 async def albums(
-    library_name: str,
+    libraries: list[str] | None = Query(default=None),
     metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> dict[str, list[dict[str, str]]]:
-    return {'albums': metadata_store.get_albums(library_name, include_shared=True)}
+    return {'albums': metadata_store.get_albums(libraries, include_shared=True)}
 
 
 @router.get('/filters', response_model=LibraryFiltersResponse)
 async def library_filters(
-    library_name: str,
     request: Request,
+    libraries: list[str] | None = Query(default=None),
     metadata_store: MetadataStore = Depends(get_metadata_store),
 ) -> LibraryFiltersResponse:
     settings: AppSettings = request.app.state.settings
+    cache_key = tuple(sorted(libraries)) if libraries else ()
 
     # Check TTL cache first (evicts automatically after FILTERS_CACHE_TTL_SECONDS)
-    cached = _filters_cache.get(library_name)
+    cached = _filters_cache.get(cache_key)
     if cached is not None:
         return cached
 
-    response = metadata_store.get_filter_options(library_name, settings)
-    _filters_cache[library_name] = response
+    response = metadata_store.get_filter_options(libraries, settings)
+    _filters_cache[cache_key] = response
     return response
 
 
 @router.get('/sync/status', response_model=SyncStateResponse)
 async def sync_status(
-    library_name: str,
+    request: Request,
     sync_engine: SyncEngine = Depends(get_sync_engine),
 ) -> dict[str, Any]:
-    return sync_engine.get_sync_status(library_name)
+    available = request.app.state.available_libraries
+    return sync_engine.get_sync_status(available_libraries=available)
 
 
 @router.post('/sync', response_model=SyncStateResponse)
 async def trigger_sync(
-    library_name: str,
+    request: Request,
     force_full: bool = Query(default=False),
     sync_engine: SyncEngine = Depends(get_sync_engine),
 ) -> dict[str, Any]:
-    invalidate_filters_cache(library_name)
-    sync_engine.trigger_sync(library_name, force_full=force_full)
-    return sync_engine.get_sync_status(library_name)
+    invalidate_filters_cache()
+    available = request.app.state.available_libraries
+    sync_engine.trigger_sync_all(force_full=force_full, available_libraries=available)
+    return sync_engine.get_sync_status(available_libraries=available)
 
 
 @router.get('/leaderboard', response_model=list[LeaderboardEntry])
 async def leaderboard(
+    query: Annotated[LeaderboardQuery, Query()],
     store: LeaderboardStore = Depends(get_leaderboard_store),
-    rounds: int | None = Query(default=None),
-    round_length: RoundLength | None = Query(default=None),
-    location_mode: bool | None = Query(default=None),
-    date_mode: bool | None = Query(default=None),
-    game_mode: GameMode | None = Query(default=None),
-    library: str | None = Query(default=None),
-    albums: str | None = Query(default=None),
-    album_ids: str | None = Query(default=None),
-    player_name: str | None = Query(default=None),
-    min_date: date | None = Query(default=None),
-    max_date: date | None = Query(default=None),
-    countries: str | None = Query(default=None),
-    cities: str | None = Query(default=None),
-    person_ids: str | None = Query(default=None),
-    people_mode: PeopleMode | None = Query(default=None),
-    include_shared: bool | None = Query(default=None),
-    is_custom_filtered: bool | None = Query(default=None),
-    limit: int | None = Query(default=None),
 ) -> list[LeaderboardEntry]:
-    return store.list_entries(
-        rounds=rounds,
-        round_length=round_length,
-        location_mode=location_mode,
-        date_mode=date_mode,
-        game_mode=game_mode,
-        library=library,
-        albums=albums,
-        album_ids=album_ids,
-        player_name=player_name,
-        min_date=min_date,
-        max_date=max_date,
-        countries=countries,
-        cities=cities,
-        person_ids=person_ids,
-        people_mode=people_mode,
-        include_shared=include_shared,
-        is_custom_filtered=is_custom_filtered,
-        limit=limit,
-    )
+    return store.list_entries(query)
 
 
 @router.post('/game/preflight', response_model=PreflightResponse)
@@ -223,7 +194,6 @@ async def question(
 @router.get('/media/{asset_id}')
 async def media(
     asset_id: str,
-    library_name: str,
     store: SessionStore = Depends(get_session_store),
     immich: ImmichClient = Depends(get_immich_client),
     metadata_store: MetadataStore = Depends(get_metadata_store),
@@ -231,8 +201,12 @@ async def media(
     if not store.is_asset_registered(asset_id):
         raise HTTPException(status_code=404, detail='Unknown asset for any active match')
 
+    target_library = metadata_store.get_asset_library(asset_id)
+    if not target_library:
+        raise HTTPException(status_code=404, detail='Cannot resolve library for asset')
+
     try:
-        content, content_type = await immich.get_asset_bytes(library_name, asset_id)
+        content, content_type = await immich.get_asset_bytes(target_library, asset_id)
     except ImmichClientError as exc:
         metadata_store.mark_asset_invalid(asset_id)
         raise HTTPException(status_code=400, detail=str(exc)) from exc

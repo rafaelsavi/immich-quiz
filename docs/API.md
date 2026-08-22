@@ -50,9 +50,9 @@ Response:
 Libraries whose API key failed validation at startup are reported in
 `unavailable` and omitted from `libraries`. A bad key no longer stops the app.
 
-### GET /api/albums?library_name={name}
+### GET /api/albums?libraries={name}
 
-Returns available albums for the selected library. Queries the local SQLite metadata index first for 0ms response time; falls back to the Immich API if the index is unpopulated.
+Returns available albums across the specified libraries (or all configured libraries if omitted). Queries the local SQLite metadata index first for 0ms response time; falls back to the Immich API if the index is unpopulated.
 
 Response:
 
@@ -65,9 +65,9 @@ Response:
 }
 ```
 
-### GET /api/filters?library_name={name}
+### GET /api/filters?libraries={name}
 
-Returns discovered filter metadata options for the specified library, including timeline month boundaries, recognized people (respecting whitelist/blacklist rules), countries, and cities (with country association). Backed by in-memory `TTLCache` (5-minute TTL) and local SQLite index.
+Returns discovered filter metadata options across the specified libraries (or all configured libraries if omitted), including timeline month boundaries, recognized people (respecting whitelist/blacklist rules), countries, and cities (with country association). Backed by in-memory `TTLCache` (5-minute TTL) and local SQLite index.
 
 Response:
 
@@ -90,15 +90,16 @@ Response:
 }
 ```
 
-### GET /api/sync/status?library_name={name}
+### GET /api/sync/status
 
-Returns current background synchronization telemetry and status for the specified library. See [`docs/SYNC.md`](SYNC.md) for full architecture.
+Returns current background synchronization telemetry and status across all configured libraries. See [`docs/SYNC.md`](SYNC.md) for full architecture.
 
 Response:
 
 ```json
 {
-  "library_name": "family",
+  "libraries": ["family", "personal"],
+  "is_syncing": false,
   "sync_status": "idle",
   "sync_mode": "delta",
   "sync_stage": "idle",
@@ -109,13 +110,13 @@ Response:
   "synced_assets": 1240,
   "last_sync_duration_seconds": 0.35,
   "sync_error": null,
-  "warning": null
+  "warnings": {}
 }
 ```
 
-### POST /api/sync?library_name={name}&force_full=false
+### POST /api/sync?force_full=false
 
-Triggers an asynchronous background metadata sync from Immich into `data/metadata.db` and invalidates the cached filter options.
+Triggers an asynchronous background metadata sync across all configured libraries from Immich into `data/metadata.db` and invalidates cached filter options.
 
 * `force_full=false` (default): Executes an incremental **Delta Sync** querying assets modified after `last_immich_updated_at`.
 * `force_full=true`: Forces a **Full Sync** scanning all assets and pruning deleted media.
@@ -128,13 +129,13 @@ Returns the updated `sync_state` immediately while the background task runs.
 
 ### POST /api/game/preflight
 
-Validates whether the selected library and active filter criteria contain enough eligible media assets for the requested match parameters before starting a game.
+Validates whether the selected libraries and active filter criteria contain enough eligible media assets for the requested match parameters before starting a game.
 
 Request:
 
 ```json
 {
-  "library_name": "family_library",
+  "libraries": ["family_library"],
   "round_count": 10,
   "location_mode": true,
   "date_mode": true,
@@ -185,7 +186,7 @@ Request:
 
 ```json
 {
-  "library_name": "family_library",
+  "libraries": ["family_library"],
   "round_count": 10,
   "round_length": "1m",
   "location_mode": true,
@@ -206,7 +207,7 @@ Request:
 * `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
 * `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
 * `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
-* `album_name` is resolved server-side from `album_ids`.
+* `album_names` (list) are resolved server-side from `album_ids`.
 * `people_mode` supports `"ANY"` (Any person) or `"ALL"` (All selected people together).
 
 Response:
@@ -247,9 +248,7 @@ Pinpoint Response Example:
 {
   "question_id": "q-uuid-1",
   "asset_id": "asset-uuid-101",
-  "media_url": "/api/media/asset-uuid-101?library_name=family_library",
-  "library_name": "family_library",
-  "album_name": "Summer Vacation 2024",
+  "media_url": "/api/media/asset-uuid-101",
   "player_name": "Alice",
   "player_number": 1,
   "total_players": 2,
@@ -272,9 +271,7 @@ Album Shuffle Response Example:
 {
   "question_id": "q-uuid-1",
   "asset_id": "asset-uuid-101",
-  "media_url": "/api/media/asset-uuid-101?library_name=family_library",
-  "library_name": "family_library",
-  "album_name": null,
+  "media_url": "/api/media/asset-uuid-101",
   "player_name": "Alice",
   "player_number": 1,
   "total_players": 2,
@@ -287,9 +284,9 @@ Album Shuffle Response Example:
   "game_mode": "album_shuffle",
   "round_length": "1m",
   "batch_photos": [
-    { "photo_id": "asset-uuid-101", "media_url": "/api/media/asset-uuid-101?library_name=family_library" },
-    { "photo_id": "asset-uuid-102", "media_url": "/api/media/asset-uuid-102?library_name=family_library" },
-    { "photo_id": "asset-uuid-103", "media_url": "/api/media/asset-uuid-103?library_name=family_library" }
+    { "photo_id": "asset-uuid-101", "media_url": "/api/media/asset-uuid-101" },
+    { "photo_id": "asset-uuid-102", "media_url": "/api/media/asset-uuid-102" },
+    { "photo_id": "asset-uuid-103", "media_url": "/api/media/asset-uuid-103" }
   ],
   "batch_pins": [
     { "pin_id": "A", "latitude": 48.8584, "longitude": 2.2945 },
@@ -299,9 +296,10 @@ Album Shuffle Response Example:
 }
 ```
 
-### GET /api/media/{asset_id}?library_name={name}
+### GET /api/media/{asset_id}
 
 * Only asset IDs issued as a question in a live match are served (returns `404` for any unauthorized asset ID).
+* Automatically resolves the asset's source library from metadata storage.
 * Proxies re-encoded preview thumbnail bytes from Immich (carries no EXIF/GPS payload).
 * If loading fails, marks the asset as invalid in `metadata.db` to prevent future selection.
 
@@ -374,7 +372,6 @@ Response Example:
   "location_mode": true,
   "date_mode": true,
   "game_mode": "pinpoint",
-  "library_name": "family_library",
   "actual_latitude": 48.8584,
   "actual_longitude": 2.2945,
   "actual_date": "2023-07-14",
@@ -422,8 +419,8 @@ Response:
   "location_mode": true,
   "date_mode": true,
   "game_mode": "pinpoint",
-  "library_name": "family_library",
-  "album_name": "Summer Vacation 2024",
+  "libraries": ["family_library"],
+  "album_names": ["Summer Vacation 2024"],
   "finished": true,
   "winners": ["Alice"],
   "players": [
@@ -459,8 +456,7 @@ Query Parameters:
 * `location_mode`: Filter by location mode enabled (`true`/`false`)
 * `date_mode`: Filter by date mode enabled (`true`/`false`)
 * `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`)
-* `library`: Filter by library name
-* `albums`: Filter by album name (legacy display name)
+* `libraries`: Filter by JSON array or comma-separated library names
 * `album_ids`: Filter by JSON array or comma-separated album IDs
 * `player_name`: Filter by player name
 * `countries`: Filter by JSON array or comma-separated countries
@@ -471,6 +467,7 @@ Query Parameters:
 * `max_date`: Filter by latest capture date (`YYYY-MM-DD`)
 * `include_shared`: Filter by shared album media inclusion (`true`/`false`)
 * `is_custom_filtered`: Filter by preset vs customized dataset (`true`/`false`)
+* `exact_filter_match`: Filter by strict exact filter combination vs loose match (`true`/`false`, default `true`)
 * `limit`: Maximum number of entries to return
 
 Response:
@@ -502,8 +499,8 @@ Response:
       "location_mode": true,
       "date_mode": true,
       "game_mode": "pinpoint",
-      "library": "family_library",
-      "albums": "Summer Vacation 2024",
+      "libraries": ["family_library"],
+      "album_names": ["Summer Vacation 2024"],
       "album_ids": ["album-uuid-1"],
       "person_ids": [],
       "people_mode": "ANY",

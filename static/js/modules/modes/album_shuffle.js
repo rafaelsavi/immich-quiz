@@ -133,8 +133,13 @@ export const albumShuffleMode = {
     const dateCard = document.getElementById("card-goal-date");
     const dateCheckbox = document.getElementById("goal-date");
 
-    const locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
-    const dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+    let locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
+    let dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+
+    if (!locationMode && !dateMode) {
+      locationMode = true;
+      dateMode = true;
+    }
 
     return {
       game_mode: "album_shuffle",
@@ -162,11 +167,11 @@ export const albumShuffleMode = {
   unmount() {
     state.albumShuffleDisabled = false;
     if (shuffleMap) {
-      try { unregisterActiveMap(shuffleMap); shuffleMap.remove(); } catch (_) {}
+      try { unregisterActiveMap(shuffleMap); shuffleMap.remove(); } catch (_) { }
       shuffleMap = null;
     }
     if (revealShuffleMap) {
-      try { unregisterActiveMap(revealShuffleMap); revealShuffleMap.remove(); } catch (_) {}
+      try { unregisterActiveMap(revealShuffleMap); revealShuffleMap.remove(); } catch (_) { }
       revealShuffleMap = null;
     }
     shuffleMarkers = {};
@@ -297,7 +302,6 @@ export const albumShuffleMode = {
 
     const batchReveal = revealData.batch_reveal || [];
     const playerResults = revealData.results || [];
-    const libraryName = revealData.library_name || (state.currentQuestion ? state.currentQuestion.library_name : "");
     const totalPhotos = batchReveal.length;
 
     // Sort batch items in TRUE chronological order (earliest #1 to latest #N)
@@ -545,7 +549,7 @@ export const albumShuffleMode = {
     const breakdownContainer = document.createElement("div");
     breakdownContainer.className = "shuffle-breakdown-container";
 
-    renderPhotoCardsView(breakdownContainer, sortedTrueBatch, playerResults, revealData, libraryName);
+    renderPhotoCardsView(breakdownContainer, sortedTrueBatch, playerResults, revealData);
 
     // --- SECTION 4: NEXT ROUND BUTTON & ACTIONS ---
     const nextBtn = document.createElement("button");
@@ -616,13 +620,13 @@ export function getPinColor(pinId) {
   return rawColor;
 }
 
-function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData, libraryName) {
+function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData) {
   container.replaceChildren();
   const grid = document.createElement("div");
   grid.className = "shuffle-breakdown-grid";
 
   sortedTrueBatch.forEach((item, trueRankIdx) => {
-    const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(libraryName)}`;
+    const imgUrl = `/api/media/${item.photo_id}`;
     const dateStr = item.actual_date
       ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
       : "Unknown date";

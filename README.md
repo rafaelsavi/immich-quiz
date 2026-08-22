@@ -13,7 +13,7 @@ Immich Quiz is a pass-and-play trivia game that generates rounds from your Immic
 ## Playing the Game
 
 - Start the app in your browser after launching the server.
-- Select players, choose a game mode (**Pinpoint** or **Album Shuffle**), rounds, round length, guess mode, and library.
+- Select players, choose a game mode (**Pinpoint** or **Album Shuffle**), rounds, round length, guess mode, and libraries.
 - Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching).
 - Take turns guessing photo locations, capture dates, or both.
 - Review end-of-match performance awards and the leaderboard when the game ends.

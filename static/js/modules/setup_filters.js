@@ -8,6 +8,8 @@ import { loadLeaderboard, loadLeaderboardDebounced } from "./leaderboard.js";
 import { checkSyncStatus, triggerLibrarySync, renderSyncStatus } from "./sync.js";
 
 /** @type {MultiSelect|null} */
+export let libraryMultiSelect = null;
+/** @type {MultiSelect|null} */
 export let albumMultiSelect = null;
 /** @type {MultiSelect|null} */
 export let countryMultiSelect = null;
@@ -75,6 +77,17 @@ export function initPlayerInput() {
 }
 
 export function initFilterComponents() {
+  libraryMultiSelect = new MultiSelect({
+    container: document.getElementById("library-multi-select"),
+    placeholderKey: "setup.all_libraries",
+    searchPlaceholderKey: "setup.library_search_placeholder",
+    noResultsKey: "setup.no_libraries_found",
+    summaryFormatter: (count) => t("setup.libraries_selected", count),
+    onChange: () => {
+      onLibrariesChanged();
+    },
+  });
+
   albumMultiSelect = new MultiSelect({
     container: document.getElementById("album-multi-select"),
     placeholderKey: "setup.all_photos",
@@ -82,7 +95,7 @@ export function initFilterComponents() {
     noResultsKey: "setup.no_albums_found",
     summaryFormatter: (count) => t("setup.albums_selected", count),
     onChange: () => {
-      saveCurrentLibraryFilters();
+      saveCurrentFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
       loadLeaderboardDebounced();
@@ -98,7 +111,7 @@ export function initFilterComponents() {
     onChange: () => {
       const selectedCountries = countryMultiSelect.getSelectedIds();
       updateDependentCities(selectedCountries);
-      saveCurrentLibraryFilters();
+      saveCurrentFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
       loadLeaderboardDebounced();
@@ -112,7 +125,7 @@ export function initFilterComponents() {
     noResultsKey: "setup.no_cities_found",
     summaryFormatter: (count) => t("setup.cities_selected", count),
     onChange: () => {
-      saveCurrentLibraryFilters();
+      saveCurrentFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
       loadLeaderboardDebounced();
@@ -127,7 +140,7 @@ export function initFilterComponents() {
     summaryFormatter: (count) => t("setup.people_selected", count),
     onChange: () => {
       updatePeopleModeToggleVisibility();
-      saveCurrentLibraryFilters();
+      saveCurrentFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
       loadLeaderboardDebounced();
@@ -142,7 +155,7 @@ export function initFilterComponents() {
     boundMinEl: document.getElementById("date-slider-bound-min"),
     boundMaxEl: document.getElementById("date-slider-bound-max"),
     onChange: () => {
-      saveCurrentLibraryFilters();
+      saveCurrentFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
       loadLeaderboardDebounced();
@@ -150,6 +163,7 @@ export function initFilterComponents() {
   });
 
   if (state.filters) {
+    state.filters.libraryMultiSelect = libraryMultiSelect;
     state.filters.albumMultiSelect = albumMultiSelect;
     state.filters.countryMultiSelect = countryMultiSelect;
     state.filters.cityMultiSelect = cityMultiSelect;
@@ -164,7 +178,7 @@ export function initFilterComponents() {
       btn.addEventListener("click", () => {
         peopleModeToggleEl.querySelectorAll(".people-mode-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
-        saveCurrentLibraryFilters();
+        saveCurrentFilters();
         triggerPreflightDebounced();
         loadLeaderboardDebounced();
       });
@@ -177,7 +191,7 @@ export function initFilterComponents() {
       if (el.labelIncludeShared) {
         el.labelIncludeShared.classList.toggle("active", el.includeSharedCheckbox.checked);
       }
-      saveCurrentLibraryFilters();
+      saveCurrentFilters();
       updateFiltersSummaryBadge();
       triggerPreflightDebounced();
       loadLeaderboardDebounced();
@@ -187,11 +201,15 @@ export function initFilterComponents() {
   // Accordion Toggle
   const toggleBtn = document.getElementById("filters-toggle-btn");
   const contentEl = document.getElementById("filters-accordion-content");
+  const accordionEl = document.getElementById("filters-accordion");
+  const headerEl = document.getElementById("filters-accordion-header");
   if (toggleBtn && contentEl) {
     toggleBtn.addEventListener("click", () => {
       const isExpanded = toggleBtn.getAttribute("aria-expanded") === "true";
       toggleBtn.setAttribute("aria-expanded", String(!isExpanded));
       contentEl.classList.toggle("hidden", isExpanded);
+      if (accordionEl) accordionEl.classList.toggle("expanded", !isExpanded);
+      if (headerEl) headerEl.setAttribute("data-expanded", String(!isExpanded));
     });
   }
 
@@ -199,6 +217,7 @@ export function initFilterComponents() {
   const resetBtn = document.getElementById("reset-filters-btn");
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
+      if (libraryMultiSelect) libraryMultiSelect.clear();
       if (albumMultiSelect) albumMultiSelect.clear();
       if (countryMultiSelect) countryMultiSelect.clear();
       updateDependentCities([]);
@@ -213,17 +232,16 @@ export function initFilterComponents() {
         if (el.labelIncludeShared) el.labelIncludeShared.classList.remove("active");
       }
 
-      clearSavedLibraryFilters(el.library ? el.library.value : null);
-      updateFiltersSummaryBadge();
-      triggerPreflightDebounced();
-      loadLeaderboardDebounced();
+      clearSavedFilters();
+      onLibrariesChanged();
     });
   }
 
   // Manual Sync Button
   if (el.syncLibraryBtn) {
-    el.syncLibraryBtn.addEventListener("click", () => {
-      triggerLibrarySync(onLibrarySelected);
+    el.syncLibraryBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      triggerLibrarySync(onLibrariesChanged);
     });
   }
 }
@@ -241,11 +259,10 @@ export function updateDependentCities(selectedCountryNames) {
   }
 }
 
-export function saveCurrentLibraryFilters() {
-  const libraryName = el.library ? el.library.value : null;
-  if (!libraryName) return;
+export function saveCurrentFilters() {
   const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
   const filterState = {
+    libraries: libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [],
     album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
     countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
     cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
@@ -256,16 +273,15 @@ export function saveCurrentLibraryFilters() {
     include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
   };
   try {
-    localStorage.setItem(STORAGE_KEY_PREFIX + libraryName, JSON.stringify(filterState));
+    localStorage.setItem(STORAGE_KEY_PREFIX + "global", JSON.stringify(filterState));
   } catch (e) {
-    console.warn("Failed to persist library filters to localStorage", e);
+    console.warn("Failed to persist filters to localStorage", e);
   }
 }
 
-export function restoreLibraryFilters(libraryName) {
-  if (!libraryName) return;
+export function restoreFilters() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + libraryName);
+    const raw = localStorage.getItem(STORAGE_KEY_PREFIX + "global");
     if (!raw) {
       if (el.includeSharedCheckbox) {
         el.includeSharedCheckbox.checked = false;
@@ -274,6 +290,7 @@ export function restoreLibraryFilters(libraryName) {
       return;
     }
     const saved = JSON.parse(raw);
+    if (saved.libraries && libraryMultiSelect) libraryMultiSelect.setSelectedIds(saved.libraries);
     if (saved.album_ids && albumMultiSelect) albumMultiSelect.setSelectedIds(saved.album_ids);
     if (saved.countries && countryMultiSelect) {
       countryMultiSelect.setSelectedIds(saved.countries);
@@ -292,16 +309,15 @@ export function restoreLibraryFilters(libraryName) {
       if (el.labelIncludeShared) el.labelIncludeShared.classList.toggle("active", sharedChecked);
     }
   } catch (e) {
-    console.warn("Failed to restore library filters from localStorage", e);
+    console.warn("Failed to restore filters from localStorage", e);
   }
 }
 
-export function clearSavedLibraryFilters(libraryName) {
-  if (!libraryName) return;
+export function clearSavedFilters() {
   try {
-    localStorage.removeItem(STORAGE_KEY_PREFIX + libraryName);
+    localStorage.removeItem(STORAGE_KEY_PREFIX + "global");
   } catch (e) {
-    console.warn("Failed to clear library filters from localStorage", e);
+    console.warn("Failed to clear filters from localStorage", e);
   }
 }
 
@@ -335,6 +351,7 @@ export function updateFiltersSummaryBadge() {
   if (!badge) return;
 
   let count = 0;
+  if (libraryMultiSelect && libraryMultiSelect.getSelectedIds().length > 0) count++;
   if (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0) count++;
   if (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0) count++;
   if (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0) count++;
@@ -353,6 +370,7 @@ export function updateFiltersSummaryBadge() {
 }
 
 export function isCustomFilteredActive() {
+  if (libraryMultiSelect && libraryMultiSelect.getSelectedIds().length > 0) return true;
   if (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0) return true;
   if (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0) return true;
   if (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0) return true;
@@ -367,6 +385,7 @@ export function isCustomFilteredActive() {
 
 export function getActiveFilterSummary() {
   const activeCount =
+    (libraryMultiSelect && libraryMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
     (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
     (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
     (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
@@ -376,6 +395,11 @@ export function getActiveFilterSummary() {
 
   const maxItems = activeCount > 1 ? 1 : 2;
   const parts = [];
+  if (libraryMultiSelect) {
+    const libs = libraryMultiSelect.getSelectedItems();
+    if (libs.length > 0 && libs.length <= maxItems) parts.push(libs.map((l) => l.name).join(", "));
+    else if (libs.length > maxItems) parts.push(t("filters.libraries_count", libs.length));
+  }
   if (albumMultiSelect) {
     const albums = albumMultiSelect.getSelectedItems();
     if (albums.length > 0 && albums.length <= maxItems) parts.push(albums.map((a) => a.name).join(", "));
@@ -517,10 +541,18 @@ export function triggerPreflightDebounced() {
 }
 
 export async function executePreflight() {
-  if (!el.library || !el.library.value) return;
   const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
   const activeMode = getActiveMode();
   const modePayload = activeMode ? activeMode.getModePayload() : {};
+
+  const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
+
+  let locationMode = modePayload.location_mode ?? true;
+  let dateMode = modePayload.date_mode ?? true;
+  if (!locationMode && !dateMode) {
+    locationMode = true;
+    dateMode = true;
+  }
 
   const payload = {
     players: playerInput
@@ -529,10 +561,10 @@ export async function executePreflight() {
         ? el.players.value.split(",").map((n) => n.trim()).filter(Boolean)
         : [],
     round_count: el.roundCount ? parseInt(el.roundCount.value, 10) : 10,
-    location_mode: modePayload.location_mode ?? true,
-    date_mode: modePayload.date_mode ?? true,
+    location_mode: locationMode,
+    date_mode: dateMode,
     game_mode: activeMode ? activeMode.name : "pinpoint",
-    library_name: el.library.value,
+    libraries: selectedLibs,
     album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
     person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
     people_mode: getSelectedPeopleMode(),
@@ -582,16 +614,17 @@ export async function executePreflight() {
   }
 }
 
-export async function onLibrarySelected(libraryName) {
-  if (!libraryName) return;
+export async function onLibrariesChanged() {
+  const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
+  const queryParams = new URLSearchParams();
+  selectedLibs.forEach((lib) => queryParams.append("libraries", lib));
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
 
   try {
     const [albumsRes, filtersRes] = await Promise.all([
-      api(`/api/albums?library_name=${encodeURIComponent(libraryName)}`),
-      api(`/api/filters?library_name=${encodeURIComponent(libraryName)}`),
+      api(`/api/albums${queryString}`),
+      api(`/api/filters${queryString}`),
     ]);
-
-    if (el.library && el.library.value !== libraryName) return;
 
     cachedRawCities = filtersRes.cities || [];
 
@@ -608,20 +641,11 @@ export async function onLibrarySelected(libraryName) {
       }
     }
 
-    if (albumMultiSelect) albumMultiSelect.clear();
-    if (countryMultiSelect) countryMultiSelect.clear();
-    if (cityMultiSelect) cityMultiSelect.clear();
-    if (peopleMultiSelect) peopleMultiSelect.clear();
-    if (dateRangeSlider) dateRangeSlider.reset();
-    resetPeopleMode();
-
-    restoreLibraryFilters(libraryName);
-
     updatePeopleModeToggleVisibility();
+    saveCurrentFilters();
     updateFiltersSummaryBadge();
     triggerPreflightDebounced();
     loadLeaderboardDebounced();
-    checkSyncStatus(libraryName, onLibrarySelected);
   } catch (err) {
     console.error("Failed to load library filters:", err);
   }
@@ -630,23 +654,12 @@ export async function onLibrarySelected(libraryName) {
 export async function initLibraries() {
   initFilterComponents();
   const data = await api("/api/libraries");
-  if (el.library) {
-    el.library.replaceChildren();
-    data.libraries.forEach((name) => {
-      const option = document.createElement("option");
-      option.value = name;
-      option.textContent = name;
-      el.library.appendChild(option);
-    });
-
-    el.library.addEventListener("change", () => {
-      onLibrarySelected(el.library.value);
-    });
+  if (libraryMultiSelect) {
+    libraryMultiSelect.setItems((data.libraries || []).map((name) => ({ id: name, name })));
   }
-
-  if (data.libraries && data.libraries.length > 0) {
-    await onLibrarySelected(data.libraries[0]);
-  }
+  restoreFilters();
+  await onLibrariesChanged();
+  checkSyncStatus(onLibrariesChanged);
 }
 
 export function stepSelectOption(selectEl, direction) {
@@ -685,11 +698,11 @@ export function bindSelectWheelScroll(selectEl, invertScroll = false) {
 export function initWheelScrolls() {
   bindSelectWheelScroll(el.roundCount, false);
   bindSelectWheelScroll(el.roundLength, false);
-  bindSelectWheelScroll(el.library, false);
 }
 
 export function refreshFilterComponentsLanguage() {
   if (playerInput) playerInput.updateLanguage();
+  if (libraryMultiSelect) libraryMultiSelect.updateTriggerUi();
   if (albumMultiSelect) albumMultiSelect.updateTriggerUi();
   if (countryMultiSelect) countryMultiSelect.updateTriggerUi();
   if (cityMultiSelect) cityMultiSelect.updateTriggerUi();

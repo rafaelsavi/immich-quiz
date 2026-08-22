@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.i18n import SupportedLanguage, t
 from src.scoring import SCORE_MAX_POINTS
-
+from typing import Any
 # ---------------------------------------------------------------------------
 # Enums and Shared Primitives
 # ---------------------------------------------------------------------------
@@ -65,7 +65,8 @@ class SyncStage(str, Enum):
 
 
 class SyncStateResponse(BaseModel):
-    library_name: str
+    libraries: list[str] = Field(default_factory=list)
+    is_syncing: bool = False
     last_sync_at: str | None = None
     last_full_sync_at: str | None = None
     last_immich_updated_at: str | None = None
@@ -76,7 +77,7 @@ class SyncStateResponse(BaseModel):
     total_assets: int = 0
     synced_assets: int = 0
     last_sync_duration_seconds: float | None = None
-    warning: str | None = None
+    warnings: dict[str, str] = Field(default_factory=dict)
 
 
 class MapBounds(BaseModel):
@@ -132,17 +133,16 @@ class LibraryFiltersResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Game Setup & Preflight Request / Response Models
+# Game Setup, Filter Hierarchy & Preflight Models
 # ---------------------------------------------------------------------------
 
 
 def format_filter_summary(
     *,
-    album_name: str | None = None,
-    album_ids: list[str] | None = None,
+    libraries: list[str] | None = None,
+    album_names: list[str] | None = None,
     countries: list[str] | None = None,
     cities: list[str] | None = None,
-    person_ids: list[str] | None = None,
     person_names: list[str] | None = None,
     people_mode: PeopleMode | str | None = None,
     min_date: date | None = None,
@@ -153,10 +153,10 @@ def format_filter_summary(
     """Return (is_custom_filtered, summary_str) based on active filter parameters."""
     active_filters_count = sum(
         [
-            bool(album_ids or (album_name and album_name != '-')),
+            bool(album_names),
             bool(countries),
             bool(cities),
-            bool(person_names or person_ids),
+            bool(person_names),
             bool(min_date or max_date),
             bool(include_shared),
         ]
@@ -165,11 +165,16 @@ def format_filter_summary(
 
     parts: list[str] = []
 
-    if album_ids or (album_name and album_name != '-'):
-        if album_name and album_name != '-':
-            parts.append(album_name)
+    if libraries and len(libraries) > 0:
+        if len(libraries) <= max_items:
+            parts.append(', '.join(libraries))
         else:
-            parts.append(t('filters.albums_count', language, len(album_ids or [])))
+            parts.append(t('filters.libraries_count', language, len(libraries)))
+    if album_names:
+        if len(album_names) <= max_items:
+            parts.append(', '.join(album_names))
+        else:
+            parts.append(t('filters.albums_count', language, len(album_names)))
     if countries:
         if len(countries) <= max_items:
             parts.append(', '.join(countries))
@@ -185,8 +190,6 @@ def format_filter_summary(
             parts.append(', '.join(person_names))
         else:
             parts.append(t('filters.people_count', language, len(person_names)))
-    elif person_ids:
-        parts.append(t('filters.people_count', language, len(person_ids)))
     if min_date or max_date:
         if min_date and max_date:
             parts.append(t('filters.date_range', language, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
@@ -204,11 +207,10 @@ def format_filter_summary(
 
 def format_filter_tooltip(
     *,
-    album_name: str | None = None,
-    album_ids: list[str] | None = None,
+    libraries: list[str] | None = None,
+    album_names: list[str] | None = None,
     countries: list[str] | None = None,
     cities: list[str] | None = None,
-    person_ids: list[str] | None = None,
     person_names: list[str] | None = None,
     people_mode: PeopleMode | str | None = None,
     min_date: date | None = None,
@@ -219,21 +221,19 @@ def format_filter_tooltip(
     """Return a detailed multiline tooltip string listing all active filter values."""
     lines: list[str] = []
 
-    if album_ids or (album_name and album_name != '-'):
-        val = (
-            album_name
-            if (album_name and album_name != '-')
-            else t('filters.albums_count', language, len(album_ids or []))
-        )
-        lines.append(f'{t("tooltip.album", language)}: {val}')
+    if libraries and len(libraries) > 0:
+        label = t('tooltip.libraries', language) if len(libraries) > 1 else t('tooltip.library', language)
+        lines.append(f'{label}: {", ".join(libraries)}')
+    if album_names:
+        label = t('tooltip.albums', language) if len(album_names) > 1 else t('tooltip.album', language)
+        lines.append(f'{label}: {", ".join(album_names)}')
     if countries:
         lines.append(f'{t("tooltip.countries", language)}: {", ".join(countries)}')
     if cities:
         lines.append(f'{t("tooltip.cities", language)}: {", ".join(cities)}')
-    if person_names or person_ids:
-        people_list = person_names if person_names else person_ids
-        names_str = ', '.join(people_list) if people_list else ''
-        count = len(people_list or [])
+    if person_names:
+        names_str = ', '.join(person_names)
+        count = len(person_names)
         if count > 1:
             is_all = people_mode == PeopleMode.ALL or str(people_mode).upper() == 'ALL'
             prefix = t('tooltip.people_all', language) if is_all else t('tooltip.people_any', language)
@@ -255,19 +255,19 @@ def format_filter_tooltip(
     return '\n'.join(lines)
 
 
-class BaseGameConfig(BaseModel):
-    """Shared filter and mode configuration for preflight checks and game setup."""
+# ---------------------------------------------------------------------------
+# Composable Filter & Rule Models
+# ---------------------------------------------------------------------------
+
+
+class PhotoFilterScope(BaseModel):
+    """Pure dataset filter dimensions (IDs and criteria only, no presentation fields)."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    library_name: str = Field(min_length=1)
-    round_count: int = Field(default=10)
-    location_mode: bool = True
-    date_mode: bool = True
-    game_mode: GameMode = GameMode.pinpoint
+    libraries: list[str] = Field(default_factory=list)
     album_ids: list[str] = Field(default_factory=list)
     person_ids: list[str] = Field(default_factory=list)
-    person_names: list[str] = Field(default_factory=list)
     people_mode: PeopleMode = PeopleMode.ANY
     countries: list[str] = Field(default_factory=list)
     cities: list[str] = Field(default_factory=list)
@@ -276,31 +276,35 @@ class BaseGameConfig(BaseModel):
     include_shared: bool = False
 
     @model_validator(mode='after')
-    def validate_modes_and_dates(self) -> BaseGameConfig:
-        if self.round_count not in {5, 10, 20}:
-            raise ValueError('round_count must be one of: 5, 10, 20')
-        if not (self.location_mode or self.date_mode):
-            raise ValueError('At least one mode must be enabled')
+    def validate_dates(self) -> PhotoFilterScope:
         if self.min_date and self.max_date and self.min_date > self.max_date:
             raise ValueError('min_date cannot be greater than max_date')
         return self
 
+
+class FilterDisplayMeta(BaseModel):
+    """Presentation labels and resolved display metadata for filters."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    album_names: list[str] = Field(default_factory=list)
+    person_names: list[str] = Field(default_factory=list)
+
+
+class GameFilterConfig(PhotoFilterScope, FilterDisplayMeta):
+    """Combined dataset scope with resolved presentation metadata and formatter helpers."""
+
     def format_filter_summary(
         self,
-        album_name: str | None = None,
-        person_names: list[str] | None = None,
         language: SupportedLanguage = SupportedLanguage.EN,
     ) -> tuple[int, str]:
         """Return (is_custom_filtered, summary_str) for this configuration."""
-        resolved_album_name = album_name or getattr(self, 'album_name', None)
-        resolved_person_names = person_names or getattr(self, 'person_names', None)
         return format_filter_summary(
-            album_name=resolved_album_name,
-            album_ids=self.album_ids,
+            libraries=self.libraries,
+            album_names=self.album_names,
             countries=self.countries,
             cities=self.cities,
-            person_ids=self.person_ids,
-            person_names=resolved_person_names,
+            person_names=self.person_names,
             people_mode=self.people_mode,
             min_date=self.min_date,
             max_date=self.max_date,
@@ -310,26 +314,46 @@ class BaseGameConfig(BaseModel):
 
     def format_filter_tooltip(
         self,
-        album_name: str | None = None,
-        person_names: list[str] | None = None,
         language: SupportedLanguage = SupportedLanguage.EN,
     ) -> str | None:
         """Return a detailed multiline tooltip string listing all active filter values."""
-        resolved_album_name = album_name or getattr(self, 'album_name', None)
-        resolved_person_names = person_names or getattr(self, 'person_names', None)
         return format_filter_tooltip(
-            album_name=resolved_album_name,
-            album_ids=self.album_ids,
+            libraries=self.libraries,
+            album_names=self.album_names,
             countries=self.countries,
             cities=self.cities,
-            person_ids=self.person_ids,
-            person_names=resolved_person_names,
+            person_names=self.person_names,
             people_mode=self.people_mode,
             min_date=self.min_date,
             max_date=self.max_date,
             include_shared=self.include_shared,
             language=language,
         )
+
+
+class GameRulesConfig(BaseModel):
+    """Game rules and mechanics (round counts, timers, game modes)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    round_count: int = Field(default=10)
+    round_length: RoundLength = RoundLength.minute_1
+    location_mode: bool = True
+    date_mode: bool = True
+    game_mode: GameMode = GameMode.pinpoint
+
+    @model_validator(mode='after')
+    def validate_rules(self) -> GameRulesConfig:
+        if self.round_count not in {5, 10, 20}:
+            raise ValueError('round_count must be one of: 5, 10, 20')
+        if not (self.location_mode or self.date_mode):
+            raise ValueError('At least one mode must be enabled')
+        return self
+
+
+class BaseGameConfig(GameFilterConfig, GameRulesConfig):
+    """Shared filter and mode configuration for preflight checks and game setup."""
+    pass
 
 
 class PreflightRequest(BaseGameConfig):
@@ -372,8 +396,6 @@ class GameSetupRequest(BaseGameConfig):
     """Payload for initiating a match."""
 
     players: list[str] = Field(min_length=1)
-    round_length: RoundLength = RoundLength.minute_1
-    album_name: str | None = None  # Populated server-side after resolving album_ids
 
     @model_validator(mode='after')
     def normalize_players(self) -> GameSetupRequest:
@@ -386,6 +408,89 @@ class GameSetupResponse(BaseModel):
     total_turns: int
     players: list[str]
     map_bounds: MapBounds | None = None
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard Query Model
+# ---------------------------------------------------------------------------
+
+
+class LeaderboardQuery(BaseModel):
+    """Typed query parameters for searching and isolating leaderboard entries."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    # Game mechanics (optional to allow condensed aggregation across modes/rounds)
+    rounds: int | None = None
+    round_length: RoundLength | None = None
+    location_mode: bool | None = None
+    date_mode: bool | None = None
+    game_mode: GameMode | None = None
+
+    # Dataset filters with strict list typing
+    libraries: list[str] = Field(default_factory=list)
+    album_ids: list[str] = Field(default_factory=list)
+    countries: list[str] = Field(default_factory=list)
+    cities: list[str] = Field(default_factory=list)
+    person_ids: list[str] = Field(default_factory=list)
+    people_mode: PeopleMode = PeopleMode.ANY
+    min_date: date | None = None
+    max_date: date | None = None
+    include_shared: bool = False
+
+    # Search, pagination, and matching mode
+    player_name: str | None = None
+    is_custom_filtered: bool | None = None
+    exact_filter_match: bool = True
+    limit: int | None = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_query_inputs(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            for field in ('libraries', 'album_ids', 'countries', 'cities', 'person_ids'):
+                val = data.get(field)
+                if isinstance(val, str):
+                    data[field] = [x.strip() for x in val.split(',') if x.strip()]
+                elif isinstance(val, (list, tuple, set)):
+                    cleaned: list[str] = []
+                    for item in val:
+                        if isinstance(item, str) and ',' in item:
+                            cleaned.extend(x.strip() for x in item.split(',') if x.strip())
+                        elif str(item).strip():
+                            cleaned.append(str(item).strip())
+                    data[field] = cleaned
+        return data
+
+    @classmethod
+    def from_config(
+        cls,
+        config: BaseGameConfig,
+        *,
+        exact_filter_match: bool = True,
+        player_name: str | None = None,
+        limit: int | None = None,
+    ) -> LeaderboardQuery:
+        """Construct exact match query directly from a game config instance."""
+        return cls(
+            rounds=config.round_count,
+            round_length=config.round_length,
+            location_mode=config.location_mode,
+            date_mode=config.date_mode,
+            game_mode=config.game_mode,
+            libraries=list(config.libraries),
+            album_ids=list(config.album_ids),
+            countries=list(config.countries),
+            cities=list(config.cities),
+            person_ids=list(config.person_ids),
+            people_mode=config.people_mode,
+            min_date=config.min_date,
+            max_date=config.max_date,
+            include_shared=config.include_shared,
+            player_name=player_name,
+            exact_filter_match=exact_filter_match,
+            limit=limit,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -413,8 +518,6 @@ class QuestionResponse(BaseModel):
     question_id: str
     asset_id: str
     media_url: str
-    library_name: str
-    album_name: str | None = None
     player_name: str
     player_number: int
     total_players: int
@@ -520,7 +623,6 @@ class RoundResultResponse(BaseModel):
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
-    library_name: str
     actual_latitude: float | None = None
     actual_longitude: float | None = None
     actual_date: date | None = None
@@ -551,8 +653,8 @@ class MatchSummaryResponse(BaseModel):
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
-    library_name: str
-    album_name: str | None = None
+    libraries: list[str] = Field(default_factory=list)
+    album_names: list[str] = Field(default_factory=list)
     finished: bool
     winners: list[str]
     players: list[MatchSummaryPlayer]

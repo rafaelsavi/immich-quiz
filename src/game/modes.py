@@ -59,9 +59,7 @@ def build_common_question_response(
     return QuestionResponse(
         question_id=question.question_id,
         asset_id=question.asset_id,
-        media_url=f'/api/media/{question.asset_id}?library_name={state.setup.library_name}',
-        library_name=state.setup.library_name,
-        album_name=state.setup.album_name,
+        media_url=f'/api/media/{question.asset_id}',
         player_name=question.player_name,
         player_number=player_index + 1,
         total_players=len(state.setup.players),
@@ -342,7 +340,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             batch_photos = [
                 BatchPhotoItem(
                     photo_id=ba.asset_id,
-                    media_url=f'/api/media/{ba.asset_id}?library_name={state.setup.library_name}',
+                    media_url=f'/api/media/{ba.asset_id}',
                 )
                 for ba in question.batch_assets
             ]

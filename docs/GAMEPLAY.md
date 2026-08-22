@@ -18,8 +18,8 @@ Customize your match on the setup screen:
 
 Expand the **Library & Photo Filters** accordion to customize your photo pool. An active filter count badge reflects your selections:
 
-- **Library**: Select which Immich media library to pull photos from.
-- **Albums**: Search and select one or more albums, or leave empty for the full library.
+- **Libraries**: Select one or more Immich media libraries to pull photos from, or select all.
+- **Albums**: Search and select one or more albums, or leave empty for all albums across the selected libraries.
 - **Date Range**: Use the dual-handle interactive timeline slider to restrict photos to a specific year/month span.
 - **Countries & Cities**: Searchable multi-select dropdowns for geographic filtering. Selecting a country dynamically narrows the available cities to that country.
 - **People / Faces**: Filter by recognized people. When selecting multiple people, choose between:

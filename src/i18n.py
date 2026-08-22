@@ -39,6 +39,7 @@ class SupportedLanguage(str, Enum):
 CATALOGS: dict[SupportedLanguage, dict[str, Any]] = {
     SupportedLanguage.EN: {
         'filters.full_library': 'Full Library',
+        'filters.libraries_count': lambda count: f'{count} libraries' if count != 1 else '1 library',
         'filters.albums_count': lambda count: f'{count} albums' if count != 1 else '1 album',
         'filters.countries_count': lambda count: f'{count} countries' if count != 1 else '1 country',
         'filters.cities_count': lambda count: f'{count} cities' if count != 1 else '1 city',
@@ -48,6 +49,8 @@ CATALOGS: dict[SupportedLanguage, dict[str, Any]] = {
         'filters.date_until': lambda max_d: f'until {max_d}',
         'filters.shared': 'Shared',
         # Tooltip items
+        'tooltip.library': 'Library',
+        'tooltip.libraries': 'Libraries',
         'tooltip.album': 'Album',
         'tooltip.albums': 'Albums',
         'tooltip.countries': 'Countries',
@@ -63,6 +66,7 @@ CATALOGS: dict[SupportedLanguage, dict[str, Any]] = {
     },
     SupportedLanguage.PT: {
         'filters.full_library': 'Toda a Biblioteca',
+        'filters.libraries_count': lambda count: f'{count} bibliotecas' if count != 1 else '1 biblioteca',
         'filters.albums_count': lambda count: f'{count} álbuns' if count != 1 else '1 álbum',
         'filters.countries_count': lambda count: f'{count} países' if count != 1 else '1 país',
         'filters.cities_count': lambda count: f'{count} cidades' if count != 1 else '1 cidade',
@@ -72,6 +76,8 @@ CATALOGS: dict[SupportedLanguage, dict[str, Any]] = {
         'filters.date_until': lambda max_d: f'até {max_d}',
         'filters.shared': 'Compartilhadas',
         # Tooltip items
+        'tooltip.library': 'Biblioteca',
+        'tooltip.libraries': 'Bibliotecas',
         'tooltip.album': 'Álbum',
         'tooltip.albums': 'Álbuns',
         'tooltip.countries': 'Países',

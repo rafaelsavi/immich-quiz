@@ -71,7 +71,7 @@ def test_question_selection_honors_photo_date_bounds(tmp_path: Path) -> None:
 
 
 def test_albums_fetches_all_albums(client: TestClient) -> None:
-    response = client.get('/api/albums', params={'library_name': 'family'})
+    response = client.get('/api/albums', params={'libraries': ['family']})
 
     assert response.status_code == 200
     assert len(response.json()['albums']) >= 1
@@ -396,11 +396,11 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
     assert len(entries) == 1
     assert entries[0]['total_score'] == 1000
 
-    filtered_albums = client.get('/api/leaderboard?albums=-').json()
+    filtered_albums = client.get('/api/leaderboard').json()
     assert len(filtered_albums) == 1
-    assert filtered_albums[0]['config']['albums'] == '-'
+    assert filtered_albums[0]['config']['album_ids'] == []
 
-    empty_albums = client.get('/api/leaderboard?albums=NonExistent').json()
+    empty_albums = client.get('/api/leaderboard?album_ids=non-existent-id').json()
     assert len(empty_albums) == 0
 
     # Non-matching min_date
@@ -499,7 +499,7 @@ def test_players_rotate_within_a_round(tmp_path: Path) -> None:
 
 
 def test_media_rejects_asset_outside_any_match(client: TestClient) -> None:
-    response = client.get('/api/media/asset-1?library_name=family')
+    response = client.get('/api/media/asset-1')
     assert response.status_code == 404
 
 
@@ -507,16 +507,16 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
     match_id = start_match(client)
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
 
-    response = client.get(f'/api/media/{question["asset_id"]}?library_name=family')
+    response = client.get(f'/api/media/{question["asset_id"]}')
     assert response.status_code == 200
     assert response.headers['content-type'].startswith('image/jpeg')
     assert response.content == b'fake-jpg'
 
 
-def test_album_name_is_resolved_server_side(client: TestClient) -> None:
-    match_id = start_match(client, album_ids=['album-1'], album_name='Spoofed Album')
-    question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
-    assert question['album_name'] == 'Holidays'
+def test_album_names_are_resolved_server_side(client: TestClient) -> None:
+    match_id = start_match(client, album_ids=['album-1'])
+    summary = client.get(f'/api/match/{match_id}/summary').json()
+    assert summary['album_names'] == ['Holidays']
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
@@ -1099,7 +1099,7 @@ def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: 
     res = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': True,
@@ -1113,7 +1113,7 @@ def test_preflight_and_setup_respect_dynamic_partner_and_shared_flags(tmp_path: 
     res = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': True,
@@ -1225,3 +1225,62 @@ def test_finished_match_persists_four_table_relational_schema(tmp_path: Path) ->
     assert guesses[0]['time_taken_seconds'] == 10.0
     assert guesses[0]['location_points'] is not None
     assert guesses[0]['date_points'] is not None
+
+
+def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
+    """Test full match setup and question selection with multiple albums across libraries."""
+    immich = FakeImmichClient()
+    client = build_client(
+        tmp_path,
+        immich,
+        immich_libraries={'lib1': 'key1', 'lib2': 'key2'},
+        auto_seed=False,
+    )
+    meta_store = client.app.state.metadata_store  # type: ignore
+
+    meta_store.upsert_albums('lib1', [{'id': 'alb-1', 'name': 'Album 1'}])
+    meta_store.upsert_albums('lib2', [{'id': 'alb-2', 'name': 'Album 2'}])
+
+    assets1 = [
+        {'id': 'a-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+        {'id': 'a-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 20.0, 'longitude': 20.0, 'country': 'Brazil', 'city': 'Sao Paulo', 'capture_datetime': '2023-02-01T12:00:00'},
+        {'id': 'a-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 25.0, 'longitude': 25.0, 'country': 'Brazil', 'city': 'Curitiba', 'capture_datetime': '2023-02-15T12:00:00'},
+    ]
+    assets2 = [
+        {'id': 'a-4', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 30.0, 'longitude': 30.0, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2023-03-01T12:00:00'},
+        {'id': 'a-5', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 40.0, 'longitude': 40.0, 'country': 'France', 'city': 'Lyon', 'capture_datetime': '2023-04-01T12:00:00'},
+        {'id': 'a-6', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 45.0, 'longitude': 45.0, 'country': 'France', 'city': 'Nice', 'capture_datetime': '2023-05-01T12:00:00'},
+    ]
+    meta_store.upsert_assets_batch('lib1', assets1, [], [('a-1', 'alb-1'), ('a-2', 'alb-1'), ('a-3', 'alb-1')])
+    meta_store.upsert_assets_batch('lib2', assets2, [], [('a-4', 'alb-2'), ('a-5', 'alb-2'), ('a-6', 'alb-2')])
+
+    # Start match selecting both libraries and both albums
+    res = client.post(
+        '/api/game/setup',
+        json={
+            'players': ['Alice'],
+            'round_count': 5,
+            'round_length': '1m',
+            'location_mode': True,
+            'date_mode': True,
+            'game_mode': 'pinpoint',
+            'libraries': ['lib1', 'lib2'],
+            'album_ids': ['alb-1', 'alb-2'],
+        },
+    )
+    assert res.status_code == 200
+    match_id = res.json()['match_id']
+
+    # Draw questions - verify only assets from alb-1 and alb-2 are drawn
+    drawn_ids = []
+    for _ in range(5):
+        q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': drawn_ids})
+        assert q_res.status_code == 200
+        q = q_res.json()
+        assert q['asset_id'] in {'a-1', 'a-2', 'a-3', 'a-4', 'a-5', 'a-6'}
+        drawn_ids.append(q['asset_id'])
+        # Answer to advance
+        client.post('/api/answer', json={'match_id': match_id, 'question_id': q['question_id'], 'guessed_latitude': 10.0, 'guessed_longitude': 10.0})
+
+    assert len(set(drawn_ids)) == 5
+

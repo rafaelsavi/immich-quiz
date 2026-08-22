@@ -115,7 +115,7 @@ def test_index_html_contains_accordion_and_filter_containers() -> None:
         'filters-toggle-btn',
         'filters-summary-badge',
         'filters-accordion-content',
-        'library',
+        'library-multi-select',
         'album-multi-select',
         'date-slider-readout',
         'date-range-slider',

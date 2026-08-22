@@ -95,17 +95,17 @@ immich-quiz/
 GET /api/ui-config
   └── Returns language, max score settings, and version to frontend
 
-GET /api/sync/status?library_name={name}
-  └── Returns current synchronization status, total asset count, and synced asset progress
+GET /api/sync/status
+  └── Returns current synchronization telemetry and status across all configured libraries
 
-POST /api/sync?library_name={name}
-  └── Triggers background asynchronous metadata sync from Immich to SQLite
+POST /api/sync?force_full=false
+  └── Triggers background asynchronous metadata sync from Immich to SQLite across all configured libraries
 
-GET /api/filters?library_name={name}
-  └── Returns timeline date bounds, countries, cities (with country mapping), and people for library
+GET /api/filters?libraries={name}
+  └── Returns timeline date bounds, countries, cities (with country mapping), and people for selected libraries
   └── Queries local SQLite metadata index when populated (instant response); falls back to Immich API
   └── Backed by in-memory TTLCache (5-minute TTL) on the server
-  └── Frontend hydrates multi-selects and range slider; restores per-library localStorage
+  └── Frontend hydrates multi-selects and range slider; restores filter state from localStorage
 
 POST /api/game/preflight
   └── Validates asset pool eligibility against active filters (albums, date range, countries, cities, people)

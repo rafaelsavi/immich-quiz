@@ -7,12 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from src.models import (
+    BaseGameConfig,
     GameMode,
+    GameSetupRequest,
     LeaderboardEntry,
+    LeaderboardQuery,
     PeopleMode,
     PlayMode,
     RoundLength,
-    format_filter_summary,
 )
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.db import DatabaseManager
@@ -26,7 +28,7 @@ CREATE TABLE IF NOT EXISTS challenges (
     capability_token   TEXT UNIQUE NOT NULL,
     title              TEXT,                          -- e.g. "Summer Roadtrip 2024" (NULL = auto-generate)
     creator_name       TEXT NOT NULL,
-    library_name       TEXT NOT NULL,
+    libraries_json     TEXT,
     config_json        TEXT NOT NULL,
     asset_ids_json     TEXT NOT NULL,
     created_at         TEXT NOT NULL,
@@ -42,13 +44,13 @@ CREATE TABLE IF NOT EXISTS matches (
     room_name          TEXT,                          -- e.g. "Rafael's Lounge" (optional display name)
     play_mode          TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
     played_at          TEXT NOT NULL,
-    library_name       TEXT NOT NULL,
+    libraries_json     TEXT,
     game_mode          TEXT NOT NULL,
     rounds             INTEGER NOT NULL,
     round_length       TEXT NOT NULL,
     location_mode      INTEGER NOT NULL,
     date_mode          INTEGER NOT NULL,
-    album_name         TEXT,
+    album_names_json   TEXT,
     album_ids_json     TEXT,
     person_ids_json    TEXT,
     people_mode        TEXT DEFAULT 'ANY',
@@ -105,7 +107,7 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
 
 -- Optimized Indexes
 CREATE INDEX IF NOT EXISTS idx_matches_played_at   ON matches(played_at DESC);
-CREATE INDEX IF NOT EXISTS idx_matches_library     ON matches(library_name);
+CREATE INDEX IF NOT EXISTS idx_matches_libs_json   ON matches(libraries_json);
 CREATE INDEX IF NOT EXISTS idx_matches_challenge   ON matches(challenge_id);
 CREATE INDEX IF NOT EXISTS idx_matches_room        ON matches(room_id);
 CREATE INDEX IF NOT EXISTS idx_matches_play_mode   ON matches(play_mode);
@@ -123,63 +125,34 @@ CREATE INDEX IF NOT EXISTS idx_challenges_expires  ON challenges(expires_at);
 """
 
 
-def _canonicalize_filter_list(val: list[str] | str | None) -> str | None:
-    if val is None:
+def _canonicalize_filter_list(items: list[str] | None) -> str | None:
+    if not items:
         return None
-    if isinstance(val, str):
-        val_str = val.strip()
-        if not val_str:
-            return None
-        if val_str.startswith('[') and val_str.endswith(']'):
-            try:
-                parsed = json.loads(val_str)
-                if isinstance(parsed, list):
-                    items = [str(x).strip() for x in parsed if str(x).strip()]
-                    return json.dumps(sorted(items)) if items else None
-            except Exception:
-                pass
-        items = [x.strip() for x in val_str.split(',') if x.strip()]
-        return json.dumps(sorted(items)) if items else None
-    if isinstance(val, (list, tuple, set)):
-        items = [str(x).strip() for x in val if str(x).strip()]
-        return json.dumps(sorted(items)) if items else None
-    return None
+    cleaned = [str(x).strip() for x in items if str(x).strip()]
+    return json.dumps(sorted(cleaned)) if cleaned else None
+
+
+def _parse_json_list(val: str | None) -> list[str]:
+    return json.loads(val) if val else []
 
 
 class LeaderboardStore:
-    def __init__(
-        self,
-        db: DatabaseManager | Path,
-    ) -> None:
-        if isinstance(db, Path):
-            self._db = DatabaseManager(db)
+    def __init__(self, db_path: Path | DatabaseManager) -> None:
+        if isinstance(db_path, DatabaseManager):
+            self._db = db_path
         else:
-            self._db = db
-        self._init_schema()
+            self._db = DatabaseManager(db_path)
+        self._init_db()
 
-    def _init_schema(self) -> None:
+    def _init_db(self) -> None:
         self._db.execute_script(LEADERBOARD_SCHEMA_SQL)
 
     def append_match(
         self,
         match_id: str,
-        library_name: str,
-        album_name: str,
-        rounds_played: int,
-        round_length: RoundLength,
-        location_mode: bool,
-        date_mode: bool,
-        game_mode: GameMode,
+        config: BaseGameConfig | GameSetupRequest,
         player_scores: dict[str, dict[str, int]],
         *,
-        album_ids: list[str] | None = None,
-        person_ids: list[str] | None = None,
-        people_mode: PeopleMode = PeopleMode.ANY,
-        countries: list[str] | None = None,
-        cities: list[str] | None = None,
-        min_date: date | None = None,
-        max_date: date | None = None,
-        include_shared: bool = False,
         play_mode: PlayMode = PlayMode.local,
         challenge_id: str | None = None,
         room_id: str | None = None,
@@ -189,21 +162,12 @@ class LeaderboardStore:
         round_guesses: list[dict[str, Any]] | None = None,
     ) -> None:
         played_at = datetime.now(timezone.utc).isoformat()
-        is_custom, summary = format_filter_summary(
-            album_name=album_name,
-            album_ids=album_ids,
-            countries=countries,
-            cities=cities,
-            person_ids=person_ids,
-            min_date=min_date,
-            max_date=max_date,
-            include_shared=include_shared,
-        )
+        is_custom, summary = config.format_filter_summary()
 
         max_score = max_possible_score(
-            rounds_played,
-            location_mode,
-            date_mode,
+            config.round_count,
+            config.location_mode,
+            config.date_mode,
         )
 
         # Rank players by score descending
@@ -213,18 +177,21 @@ class LeaderboardStore:
         )
         best_total = player_scores[ordered_players[0]].get('total', 0) if ordered_players else 0
 
-        album_ids_json = _canonicalize_filter_list(album_ids)
-        person_ids_json = _canonicalize_filter_list(person_ids)
-        countries_json = _canonicalize_filter_list(countries)
-        cities_json = _canonicalize_filter_list(cities)
+        libraries_json = _canonicalize_filter_list(config.libraries)
+        album_names_json = _canonicalize_filter_list(config.album_names)
+        album_ids_json = _canonicalize_filter_list(config.album_ids)
+        person_ids_json = _canonicalize_filter_list(config.person_ids)
+        countries_json = _canonicalize_filter_list(config.countries)
+        cities_json = _canonicalize_filter_list(config.cities)
 
         with self._db.connection() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO matches (
-                    match_id, challenge_id, room_id, room_name, play_mode, played_at, library_name, game_mode,
+                    match_id, challenge_id, room_id, room_name, play_mode, played_at,
+                    libraries_json, game_mode,
                     rounds, round_length, location_mode, date_mode,
-                    album_name, album_ids_json, person_ids_json, people_mode,
+                    album_names_json, album_ids_json, person_ids_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -236,21 +203,21 @@ class LeaderboardStore:
                     room_name,
                     play_mode.value,
                     played_at,
-                    library_name,
-                    game_mode.value,
-                    rounds_played,
-                    round_length.value,
-                    1 if location_mode else 0,
-                    1 if date_mode else 0,
-                    album_name or '-',
+                    libraries_json,
+                    config.game_mode.value,
+                    config.round_count,
+                    config.round_length.value,
+                    1 if config.location_mode else 0,
+                    1 if config.date_mode else 0,
+                    album_names_json,
                     album_ids_json,
                     person_ids_json,
-                    people_mode.value,
+                    config.people_mode.value,
                     countries_json,
                     cities_json,
-                    min_date.isoformat() if min_date else None,
-                    max_date.isoformat() if max_date else None,
-                    1 if include_shared else 0,
+                    config.min_date.isoformat() if config.min_date else None,
+                    config.max_date.isoformat() if config.max_date else None,
+                    1 if config.include_shared else 0,
                     is_custom,
                     summary,
                     duration_seconds,
@@ -268,8 +235,8 @@ class LeaderboardStore:
 
                 is_winner = 1 if total == best_total else 0
                 acc_pct = accuracy_pct(total, max_score)
-                loc_score = scores.get('location') if location_mode else None
-                dt_score = scores.get('date') if date_mode else None
+                loc_score = scores.get('location') if config.location_mode else None
+                dt_score = scores.get('date') if config.date_mode else None
                 total_time = player_times.get(player) if player_times else None
 
                 conn.execute(
@@ -294,6 +261,7 @@ class LeaderboardStore:
                     ),
                 )
 
+            # Insert round guesses if provided
             if round_guesses:
                 for rg in round_guesses:
                     conn.execute(
@@ -309,10 +277,10 @@ class LeaderboardStore:
                         """,
                         (
                             rg.get('match_id', match_id),
-                            rg['player_name'],
-                            rg['round_index'],
+                            rg.get('player_name', ordered_players[0] if ordered_players else 'Player'),
+                            rg.get('round_index', 0),
                             rg.get('photo_index', 0),
-                            rg['asset_id'],
+                            rg.get('asset_id', ''),
                             rg.get('guess_latitude'),
                             rg.get('guess_longitude'),
                             rg.get('actual_latitude'),
@@ -331,173 +299,154 @@ class LeaderboardStore:
 
     def list_entries(
         self,
-        *,
-        rounds: int | None = None,
-        round_length: RoundLength | None = None,
-        location_mode: bool | None = None,
-        date_mode: bool | None = None,
-        game_mode: GameMode | None = None,
-        library: str | None = None,
-        albums: str | None = None,
-        album_ids: list[str] | str | None = None,
-        player_name: str | None = None,
-        min_date: date | str | None = None,
-        max_date: date | str | None = None,
-        countries: list[str] | str | None = None,
-        cities: list[str] | str | None = None,
-        person_ids: list[str] | str | None = None,
-        people_mode: PeopleMode | None = None,
-        include_shared: bool | None = None,
-        is_custom_filtered: bool | None = None,
-        exact_filter_match: bool = True,
-        limit: int | None = None,
+        query: LeaderboardQuery | None = None,
     ) -> list[LeaderboardEntry]:
+        q = query or LeaderboardQuery()
+
         clauses: list[str] = []
         params: list[Any] = []
 
         # Standard game setup fields
-        if rounds is not None:
+        if q.rounds is not None:
             clauses.append('m.rounds = ?')
-            params.append(rounds)
-        if round_length is not None:
+            params.append(q.rounds)
+        if q.round_length is not None:
             clauses.append('m.round_length = ?')
-            params.append(round_length.value)
-        if location_mode is not None:
+            params.append(q.round_length.value)
+        if q.location_mode is not None:
             clauses.append('m.location_mode = ?')
-            params.append(1 if location_mode else 0)
-        if date_mode is not None:
+            params.append(1 if q.location_mode else 0)
+        if q.date_mode is not None:
             clauses.append('m.date_mode = ?')
-            params.append(1 if date_mode else 0)
-        if game_mode is not None:
+            params.append(1 if q.date_mode else 0)
+        if q.game_mode is not None:
             clauses.append('m.game_mode = ?')
-            params.append(game_mode.value)
-        if library is not None and library != '':
-            clauses.append('m.library_name = ?')
-            params.append(library)
-        if player_name is not None and player_name != '':
-            clauses.append('e.player_name = ?')
-            params.append(player_name)
-        if is_custom_filtered is not None:
-            clauses.append('m.is_custom_filtered = ?')
-            params.append(1 if is_custom_filtered else 0)
+            params.append(q.game_mode.value)
 
-        is_scoped_filter = any(
-            v is not None
-            for v in (
-                albums,
-                album_ids,
-                countries,
-                cities,
-                person_ids,
-                min_date,
-                max_date,
-                include_shared,
-            )
+        if q.player_name is not None and q.player_name != '':
+            clauses.append('e.player_name = ?')
+            params.append(q.player_name)
+        if q.is_custom_filtered is not None:
+            clauses.append('m.is_custom_filtered = ?')
+            params.append(1 if q.is_custom_filtered else 0)
+
+        # Check if caller specified any filter scope dimension
+        has_filter_scope = bool(
+            q.libraries
+            or q.album_ids
+            or q.countries
+            or q.cities
+            or q.person_ids
+            or q.min_date
+            or q.max_date
+            or q.include_shared
         )
 
-        if exact_filter_match and is_scoped_filter:
-            # Exact preset isolation: unprovided filter dimensions MUST be NULL / default
-            aid_json = _canonicalize_filter_list(album_ids)
+        if q.exact_filter_match and has_filter_scope:
+            # Exact preset isolation: all filter dimensions are strictly constrained
+            libs_json = _canonicalize_filter_list(q.libraries)
+            if libs_json:
+                clauses.append('m.libraries_json = ?')
+                params.append(libs_json)
+            else:
+                clauses.append('m.libraries_json IS NULL')
+
+            aid_json = _canonicalize_filter_list(q.album_ids)
             if aid_json:
                 clauses.append('m.album_ids_json = ?')
                 params.append(aid_json)
-            elif albums is not None and albums != '' and albums != '-':
-                clauses.append('m.album_name = ?')
-                params.append(albums)
             else:
-                clauses.append('(m.album_ids_json IS NULL OR m.album_name = "-" OR m.album_name IS NULL)')
+                clauses.append('m.album_ids_json IS NULL')
 
-            c_json = _canonicalize_filter_list(countries)
+            c_json = _canonicalize_filter_list(q.countries)
             if c_json:
                 clauses.append('m.countries_json = ?')
                 params.append(c_json)
             else:
                 clauses.append('m.countries_json IS NULL')
 
-            ci_json = _canonicalize_filter_list(cities)
+            ci_json = _canonicalize_filter_list(q.cities)
             if ci_json:
                 clauses.append('m.cities_json = ?')
                 params.append(ci_json)
             else:
                 clauses.append('m.cities_json IS NULL')
 
-            p_json = _canonicalize_filter_list(person_ids)
+            p_json = _canonicalize_filter_list(q.person_ids)
             if p_json:
                 clauses.append('m.person_ids_json = ?')
                 params.append(p_json)
-                try:
-                    parsed_pids = json.loads(p_json)
-                    if len(parsed_pids) > 1 and people_mode is not None:
-                        clauses.append('m.people_mode = ?')
-                        params.append(people_mode.value)
-                except Exception:
-                    pass
+                if q.people_mode is not None and len(_parse_json_list(p_json)) > 1:
+                    clauses.append('m.people_mode = ?')
+                    params.append(q.people_mode.value)
             else:
                 clauses.append('m.person_ids_json IS NULL')
 
-            if min_date is not None:
-                min_str = min_date.isoformat() if hasattr(min_date, 'isoformat') else str(min_date)
+            if q.min_date is not None:
                 clauses.append('m.min_date = ?')
-                params.append(min_str)
+                params.append(q.min_date.isoformat())
             else:
                 clauses.append('m.min_date IS NULL')
 
-            if max_date is not None:
-                max_str = max_date.isoformat() if hasattr(max_date, 'isoformat') else str(max_date)
+            if q.max_date is not None:
                 clauses.append('m.max_date = ?')
-                params.append(max_str)
+                params.append(q.max_date.isoformat())
             else:
                 clauses.append('m.max_date IS NULL')
 
-            if include_shared is not None:
-                clauses.append('m.include_shared = ?')
-                params.append(1 if include_shared else 0)
+            if q.include_shared:
+                clauses.append('m.include_shared = 1')
             else:
                 clauses.append('(m.include_shared IS NULL OR m.include_shared = 0)')
         else:
             # Loose querying: only add conditions for explicitly provided filters
-            if include_shared is not None:
-                clauses.append('m.include_shared = ?')
-                params.append(1 if include_shared else 0)
-            aid_json = _canonicalize_filter_list(album_ids)
+            libs_json = _canonicalize_filter_list(q.libraries)
+            if libs_json:
+                clauses.append('m.libraries_json = ?')
+                params.append(libs_json)
+
+            aid_json = _canonicalize_filter_list(q.album_ids)
             if aid_json:
                 clauses.append('m.album_ids_json = ?')
                 params.append(aid_json)
-            elif albums is not None and albums != '':
-                clauses.append('m.album_name = ?')
-                params.append(albums)
 
-            if min_date is not None:
-                min_str = min_date.isoformat() if hasattr(min_date, 'isoformat') else str(min_date)
-                clauses.append('m.min_date = ?')
-                params.append(min_str)
-            if max_date is not None:
-                max_str = max_date.isoformat() if hasattr(max_date, 'isoformat') else str(max_date)
-                clauses.append('m.max_date = ?')
-                params.append(max_str)
-            if countries is not None:
-                c_json = _canonicalize_filter_list(countries)
+            if q.countries:
+                c_json = _canonicalize_filter_list(q.countries)
                 if c_json:
                     clauses.append('m.countries_json = ?')
                     params.append(c_json)
-            if cities is not None:
-                ci_json = _canonicalize_filter_list(cities)
+
+            if q.cities:
+                ci_json = _canonicalize_filter_list(q.cities)
                 if ci_json:
                     clauses.append('m.cities_json = ?')
                     params.append(ci_json)
-            if person_ids is not None:
-                p_json = _canonicalize_filter_list(person_ids)
+
+            if q.person_ids:
+                p_json = _canonicalize_filter_list(q.person_ids)
                 if p_json:
                     clauses.append('m.person_ids_json = ?')
                     params.append(p_json)
-            if people_mode is not None:
-                clauses.append('m.people_mode = ?')
-                params.append(people_mode.value)
+                    if q.people_mode is not None:
+                        clauses.append('m.people_mode = ?')
+                        params.append(q.people_mode.value)
+
+            if q.min_date is not None:
+                clauses.append('m.min_date = ?')
+                params.append(q.min_date.isoformat())
+
+            if q.max_date is not None:
+                clauses.append('m.max_date = ?')
+                params.append(q.max_date.isoformat())
+
+            if q.include_shared:
+                clauses.append('m.include_shared = ?')
+                params.append(1 if q.include_shared else 0)
 
         where_sql = f'WHERE {" AND ".join(clauses)}' if clauses else ''
-        limit_sql = f'LIMIT {int(limit)}' if limit is not None and limit > 0 else ''
+        limit_sql = f'LIMIT {int(q.limit)}' if q.limit is not None and q.limit > 0 else ''
 
-        query = f"""
+        sql = f"""
         SELECT
             e.match_id,
             m.played_at,
@@ -515,8 +464,8 @@ class LeaderboardStore:
             m.location_mode,
             m.date_mode,
             m.game_mode,
-            m.library_name,
-            m.album_name,
+            m.libraries_json,
+            m.album_names_json,
             m.album_ids_json,
             m.person_ids_json,
             m.people_mode,
@@ -541,31 +490,26 @@ class LeaderboardStore:
         {limit_sql}
         """
 
-        rows = self._db.fetch_all(query, params)
+        rows = self._db.fetch_all(sql, params)
         entries: list[LeaderboardEntry] = []
 
         for row in rows:
-            album_ids = json.loads(row['album_ids_json']) if row['album_ids_json'] else []
-            person_ids = json.loads(row['person_ids_json']) if row['person_ids_json'] else []
-            countries = json.loads(row['countries_json']) if row['countries_json'] else []
-            cities = json.loads(row['cities_json']) if row['cities_json'] else []
-
             config = {
                 'rounds': row['rounds'],
                 'round_length': row['round_length'],
                 'location_mode': bool(row['location_mode']),
                 'date_mode': bool(row['date_mode']),
                 'game_mode': row['game_mode'],
-                'library': row['library_name'],
-                'albums': row['album_name'] or '-',
-                'album_ids': album_ids,
-                'person_ids': person_ids,
+                'libraries': _parse_json_list(row['libraries_json']),
+                'album_names': _parse_json_list(row['album_names_json']),
+                'album_ids': _parse_json_list(row['album_ids_json']),
+                'person_ids': _parse_json_list(row['person_ids_json']),
                 'people_mode': row['people_mode'] or 'ANY',
-                'countries': countries,
-                'cities': cities,
+                'countries': _parse_json_list(row['countries_json']),
+                'cities': _parse_json_list(row['cities_json']),
                 'min_date': row['min_date'],
                 'max_date': row['max_date'],
-                'include_shared': bool(row['include_shared']) if 'include_shared' in row else False,
+                'include_shared': bool(row['include_shared']),
             }
 
             entries.append(
@@ -582,11 +526,11 @@ class LeaderboardStore:
                     is_winner=bool(row['is_winner']),
                     filter_summary=row['filter_summary'],
                     is_custom_filtered=bool(row['is_custom_filtered']),
-                    play_mode=PlayMode(row['play_mode']) if row.get('play_mode') else PlayMode.local,
-                    challenge_id=row.get('challenge_id'),
-                    challenge_title=row.get('challenge_title'),
-                    room_id=row.get('room_id'),
-                    room_name=row.get('room_name'),
+                    play_mode=PlayMode(row['play_mode']),
+                    challenge_id=row['challenge_id'],
+                    challenge_title=row['challenge_title'],
+                    room_id=row['room_id'],
+                    room_name=row['room_name'],
                     config=config,
                 )
             )

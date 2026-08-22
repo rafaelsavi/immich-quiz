@@ -17,27 +17,50 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
   background: transparent;
-  border: none;
   border-radius: 11px;
-  cursor: pointer;
   font-family: inherit;
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--ink, #1f2a44);
   user-select: none;
   transition: border-radius 0.2s ease;
+  gap: 0.5rem;
 }
 
-.filters-accordion-header[aria-expanded="true"] {
+.filters-accordion.expanded .filters-accordion-header {
   border-radius: 11px 11px 0 0;
+}
+
+.accordion-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: transparent;
+  border: none;
+  padding: 0.25rem 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+}
+
+.accordion-toggle-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(15, 124, 127, 0.2);
+  border-radius: 6px;
 }
 
 .accordion-title-wrap {
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  white-space: nowrap;
 }
 
 .accordion-icon {
@@ -49,6 +72,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .filters-summary-badge {
@@ -59,6 +83,7 @@
   border-radius: 999px;
   background: rgba(108, 120, 147, 0.12);
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .filters-summary-badge.has-active {
@@ -74,7 +99,8 @@
   color: #8c97ad;
 }
 
-.filters-accordion-header[aria-expanded="true"] .accordion-arrow {
+.filters-accordion.expanded .accordion-arrow,
+.filters-accordion-header[data-expanded="true"] .accordion-arrow {
   transform: rotate(180deg);
 }
 

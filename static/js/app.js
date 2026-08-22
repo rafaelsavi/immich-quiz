@@ -38,13 +38,13 @@ import { renderPolaroidGallery } from "./modules/summary/polaroids.js";
 import { shareMatchSummary } from "./modules/summary/share.js";
 import {
   playerInput,
+  libraryMultiSelect,
   albumMultiSelect,
   countryMultiSelect,
   cityMultiSelect,
   peopleMultiSelect,
   dateRangeSlider,
   getSelectedPeopleMode,
-  restoreLibraryFilters,
   triggerPreflightDebounced,
   initPlayerInput,
   initLibraries,
@@ -222,16 +222,15 @@ async function startMatch(event) {
 
   const albumIds = albumMultiSelect ? albumMultiSelect.getSelectedIds() : [];
   const albumNames = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((i) => i.name) : [];
-  const albumName = albumNames.length > 0 ? albumNames.join(", ") : "-";
-  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
+  const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
 
   const payload = {
     players,
     round_count: Number(el.roundCount.value),
     round_length: el.roundLength.value,
-    library_name: el.library.value,
+    libraries: selectedLibs,
     album_ids: albumIds,
-    album_name: albumName,
+    album_names: albumNames,
     person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
     person_names: peopleMultiSelect
       ? peopleMultiSelect.getSelectedItems().map((p) => p.name)
@@ -525,7 +524,6 @@ async function showRoundReveal(roundNumber) {
     results: reveal.results,
     batch_reveal: reveal.batch_reveal || null,
     location_mode: reveal.location_mode,
-    library_name: reveal.library_name || (state.currentQuestion ? state.currentQuestion.library_name : ""),
   };
   if (existingIdx >= 0) {
     state.roundHistory[existingIdx] = entry;
@@ -592,7 +590,7 @@ async function showMatchSummary() {
 
   renderSummaryContent(summary);
   renderJourneyMap(state.roundHistory, summary.location_mode);
-  renderPolaroidGallery(state.roundHistory, summary.library_name);
+  renderPolaroidGallery(state.roundHistory);
 
   el.leaderboardCard.classList.remove("hidden");
   await loadLeaderboard();
@@ -884,9 +882,6 @@ function applyUiConfig(config) {
   }
   if (config.score_max_points) {
     state.scoreMaxPoints = Number(config.score_max_points);
-  }
-  if (el.library && el.library.value) {
-    restoreLibraryFilters(el.library.value);
   }
   updateLanguageUi();
   updateAudioUi();

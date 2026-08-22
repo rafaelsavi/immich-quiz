@@ -61,16 +61,16 @@ The SQLite database is initialized with **Write-Ahead Logging (WAL)** mode, fore
 
 ### 3.1 Tables & Relationships
 
-| Table Name         | Primary Key             | Description                                                                                                                                                        |
-|:-------------------|:------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **`sync_state`**   | `library_name`          | Telemetry, status (`SyncStatus`), `sync_mode` (`SyncMode`), `sync_stage` (`SyncStage`), `last_immich_updated_at` (high-water mark), and duration.                  |
-| **`assets`**       | `id`                    | Core asset metadata (`file_type`, `latitude`, `longitude`, `country`, `state`, `city`, `capture_datetime`, `immich_updated_at`, `times_played`, `last_played_at`). |
-| **`people`**       | `id`                    | People discovered in Immich (`library_name`, `name`). Hidden faces are automatically excluded.                                                                     |
-| **`asset_people`** | `(asset_id, person_id)` | Junction table mapping assets to tagged individuals (`ON DELETE CASCADE`).                                                                                         |
-| **`albums`**       | `id`                    | Albums in Immich (`library_name`, `name`, `is_shared`).                                                                                                            |
-| **`asset_albums`** | `(asset_id, album_id)`  | Junction table mapping assets to album memberships (`ON DELETE CASCADE`).                                                                                          |
-| **`tags`**         | `id`                    | Immich custom tags (`library_name`, `name`).                                                                                                                       |
-| **`asset_tags`**   | `(asset_id, tag_id)`    | Junction table mapping assets to tags (`ON DELETE CASCADE`).                                                                                                       |
+| Table Name         | Primary Key                           | Description                                                                                                                                                        |
+|:-------------------|:--------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`sync_state`**   | `library_name`                        | Telemetry, status (`SyncStatus`), `sync_mode` (`SyncMode`), `sync_stage` (`SyncStage`), `last_immich_updated_at` (high-water mark), and duration per library.       |
+| **`assets`**       | `(id, library_name)`                  | Core asset metadata (`file_type`, `latitude`, `longitude`, `country`, `state`, `city`, `capture_datetime`, `immich_updated_at`, `times_played`, `last_played_at`). |
+| **`people`**       | `(id, library_name)`                  | People discovered in Immich (`library_name`, `name`). Hidden faces are automatically excluded.                                                                     |
+| **`asset_people`** | `(asset_id, person_id, library_name)` | Junction table mapping assets to tagged individuals (`ON DELETE CASCADE`).                                                                                         |
+| **`albums`**       | `(id, library_name)`                  | Albums in Immich (`library_name`, `name`, `is_shared`).                                                                                                            |
+| **`asset_albums`** | `(asset_id, album_id, library_name)`  | Junction table mapping assets to album memberships (`ON DELETE CASCADE`).                                                                                          |
+| **`tags`**         | `(id, library_name)`                  | Immich custom tags (`library_name`, `name`).                                                                                                                       |
+| **`asset_tags`**   | `(asset_id, tag_id, library_name)`    | Junction table mapping assets to tags (`ON DELETE CASCADE`).                                                                                                       |
 
 ### 3.2 Schema Diagram
 
@@ -92,7 +92,7 @@ erDiagram
 
     assets {
         string id PK
-        string library_name
+        string library_name PK
         int is_shared
         int is_partner
         string file_type
@@ -109,18 +109,19 @@ erDiagram
 
     people {
         string id PK
-        string library_name
+        string library_name PK
         string name
     }
 
     asset_people {
         string asset_id PK, FK
         string person_id PK, FK
+        string library_name PK, FK
     }
 
     albums {
         string id PK
-        string library_name
+        string library_name PK
         string name
         int is_shared
     }
@@ -128,17 +129,19 @@ erDiagram
     asset_albums {
         string asset_id PK, FK
         string album_id PK, FK
+        string library_name PK, FK
     }
 
     tags {
         string id PK
-        string library_name
+        string library_name PK
         string name
     }
 
     asset_tags {
         string asset_id PK, FK
         string tag_id PK, FK
+        string library_name PK, FK
     }
 
     assets ||--o{ asset_people : "contains"
@@ -231,49 +234,51 @@ Synchronization is fully managed by the application lifecycle:
 ### 6.1 Check Sync Status
 
 ```http
-GET /api/sync/status?library_name=family
+GET /api/sync/status
 ```
 
 **Response (200 OK):**
 
 ```json
 {
-  "library_name": "family",
+  "libraries": ["family", "personal"],
+  "is_syncing": false,
   "sync_status": "idle",
   "sync_mode": "delta",
+  "sync_stage": "idle",
   "last_sync_at": "2026-08-17T10:15:30.123456+00:00",
   "last_full_sync_at": "2026-08-17T08:00:00.000000+00:00",
   "last_immich_updated_at": "2026-08-17T10:14:02.000Z",
-  "synced_assets": 14520,
   "total_assets": 14520,
+  "synced_assets": 14520,
   "last_sync_duration_seconds": 0.42,
-  "sync_error": null
+  "sync_error": null,
+  "warnings": {}
 }
 ```
 
 ### 6.2 Trigger Sync
 
 ```http
-POST /api/sync?library_name=family&force_full=false
+POST /api/sync?force_full=false
 ```
 
 * **Query Parameters**:
-  * `library_name` (required): Name of the library to sync.
-  * `force_full` (optional, default `false`): Set `true` to force a full re-scan and prune deleted photos.
+  * `force_full` (optional, default `false`): Set `true` to force a full re-scan and prune deleted photos across all configured libraries.
 
 **Response (200 OK):**
-Returns the updated `sync_state` object immediately while the background task executes asynchronously.
+Returns the aggregated `SyncStateResponse` object immediately while background indexing tasks execute asynchronously.
 
 ---
 
 ## 7. GUI Sync Button & User Experience
 
-The web interface features an interactive, real-time **Sync Button** located directly beside the **Library** selector in the Match Setup accordion (`#sync-library-btn`).
+The web interface features an interactive, real-time **Sync Button** located directly beside the **Libraries** selector in the Match Setup accordion (`#sync-library-btn`).
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  Library  [ ⟳ Sync (Last sync: Today, 10:15 AM) ]       │
-│  [ Family Photos                      ▼ ]              │
+│  Libraries  [ ⟳ Sync (Last sync: Today, 10:15 AM) ]    │
+│  [ Family Photos ✕ ] [ Personal Photos ✕ ]             │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -281,10 +286,10 @@ The web interface features an interactive, real-time **Sync Button** located dir
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle : Library has existing index
-    [*] --> NeedsSync : Library never synced (0 assets)
+    [*] --> Idle : Libraries have existing index
+    [*] --> NeedsSync : Any library never synced (0 assets)
 
-    NeedsSync --> Syncing : User clicks 'Sync library'
+    NeedsSync --> Syncing : User clicks 'Sync'
     Idle --> Syncing : User clicks 'Sync' or Auto-Sync triggers
 
     state Syncing {
@@ -297,23 +302,23 @@ stateDiagram-v2
     Idle --> [*]
 ```
 
-| Visual State         | Button Appearance                                                      | Tooltip / Title                                                        | Behavior & User Feedback                                                                                                                                                                                                                                                     |
-|:---------------------|:-----------------------------------------------------------------------|:-----------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Idle (Synced)**    | Standard button with refresh icon and label `Sync` (or `Sincronizar`). | `Sync library metadata from Immich\nLast sync: Aug 17, 2026, 10:15 AM` | Clickable at any time. Clicking initiates an incremental **Delta Sync** for the active library.                                                                                                                                                                              |
-| **Needs Sync**       | Glowing amber highlight with label `Sync library` (`.needs-sync`).     | `Library not yet synced. Click to sync metadata from Immich.`          | Displayed when a library is selected for the first time with 0 indexed photos. A warning banner guides the user to sync before starting a match.                                                                                                                             |
-| **Syncing (Active)** | Continuously spinning SVG icon with animated border (`.syncing`).      | `Checking updates...` or `Scanning photos...`                          | Button is disabled to prevent duplicate concurrent triggers. Label updates with clear timeline stages (e.g. `Initializing...` → `Fetching albums...` → `Scanning photos...` → `250 / 5,000 (5%)` in Full Mode, or `Checking updates...` → `Updating (12)...` in Delta Mode). |
+| Visual State         | Button Appearance                                                      | Tooltip / Title                                                         | Behavior & User Feedback                                                                                                                                                                                                                                                     |
+|:---------------------|:-----------------------------------------------------------------------|:------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Idle (Synced)**    | Standard button with refresh icon and label `Sync` (or `Sincronizar`). | `Sync metadata from Immich\nLast sync: Aug 17, 2026, 10:15 AM`          | Clickable at any time. Clicking initiates an incremental **Delta Sync** across all configured libraries.                                                                                                                                                                     |
+| **Needs Sync**       | Glowing amber highlight with label `Sync libraries` (`.needs-sync`).   | `Libraries not yet synced. Click to sync metadata from Immich.`         | Displayed when configured libraries have 0 indexed photos. A warning banner guides the user to sync before starting a match.                                                                                                                                                 |
+| **Syncing (Active)** | Continuously spinning SVG icon with animated border (`.syncing`).      | `Checking updates...` or `Scanning photos...`                           | Button is disabled to prevent duplicate concurrent triggers. Label updates with clear timeline stages (e.g. `Initializing...` → `Fetching albums...` → `Scanning photos...` → `250 / 5,000 (5%)` in Full Mode, or `Checking updates...` → `Updating (12)...` in Delta Mode). |
 
 ### 7.2 What Happens When the User Clicks "Sync"?
 
 1. **Trigger Request**:
-   * The client issues a `POST /api/sync?library_name=<selected_library>`.
+   * The client issues a `POST /api/sync`.
    * The GUI immediately switches the button to the `.syncing` state with stage-aware labeling (`Checking updates...` for Delta, `Initializing...` for Full).
 2. **Real-Time Adaptive Polling**:
-   * The browser executes an immediate check at 150ms and continues with a responsive 400ms polling interval querying `GET /api/sync/status?library_name=...`.
+   * The browser executes an immediate check at 150ms and continues with a responsive 400ms polling interval querying `GET /api/sync/status`.
    * As the backend transitions between synchronization stages (`initializing`, `fetching_albums`, `scanning_assets`, `indexing_assets`, `checking_updates`, `updating_assets`, `pruning`, `finalizing`), the button label updates dynamically with granular progress.
 3. **Automated Post-Sync Hydration (Zero-Reload Update)**:
    * As soon as `sync_status` returns to `idle`, polling terminates.
-   * The GUI automatically invokes `onLibrarySelected(libraryName)`:
+   * The GUI automatically invokes `onLibrariesChanged()`:
      * **Cache Invalidation**: Flushes the browser-side filter TTL cache.
      * **Filter Re-population**: Fetches freshly discovered **Albums**, **People**, **Countries**, and **Cities**, populating all multi-select search dropdowns.
      * **Timeline Slider Expansion**: Updates the date range slider's min/max month boundaries to include any newly uploaded photos.

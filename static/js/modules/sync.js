@@ -98,20 +98,20 @@ export function renderSyncStatus(status) {
   }
 }
 
-export async function checkSyncStatus(libraryName, onSyncComplete = null) {
-  if (!libraryName) return;
+export async function checkSyncStatus(onSyncComplete = null) {
   try {
-    const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
-    if (el.library && el.library.value !== libraryName) return;
-    if (status.warning) {
-      console.warn(`[Immich Sync Warning] ${status.warning}`);
+    const status = await api("/api/sync/status");
+    if (status.warnings && Object.keys(status.warnings).length > 0) {
+      Object.entries(status.warnings).forEach(([lib, msg]) => {
+        console.warn(`[Immich Sync Warning (${lib})] ${msg}`);
+      });
     }
     if (status.sync_error) {
       console.error(`[Immich Sync Error] ${status.sync_error}`);
     }
     renderSyncStatus(status);
-    if (status.sync_status === "syncing") {
-      startSyncPolling(libraryName, onSyncComplete);
+    if (status.sync_status === "syncing" || status.is_syncing) {
+      startSyncPolling(onSyncComplete);
     } else if (_syncPollInterval) {
       clearInterval(_syncPollInterval);
       _syncPollInterval = null;
@@ -121,29 +121,28 @@ export async function checkSyncStatus(libraryName, onSyncComplete = null) {
   }
 }
 
-export function startSyncPolling(libraryName, onSyncComplete = null) {
+export function startSyncPolling(onSyncComplete = null) {
   if (_syncPollInterval) clearInterval(_syncPollInterval);
 
   const poll = async () => {
     try {
-      const status = await api(`/api/sync/status?library_name=${encodeURIComponent(libraryName)}`);
-      if (status.warning) {
-        console.warn(`[Immich Sync Warning] ${status.warning}`);
+      const status = await api("/api/sync/status");
+      if (status.warnings && Object.keys(status.warnings).length > 0) {
+        Object.entries(status.warnings).forEach(([lib, msg]) => {
+          console.warn(`[Immich Sync Warning (${lib})] ${msg}`);
+        });
       }
       if (status.sync_error) {
         console.error(`[Immich Sync Error] ${status.sync_error}`);
       }
-      const isCurrentLibrary = el.library && el.library.value === libraryName;
-      if (isCurrentLibrary) {
-        renderSyncStatus(status);
-      }
-      if (status.sync_status !== "syncing") {
+      renderSyncStatus(status);
+      if (status.sync_status !== "syncing" && !status.is_syncing) {
         if (_syncPollInterval) {
           clearInterval(_syncPollInterval);
           _syncPollInterval = null;
         }
-        if (isCurrentLibrary && onSyncComplete) {
-          await onSyncComplete(libraryName);
+        if (onSyncComplete) {
+          await onSyncComplete();
         }
       }
     } catch (e) {
@@ -156,20 +155,19 @@ export function startSyncPolling(libraryName, onSyncComplete = null) {
 }
 
 export async function triggerLibrarySync(onSyncComplete = null) {
-  const libraryName = el.library ? el.library.value : null;
-  if (!libraryName) return;
   try {
     const isDelta = Boolean(_lastSyncStatus && _lastSyncStatus.last_sync_at);
     renderSyncStatus({
       sync_status: "syncing",
+      is_syncing: true,
       sync_mode: isDelta ? "delta" : "full",
       sync_stage: isDelta ? "checking_updates" : "initializing",
-      total_assets: 0,
+      total_assets: _lastSyncStatus ? _lastSyncStatus.total_assets : 0,
       synced_assets: 0,
     });
-    const res = await api(`/api/sync?library_name=${encodeURIComponent(libraryName)}`, { method: "POST" });
+    const res = await api("/api/sync", { method: "POST" });
     if (res) renderSyncStatus(res);
-    startSyncPolling(libraryName, onSyncComplete);
+    startSyncPolling(onSyncComplete);
   } catch (err) {
     console.error("Failed to trigger sync:", err);
   }

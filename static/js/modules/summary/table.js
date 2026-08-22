@@ -78,13 +78,16 @@ export function renderSummaryMeta(summary) {
   }
 
   // 4. Library Chip
-  const libraryName = summary.library_name || "Immich";
+  const libraryLabel =
+    summary.libraries && summary.libraries.length > 0
+      ? summary.libraries.join(", ")
+      : "Immich";
   chips.push(
     createMetaChip(
       ICONS.library,
-      t("summary.meta_library", libraryName),
+      t("summary.meta_library", libraryLabel),
       "meta-library",
-      `${t("setup.library_label")}: ${libraryName}`
+      `${t("setup.library_label")}: ${libraryLabel}`
     )
   );
 
@@ -94,9 +97,7 @@ export function renderSummaryMeta(summary) {
       (summary.filter_summary &&
         summary.filter_summary !== "Full Library" &&
         summary.filter_summary !== t("leaderboard.scope_all")) ||
-      (summary.album_name &&
-        summary.album_name !== "-" &&
-        summary.album_name !== "Full Library")
+      (summary.album_names && summary.album_names.length > 0)
   );
 
   const filterText =
@@ -104,8 +105,8 @@ export function renderSummaryMeta(summary) {
     summary.filter_summary !== "Full Library" &&
     summary.filter_summary !== t("leaderboard.scope_all")
       ? summary.filter_summary
-      : summary.album_name && summary.album_name !== "-"
-        ? summary.album_name
+      : summary.album_names && summary.album_names.length > 0
+        ? summary.album_names.join(", ")
         : null;
 
   const tooltipText =

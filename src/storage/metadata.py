@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS sync_state (
 );
 
 CREATE TABLE IF NOT EXISTS assets (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     library_name TEXT NOT NULL,
     is_shared INTEGER NOT NULL DEFAULT 0,
     is_partner INTEGER NOT NULL DEFAULT 0,
@@ -53,7 +53,8 @@ CREATE TABLE IF NOT EXISTS assets (
     capture_datetime TEXT,
     immich_updated_at TEXT,
     times_played INTEGER NOT NULL DEFAULT 0,
-    last_played_at TEXT
+    last_played_at TEXT,
+    PRIMARY KEY(id, library_name)
 );
 
 CREATE INDEX IF NOT EXISTS idx_assets_lib_country ON assets(library_name, country);
@@ -65,57 +66,63 @@ CREATE INDEX IF NOT EXISTS idx_assets_lib_updated ON assets(library_name, immich
 CREATE INDEX IF NOT EXISTS idx_assets_lib_times_played ON assets(library_name, times_played);
 
 CREATE TABLE IF NOT EXISTS people (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     library_name TEXT NOT NULL,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    PRIMARY KEY(id, library_name)
 );
 
 CREATE TABLE IF NOT EXISTS asset_people (
     asset_id TEXT NOT NULL,
     person_id TEXT NOT NULL,
-    PRIMARY KEY(asset_id, person_id),
-    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-    FOREIGN KEY(person_id) REFERENCES people(id) ON DELETE CASCADE
+    library_name TEXT NOT NULL,
+    PRIMARY KEY(asset_id, person_id, library_name),
+    FOREIGN KEY(asset_id, library_name) REFERENCES assets(id, library_name) ON DELETE CASCADE,
+    FOREIGN KEY(person_id, library_name) REFERENCES people(id, library_name) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_asset_people_person ON asset_people(person_id);
+CREATE INDEX IF NOT EXISTS idx_asset_people_person ON asset_people(library_name, person_id);
 
 CREATE TABLE IF NOT EXISTS albums (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     library_name TEXT NOT NULL,
     name TEXT NOT NULL,
-    is_shared INTEGER NOT NULL DEFAULT 0
+    is_shared INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(id, library_name)
 );
 
 CREATE TABLE IF NOT EXISTS asset_albums (
     asset_id TEXT NOT NULL,
     album_id TEXT NOT NULL,
-    PRIMARY KEY(asset_id, album_id),
-    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-    FOREIGN KEY(album_id) REFERENCES albums(id) ON DELETE CASCADE
+    library_name TEXT NOT NULL,
+    PRIMARY KEY(asset_id, album_id, library_name),
+    FOREIGN KEY(asset_id, library_name) REFERENCES assets(id, library_name) ON DELETE CASCADE,
+    FOREIGN KEY(album_id, library_name) REFERENCES albums(id, library_name) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_asset_albums_album ON asset_albums(album_id);
+CREATE INDEX IF NOT EXISTS idx_asset_albums_album ON asset_albums(library_name, album_id);
 
 CREATE TABLE IF NOT EXISTS tags (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     library_name TEXT NOT NULL,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    PRIMARY KEY(id, library_name)
 );
 CREATE INDEX IF NOT EXISTS idx_tags_lib_name ON tags(library_name, name);
 
 CREATE TABLE IF NOT EXISTS asset_tags (
     asset_id TEXT NOT NULL,
     tag_id TEXT NOT NULL,
-    PRIMARY KEY(asset_id, tag_id),
-    FOREIGN KEY(asset_id) REFERENCES assets(id) ON DELETE CASCADE,
-    FOREIGN KEY(tag_id) REFERENCES tags(id) ON DELETE CASCADE
+    library_name TEXT NOT NULL,
+    PRIMARY KEY(asset_id, tag_id, library_name),
+    FOREIGN KEY(asset_id, library_name) REFERENCES assets(id, library_name) ON DELETE CASCADE,
+    FOREIGN KEY(tag_id, library_name) REFERENCES tags(id, library_name) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_asset_tags_tag ON asset_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_asset_tags_tag ON asset_tags(library_name, tag_id);
 """
 
 
 @dataclass(frozen=True)
 class AssetFilterCriteria:
-    library_name: str
+    library_names: tuple[str, ...] = ()
     location_mode: bool = False
     date_mode: bool = False
     min_date: date | None = None
@@ -145,8 +152,9 @@ class AssetFilterCriteria:
             if settings.date_upper_bound:
                 eff_max = min(filter(None, [settings.date_upper_bound, eff_max]), default=None)
 
+        libs = tuple(setup.libraries) if setup.libraries else ()
         return cls(
-            library_name=setup.library_name,
+            library_names=libs,
             location_mode=setup.location_mode,
             date_mode=setup.date_mode,
             min_date=eff_min,
@@ -176,12 +184,21 @@ class MetadataStore:
     def init_schema(self) -> None:
         self._db.execute_script(SCHEMA_SQL)
 
-    def has_synced_assets(self, library_name: str) -> bool:
+    def has_synced_assets(self, libraries: list[str] | tuple[str, ...] | None = None) -> bool:
+        if not libraries:
+            count = self._db.fetch_val('SELECT COUNT(*) FROM assets')
+            return bool(count and count > 0)
+        placeholders = ', '.join('?' for _ in libraries)
         count = self._db.fetch_val(
-            'SELECT COUNT(*) FROM assets WHERE library_name = ?',
-            (library_name,),
+            f'SELECT COUNT(*) FROM assets WHERE library_name IN ({placeholders})',
+            tuple(libraries),
         )
         return bool(count and count > 0)
+
+    def get_asset_library(self, asset_id: str) -> str | None:
+        """Look up a library_name that indexed a given asset ID."""
+        row = self._db.fetch_one('SELECT library_name FROM assets WHERE id = ? LIMIT 1', (asset_id,))
+        return str(row['library_name']) if row and row.get('library_name') else None
 
     def get_sync_state(self, library_name: str) -> dict[str, Any]:
         row = self._db.fetch_one(
@@ -203,6 +220,9 @@ class MetadataStore:
             'synced_assets': 0,
             'last_sync_duration_seconds': None,
         }
+
+    def get_all_sync_states(self) -> list[dict[str, Any]]:
+        return self._db.fetch_all('SELECT * FROM sync_state ORDER BY library_name')
 
     def set_sync_state(
         self,
@@ -314,8 +334,7 @@ class MetadataStore:
                 """
                 INSERT INTO people (id, library_name, name)
                 VALUES (?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    library_name = excluded.library_name,
+                ON CONFLICT(id, library_name) DO UPDATE SET
                     name = excluded.name
                 """,
                 rows,
@@ -336,8 +355,7 @@ class MetadataStore:
                 """
                 INSERT INTO albums (id, library_name, name, is_shared)
                 VALUES (?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    library_name = excluded.library_name,
+                ON CONFLICT(id, library_name) DO UPDATE SET
                     name = excluded.name,
                     is_shared = excluded.is_shared
                 """,
@@ -379,8 +397,7 @@ class MetadataStore:
                 """
                 INSERT INTO tags (id, library_name, name)
                 VALUES (?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    library_name = excluded.library_name,
+                ON CONFLICT(id, library_name) DO UPDATE SET
                     name = excluded.name
                 """,
                 rows,
@@ -388,32 +405,33 @@ class MetadataStore:
 
     def link_album_assets(
         self,
+        library_name: str,
         junction_inserts: list[tuple[str, str]],
         shared_asset_updates: list[tuple[str,]] | None = None,
         *,
         clear_album_ids: set[str] | None = None,
     ) -> None:
-        """Insert album junction records and optionally update shared flags in bulk."""
+        """Insert album junction records and optionally update shared flags in bulk for a library."""
         with self._db.connection() as conn:
             if clear_album_ids:
                 conn.executemany(
-                    'DELETE FROM asset_albums WHERE album_id = ?',
-                    [(aid,) for aid in clear_album_ids],
+                    'DELETE FROM asset_albums WHERE library_name = ? AND album_id = ?',
+                    [(library_name, aid) for aid in clear_album_ids],
                 )
             if junction_inserts:
                 conn.executemany(
                     """
-                    INSERT OR IGNORE INTO asset_albums (asset_id, album_id)
-                    SELECT a.id, alb.id
+                    INSERT OR IGNORE INTO asset_albums (asset_id, album_id, library_name)
+                    SELECT a.id, alb.id, ?
                     FROM assets a, albums alb
-                    WHERE a.id = ? AND alb.id = ?
+                    WHERE a.id = ? AND alb.id = ? AND a.library_name = ? AND alb.library_name = ?
                     """,
-                    junction_inserts,
+                    [(library_name, aid, albid, library_name, library_name) for aid, albid in junction_inserts],
                 )
             if shared_asset_updates:
                 conn.executemany(
-                    'UPDATE assets SET is_shared = 1, is_partner = 0 WHERE id = ?',
-                    shared_asset_updates,
+                    'UPDATE assets SET is_shared = 1, is_partner = 0 WHERE id = ? AND library_name = ?',
+                    [(aid[0], library_name) for aid in shared_asset_updates],
                 )
 
     def count_library_assets(self, library_name: str) -> int:
@@ -480,8 +498,7 @@ class MetadataStore:
                     latitude, longitude, country, state, city, capture_datetime,
                     immich_updated_at, times_played, last_played_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
-                ON CONFLICT(id) DO UPDATE SET
-                    library_name = excluded.library_name,
+                ON CONFLICT(id, library_name) DO UPDATE SET
                     is_shared = excluded.is_shared,
                     is_partner = excluded.is_partner,
                     file_type = excluded.file_type,
@@ -496,37 +513,43 @@ class MetadataStore:
                 asset_rows,
             )
 
-            # Clear stale junction records for this batch of assets
-            id_tuples = [(aid,) for aid in asset_ids]
-            conn.executemany('DELETE FROM asset_people WHERE asset_id = ?', id_tuples)
-            conn.executemany('DELETE FROM asset_albums WHERE asset_id = ?', id_tuples)
-            conn.executemany('DELETE FROM asset_tags WHERE asset_id = ?', id_tuples)
+            # Clear stale junction records for this batch of assets in this library
+            id_tuples = [(aid, library_name) for aid in asset_ids]
+            conn.executemany('DELETE FROM asset_people WHERE asset_id = ? AND library_name = ?', id_tuples)
+            conn.executemany('DELETE FROM asset_albums WHERE asset_id = ? AND library_name = ?', id_tuples)
+            conn.executemany('DELETE FROM asset_tags WHERE asset_id = ? AND library_name = ?', id_tuples)
 
             if asset_people:
                 conn.executemany(
                     """
-                    INSERT OR IGNORE INTO asset_people (asset_id, person_id)
-                    SELECT a.id, p.id FROM assets a, people p WHERE a.id = ? AND p.id = ?
+                    INSERT OR IGNORE INTO asset_people (asset_id, person_id, library_name)
+                    SELECT a.id, p.id, ?
+                    FROM assets a, people p
+                    WHERE a.id = ? AND p.id = ? AND a.library_name = ? AND p.library_name = ?
                     """,
-                    asset_people,
+                    [(library_name, aid, pid, library_name, library_name) for aid, pid in asset_people],
                 )
 
             if asset_albums:
                 conn.executemany(
                     """
-                    INSERT OR IGNORE INTO asset_albums (asset_id, album_id)
-                    SELECT a.id, alb.id FROM assets a, albums alb WHERE a.id = ? AND alb.id = ?
+                    INSERT OR IGNORE INTO asset_albums (asset_id, album_id, library_name)
+                    SELECT a.id, alb.id, ?
+                    FROM assets a, albums alb
+                    WHERE a.id = ? AND alb.id = ? AND a.library_name = ? AND alb.library_name = ?
                     """,
-                    asset_albums,
+                    [(library_name, aid, albid, library_name, library_name) for aid, albid in asset_albums],
                 )
 
             if asset_tags:
                 conn.executemany(
                     """
-                    INSERT OR IGNORE INTO asset_tags (asset_id, tag_id)
-                    SELECT a.id, t.id FROM assets a, tags t WHERE a.id = ? AND t.id = ?
+                    INSERT OR IGNORE INTO asset_tags (asset_id, tag_id, library_name)
+                    SELECT a.id, t.id, ?
+                    FROM assets a, tags t
+                    WHERE a.id = ? AND t.id = ? AND a.library_name = ? AND t.library_name = ?
                     """,
-                    asset_tags,
+                    [(library_name, aid, tid, library_name, library_name) for aid, tid in asset_tags],
                 )
 
     def prune_missing_assets(self, library_name: str, active_asset_ids: set[str]) -> int:
@@ -584,8 +607,12 @@ class MetadataStore:
         ignore_date_mode: bool = False,
     ) -> tuple[str, list[Any]]:
         """Construct unified SQL WHERE clauses and parameters matching exact quiz filter semantics."""
-        clauses: list[str] = ['a.library_name = ?', "a.file_type != 'VIDEO'"]
-        params: list[Any] = [criteria.library_name]
+        clauses: list[str] = ["a.file_type != 'VIDEO'"]
+        params: list[Any] = []
+        if criteria.library_names:
+            placeholders = ', '.join('?' for _ in criteria.library_names)
+            clauses.append(f'a.library_name IN ({placeholders})')
+            params.extend(criteria.library_names)
 
         # -------------------------------------------------------------------
         # LAYER 1: Hard Server Configuration Safeguards (Always Enforced)
@@ -631,8 +658,9 @@ class MetadataStore:
                 f"""a.id NOT IN (
                     SELECT ap.asset_id
                     FROM asset_people ap
-                    JOIN people p ON ap.person_id = p.id
-                    WHERE LOWER(p.name) IN ({name_placeholders}) OR ap.person_id IN ({id_placeholders})
+                    JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
+                    WHERE (LOWER(p.name) IN ({name_placeholders}) OR ap.person_id IN ({id_placeholders}))
+                      AND ap.library_name = a.library_name
                 )"""
             )
             params.extend(p.lower() for p in criteria.people_blacklist)
@@ -660,8 +688,9 @@ class MetadataStore:
                 f"""a.id NOT IN (
                     SELECT ap.asset_id
                     FROM asset_people ap
-                    JOIN people p ON ap.person_id = p.id
-                    WHERE LOWER(p.name) NOT IN ({name_placeholders}) AND ap.person_id NOT IN ({id_placeholders})
+                    JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
+                    WHERE (LOWER(p.name) NOT IN ({name_placeholders}) AND ap.person_id NOT IN ({id_placeholders}))
+                      AND ap.library_name = a.library_name
                 )"""
             )
             params.extend(p.lower() for p in criteria.people_whitelist)
@@ -677,7 +706,8 @@ class MetadataStore:
             clauses.append(
                 'a.is_shared = 0 AND a.is_partner = 0 AND a.id NOT IN ('
                 'SELECT aa.asset_id FROM asset_albums aa '
-                'JOIN albums alb ON aa.album_id = alb.id WHERE alb.is_shared = 1'
+                'JOIN albums alb ON aa.album_id = alb.id AND aa.library_name = alb.library_name '
+                'WHERE alb.is_shared = 1 AND aa.library_name = a.library_name'
                 ')'
             )
 
@@ -701,7 +731,7 @@ class MetadataStore:
                     f"""a.id IN (
                         SELECT ap.asset_id
                         FROM asset_people ap
-                        WHERE ap.person_id IN ({placeholders})
+                        WHERE ap.person_id IN ({placeholders}) AND ap.library_name = a.library_name
                         GROUP BY ap.asset_id
                         HAVING COUNT(DISTINCT ap.person_id) = ?
                     )"""
@@ -714,7 +744,7 @@ class MetadataStore:
                     f"""a.id IN (
                         SELECT ap.asset_id
                         FROM asset_people ap
-                        WHERE ap.person_id IN ({placeholders})
+                        WHERE ap.person_id IN ({placeholders}) AND ap.library_name = a.library_name
                     )"""
                 )
                 params.extend(criteria.person_ids)
@@ -726,7 +756,7 @@ class MetadataStore:
                 f"""a.id IN (
                     SELECT aa.asset_id
                     FROM asset_albums aa
-                    WHERE aa.album_id IN ({placeholders})
+                    WHERE aa.album_id IN ({placeholders}) AND aa.library_name = a.library_name
                 )"""
             )
             params.extend(criteria.album_ids)
@@ -799,7 +829,8 @@ class MetadataStore:
             SELECT a.id, a.latitude, a.longitude, a.capture_datetime, a.city, a.state, a.country
             FROM assets a
             WHERE {where_sql}
-            ORDER BY a.times_played ASC, RANDOM()
+            GROUP BY a.id
+            ORDER BY MIN(a.times_played) ASC, RANDOM()
             LIMIT ?
         """
         rows = self._db.fetch_all(sql, (*params, limit))
@@ -823,15 +854,21 @@ class MetadataStore:
 
     def get_filter_options(
         self,
-        library_name: str,
+        libraries: list[str] | tuple[str, ...] | None,
         settings: AppSettings,
     ) -> LibraryFiltersResponse:
-        """Fetch unique filter options from indexed SQLite metadata.
+        """Fetch all available filter options for one or more libraries (or all if None).
 
         Gated by environment date boundaries and whitelists/blacklists.
         """
-        clauses: list[str] = ['a.library_name = ?', "a.file_type != 'VIDEO'"]
-        params: list[Any] = [library_name]
+        libs = [str(lib).strip() for lib in libraries if str(lib).strip()] if libraries else []
+
+        clauses: list[str] = ["a.file_type != 'VIDEO'"]
+        params: list[Any] = []
+        if libs:
+            placeholders = ', '.join('?' for _ in libs)
+            clauses.append(f'a.library_name IN ({placeholders})')
+            params.extend(libs)
         base_where = ' AND '.join(f'({c})' for c in clauses)
 
         # 1. Countries
@@ -862,7 +899,7 @@ class MetadataStore:
         # 2. Cities (with country association)
         city_rows = self._db.fetch_all(
             f"""
-            SELECT a.city, a.country, COUNT(*) as count
+            SELECT a.city, a.country, COUNT(DISTINCT a.id) as count
             FROM assets a
             WHERE {base_where}
               AND a.city IS NOT NULL
@@ -896,8 +933,8 @@ class MetadataStore:
             f"""
             SELECT DISTINCT p.id, p.name
             FROM people p
-            JOIN asset_people ap ON p.id = ap.person_id
-            JOIN assets a ON ap.asset_id = a.id
+            JOIN asset_people ap ON p.id = ap.person_id AND p.library_name = ap.library_name
+            JOIN assets a ON ap.asset_id = a.id AND ap.library_name = a.library_name
             WHERE {base_where}
             ORDER BY p.name COLLATE NOCASE
             """,
@@ -954,7 +991,7 @@ class MetadataStore:
             return {}
         placeholders = ', '.join('?' for _ in person_ids)
         rows = self._db.fetch_all(
-            f'SELECT id, name FROM people WHERE id IN ({placeholders})',
+            f'SELECT DISTINCT id, name FROM people WHERE id IN ({placeholders})',
             person_ids,
         )
         return {str(r['id']).strip(): str(r['name']).strip() for r in rows if r.get('id') and r.get('name')}
@@ -1009,7 +1046,7 @@ class MetadataStore:
             f"""
             SELECT ap.person_id, COUNT(DISTINCT a.id) as count
             FROM assets a
-            JOIN asset_people ap ON a.id = ap.asset_id
+            JOIN asset_people ap ON a.id = ap.asset_id AND a.library_name = ap.library_name
             WHERE {p_where}
             GROUP BY ap.person_id
             """,
@@ -1024,7 +1061,7 @@ class MetadataStore:
             f"""
             SELECT aa.album_id, COUNT(DISTINCT a.id) as count
             FROM assets a
-            JOIN asset_albums aa ON a.id = aa.asset_id
+            JOIN asset_albums aa ON a.id = aa.asset_id AND a.library_name = aa.library_name
             WHERE {al_where}
             GROUP BY aa.album_id
             """,
@@ -1039,24 +1076,37 @@ class MetadataStore:
             albums=album_counts,
         )
 
-    def get_albums(self, library_name: str, include_shared: bool = True) -> list[dict[str, str]]:
-        """Return indexed albums for a library."""
-        if include_shared:
-            rows = self._db.fetch_all(
-                'SELECT id, name FROM albums WHERE library_name = ? ORDER BY name COLLATE NOCASE',
-                (library_name,),
-            )
-        else:
-            rows = self._db.fetch_all(
-                'SELECT id, name FROM albums WHERE library_name = ? AND is_shared = 0 ORDER BY name COLLATE NOCASE',
-                (library_name,),
-            )
+    def get_albums(
+        self,
+        libraries: list[str] | tuple[str, ...] | None = None,
+        include_shared: bool = True,
+    ) -> list[dict[str, str]]:
+        """Return indexed albums for one or more libraries (or all libraries if None)."""
+        clauses = []
+        params: list[Any] = []
+        if libraries:
+            placeholders = ', '.join('?' for _ in libraries)
+            clauses.append(f'library_name IN ({placeholders})')
+            params.extend(tuple(libraries))
+        if not include_shared:
+            clauses.append('is_shared = 0')
+        where_str = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+        sql = f'SELECT DISTINCT id, name FROM albums {where_str} ORDER BY name COLLATE NOCASE'
+        rows = self._db.fetch_all(sql, tuple(params))
         return [{'id': str(r['id']), 'name': str(r['name'])} for r in rows]
 
-    def get_tags(self, library_name: str) -> list[dict[str, str]]:
-        """Return indexed tags for a library."""
-        rows = self._db.fetch_all(
-            'SELECT id, name FROM tags WHERE library_name = ? ORDER BY name COLLATE NOCASE',
-            (library_name,),
-        )
+    def get_tags(
+        self,
+        libraries: list[str] | tuple[str, ...] | None = None,
+    ) -> list[dict[str, str]]:
+        """Return indexed tags for one or more libraries (or all if None)."""
+        clauses = []
+        params: list[Any] = []
+        if libraries:
+            placeholders = ', '.join('?' for _ in libraries)
+            clauses.append(f'library_name IN ({placeholders})')
+            params.extend(tuple(libraries))
+        where_str = f"WHERE {' AND '.join(clauses)}" if clauses else ''
+        sql = f'SELECT DISTINCT id, name FROM tags {where_str} ORDER BY name COLLATE NOCASE'
+        rows = self._db.fetch_all(sql, tuple(params))
         return [{'id': str(r['id']), 'name': str(r['name'])} for r in rows]

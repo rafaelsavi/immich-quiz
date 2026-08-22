@@ -545,8 +545,13 @@ export const pinpointMode = {
     const dateCard = document.getElementById("card-goal-date");
     const dateCheckbox = document.getElementById("goal-date");
 
-    const locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
-    const dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+    let locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
+    let dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+
+    if (!locationMode && !dateMode) {
+      locationMode = true;
+      dateMode = true;
+    }
 
     return {
       game_mode: "pinpoint",

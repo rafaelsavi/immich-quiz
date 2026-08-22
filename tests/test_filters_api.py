@@ -86,7 +86,7 @@ def test_get_filters_success_and_caching(tmp_path: Path) -> None:
 
     # 1. First call fetches fresh data and caches it
     t0 = time.perf_counter()
-    response = client.get('/api/filters?library_name=family')
+    response = client.get('/api/filters?libraries=family')
     t_first = time.perf_counter() - t0
 
     assert response.status_code == 200
@@ -103,14 +103,14 @@ def test_get_filters_success_and_caching(tmp_path: Path) -> None:
     assert data['people'][1] == {'id': 'p2', 'name': 'Bob'}
 
     # Verify cache is populated
-    assert 'family' in _filters_cache
+    assert ('family',) in _filters_cache
 
     # 2. Mutate the client state to prove that second call uses cached response
     immich.people = [PersonInfo(id='p99', name='Mutated')]
     immich.countries = ['Spain']
 
     t0 = time.perf_counter()
-    cached_response = client.get('/api/filters?library_name=family')
+    cached_response = client.get('/api/filters?libraries=family')
     t_cached = time.perf_counter() - t0
 
     assert cached_response.status_code == 200
@@ -132,7 +132,7 @@ def test_get_filters_env_date_bounds_override(tmp_path: Path) -> None:
         date_upper_bound=date(2022, 12, 31),
     )
 
-    response = client.get('/api/filters?library_name=family')
+    response = client.get('/api/filters?libraries=family')
     assert response.status_code == 200
     data = response.json()
     assert data['date_range'] == {'min_month': '2021-05', 'max_month': '2022-12'}
@@ -142,7 +142,7 @@ def test_get_filters_empty_library_returns_empty_options(tmp_path: Path) -> None
     immich = FakeImmichClient()
     client = build_client(tmp_path, immich)
 
-    response = client.get('/api/filters?library_name=unindexed_lib')
+    response = client.get('/api/filters?libraries=unindexed_lib')
     assert response.status_code == 200
     data = response.json()
     assert data['countries'] == []
@@ -175,7 +175,7 @@ def test_preflight_custom_filters_validation(tmp_path: Path) -> None:
 
     # 1. Preflight with ANY mode
     payload = {
-        'library_name': 'family',
+        'libraries': ['family'],
         'round_count': 5,
         'location_mode': True,
         'date_mode': True,
@@ -190,7 +190,7 @@ def test_preflight_custom_filters_validation(tmp_path: Path) -> None:
     response = client.post('/api/game/preflight', json=payload)
     assert response.status_code == 200
     res_data = response.json()
-    assert res_data['active_filters'] == ['location', 'date', 'albums', 'people', 'countries', 'cities', 'date_range']
+    assert res_data['active_filters'] == ['location', 'date', 'libraries', 'albums', 'people', 'countries', 'cities', 'date_range']
     assert res_data['min_date'] == '2022-01-01'
     assert res_data['max_date'] == '2024-01-01'
 
@@ -222,7 +222,7 @@ def test_preflight_effective_date_bounds(tmp_path: Path) -> None:
 
     # Request bounds: [2022-01-01, 2024-01-01] -> Effective bounds: [2022-01-01, 2023-01-01]
     payload = {
-        'library_name': 'family',
+        'libraries': ['family'],
         'round_count': 5,
         'location_mode': True,
         'date_mode': True,
@@ -246,7 +246,7 @@ def test_preflight_diversity_enforcement(tmp_path: Path) -> None:
     client = build_client(tmp_path, immich)
 
     payload = {
-        'library_name': 'family',
+        'libraries': ['family'],
         'round_count': 5,
         'location_mode': True,
         'date_mode': True,
@@ -268,7 +268,7 @@ def test_preflight_and_setup_unsynced_library(tmp_path: Path) -> None:
     client = build_client(tmp_path, immich, auto_seed=False)
 
     # 1. Preflight on unindexed library returns is_synced=False and ok=False
-    preflight_res = client.post('/api/game/preflight', json={'library_name': 'family', 'round_count': 5})
+    preflight_res = client.post('/api/game/preflight', json={'libraries': ['family'], 'round_count': 5})
     assert preflight_res.status_code == 200
     data = preflight_res.json()
     assert data['is_synced'] is False
@@ -276,7 +276,7 @@ def test_preflight_and_setup_unsynced_library(tmp_path: Path) -> None:
     assert data['eligible_count'] == 0
 
     # 2. Starting game on unindexed library returns 400 with helpful message
-    setup_res = client.post('/api/game/setup', json=setup_payload(library_name='family'))
+    setup_res = client.post('/api/game/setup', json=setup_payload(libraries=['family']))
     assert setup_res.status_code == 400
     assert 'not been synced yet' in setup_res.json()['detail']
 
@@ -305,7 +305,7 @@ def test_selector_load_asset_pool_filters(tmp_path: Path) -> None:
         round_count=5,
         location_mode=True,
         date_mode=True,
-        library_name='family',
+        libraries=['family'],
         person_ids=['p1'],
         people_mode='ANY',
         countries=['Brazil'],
@@ -334,7 +334,7 @@ async def test_selector_respects_diversity_on_round_selection() -> None:
         round_count=5,
         location_mode=True,
         date_mode=True,
-        library_name='family',
+        libraries=['family'],
     )
     state = MatchState(match_id='test-match', setup=setup)
     state.played_asset_ids.add('a1')
@@ -377,7 +377,7 @@ def test_game_setup_accepts_filter_criteria(tmp_path: Path) -> None:
         'round_length': '1m',
         'location_mode': True,
         'date_mode': True,
-        'library_name': 'family',
+        'libraries': ['family'],
         'album_ids': [],
         'person_ids': ['p1'],
         'people_mode': 'ALL',
@@ -405,7 +405,7 @@ def test_preflight_people_mode_any_vs_all(tmp_path: Path) -> None:
     res_any = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
@@ -421,7 +421,7 @@ def test_preflight_people_mode_any_vs_all(tmp_path: Path) -> None:
     res_all = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
@@ -447,7 +447,7 @@ def test_preflight_multiple_cities_or_mode(tmp_path: Path) -> None:
     res = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
@@ -473,7 +473,7 @@ def test_preflight_include_shared_photos_filter(tmp_path: Path) -> None:
     res_private = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
@@ -487,7 +487,7 @@ def test_preflight_include_shared_photos_filter(tmp_path: Path) -> None:
     res_shared = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
@@ -505,7 +505,7 @@ def test_models_date_order_validation(tmp_path: Path) -> None:
     res_preflight = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'min_date': '2024-01-01',
             'max_date': '2022-01-01',
         },
@@ -517,7 +517,7 @@ def test_models_date_order_validation(tmp_path: Path) -> None:
         '/api/game/setup',
         json={
             'players': ['Alice'],
-            'library_name': 'family',
+            'libraries': ['family'],
             'min_date': '2024-01-01',
             'max_date': '2022-01-01',
         },
@@ -532,7 +532,7 @@ def test_preflight_allows_empty_players_while_setup_requires_players(tmp_path: P
     res_preflight = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'players': [],
         },
     )
@@ -542,7 +542,7 @@ def test_preflight_allows_empty_players_while_setup_requires_players(tmp_path: P
     res_setup_empty = client.post(
         '/api/game/setup',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'players': [],
         },
     )
@@ -552,7 +552,7 @@ def test_preflight_allows_empty_players_while_setup_requires_players(tmp_path: P
     res_setup_blank = client.post(
         '/api/game/setup',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'players': ['   '],
         },
     )
@@ -578,7 +578,7 @@ def test_preflight_and_setup_enforce_whitelists_and_blacklists(tmp_path: Path) -
     res_preflight = client.post(
         '/api/game/preflight',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'countries': [],
             'cities': [],
             'person_ids': [],
@@ -593,7 +593,7 @@ def test_preflight_and_setup_enforce_whitelists_and_blacklists(tmp_path: Path) -
     res_setup = client.post(
         '/api/game/setup',
         json={
-            'library_name': 'family',
+            'libraries': ['family'],
             'players': ['Alice'],
             'countries': [],
             'cities': [],
@@ -602,3 +602,168 @@ def test_preflight_and_setup_enforce_whitelists_and_blacklists(tmp_path: Path) -
         },
     )
     assert res_setup.status_code == 200
+
+
+def test_multi_library_filters_and_preflight(tmp_path: Path) -> None:
+    asset_family = make_filter_asset('fam-1', country='Brazil', city='Rio', people_ids=['p1'])
+    asset_travel = make_filter_asset('trv-1', country='Japan', city='Tokyo', people_ids=['p2'])
+
+    immich = FakeImmichClient(assets=[asset_family])
+    client = build_client(tmp_path, immich)
+    meta_store: MetadataStore = client.app.state.metadata_store
+
+    meta_store.upsert_people('family', [{'id': 'p1', 'name': 'Alice'}])
+    meta_store.upsert_people('travel', [{'id': 'p2', 'name': 'Bob'}])
+    meta_store.upsert_albums('family', [{'id': 'alb-1', 'name': 'Family Album'}])
+    meta_store.upsert_albums('travel', [{'id': 'alb-2', 'name': 'Travel Album'}])
+
+    # Seed assets into distinct libraries in metadata store
+    meta_store.upsert_assets_batch('family', [
+        {
+            'id': 'fam-1',
+            'file_type': 'IMAGE',
+            'latitude': -22.90,
+            'longitude': -43.17,
+            'capture_datetime': '2023-01-01T12:00:00',
+            'country': 'Brazil',
+            'city': 'Rio',
+            'is_shared': 0,
+            'is_partner': 0,
+        }
+    ], [('fam-1', 'p1')], [('fam-1', 'alb-1')])
+
+    meta_store.upsert_assets_batch('travel', [
+        {
+            'id': 'trv-1',
+            'file_type': 'IMAGE',
+            'latitude': 35.67,
+            'longitude': 139.65,
+            'capture_datetime': '2023-06-01T12:00:00',
+            'country': 'Japan',
+            'city': 'Tokyo',
+            'is_shared': 0,
+            'is_partner': 0,
+        }
+    ], [('trv-1', 'p2')], [('trv-1', 'alb-2')])
+
+    # 1. Test /api/albums across multiple libraries
+    res_albums = client.get('/api/albums?libraries=family&libraries=travel')
+    assert res_albums.status_code == 200
+    album_names = {a['name'] for a in res_albums.json()['albums']}
+    assert 'Family Album' in album_names
+    assert 'Travel Album' in album_names
+
+    # 2. Test /api/filters across multiple libraries
+    res_filters = client.get('/api/filters?libraries=family&libraries=travel')
+    assert res_filters.status_code == 200
+    filter_data = res_filters.json()
+    assert 'Brazil' in filter_data['countries']
+    assert 'Japan' in filter_data['countries']
+    people_names = {p['name'] for p in filter_data['people']}
+    assert 'Alice' in people_names
+    assert 'Bob' in people_names
+
+    # 3. Test /api/game/preflight with multi-library selection
+    res_preflight = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['family', 'travel'],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_preflight.status_code == 200
+    preflight_data = res_preflight.json()
+    assert preflight_data['total_count'] == 2
+    assert preflight_data['eligible_count'] == 2
+    assert 'libraries' in preflight_data['active_filters']
+
+    # 4. Test /api/game/preflight filtering to single library
+    res_single = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['family'],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_single.status_code == 200
+    assert res_single.json()['total_count'] == 1
+
+
+def test_global_sync_endpoints(tmp_path: Path) -> None:
+    immich = FakeImmichClient()
+    client = build_client(tmp_path, immich)
+
+    # 1. Global sync status when nothing is synced yet
+    res_status = client.get('/api/sync/status')
+    assert res_status.status_code == 200
+    data = res_status.json()
+    assert 'libraries' in data
+    assert isinstance(data['libraries'], list)
+    assert 'warnings' in data
+    assert isinstance(data['warnings'], dict)
+    assert 'is_syncing' in data
+
+    # 2. Global trigger sync
+    res_sync = client.post('/api/sync')
+    assert res_sync.status_code == 200
+    assert res_sync.json()['is_syncing'] is True or res_sync.json()['sync_status'] in {'syncing', 'idle'}
+
+
+def test_multi_library_and_multi_album_filters_api(tmp_path: Path) -> None:
+    immich = FakeImmichClient()
+    client = build_client(
+        tmp_path,
+        immich,
+        immich_libraries={'lib1': 'key1', 'lib2': 'key2'},
+        auto_seed=False,
+    )
+    meta_store = client.app.state.metadata_store  # type: ignore
+
+    # Seed metadata for lib1 and lib2
+    meta_store.upsert_albums('lib1', [{'id': 'alb-1', 'name': 'Lib1 Album'}])
+    meta_store.upsert_albums('lib2', [{'id': 'alb-2', 'name': 'Lib2 Album'}])
+
+    assets1 = [
+        {'id': 'p-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': -22.9, 'longitude': -43.1, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2023-01-01T12:00:00'},
+    ]
+    assets2 = [
+        {'id': 'p-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 48.8, 'longitude': 2.3, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2023-02-01T12:00:00'},
+    ]
+    meta_store.upsert_assets_batch('lib1', assets1, [], [('p-1', 'alb-1')])
+    meta_store.upsert_assets_batch('lib2', assets2, [], [('p-2', 'alb-2')])
+
+    # 1. /api/albums querying both libraries returns both albums
+    res_albums = client.get('/api/albums?libraries=lib1&libraries=lib2')
+    assert res_albums.status_code == 200
+    album_ids = {a['id'] for a in res_albums.json()['albums']}
+    assert album_ids == {'alb-1', 'alb-2'}
+
+    # 2. /api/filters querying both libraries returns both countries & cities
+    res_filters = client.get('/api/filters?libraries=lib1&libraries=lib2')
+    assert res_filters.status_code == 200
+    data = res_filters.json()
+    assert set(data['countries']) == {'Brazil', 'France'}
+    assert {c['name'] for c in data['cities']} == {'Rio', 'Paris'}
+
+    # 3. /api/game/preflight with multiple album_ids across libraries
+    res_preflight = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'album_ids': ['alb-1', 'alb-2'],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_preflight.status_code == 200
+    pf = res_preflight.json()
+    assert pf['total_count'] == 2
+    assert pf['eligible_count'] == 2
+    assert pf['facet_counts']['albums']['alb-1'] == 1
+    assert pf['facet_counts']['albums']['alb-2'] == 1
+

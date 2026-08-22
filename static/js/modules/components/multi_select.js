@@ -275,7 +275,10 @@ export class MultiSelect {
       this.searchInputEl.value = "";
       this._updateSearchClearVisibility();
       this.renderOptions();
-      setTimeout(() => this.searchInputEl.focus(), 50);
+      const isTouchDevice = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+      if (!isTouchDevice) {
+        setTimeout(() => this.searchInputEl.focus(), 50);
+      }
     }
   }
 

@@ -139,16 +139,16 @@ class GameService:
         self.settings = settings
         self.registry = registry or default_game_mode_registry
 
-    async def resolve_album_name(
+    async def resolve_album_names(
         self,
-        library_name: str,
+        libraries: list[str] | tuple[str, ...] | None,
         album_ids: list[str] | None = None,
-    ) -> str:
-        """Resolve the album label server-side so clients cannot spoof leaderboard metadata."""
+    ) -> list[str]:
+        """Resolve album IDs to human-readable names server-side from indexed metadata."""
         if not album_ids:
-            return '-'
+            return []
 
-        albums = self.metadata_store.get_albums(library_name, include_shared=True)
+        albums = self.metadata_store.get_albums(libraries, include_shared=True)
         album_map = {
             str(album.get('id', '')).strip(): str(album.get('name', '-')).strip()
             for album in albums
@@ -157,11 +157,11 @@ class GameService:
         names: list[str] = []
         for aid in album_ids:
             if aid not in album_map:
-                raise HTTPException(status_code=400, detail=f'Unknown album_id for library {library_name}')
+                raise HTTPException(status_code=400, detail=f'Unknown album_id: {aid}')
             names.append(album_map[aid])
 
         names.sort(key=lambda s: (s.lower(), s))
-        return ', '.join(names) if names else '-'
+        return names
 
     def resolve_person_names(
         self,
@@ -183,8 +183,9 @@ class GameService:
         effective_min_date = criteria.min_date
         effective_max_date = criteria.max_date
 
-        is_synced = self.metadata_store.has_synced_assets(setup.library_name)
-        sync_state = self.metadata_store.get_sync_state(setup.library_name)
+        target_libs = setup.libraries or None
+        is_synced = self.metadata_store.has_synced_assets(target_libs)
+        sync_state = self.metadata_store.get_sync_state(target_libs[0]) if target_libs and len(target_libs) == 1 else {}
         raw_status = sync_state.get('sync_status', SyncStatus.idle.value)
         sync_status = SyncStatus(raw_status) if raw_status in SyncStatus._value2member_map_ else SyncStatus.idle
 
@@ -200,6 +201,8 @@ class GameService:
             active_filters.append('location')
         if setup.date_mode:
             active_filters.append('date')
+        if setup.libraries:
+            active_filters.append('libraries')
         if setup.album_ids:
             active_filters.append('albums')
         if setup.person_ids:
@@ -233,14 +236,15 @@ class GameService:
         )
 
     async def setup_game(self, setup: GameSetupRequest) -> GameSetupResponse:
-        if not self.metadata_store.has_synced_assets(setup.library_name):
+        target_libs = setup.libraries or None
+        if not self.metadata_store.has_synced_assets(target_libs):
             raise HTTPException(
                 status_code=400,
-                detail='This library has not been synced yet. Please sync the library before starting a match.',
+                detail='Selected libraries have not been synced yet. Please sync before starting a match.',
             )
 
-        setup.album_name = await self.resolve_album_name(
-            setup.library_name,
+        setup.album_names = await self.resolve_album_names(
+            target_libs,
             album_ids=setup.album_ids,
         )
         setup.person_names = self.resolve_person_names(setup.person_ids, setup.person_names)
@@ -353,22 +357,8 @@ class GameService:
 
             self.leaderboard_store.append_match(
                 match_id=updated_state.match_id,
-                library_name=updated_state.setup.library_name,
-                album_name=updated_state.setup.album_name or '-',
-                rounds_played=updated_state.setup.round_count,
-                round_length=updated_state.setup.round_length,
-                location_mode=updated_state.setup.location_mode,
-                date_mode=updated_state.setup.date_mode,
-                game_mode=updated_state.setup.game_mode,
+                config=updated_state.setup,
                 player_scores=updated_state.scores,
-                album_ids=updated_state.setup.album_ids,
-                person_ids=updated_state.setup.person_ids,
-                people_mode=updated_state.setup.people_mode,
-                countries=updated_state.setup.countries,
-                cities=updated_state.setup.cities,
-                min_date=updated_state.setup.min_date,
-                max_date=updated_state.setup.max_date,
-                include_shared=updated_state.setup.include_shared,
                 play_mode=PlayMode.local,
                 duration_seconds=duration_sec,
                 player_times=player_times,
@@ -413,7 +403,6 @@ class GameService:
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
-            library_name=state.setup.library_name,
             actual_latitude=reference.actual_latitude,
             actual_longitude=reference.actual_longitude,
             actual_date=reference.actual_date,
@@ -480,8 +469,8 @@ class GameService:
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
-            library_name=state.setup.library_name,
-            album_name=state.setup.album_name or '-',
+            libraries=state.setup.libraries,
+            album_names=state.setup.album_names,
             finished=state.finished,
             winners=winners,
             players=players,

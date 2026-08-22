@@ -43,14 +43,98 @@ class SyncEngine:
         task = self._active_sync_tasks.get(library_name)
         return task is not None and not task.done()
 
-    def get_sync_status(self, library_name: str) -> dict[str, Any]:
-        state = self._metadata_store.get_sync_state(library_name)
-        # If task has completed or failed, ensure status reflects accurately
-        if state.get('sync_status') == SyncStatus.syncing and not self.is_syncing(library_name):
-            state['sync_status'] = SyncStatus.idle
-        if library_name in self._sync_warnings:
-            state['warning'] = self._sync_warnings[library_name]
-        return state
+    def is_any_syncing(self) -> bool:
+        return any(not t.done() for t in self._active_sync_tasks.values())
+
+    def get_sync_status(self, available_libraries: list[str] | str | None = None) -> dict[str, Any]:
+        return self.get_global_sync_status(available_libraries=available_libraries)
+
+    def get_global_sync_status(self, available_libraries: list[str] | str | None = None) -> dict[str, Any]:
+        if isinstance(available_libraries, str):
+            libs = [available_libraries]
+        elif available_libraries is not None:
+            libs = list(available_libraries)
+        elif hasattr(self._immich, 'list_libraries') and self._immich.list_libraries():
+            libs = self._immich.list_libraries()
+        else:
+            all_states = self._metadata_store.get_all_sync_states()
+            libs = [s['library_name'] for s in all_states] or list(self._active_sync_tasks.keys())
+        states = [self._metadata_store.get_sync_state(lib) for lib in libs]
+
+        total_assets = sum(s.get('total_assets', 0) or 0 for s in states)
+        synced_assets = sum(s.get('synced_assets', 0) or 0 for s in states)
+        is_syncing = self.is_any_syncing()
+
+        # Determine overall sync status
+        has_error = any(s.get('sync_status') == SyncStatus.error.value for s in states)
+        never_synced = all(not s.get('last_sync_at') and (s.get('synced_assets') or 0) == 0 for s in states) and not is_syncing
+
+        if is_syncing:
+            status = SyncStatus.syncing
+        elif has_error:
+            status = SyncStatus.error
+        elif never_synced:
+            status = SyncStatus.never_synced
+        else:
+            status = SyncStatus.idle
+
+        # Find active syncing library's stage and mode, or default to last completed
+        active_stage = SyncStage.idle.value
+        active_mode = SyncMode.full.value
+        syncing_found = False
+        for lib in libs:
+            if self.is_syncing(lib):
+                st = self._metadata_store.get_sync_state(lib)
+                active_stage = st.get('sync_stage', SyncStage.idle.value)
+                active_mode = st.get('sync_mode', SyncMode.full.value)
+                syncing_found = True
+                break
+
+        if not syncing_found and states:
+            most_recent = max(states, key=lambda s: s.get('last_sync_at') or '', default=None)
+            if most_recent and most_recent.get('sync_mode'):
+                active_mode = most_recent['sync_mode']
+                active_stage = most_recent.get('sync_stage', SyncStage.idle.value)
+
+        sync_dates = [s.get('last_sync_at') for s in states if s.get('last_sync_at')]
+        last_sync_at = max(sync_dates) if sync_dates else None
+
+        full_sync_dates = [s.get('last_full_sync_at') for s in states if s.get('last_full_sync_at')]
+        last_full_sync_at = max(full_sync_dates) if full_sync_dates else None
+
+        immich_dates = [s.get('last_immich_updated_at') for s in states if s.get('last_immich_updated_at')]
+        last_immich_updated_at = max(immich_dates) if immich_dates else None
+
+        errors = [s.get('sync_error') for s in states if s.get('sync_error')]
+        sync_error = '; '.join(errors) if errors else None
+
+        return {
+            'libraries': libs,
+            'is_syncing': is_syncing,
+            'last_sync_at': last_sync_at,
+            'last_full_sync_at': last_full_sync_at,
+            'last_immich_updated_at': last_immich_updated_at,
+            'sync_status': status.value if isinstance(status, SyncStatus) else status,
+            'sync_mode': active_mode,
+            'sync_stage': active_stage,
+            'sync_error': sync_error,
+            'total_assets': total_assets,
+            'synced_assets': synced_assets,
+            'warnings': {lib: self._sync_warnings[lib] for lib in (libs or list(self._sync_warnings.keys())) if lib in self._sync_warnings},
+        }
+
+    def trigger_sync_all(
+        self,
+        *,
+        force_full: bool = False,
+        available_libraries: list[str] | None = None,
+    ) -> list[asyncio.Task[None]]:
+        libs = available_libraries if available_libraries is not None else self._immich.list_libraries()
+        tasks = []
+        for lib in libs:
+            t = self.trigger_sync(lib, force_full=force_full)
+            tasks.append(t)
+        return tasks
 
     @staticmethod
     def is_sync_due(last_at_iso: str | None, interval_hours: int, now: datetime | None = None) -> bool:
@@ -211,7 +295,7 @@ class SyncEngine:
     async def sync_library(self, library_name: str, *, force_full: bool = False) -> None:
         """Perform metadata synchronization (delta or full) for a specific library."""
         current_state = self._metadata_store.get_sync_state(library_name)
-        has_synced = self._metadata_store.has_synced_assets(library_name)
+        has_synced = self._metadata_store.has_synced_assets([library_name])
         last_immich_updated_at = current_state.get('last_immich_updated_at')
 
         is_delta = (not force_full) and has_synced and bool(last_immich_updated_at)
@@ -349,6 +433,7 @@ class SyncEngine:
 
                 if modified_junction_inserts or clear_album_ids:
                     self._metadata_store.link_album_assets(
+                        library_name,
                         modified_junction_inserts,
                         clear_album_ids=clear_album_ids if is_delta else None,
                     )
@@ -506,6 +591,7 @@ class SyncEngine:
 
                 if junction_inserts or shared_asset_updates:
                     self._metadata_store.link_album_assets(
+                        library_name,
                         junction_inserts,
                         shared_asset_updates=shared_asset_updates,
                     )

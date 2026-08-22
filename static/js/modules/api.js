@@ -50,10 +50,6 @@ export async function api(path, options = {}) {
  */
 export function setupFilterParams() {
   const albumSelect = state.filters && state.filters.albumMultiSelect;
-  const selectedAlbums = albumSelect ? albumSelect.getSelectedItems() : [];
-  const albumText = selectedAlbums.length > 0
-    ? selectedAlbums.map((i) => i.name).sort((a, b) => a.localeCompare(b)).join(", ")
-    : "-";
   const albumIds = albumSelect ? albumSelect.getSelectedIds().sort() : [];
 
   const locEl = el.goalLocation;
@@ -64,18 +60,17 @@ export function setupFilterParams() {
   const dateMode = dateEl ? Boolean(dateEl.checked) : (dateCard ? dateCard.classList.contains("active") : true);
   const gameMode = (state && state.gameMode) || "pinpoint";
 
+  const selectedLibs = state.filters && state.filters.libraryMultiSelect
+    ? state.filters.libraryMultiSelect.getSelectedIds()
   const params = new URLSearchParams({
     round_length: el.roundLength ? el.roundLength.value : "1m",
     location_mode: String(locationMode),
     date_mode: String(dateMode),
     game_mode: gameMode,
-    library: el.library ? el.library.value : "",
-    albums: albumText,
   });
 
-  if (albumIds.length > 0) {
-    params.set("album_ids", albumIds.join(","));
-  }
+  selectedLibs.forEach((lib) => params.append("libraries", lib));
+  albumIds.forEach((aid) => params.append("album_ids", aid));
 
   const slider = state.filters && state.filters.dateRangeSlider;
   if (slider) {
@@ -87,20 +82,20 @@ export function setupFilterParams() {
   const countrySelect = state.filters && state.filters.countryMultiSelect;
   if (countrySelect) {
     const countries = countrySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
-    if (countries.length > 0) params.set("countries", countries.join(","));
+    countries.forEach((c) => params.append("countries", c));
   }
 
   const citySelect = state.filters && state.filters.cityMultiSelect;
   if (citySelect) {
     const cities = citySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
-    if (cities.length > 0) params.set("cities", cities.join(","));
+    cities.forEach((c) => params.append("cities", c));
   }
 
   const peopleSelect = state.filters && state.filters.peopleMultiSelect;
   if (peopleSelect) {
     const personIds = peopleSelect.getSelectedIds().sort();
+    personIds.forEach((pid) => params.append("person_ids", pid));
     if (personIds.length > 0) {
-      params.set("person_ids", personIds.join(","));
       const peopleMode = typeof getSelectedPeopleMode === "function" ? getSelectedPeopleMode() : "ANY";
       params.set("people_mode", peopleMode);
     }

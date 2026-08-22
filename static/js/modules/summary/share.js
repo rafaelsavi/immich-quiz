@@ -26,10 +26,14 @@ export async function shareMatchSummary(summary) {
   const filterInfo =
     summary.filter_summary && summary.filter_summary !== "Full Library"
       ? ` • ${summary.filter_summary}`
-      : summary.album_name && summary.album_name !== "-"
-        ? ` • ${summary.album_name}`
+      : summary.album_names && summary.album_names.length > 0
+        ? ` • ${summary.album_names.join(", ")}`
         : "";
-  text += `📍 ${summary.library_name}${filterInfo} | ${summary.rounds_played} rounds\n\n`;
+  const libLabel =
+    summary.libraries && summary.libraries.length > 0
+      ? summary.libraries.join(", ")
+      : "All Libraries";
+  text += `📍 ${libLabel}${filterInfo} | ${summary.rounds_played} rounds\n\n`;
   text += `Scores:\n`;
   (summary.players || []).forEach((p) => {
     text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;

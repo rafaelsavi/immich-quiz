@@ -3,7 +3,7 @@ import { t } from "../i18n.js";
 import { formatPlace, formatMonth } from "../formatters.js";
 import { openPhotoLightbox } from "../modes/album_shuffle.js";
 
-export function renderPolaroidGallery(roundHistory, defaultLibrary = "") {
+export function renderPolaroidGallery(roundHistory) {
   if (!el.polaroidGallery) return;
   el.polaroidGallery.replaceChildren();
 
@@ -16,8 +16,7 @@ export function renderPolaroidGallery(roundHistory, defaultLibrary = "") {
         const imgWrap = document.createElement("div");
         imgWrap.className = "polaroid-img-wrap";
 
-        const lib = round.library_name || defaultLibrary;
-        const imgUrl = `/api/media/${item.photo_id}?library_name=${encodeURIComponent(lib)}`;
+        const imgUrl = `/api/media/${item.photo_id}`;
         const img = document.createElement("img");
         img.className = "polaroid-img";
         img.src = imgUrl;

@@ -76,13 +76,14 @@ export const el = {
   get goalDate() {
     return document.getElementById("goal-date");
   },
-  library: document.getElementById("library"),
+  libraryMultiSelect: document.getElementById("library-multi-select"),
   syncLibraryBtn: document.getElementById("sync-library-btn"),
   syncBtnLabel: document.getElementById("sync-btn-label"),
   albumMultiSelect: document.getElementById("album-multi-select"),
   includeSharedCheckbox: document.getElementById("include-shared-checkbox"),
   labelIncludeShared: document.getElementById("label-include-shared"),
   filtersAccordion: document.getElementById("filters-accordion"),
+  filtersAccordionHeader: document.getElementById("filters-accordion-header"),
   filtersToggleBtn: document.getElementById("filters-toggle-btn"),
   filtersSummaryBadge: document.getElementById("filters-summary-badge"),
   filtersAccordionContent: document.getElementById("filters-accordion-content"),

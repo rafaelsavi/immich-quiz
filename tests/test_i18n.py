@@ -39,7 +39,6 @@ def test_translate_callable_formatting() -> None:
 def test_format_filter_summary_and_tooltip_i18n() -> None:
     # Single category config (limit is 2)
     single_cat_config = BaseGameConfig(
-        library_name='default',
         countries=['France', 'Germany'],
     )
     is_cust_single, sum_single_en = single_cat_config.format_filter_summary(language='EN')
@@ -52,7 +51,6 @@ def test_format_filter_summary_and_tooltip_i18n() -> None:
 
     # Multi-category config (limit is 1)
     config = BaseGameConfig(
-        library_name='default',
         countries=['France', 'Germany', 'Spain'],
         cities=['Paris', 'Berlin'],
         person_names=['Alice', 'Bob'],

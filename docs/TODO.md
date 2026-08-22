@@ -15,7 +15,7 @@ This document lists planned features, design ideas, and technical debt items for
 - **Add support for videos**
 - **Add whitelist and blacklist of asset tags**
 - **Add option to report map or date inconsistencies in round reveal**
-- Tooltip and design of sync-btn-label is not being updated with library select change
+- Multiselect should hide text search if only few options exist
 
 ---
 

@@ -32,7 +32,7 @@ def test_db_manager_init(db_mgr: DatabaseManager) -> None:
 
 
 def test_metadata_store_schema_and_sync_state(meta_store: MetadataStore) -> None:
-    assert not meta_store.has_synced_assets('family')
+    assert not meta_store.has_synced_assets(['family'])
     state = meta_store.get_sync_state('family')
     assert state['sync_status'] == SyncStatus.idle.value
     assert state['total_assets'] == 0
@@ -113,11 +113,11 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     ]
 
     meta_store.upsert_assets_batch('family', assets, asset_people, asset_albums)
-    assert meta_store.has_synced_assets('family')
+    assert meta_store.has_synced_assets(['family'])
 
     # Test count & candidate fetching parity
     # Query 1: All private images
-    c1 = AssetFilterCriteria(library_name='family')
+    c1 = AssetFilterCriteria(library_names=('family',))
     count1 = meta_store.count_eligible_assets(c1)
     cand1 = meta_store.fetch_candidate_assets(c1)
     # asset-1, asset-2 (asset-3 is shared, asset-4 is video)
@@ -126,42 +126,42 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert set(cand1.keys()) == {'asset-1', 'asset-2'}
 
     # Query 2: Include shared photos
-    c2 = AssetFilterCriteria(library_name='family', include_shared=True)
+    c2 = AssetFilterCriteria(library_names=('family',), include_shared=True)
     count2 = meta_store.count_eligible_assets(c2)
     cand2 = meta_store.fetch_candidate_assets(c2)
     assert count2 == 3
     assert set(cand2.keys()) == {'asset-1', 'asset-2', 'asset-3'}
 
     # Query 3: Country filter 'Japan'
-    c3 = AssetFilterCriteria(library_name='family', countries=('Japan',))
+    c3 = AssetFilterCriteria(library_names=('family',), countries=('Japan',))
     count3 = meta_store.count_eligible_assets(c3)
     cand3 = meta_store.fetch_candidate_assets(c3)
     assert count3 == 1
     assert 'asset-1' in cand3
 
     # Query 4: People filter with ALL mode (both p1 and p2)
-    c4 = AssetFilterCriteria(library_name='family', person_ids=('p1', 'p2'), people_mode=PeopleMode.ALL)
+    c4 = AssetFilterCriteria(library_names=('family',), person_ids=('p1', 'p2'), people_mode=PeopleMode.ALL)
     count4 = meta_store.count_eligible_assets(c4)
     cand4 = meta_store.fetch_candidate_assets(c4)
     assert count4 == 1
     assert 'asset-1' in cand4
 
     # Query 5: People filter with ANY mode (p1 or p2)
-    c5 = AssetFilterCriteria(library_name='family', person_ids=('p1', 'p2'), people_mode=PeopleMode.ANY)
+    c5 = AssetFilterCriteria(library_names=('family',), person_ids=('p1', 'p2'), people_mode=PeopleMode.ANY)
     count5 = meta_store.count_eligible_assets(c5)
     cand5 = meta_store.fetch_candidate_assets(c5)
     assert count5 == 2
     assert set(cand5.keys()) == {'asset-1', 'asset-2'}
 
     # Query 6: Date bounds (year 2023)
-    c6 = AssetFilterCriteria(library_name='family', min_date=date(2023, 1, 1), max_date=date(2023, 12, 31))
+    c6 = AssetFilterCriteria(library_names=('family',), min_date=date(2023, 1, 1), max_date=date(2023, 12, 31))
     count6 = meta_store.count_eligible_assets(c6)
     cand6 = meta_store.fetch_candidate_assets(c6)
     assert count6 == 1
     assert 'asset-1' in cand6
 
     # Query 7: Album filter 'a1'
-    c7 = AssetFilterCriteria(library_name='family', album_ids=('a1',))
+    c7 = AssetFilterCriteria(library_names=('family',), album_ids=('a1',))
     count7 = meta_store.count_eligible_assets(c7)
     cand7 = meta_store.fetch_candidate_assets(c7)
     assert count7 == 1
@@ -169,7 +169,7 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
 
     # Query 8: get_asset_counts breakdown
     counts = meta_store.get_asset_counts(
-        AssetFilterCriteria(library_name='family', location_mode=True, date_mode=True, include_shared=True)
+        AssetFilterCriteria(library_names=('family',), location_mode=True, date_mode=True, include_shared=True)
     )
     assert counts['total_count'] == 3
     assert counts['gps_count'] == 3
@@ -218,7 +218,7 @@ def test_metadata_store_filter_options(meta_store: MetadataStore, tmp_path: Path
         country_whitelist=frozenset({'japan'}),  # Whitelist only Japan
     )
 
-    filters = meta_store.get_filter_options('family', settings)
+    filters = meta_store.get_filter_options(['family'], settings)
     assert filters.countries == ['Japan']
     assert filters.cities == [CityOption(name='Tokyo', country='Japan')]
     assert len(filters.people) == 2
@@ -310,7 +310,7 @@ def test_metadata_store_filter_options_ownership_filtering(meta_store: MetadataS
     )
 
     # Discovers all options from all assets in the library
-    f_options = meta_store.get_filter_options('family', settings)
+    f_options = meta_store.get_filter_options(['family'], settings)
     assert f_options.countries == ['France', 'Italy', 'Japan', 'Spain']
     assert [c.name for c in f_options.cities] == ['Madrid', 'Paris', 'Rome', 'Tokyo']
     assert [p.name for p in f_options.people] == ['Alice', 'Bob', 'Charlie', 'Diana']
@@ -353,7 +353,7 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         data_path=tmp_path,
         auto_sync_on_startup=False,
     )
-    res1 = meta_store.get_filter_options('family', settings_loose_lower)
+    res1 = meta_store.get_filter_options(['family'], settings_loose_lower)
     assert res1.date_range.min_month == '2015-06'
     assert res1.date_range.max_month == '2023-08'
 
@@ -373,7 +373,7 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
         data_path=tmp_path,
         auto_sync_on_startup=False,
     )
-    res2 = meta_store.get_filter_options('family', settings_tight_lower)
+    res2 = meta_store.get_filter_options(['family'], settings_tight_lower)
     assert res2.date_range.min_month == '2020-01'
     assert res2.date_range.max_month == '2022-12'
 
@@ -385,16 +385,16 @@ def test_metadata_store_prune_and_invalidation(meta_store: MetadataStore) -> Non
         {'id': 'a-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE'},
     ]
     meta_store.upsert_assets_batch('family', assets, [], [])
-    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_name='family')) == 3
+    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_names=('family',))) == 3
 
     # Invalidate a single asset
     meta_store.mark_asset_invalid('a-2')
-    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_name='family')) == 2
+    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_names=('family',))) == 2
 
     # Prune missing: only 'a-1' is active
     pruned = meta_store.prune_missing_assets('family', {'a-1'})
     assert pruned == 1
-    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_name='family')) == 1
+    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_names=('family',))) == 1
 
 
 @pytest.mark.asyncio
@@ -462,8 +462,8 @@ async def test_sync_engine_flow(tmp_path: Path) -> None:
     assert status['total_assets'] == 1
     assert status['synced_assets'] == 1
 
-    assert meta_store.has_synced_assets('family')
-    crit = AssetFilterCriteria(library_name='family')
+    assert meta_store.has_synced_assets(['family'])
+    crit = AssetFilterCriteria(library_names=('family',))
     assert meta_store.count_eligible_assets(crit) == 1
     cand = meta_store.fetch_candidate_assets(crit)
     assert 'asset-sync-1' in cand
@@ -509,8 +509,8 @@ async def test_sync_engine_warns_when_asset_count_fails(tmp_path: Path) -> None:
 
     await sync_engine.sync_library('family')
     status = sync_engine.get_sync_status('family')
-    assert 'warning' in status
-    assert '/search/statistics' in status['warning']
+    assert 'warnings' in status
+    assert '/search/statistics' in status['warnings']['family']
 
 
 def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
@@ -555,22 +555,22 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     )
 
     # Test GET /api/filters
-    res_filters = client.get('/api/filters?library_name=family')
+    res_filters = client.get('/api/filters?libraries=family')
     assert res_filters.status_code == 200
     data_filters = res_filters.json()
     assert data_filters['countries'] == ['Italy']
     assert any(c['name'] == 'Rome' and c['country'] == 'Italy' for c in data_filters['cities'])
 
     # Test GET /api/sync/status
-    res_status = client.get('/api/sync/status?library_name=family')
+    res_status = client.get('/api/sync/status')
     assert res_status.status_code == 200
     data_status = res_status.json()
     assert 'sync_status' in data_status
 
     # Test POST /api/sync and POST /api/sync?force_full=true
-    res_post_sync = client.post('/api/sync?library_name=family')
+    res_post_sync = client.post('/api/sync')
     assert res_post_sync.status_code == 200
-    res_post_sync_full = client.post('/api/sync?library_name=family&force_full=true')
+    res_post_sync_full = client.post('/api/sync?force_full=true')
     assert res_post_sync_full.status_code == 200
 
     # Test POST /api/game/preflight
@@ -580,7 +580,7 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
         'location_mode': True,
         'date_mode': True,
         'game_mode': 'pinpoint',
-        'library_name': 'family',
+        'libraries': ['family'],
         'countries': ['Italy'],
     }
     res_preflight = client.post('/api/game/preflight', json=preflight_payload)
@@ -617,10 +617,10 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     assert data_q['asset_id'] == 'api-asset-1'
 
     # Test asset invalidation on /media failure
-    client.get('/api/media/api-asset-1?library_name=family')
+    client.get('/api/media/api-asset-1')
     # Since Immich mock client fails get_asset_bytes in this raw client test or returns 400,
     # verify that metadata_store invalidates the asset
-    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_name='family')) == 0
+    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_names=('family',))) == 0
 
 
 def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: MetadataStore, tmp_path: Path) -> None:
@@ -670,7 +670,7 @@ def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: M
         auto_sync_on_startup=False,
     )
 
-    filters = meta_store.get_filter_options('family', settings)
+    filters = meta_store.get_filter_options(['family'], settings)
     assert 'None' not in filters.countries
     assert not any(c.name.lower() == 'none' for c in filters.cities)
 
@@ -776,7 +776,7 @@ def test_fetch_candidate_assets_prioritizes_least_played(meta_store: MetadataSto
     meta_store.record_assets_played(['played-1', 'played-1', 'played-2'])
 
     # Fetching candidates with limit 1 should prioritize fresh-1 (times_played = 0)
-    candidates = meta_store.fetch_candidate_assets(AssetFilterCriteria(library_name='family'), limit=1)
+    candidates = meta_store.fetch_candidate_assets(AssetFilterCriteria(library_names=('family',)), limit=1)
     assert len(candidates) == 1
     assert 'fresh-1' in candidates
 
@@ -854,43 +854,43 @@ def test_whitelist_and_blacklist_enforcement_in_metadata_store(meta_store: Metad
     )
 
     # 1. Unfiltered query with no blacklists/whitelists -> all 4 assets
-    c_base = AssetFilterCriteria(library_name='family')
+    c_base = AssetFilterCriteria(library_names=('family',))
     assert meta_store.count_eligible_assets(c_base) == 4
 
     # 2. Country Blacklist: Germany excluded -> a1, a3, a4 (3 assets)
-    c_country_bl = AssetFilterCriteria(library_name='family', country_blacklist=frozenset({'germany'}))
+    c_country_bl = AssetFilterCriteria(library_names=('family',), country_blacklist=frozenset({'germany'}))
     assert meta_store.count_eligible_assets(c_country_bl) == 3
     assert 'a2' not in meta_store.fetch_candidate_assets(c_country_bl)
 
     # 3. City Blacklist: Berlin excluded -> a1, a3, a4 (3 assets)
-    c_city_bl = AssetFilterCriteria(library_name='family', city_blacklist=frozenset({'berlin'}))
+    c_city_bl = AssetFilterCriteria(library_names=('family',), city_blacklist=frozenset({'berlin'}))
     assert meta_store.count_eligible_assets(c_city_bl) == 3
     assert 'a2' not in meta_store.fetch_candidate_assets(c_city_bl)
 
     # 4. People Blacklist by Name: "Charlie" excluded -> a1, a3, a4 (3 assets)
-    c_people_bl_name = AssetFilterCriteria(library_name='family', people_blacklist=frozenset({'charlie'}))
+    c_people_bl_name = AssetFilterCriteria(library_names=('family',), people_blacklist=frozenset({'charlie'}))
     assert meta_store.count_eligible_assets(c_people_bl_name) == 3
     assert 'a2' not in meta_store.fetch_candidate_assets(c_people_bl_name)
 
     # 5. People Blacklist by ID: "p-charlie" excluded -> a1, a3, a4 (3 assets)
-    c_people_bl_id = AssetFilterCriteria(library_name='family', people_blacklist=frozenset({'p-charlie'}))
+    c_people_bl_id = AssetFilterCriteria(library_names=('family',), people_blacklist=frozenset({'p-charlie'}))
     assert meta_store.count_eligible_assets(c_people_bl_id) == 3
     assert 'a2' not in meta_store.fetch_candidate_assets(c_people_bl_id)
 
     # 6. Country Whitelist: only Japan -> a3, a4 (2 assets)
-    c_country_wl = AssetFilterCriteria(library_name='family', country_whitelist=frozenset({'japan'}))
+    c_country_wl = AssetFilterCriteria(library_names=('family',), country_whitelist=frozenset({'japan'}))
     assert meta_store.count_eligible_assets(c_country_wl) == 2
     candidates_wl = meta_store.fetch_candidate_assets(c_country_wl)
     assert set(candidates_wl.keys()) == {'a3', 'a4'}
 
     # 7. City Whitelist: only Rio -> a1 (1 asset)
-    c_city_wl = AssetFilterCriteria(library_name='family', city_whitelist=frozenset({'rio'}))
+    c_city_wl = AssetFilterCriteria(library_names=('family',), city_whitelist=frozenset({'rio'}))
     assert meta_store.count_eligible_assets(c_city_wl) == 1
     assert 'a1' in meta_store.fetch_candidate_assets(c_city_wl)
 
     # 8. People Whitelist: Alice and Bob -> a1 (Alice), a3 (Bob), and a4 (landscape without people)
     # a2 (Charlie) is excluded because Charlie is not whitelisted.
-    c_people_wl = AssetFilterCriteria(library_name='family', people_whitelist=frozenset({'alice', 'bob'}))
+    c_people_wl = AssetFilterCriteria(library_names=('family',), people_whitelist=frozenset({'alice', 'bob'}))
     assert meta_store.count_eligible_assets(c_people_wl) == 3
     candidates_people_wl = meta_store.fetch_candidate_assets(c_people_wl)
     assert set(candidates_people_wl.keys()) == {'a1', 'a3', 'a4'}
@@ -921,7 +921,7 @@ def test_asset_filter_criteria_from_setup_factory() -> None:
     )
 
     setup = GameSetupRequest(
-        library_name='family',
+        libraries=['family'],
         players=['Player 1'],
         round_count=5,
         location_mode=True,
@@ -931,7 +931,7 @@ def test_asset_filter_criteria_from_setup_factory() -> None:
     )
 
     criteria = AssetFilterCriteria.from_setup(setup, settings)
-    assert criteria.library_name == 'family'
+    assert criteria.library_names == ('family',)
     assert criteria.min_date == date(2020, 1, 1)  # clamped to settings lower bound
     assert criteria.max_date == date(2024, 12, 31)  # clamped to settings upper bound
     assert criteria.country_whitelist == frozenset({'brazil'})
@@ -988,7 +988,7 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
     )
 
     # 1. Base criteria without user filters
-    base_criteria = AssetFilterCriteria(library_name='lib', location_mode=True, date_mode=True)
+    base_criteria = AssetFilterCriteria(library_names=('lib',), location_mode=True, date_mode=True)
     counts = meta_store.get_facet_counts(base_criteria)
     assert counts.countries == {'Japan': 2, 'France': 1}
     assert counts.cities == {'Tokyo': 1, 'Kyoto': 1, 'Paris': 1}
@@ -997,10 +997,10 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
 
     # 2. Filtered by Person: Alice ('p1')
     alice_criteria = AssetFilterCriteria(
-        library_name='lib',
+        library_names=('lib',),
         location_mode=True,
         date_mode=True,
-        person_ids=frozenset({'p1'}),
+        person_ids=('p1',),
     )
     alice_counts = meta_store.get_facet_counts(alice_criteria)
     # Countries: Japan has 2, France has 0 (so France not in dict or 0)
@@ -1016,7 +1016,7 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
 def test_tags_and_state_and_sync_metadata(meta_store: MetadataStore) -> None:
     # 1. Tags upsert & get
     meta_store.upsert_tags('lib', [{'id': 't1', 'name': 'Vacation'}, {'id': 't2', 'name': 'Food'}])
-    tags = meta_store.get_tags('lib')
+    tags = meta_store.get_tags(['lib'])
     assert len(tags) == 2
     assert tags[0] == {'id': 't2', 'name': 'Food'}
     assert tags[1] == {'id': 't1', 'name': 'Vacation'}
@@ -1045,7 +1045,7 @@ def test_tags_and_state_and_sync_metadata(meta_store: MetadataStore) -> None:
         asset_tags=[('a10', 't1'), ('a10', 't2')],
     )
 
-    criteria = AssetFilterCriteria(library_name='lib', location_mode=True, date_mode=True)
+    criteria = AssetFilterCriteria(library_names=('lib',), location_mode=True, date_mode=True)
     candidates = meta_store.fetch_candidate_assets(criteria)
     assert 'a10' in candidates
     ans = candidates['a10']
@@ -1450,3 +1450,115 @@ async def test_check_and_trigger_scheduled_sync(meta_store: MetadataStore) -> No
         now=now,
     )
     assert task3 is None
+
+
+def test_multi_library_isolated_sync(meta_store: MetadataStore) -> None:
+    """Verify that syncing multiple libraries with overlapping assets, people, albums, and tags preserves all data."""
+    # 1. Setup Library 1: Rafael (assets 1, 2, 3)
+    meta_store.upsert_people('Rafael', [{'id': 'p1', 'name': 'Alice'}, {'id': 'p2', 'name': 'Bob'}])
+    meta_store.upsert_albums('Rafael', [{'id': 'alb1', 'name': 'Trip 2022'}, {'id': 'alb2', 'name': 'Family Shared'}])
+    meta_store.upsert_tags('Rafael', [{'id': 't1', 'name': 'Vacation'}, {'id': 't2', 'name': 'Favorites'}])
+
+    assets_lib1 = [
+        {'id': 'ast-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 20.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2022-01-01T12:00:00'},
+        {'id': 'ast-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 11.0, 'longitude': 21.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2022-02-01T12:00:00'},
+        {'id': 'ast-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 12.0, 'longitude': 22.0, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2022-03-01T12:00:00'},
+    ]
+    meta_store.upsert_assets_batch(
+        'Rafael',
+        assets_lib1,
+        asset_people=[('ast-1', 'p1'), ('ast-2', 'p2')],
+        asset_albums=[('ast-1', 'alb1'), ('ast-2', 'alb2')],
+        asset_tags=[('ast-1', 't1'), ('ast-2', 't2')],
+    )
+
+    assert meta_store.count_library_assets('Rafael') == 3
+    assert meta_store.get_indexed_album_ids('Rafael') == {'alb1', 'alb2'}
+
+    # 2. Setup Library 2: Savi-Japjec (assets 2, 3 overlapping with Rafael, plus 4)
+    meta_store.upsert_people('Savi-Japjec', [{'id': 'p2', 'name': 'Bob'}, {'id': 'p3', 'name': 'Charlie'}])
+    meta_store.upsert_albums('Savi-Japjec', [{'id': 'alb2', 'name': 'Family Shared'}, {'id': 'alb3', 'name': 'Savi Wedding'}])
+    meta_store.upsert_tags('Savi-Japjec', [{'id': 't2', 'name': 'Favorites'}, {'id': 't3', 'name': 'Nature'}])
+
+    assets_lib2 = [
+        {'id': 'ast-2', 'is_shared': 1, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 11.0, 'longitude': 21.0, 'country': 'Brazil', 'city': 'Rio', 'capture_datetime': '2022-02-01T12:00:00'},
+        {'id': 'ast-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 12.0, 'longitude': 22.0, 'country': 'France', 'city': 'Paris', 'capture_datetime': '2022-03-01T12:00:00'},
+        {'id': 'ast-4', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 13.0, 'longitude': 23.0, 'country': 'Japan', 'city': 'Tokyo', 'capture_datetime': '2022-04-01T12:00:00'},
+    ]
+    meta_store.upsert_assets_batch(
+        'Savi-Japjec',
+        assets_lib2,
+        asset_people=[('ast-2', 'p2'), ('ast-3', 'p3')],
+        asset_albums=[('ast-2', 'alb2'), ('ast-3', 'alb3')],
+        asset_tags=[('ast-2', 't2'), ('ast-3', 't3')],
+    )
+
+    # 3. Verify BOTH libraries maintain their assets independently!
+    assert meta_store.count_library_assets('Rafael') == 3
+    assert meta_store.count_library_assets('Savi-Japjec') == 3
+    assert meta_store.get_indexed_album_ids('Rafael') == {'alb1', 'alb2'}
+    assert meta_store.get_indexed_album_ids('Savi-Japjec') == {'alb2', 'alb3'}
+
+    # 4. Check get_albums query separation and union
+    alb_rafael = meta_store.get_albums(['Rafael'])
+    assert {a['id'] for a in alb_rafael} == {'alb1', 'alb2'}
+
+    alb_savi = meta_store.get_albums(['Savi-Japjec'])
+    assert {a['id'] for a in alb_savi} == {'alb2', 'alb3'}
+
+    alb_both = meta_store.get_albums(['Rafael', 'Savi-Japjec'])
+    assert {a['id'] for a in alb_both} == {'alb1', 'alb2', 'alb3'}
+
+    # 5. Check get_tags query separation and union
+    tags_rafael = meta_store.get_tags(['Rafael'])
+    assert {t['id'] for t in tags_rafael} == {'t1', 't2'}
+
+    tags_savi = meta_store.get_tags(['Savi-Japjec'])
+    assert {t['id'] for t in tags_savi} == {'t2', 't3'}
+
+    tags_both = meta_store.get_tags(['Rafael', 'Savi-Japjec'])
+    assert {t['id'] for t in tags_both} == {'t1', 't2', 't3'}
+
+    # 6. Test pruning on Rafael does not touch Savi-Japjec
+    # Prune Rafael so only ast-1 and ast-2 remain
+    deleted = meta_store.prune_missing_assets('Rafael', {'ast-1', 'ast-2'})
+    assert deleted == 1
+    assert meta_store.count_library_assets('Rafael') == 2
+    assert meta_store.count_library_assets('Savi-Japjec') == 3  # Unchanged!
+
+
+def test_multi_album_filtering_across_libraries(meta_store: MetadataStore) -> None:
+    """Verify filtering and facet counts with multiple albums across multiple libraries."""
+    meta_store.upsert_albums('lib1', [{'id': 'alb-a', 'name': 'Summer'}, {'id': 'alb-b', 'name': 'Winter'}])
+    meta_store.upsert_albums('lib2', [{'id': 'alb-c', 'name': 'Spring'}, {'id': 'alb-d', 'name': 'Autumn'}])
+
+    assets1 = [
+        {'id': 'img-1', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 10.0, 'longitude': 10.0, 'country': 'Italy', 'city': 'Rome', 'capture_datetime': '2023-01-01T12:00:00'},
+        {'id': 'img-2', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 20.0, 'longitude': 20.0, 'country': 'Spain', 'city': 'Madrid', 'capture_datetime': '2023-02-01T12:00:00'},
+    ]
+    assets2 = [
+        {'id': 'img-3', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 30.0, 'longitude': 30.0, 'country': 'Germany', 'city': 'Berlin', 'capture_datetime': '2023-03-01T12:00:00'},
+        {'id': 'img-4', 'is_shared': 0, 'is_partner': 0, 'file_type': 'IMAGE', 'latitude': 40.0, 'longitude': 40.0, 'country': 'Japan', 'city': 'Kyoto', 'capture_datetime': '2023-04-01T12:00:00'},
+    ]
+
+    meta_store.upsert_assets_batch('lib1', assets1, [], [('img-1', 'alb-a'), ('img-2', 'alb-b')])
+    meta_store.upsert_assets_batch('lib2', assets2, [], [('img-3', 'alb-c'), ('img-4', 'alb-d')])
+
+    # Filter with multiple albums across both libraries
+    criteria = AssetFilterCriteria(
+        library_names=('lib1', 'lib2'),
+        album_ids=('alb-a', 'alb-c'),
+    )
+    count = meta_store.count_eligible_assets(criteria)
+    candidates = meta_store.fetch_candidate_assets(criteria)
+    assert count == 2
+    assert set(candidates.keys()) == {'img-1', 'img-3'}
+
+    # Facet counts for albums
+    facets = meta_store.get_facet_counts(criteria)
+    assert facets.albums.get('alb-a') == 1
+    assert facets.albums.get('alb-b') == 1
+    assert facets.albums.get('alb-c') == 1
+    assert facets.albums.get('alb-d') == 1
+
+

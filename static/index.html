@@ -59,42 +59,44 @@
 
         <!-- Expandable Media & Library Filters Section -->
         <div class="filters-accordion" id="filters-accordion">
-          <button type="button" class="filters-accordion-header" id="filters-toggle-btn" aria-expanded="false">
-            <div class="accordion-title-wrap">
-              <span class="accordion-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
-                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                </svg>
-              </span>
-              <span class="accordion-title" data-i18n="setup.filters_heading">Library & Photo Filters</span>
-            </div>
-            <div class="accordion-meta-wrap">
+          <div class="filters-accordion-header" id="filters-accordion-header">
+            <button type="button" class="accordion-toggle-btn" id="filters-toggle-btn" aria-expanded="false" aria-controls="filters-accordion-content">
+              <div class="accordion-title-wrap">
+                <span class="accordion-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </span>
+                <span class="accordion-title" data-i18n="setup.filters_heading">Library & Photo Filters</span>
+              </div>
               <span class="filters-summary-badge" id="filters-summary-badge"
                 data-i18n="setup.filters_summary_default">All media</span>
-              <span class="select-arrow accordion-arrow" aria-hidden="true">
+            </button>
+            <div class="accordion-meta-wrap">
+              <button type="button" class="sync-library-btn" id="sync-library-btn"
+                title="Sync metadata from Immich">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"
+                  class="sync-icon">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+                <span id="sync-btn-label">Sync</span>
+              </button>
+              <span class="select-arrow accordion-arrow" id="accordion-arrow-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </span>
             </div>
-          </button>
+          </div>
 
           <div class="filters-accordion-content hidden" id="filters-accordion-content">
             <!-- Row 1: Library & Albums -->
             <div class="grid-2">
-              <div>
+              <div class="library-select-group">
                 <div class="field-head-inline">
-                  <label data-i18n="setup.library_label">Library</label>
-                  <button type="button" class="sync-library-btn" id="sync-library-btn"
-                    title="Sync library metadata from Immich">
-                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"
-                      class="sync-icon">
-                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-                    </svg>
-                    <span id="sync-btn-label">Sync</span>
-                  </button>
+                  <label data-i18n="setup.libraries_label">Libraries</label>
                 </div>
-                <select id="library" required></select>
+                <div id="library-multi-select" class="multi-select"></div>
                 <!-- Photo Sources / Ownership -->
                 <div class="filter-sources-row">
                   <label class="filter-source-pill" id="label-include-shared" for="include-shared-checkbox">

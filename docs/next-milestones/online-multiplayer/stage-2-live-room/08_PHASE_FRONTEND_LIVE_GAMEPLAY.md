@@ -148,9 +148,9 @@ async function createOnlineRoom() {
   const settings = {
     round_count: Number(el.roundCount.value),
     round_length: el.roundLength.value,
-    library_name: el.library.value,
-    album_id: albumId,
-    album_name: albumId ? el.album.options[el.album.selectedIndex].text : "-",
+    libraries: state.setup?.libraries || [],
+    album_ids: state.setup?.album_ids || [],
+    album_names: state.setup?.album_names || [],
     ...modePayload,
   };
 

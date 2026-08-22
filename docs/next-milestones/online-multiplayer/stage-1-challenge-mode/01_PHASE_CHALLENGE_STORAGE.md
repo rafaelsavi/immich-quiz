@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS challenges (
     capability_token   TEXT UNIQUE NOT NULL,
     title              TEXT,                          -- e.g. "Summer Roadtrip 2024" (NULL = auto-generate)
     creator_name       TEXT NOT NULL,
-    library_name       TEXT NOT NULL,
+    libraries_json     TEXT,
     config_json        TEXT NOT NULL,
     asset_ids_json     TEXT NOT NULL,
     created_at         TEXT NOT NULL,
@@ -37,13 +37,13 @@ CREATE TABLE IF NOT EXISTS matches (
     room_name          TEXT,                          -- e.g. "Rafael's Lounge" (optional display name)
     play_mode          TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
     played_at          TEXT NOT NULL,
-    library_name       TEXT NOT NULL,
+    libraries_json     TEXT,
     game_mode          TEXT NOT NULL,
     rounds             INTEGER NOT NULL,
     round_length       TEXT NOT NULL,
     location_mode      INTEGER NOT NULL,
     date_mode          INTEGER NOT NULL,
-    album_name         TEXT,
+    album_names_json   TEXT,
     album_ids_json     TEXT,
     person_ids_json    TEXT,
     people_mode        TEXT DEFAULT 'ANY',
@@ -274,7 +274,7 @@ class ChallengeCreateResponse(BaseModel):
     capability_token: str
     play_url: str
     creator_name: str
-    library_name: str
+    libraries: list[str] = Field(default_factory=list)
     rounds: int
     expires_at: datetime | None
 
@@ -283,7 +283,7 @@ class ChallengeDetailResponse(BaseModel):
     challenge_id: str
     capability_token: str
     creator_name: str
-    library_name: str
+    libraries: list[str] = Field(default_factory=list)
     rounds: int
     round_length: str
     location_mode: bool
