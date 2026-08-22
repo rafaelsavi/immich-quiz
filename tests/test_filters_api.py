@@ -41,9 +41,11 @@ def make_filter_asset(
     country: str | None = 'Brazil',
     city: str | None = 'Florianopolis',
     people_ids: list[str] | None = None,
+    tag_ids: list[str] | None = None,
     media_type: str = 'IMAGE',
 ) -> dict[str, Any]:
     people_data = [{'id': pid, 'name': f'Person {pid}'} for pid in (people_ids or [])]
+    tags_data = [{'id': tid, 'name': f'Tag {tid}'} for tid in (tag_ids or [])]
     return {
         'id': asset_id,
         'type': media_type,
@@ -56,6 +58,7 @@ def make_filter_asset(
         },
         'fileCreatedAt': captured,
         'people': people_data,
+        'tags': tags_data,
     }
 
 
@@ -604,9 +607,42 @@ def test_preflight_and_setup_enforce_whitelists_and_blacklists(tmp_path: Path) -
     assert res_setup.status_code == 200
 
 
+def test_preflight_and_setup_enforce_tag_whitelists_and_blacklists(tmp_path: Path) -> None:
+    asset_vacation = make_filter_asset('a1', country='Brazil', city='Rio', tag_ids=['t1'])
+    asset_private = make_filter_asset('a2', country='Germany', city='Berlin', tag_ids=['t2'])
+    asset_untagged = make_filter_asset('a3', country='Japan', city='Tokyo', tag_ids=[])
+
+    immich = FakeImmichClient(assets=[asset_vacation, asset_private, asset_untagged])
+
+    # 1. Test tag_blacklist: excludes asset_private (a2)
+    client_bl = build_client(
+        tmp_path / 'bl',
+        immich,
+        tag_blacklist=frozenset({'tag t2', 't2'}),
+    )
+    res_bl = client_bl.post(
+        '/api/game/preflight',
+        json={'libraries': ['family'], 'round_count': 5},
+    )
+    assert res_bl.status_code == 200
+    assert res_bl.json()['eligible_count'] == 2
+
+    # 2. Test tag_whitelist: includes only asset_vacation (a1)
+    client_wl = build_client(
+        tmp_path / 'wl',
+        immich,
+        tag_whitelist=frozenset({'tag t1'}),
+    )
+    res_wl = client_wl.post(
+        '/api/game/preflight',
+        json={'libraries': ['family'], 'round_count': 5},
+    )
+    assert res_wl.status_code == 200
+    assert res_wl.json()['eligible_count'] == 1
+
+
 def test_multi_library_filters_and_preflight(tmp_path: Path) -> None:
     asset_family = make_filter_asset('fam-1', country='Brazil', city='Rio', people_ids=['p1'])
-    asset_travel = make_filter_asset('trv-1', country='Japan', city='Tokyo', people_ids=['p2'])
 
     immich = FakeImmichClient(assets=[asset_family])
     client = build_client(tmp_path, immich)

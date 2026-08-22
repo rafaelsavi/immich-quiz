@@ -792,6 +792,16 @@ def test_whitelist_and_blacklist_enforcement_in_metadata_store(meta_store: Metad
         ],
     )
 
+    # Seed tags
+    meta_store.upsert_tags(
+        'family',
+        [
+            {'id': 't-vacation', 'name': 'Vacation'},
+            {'id': 't-private', 'name': 'Private'},
+            {'id': 't-nature', 'name': 'Nature'},
+        ],
+    )
+
     # Seed assets with varying countries, cities, and people
     meta_store.upsert_assets_batch(
         'family',
@@ -851,6 +861,11 @@ def test_whitelist_and_blacklist_enforcement_in_metadata_store(meta_store: Metad
             ('a3', 'p-bob'),
         ],
         [],
+        [
+            ('a1', 't-vacation'),
+            ('a2', 't-private'),
+            ('a3', 't-nature'),
+        ],
     )
 
     # 1. Unfiltered query with no blacklists/whitelists -> all 4 assets
@@ -895,6 +910,27 @@ def test_whitelist_and_blacklist_enforcement_in_metadata_store(meta_store: Metad
     candidates_people_wl = meta_store.fetch_candidate_assets(c_people_wl)
     assert set(candidates_people_wl.keys()) == {'a1', 'a3', 'a4'}
 
+    # 9. Tag Blacklist by Name: "Private" excluded -> a1, a3, a4 (3 assets)
+    c_tag_bl_name = AssetFilterCriteria(library_names=('family',), tag_blacklist=frozenset({'private'}))
+    assert meta_store.count_eligible_assets(c_tag_bl_name) == 3
+    assert 'a2' not in meta_store.fetch_candidate_assets(c_tag_bl_name)
+
+    # 10. Tag Blacklist by ID: "t-private" excluded -> a1, a3, a4 (3 assets)
+    c_tag_bl_id = AssetFilterCriteria(library_names=('family',), tag_blacklist=frozenset({'t-private'}))
+    assert meta_store.count_eligible_assets(c_tag_bl_id) == 3
+    assert 'a2' not in meta_store.fetch_candidate_assets(c_tag_bl_id)
+
+    # 11. Tag Whitelist by Name: "vacation" and "nature" -> a1, a3 (2 assets, untagged a4 and private a2 excluded)
+    c_tag_wl_name = AssetFilterCriteria(library_names=('family',), tag_whitelist=frozenset({'vacation', 'nature'}))
+    assert meta_store.count_eligible_assets(c_tag_wl_name) == 2
+    candidates_tag_wl = meta_store.fetch_candidate_assets(c_tag_wl_name)
+    assert set(candidates_tag_wl.keys()) == {'a1', 'a3'}
+
+    # 12. Tag Whitelist by ID: "t-vacation" -> a1 (1 asset)
+    c_tag_wl_id = AssetFilterCriteria(library_names=('family',), tag_whitelist=frozenset({'t-vacation'}))
+    assert meta_store.count_eligible_assets(c_tag_wl_id) == 1
+    assert 'a1' in meta_store.fetch_candidate_assets(c_tag_wl_id)
+
 
 def test_asset_filter_criteria_from_setup_factory() -> None:
     from src.config import AppSettings
@@ -918,6 +954,8 @@ def test_asset_filter_criteria_from_setup_factory() -> None:
         city_blacklist=frozenset({'berlin'}),
         people_whitelist=frozenset({'alice'}),
         people_blacklist=frozenset({'bob'}),
+        tag_whitelist=frozenset({'vacation'}),
+        tag_blacklist=frozenset({'private'}),
     )
 
     setup = GameSetupRequest(
@@ -940,6 +978,8 @@ def test_asset_filter_criteria_from_setup_factory() -> None:
     assert criteria.city_blacklist == frozenset({'berlin'})
     assert criteria.people_whitelist == frozenset({'alice'})
     assert criteria.people_blacklist == frozenset({'bob'})
+    assert criteria.tag_whitelist == frozenset({'vacation'})
+    assert criteria.tag_blacklist == frozenset({'private'})
 
 
 def test_get_facet_counts(meta_store: MetadataStore) -> None:

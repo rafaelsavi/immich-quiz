@@ -70,8 +70,10 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `COUNTRY_BLACKLIST`                | No       | —                      | Comma-separated list of excluded countries in filters (case-insensitive)      |
 | `CITY_WHITELIST`                   | No       | —                      | Comma-separated list of allowed cities/regions in filters (case-insensitive)  |
 | `CITY_BLACKLIST`                   | No       | —                      | Comma-separated list of excluded cities/regions in filters (case-insensitive) |
-| `PEOPLE_WHITELIST`                 | No       | —                      | Comma-separated list of allowed people names in filters (case-insensitive)    |
-| `PEOPLE_BLACKLIST`                 | No       | —                      | Comma-separated list of excluded people names in filters (case-insensitive)   |
+| `PEOPLE_WHITELIST`                 | No       | —                      | Comma-separated list of allowed people names or IDs in filters (case-insensitive)    |
+| `PEOPLE_BLACKLIST`                 | No       | —                      | Comma-separated list of excluded people names or IDs in filters (case-insensitive)   |
+| `TAG_WHITELIST`                    | No       | —                      | Comma-separated list of allowed asset tag names or IDs in filters (case-insensitive) |
+| `TAG_BLACKLIST`                    | No       | —                      | Comma-separated list of excluded asset tag names or IDs in filters (case-insensitive)|
 | `DATA_PATH`                        | No       | `data`                 | Directory for SQLite persistence (`metadata.db` and `leaderboard.db`)        |
 | `AUTO_SYNC_ON_STARTUP`             | No       | `true`                 | Auto-trigger metadata sync in the background on server startup                |
 | `AUTO_DELTA_SYNC_INTERVAL_HOURS`   | No       | `6`                    | Interval in hours for periodic delta metadata sync (`0` disables)             |

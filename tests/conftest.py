@@ -123,13 +123,26 @@ def seed_test_metadata(
     people_data = [{'id': pid, 'name': pname} for pid, pname in people_map.items()]
     store.upsert_people(library_name, people_data)
 
-    # 2. Upsert albums
+    # 2. Upsert tags
+    tags_map: dict[str, str] = {}
+    for a in immich.assets or []:
+        t_list = a.get('tags') or []
+        for t in t_list:
+            tid = str(t.get('id', '')) if isinstance(t, dict) else str(t)
+            tname = (t.get('name', f'Tag {tid}') if isinstance(t, dict) else f'Tag {tid}') or f'Tag {tid}'
+            if tid and tid not in tags_map:
+                tags_map[tid] = tname
+    if tags_map:
+        store.upsert_tags(library_name, [{'id': tid, 'name': tname} for tid, tname in tags_map.items()])
+
+    # 3. Upsert albums
     store.upsert_albums(library_name, [{'id': 'album-1', 'name': 'Holidays', 'isShared': 0}])
 
-    # 3. Upsert assets batch
+    # 4. Upsert assets batch
     asset_records: list[dict[str, Any]] = []
     asset_people: list[tuple[str, str]] = []
     asset_albums: list[tuple[str, str]] = []
+    asset_tags: list[tuple[str, str]] = []
 
     if immich.assets_explicit or (not immich.cities and not immich.countries and not immich.timeline_bounds):
         for a in immich.assets:
@@ -171,6 +184,12 @@ def seed_test_metadata(
                         asset_albums.append((aid, albid))
             else:
                 asset_albums.append((aid, 'album-1'))
+
+            t_list = a.get('tags') or []
+            for t in t_list:
+                tid = str(t.get('id', '')) if isinstance(t, dict) else str(t)
+                if tid:
+                    asset_tags.append((aid, tid))
     else:
         extra_idx = 1
         tb = immich.timeline_bounds
@@ -277,7 +296,7 @@ def seed_test_metadata(
                     asset_people.append((aid, p.id))
                     asset_albums.append((aid, 'album-1'))
 
-    store.upsert_assets_batch(library_name, asset_records, asset_people, asset_albums)
+    store.upsert_assets_batch(library_name, asset_records, asset_people, asset_albums, asset_tags)
     store.set_sync_state(
         library_name,
         status=SyncStatus.idle,
@@ -302,6 +321,8 @@ def build_client(
     city_blacklist: frozenset[str] = frozenset(),
     people_whitelist: frozenset[str] = frozenset(),
     people_blacklist: frozenset[str] = frozenset(),
+    tag_whitelist: frozenset[str] = frozenset(),
+    tag_blacklist: frozenset[str] = frozenset(),
     immich_libraries: dict[str, str] | None = None,
     auto_seed: bool = True,
 ) -> TestClient:
@@ -325,6 +346,8 @@ def build_client(
         city_blacklist=city_blacklist,
         people_whitelist=people_whitelist,
         people_blacklist=people_blacklist,
+        tag_whitelist=tag_whitelist,
+        tag_blacklist=tag_blacklist,
     )
     app = create_app(settings=settings)
     app.state.immich_client = immich

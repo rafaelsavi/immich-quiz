@@ -390,6 +390,7 @@ def test_is_eligible_asset_config_whitelists_and_blacklists() -> None:
         'fileCreatedAt': '2023-01-01T12:00:00Z',
         'exifInfo': {'latitude': -22.9, 'longitude': -43.1, 'country': 'Brazil', 'city': 'Rio de Janeiro'},
         'people': [{'id': 'p-1', 'name': 'Alice'}],
+        'tags': [{'id': 't-1', 'name': 'Vacation'}],
     }
     asset_germany = {
         'id': 'a-2',
@@ -397,6 +398,7 @@ def test_is_eligible_asset_config_whitelists_and_blacklists() -> None:
         'fileCreatedAt': '2023-02-01T12:00:00Z',
         'exifInfo': {'latitude': 52.5, 'longitude': 13.4, 'country': 'Germany', 'city': 'Berlin'},
         'people': [{'id': 'p-2', 'name': 'Charlie'}],
+        'tags': [{'id': 't-2', 'name': 'Private'}],
     }
     asset_landscape = {
         'id': 'a-3',
@@ -404,6 +406,7 @@ def test_is_eligible_asset_config_whitelists_and_blacklists() -> None:
         'fileCreatedAt': '2023-03-01T12:00:00Z',
         'exifInfo': {'latitude': 35.6, 'longitude': 139.6, 'country': 'Japan', 'city': 'Tokyo'},
         'people': [],
+        'tags': [],
     }
 
     assert ImmichClient.is_eligible_asset(asset_brazil, location_mode=True, date_mode=True) is True
@@ -450,6 +453,28 @@ def test_is_eligible_asset_config_whitelists_and_blacklists() -> None:
             location_mode=True,
             date_mode=True,
             people_blacklist=frozenset({'p-2'}),
+        )
+        is False
+    )
+
+    # Tag blacklist by name
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            tag_blacklist=frozenset({'private'}),
+        )
+        is False
+    )
+
+    # Tag blacklist by ID
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            tag_blacklist=frozenset({'t-2'}),
         )
         is False
     )
@@ -501,6 +526,54 @@ def test_is_eligible_asset_config_whitelists_and_blacklists() -> None:
             people_whitelist=frozenset({'alice'}),
         )
         is True
+    )
+
+    # Tag whitelist (only Vacation)
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_brazil,
+            location_mode=True,
+            date_mode=True,
+            tag_whitelist=frozenset({'vacation'}),
+        )
+        is True
+    )
+    # Tag whitelist by ID ('t-1' and uppercase 'T-1')
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_brazil,
+            location_mode=True,
+            date_mode=True,
+            tag_whitelist=frozenset({'t-1'}),
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_brazil,
+            location_mode=True,
+            date_mode=True,
+            tag_whitelist=frozenset({'T-1'}),
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_germany,
+            location_mode=True,
+            date_mode=True,
+            tag_whitelist=frozenset({'vacation'}),
+        )
+        is False
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_landscape,
+            location_mode=True,
+            date_mode=True,
+            tag_whitelist=frozenset({'vacation'}),
+        )
+        is False
     )
 
 

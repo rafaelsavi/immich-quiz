@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Modern Interactive Player Input**: Tag/chip based player management component with avatar badges, game-matched player colors, duplicate detection, keyboard shortcuts, paste splitting, and touch-screen virtual keyboard optimizations.
 - **Live Preflight Counter**: Live feedback counter displaying eligible photos and breakdown tooltips (GPS, Date, Eligible total) dynamically updating on every filter or game mode change.
 - **Per-Library Filter Persistence**: Active filter selections saved in `localStorage` per library, automatically restoring when switching libraries.
+- **Asset Tag Whitelist & Blacklist**: Added `TAG_WHITELIST` and `TAG_BLACKLIST` configuration settings enforcing global server-level safeguards across SQLite metadata queries and in-memory asset filtering. Assets labeled with any blacklisted tag are strictly excluded from candidate pools, and when a whitelist is specified, only assets tagged with at least one whitelisted tag are eligible.
 - **Unified 4-Table Relational Match & Multiplayer Foundation**: Implemented a comprehensive relational SQLite schema (`challenges`, `matches`, `match_entries`, `match_round_guesses`) under `data/leaderboard.db`. Features type-safe `PlayMode` enum (`local`, `challenge`, `room`), exact per-photo round guess records (`photo_index`), actual and guessed coordinates/dates, sub-score breakdowns, and active response time tracking (`time_taken_seconds`, `total_time_seconds`) for fair tiebreaking.
 
 ### Changed

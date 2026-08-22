@@ -144,6 +144,8 @@ class AssetFilterCriteria:
     city_blacklist: frozenset[str] = frozenset()
     people_whitelist: frozenset[str] = frozenset()
     people_blacklist: frozenset[str] = frozenset()
+    tag_whitelist: frozenset[str] = frozenset()
+    tag_blacklist: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if self.min_date is not None and self.max_date is not None and self.min_date > self.max_date:
@@ -179,6 +181,8 @@ class AssetFilterCriteria:
             city_blacklist=settings.city_blacklist if settings else frozenset(),
             people_whitelist=settings.people_whitelist if settings else frozenset(),
             people_blacklist=settings.people_blacklist if settings else frozenset(),
+            tag_whitelist=settings.tag_whitelist if settings else frozenset(),
+            tag_blacklist=settings.tag_blacklist if settings else frozenset(),
         )
 
 
@@ -676,12 +680,12 @@ class MetadataStore:
                     SELECT ap.asset_id
                     FROM asset_people ap
                     JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
-                    WHERE (LOWER(p.name) IN ({name_placeholders}) OR ap.person_id IN ({id_placeholders}))
+                    WHERE (LOWER(p.name) IN ({name_placeholders}) OR LOWER(ap.person_id) IN ({id_placeholders}))
                       AND ap.library_name = a.library_name
                 )"""
             )
             params.extend(p.lower() for p in criteria.people_blacklist)
-            params.extend(p for p in criteria.people_blacklist)
+            params.extend(p.lower() for p in criteria.people_blacklist)
 
         # 7. Country whitelist baseline (if active and user didn't specify countries)
         if criteria.country_whitelist and not criteria.countries:
@@ -706,12 +710,45 @@ class MetadataStore:
                     SELECT ap.asset_id
                     FROM asset_people ap
                     JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
-                    WHERE (LOWER(p.name) NOT IN ({name_placeholders}) AND ap.person_id NOT IN ({id_placeholders}))
+                    WHERE (LOWER(p.name) NOT IN ({name_placeholders})
+                           AND LOWER(ap.person_id) NOT IN ({id_placeholders}))
                       AND ap.library_name = a.library_name
                 )"""
             )
             params.extend(p.lower() for p in criteria.people_whitelist)
-            params.extend(p for p in criteria.people_whitelist)
+            params.extend(p.lower() for p in criteria.people_whitelist)
+
+        # 10. Tag blacklist (exclude matching tags by name or ID)
+        if criteria.tag_blacklist:
+            tag_name_placeholders = ', '.join('?' for _ in criteria.tag_blacklist)
+            tag_id_placeholders = ', '.join('?' for _ in criteria.tag_blacklist)
+            clauses.append(
+                f"""a.id NOT IN (
+                    SELECT at.asset_id
+                    FROM asset_tags at
+                    JOIN tags t ON at.tag_id = t.id AND at.library_name = t.library_name
+                    WHERE (LOWER(t.name) IN ({tag_name_placeholders}) OR LOWER(at.tag_id) IN ({tag_id_placeholders}))
+                      AND at.library_name = a.library_name
+                )"""
+            )
+            params.extend(t.lower() for t in criteria.tag_blacklist)
+            params.extend(t.lower() for t in criteria.tag_blacklist)
+
+        # 11. Tag whitelist (only include assets with at least one whitelisted tag by name or ID)
+        if criteria.tag_whitelist:
+            tag_name_placeholders = ', '.join('?' for _ in criteria.tag_whitelist)
+            tag_id_placeholders = ', '.join('?' for _ in criteria.tag_whitelist)
+            clauses.append(
+                f"""a.id IN (
+                    SELECT at.asset_id
+                    FROM asset_tags at
+                    JOIN tags t ON at.tag_id = t.id AND at.library_name = t.library_name
+                    WHERE (LOWER(t.name) IN ({tag_name_placeholders}) OR LOWER(at.tag_id) IN ({tag_id_placeholders}))
+                      AND at.library_name = a.library_name
+                )"""
+            )
+            params.extend(t.lower() for t in criteria.tag_whitelist)
+            params.extend(t.lower() for t in criteria.tag_whitelist)
 
         # -------------------------------------------------------------------
         # LAYER 2: User Match Setup Rules (Applied on top)
@@ -1115,8 +1152,9 @@ class MetadataStore:
     def get_tags(
         self,
         libraries: list[str] | tuple[str, ...] | None = None,
+        settings: AppSettings | None = None,
     ) -> list[dict[str, str]]:
-        """Return indexed tags for one or more libraries (or all if None)."""
+        """Return indexed tags for one or more libraries (or all if None), optionally filtered by settings."""
         clauses = []
         params: list[Any] = []
         if libraries:
@@ -1126,4 +1164,20 @@ class MetadataStore:
         where_str = f"WHERE {' AND '.join(clauses)}" if clauses else ''
         sql = f'SELECT DISTINCT id, name FROM tags {where_str} ORDER BY name COLLATE NOCASE'
         rows = self._db.fetch_all(sql, tuple(params))
-        return [{'id': str(r['id']), 'name': str(r['name'])} for r in rows]
+        tags: list[dict[str, str]] = []
+        for r in rows:
+            t_id = str(r['id'])
+            t_name = str(r['name'])
+            t_lower = t_name.lower()
+            t_id_lower = t_id.lower()
+            if settings:
+                if settings.tag_whitelist and (
+                    t_lower not in settings.tag_whitelist and t_id_lower not in settings.tag_whitelist
+                ):
+                    continue
+                if settings.tag_blacklist and (
+                    t_lower in settings.tag_blacklist or t_id_lower in settings.tag_blacklist
+                ):
+                    continue
+            tags.append({'id': t_id, 'name': t_name})
+        return tags

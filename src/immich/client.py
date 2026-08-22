@@ -309,6 +309,8 @@ class ImmichClient:
         city_blacklist: frozenset[str] = frozenset(),
         people_whitelist: frozenset[str] = frozenset(),
         people_blacklist: frozenset[str] = frozenset(),
+        tag_whitelist: frozenset[str] = frozenset(),
+        tag_blacklist: frozenset[str] = frozenset(),
     ) -> bool:
         """Check whether an asset satisfies location, date, and whitelist/blacklist constraints."""
         # 1. Reject videos
@@ -354,6 +356,22 @@ class ImmichClient:
             str(p.get('name', '')).strip().lower() for p in asset_people if isinstance(p, dict) and p.get('name')
         }
 
+        asset_tags = asset.get('tags') or []
+        asset_tag_ids: set[str] = set()
+        asset_tag_names: set[str] = set()
+        if isinstance(asset_tags, list):
+            for t in asset_tags:
+                if isinstance(t, dict):
+                    if tid := str(t.get('id', '')).strip():
+                        asset_tag_ids.add(tid.lower())
+                    if tname := str(t.get('name', '')).strip().lower():
+                        asset_tag_names.add(tname)
+                elif isinstance(t, str):
+                    tid_or_name = t.strip()
+                    if tid_or_name:
+                        asset_tag_ids.add(tid_or_name.lower())
+                        asset_tag_names.add(tid_or_name.lower())
+
         # -------------------------------------------------------------------
         # LAYER 1: Hard Server Configuration Safeguards (Always Enforced)
         # -------------------------------------------------------------------
@@ -372,6 +390,12 @@ class ImmichClient:
                 bl_lower = bl_item.lower()
                 if bl_lower in asset_person_names or bl_item in asset_person_ids:
                     return False
+
+        # Tag blacklist (by name or by ID)
+        if tag_blacklist:
+            bl_lower = {w.lower() for w in tag_blacklist}
+            if asset_tag_names.intersection(bl_lower) or asset_tag_ids.intersection(bl_lower):
+                return False
 
         # Country whitelist baseline (when user didn't specify countries)
         if (
@@ -394,6 +418,12 @@ class ImmichClient:
             for pid in asset_person_ids:
                 if pid and pid not in people_whitelist and not any(p_name in wl_lower for p_name in asset_person_names):
                     return False
+
+        # Tag whitelist baseline
+        if tag_whitelist:
+            wl_lower = {w.lower() for w in tag_whitelist}
+            if not (asset_tag_names.intersection(wl_lower) or asset_tag_ids.intersection(wl_lower)):
+                return False
 
         # -------------------------------------------------------------------
         # LAYER 2: User Match Setup Rules (Applied on top)

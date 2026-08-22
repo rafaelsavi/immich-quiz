@@ -13,7 +13,6 @@ This document lists planned features, design ideas, and technical debt items for
 - **PWA & Mobile Haptics**: Make the web app installable as a Progressive Web App (manifest, standalone display, icons) with haptic vibration feedback for mobile map interactions, timeline adjustments, and timer alerts.
 - **Safety Against Attacks**: Cloudflare Zero Trust path-based rules, rate limiting, and capability URL security.
 - **Add support for videos**
-- **Add whitelist and blacklist of asset tags**
 - **Add option to report map or date inconsistencies in round reveal**
 
 ---

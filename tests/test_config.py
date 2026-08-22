@@ -34,6 +34,8 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'CITY_BLACKLIST',
         'PEOPLE_WHITELIST',
         'PEOPLE_BLACKLIST',
+        'TAG_WHITELIST',
+        'TAG_BLACKLIST',
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -235,6 +237,8 @@ def test_default_whitelists_and_blacklists_are_empty(monkeypatch: pytest.MonkeyP
     assert settings.city_blacklist == frozenset()
     assert settings.people_whitelist == frozenset()
     assert settings.people_blacklist == frozenset()
+    assert settings.tag_whitelist == frozenset()
+    assert settings.tag_blacklist == frozenset()
 
 
 def test_custom_whitelists_and_blacklists_parsed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -246,6 +250,8 @@ def test_custom_whitelists_and_blacklists_parsed(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv('CITY_BLACKLIST', 'Curitiba')
     monkeypatch.setenv('PEOPLE_WHITELIST', 'Alice, Bob Smith')
     monkeypatch.setenv('PEOPLE_BLACKLIST', 'Charlie')
+    monkeypatch.setenv('TAG_WHITELIST', 'Vacation, Nature Trip')
+    monkeypatch.setenv('TAG_BLACKLIST', 'Private')
 
     settings = load_settings()
 
@@ -255,6 +261,8 @@ def test_custom_whitelists_and_blacklists_parsed(monkeypatch: pytest.MonkeyPatch
     assert settings.city_blacklist == frozenset({'curitiba'})
     assert settings.people_whitelist == frozenset({'alice', 'bob smith'})
     assert settings.people_blacklist == frozenset({'charlie'})
+    assert settings.tag_whitelist == frozenset({'vacation', 'nature trip'})
+    assert settings.tag_blacklist == frozenset({'private'})
 
 
 def test_data_path_configuration(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -296,6 +304,16 @@ def test_people_whitelist_blacklist_overlap_rejected(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv('PEOPLE_BLACKLIST', 'Bob, Charlie')
 
     with pytest.raises(ConfigError, match='PEOPLE_WHITELIST and PEOPLE_BLACKLIST cannot overlap: bob'):
+        load_settings()
+
+
+def test_tag_whitelist_blacklist_overlap_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('TAG_WHITELIST', 'Vacation, Favorites')
+    monkeypatch.setenv('TAG_BLACKLIST', 'Favorites, Hidden')
+
+    with pytest.raises(ConfigError, match='TAG_WHITELIST and TAG_BLACKLIST cannot overlap: favorites'):
         load_settings()
 
 
@@ -347,6 +365,8 @@ def test_app_settings_dataclass_defaults() -> None:
     assert settings.city_blacklist == frozenset()
     assert settings.people_whitelist == frozenset()
     assert settings.people_blacklist == frozenset()
+    assert settings.tag_whitelist == frozenset()
+    assert settings.tag_blacklist == frozenset()
     assert settings.data_path == Path('data').resolve()
     assert settings.auto_sync_on_startup is True
     assert settings.auto_delta_sync_interval_hours == 6

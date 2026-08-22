@@ -169,6 +169,8 @@ class AppSettings:
     city_blacklist: frozenset[str] = frozenset()
     people_whitelist: frozenset[str] = frozenset()
     people_blacklist: frozenset[str] = frozenset()
+    tag_whitelist: frozenset[str] = frozenset()
+    tag_blacklist: frozenset[str] = frozenset()
 
     # 5. Storage Paths & Sync Scheduling
     data_path: Path = Path('data')
@@ -220,6 +222,7 @@ class AppSettings:
         _validate_no_overlap(self.country_whitelist, self.country_blacklist, 'COUNTRY_WHITELIST', 'COUNTRY_BLACKLIST')
         _validate_no_overlap(self.city_whitelist, self.city_blacklist, 'CITY_WHITELIST', 'CITY_BLACKLIST')
         _validate_no_overlap(self.people_whitelist, self.people_blacklist, 'PEOPLE_WHITELIST', 'PEOPLE_BLACKLIST')
+        _validate_no_overlap(self.tag_whitelist, self.tag_blacklist, 'TAG_WHITELIST', 'TAG_BLACKLIST')
 
     @property
     def metadata_db_path(self) -> Path:
@@ -306,6 +309,10 @@ def load_settings() -> AppSettings:
         kwargs['people_whitelist'] = _parse_comma_set(val)
     if val := _get_env('PEOPLE_BLACKLIST'):
         kwargs['people_blacklist'] = _parse_comma_set(val)
+    if val := _get_env('TAG_WHITELIST'):
+        kwargs['tag_whitelist'] = _parse_comma_set(val)
+    if val := _get_env('TAG_BLACKLIST'):
+        kwargs['tag_blacklist'] = _parse_comma_set(val)
 
     return AppSettings(**kwargs)
 
