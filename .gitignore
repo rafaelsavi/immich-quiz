@@ -12,3 +12,4 @@ htmlcov/
 data/
 *.egg-info/
 *.pyc
+docs/next-milestones
