@@ -265,6 +265,7 @@
   gap: 0.75rem;
   padding: 0.3rem 0.75rem;
   border-bottom: 1px solid #edf1f7;
+  background: #fafbfc;
 }
 
 .btn-text-action {

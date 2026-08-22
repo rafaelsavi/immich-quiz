@@ -22,6 +22,7 @@ def test_multi_select_has_required_methods() -> None:
         '_onDocKeydown',
         'destroy',
         '_updateSearchClearVisibility',
+        '_updateSearchVisibility',
         'setItems',
         'getSelectedIds',
         'getSelectedItems',
@@ -42,6 +43,24 @@ def test_multi_select_has_required_methods() -> None:
     for method in required_methods:
         pattern = rf'\b{method}\s*\('
         assert re.search(pattern, content), f"Method '{method}' not found in MultiSelect class"
+
+
+def test_multi_select_search_visibility_threshold() -> None:
+    content = MULTI_SELECT_JS.read_text(encoding='utf-8')
+
+    # Verify minSearchItems / searchThreshold support with default of 6
+    assert 'minSearchItems' in content
+    assert '6' in content
+    assert '_updateSearchVisibility' in content
+    assert '_isSearchHidden' in content
+
+    # Verify search-wrap visibility toggling with hidden class
+    assert 'searchWrapEl' in content
+    assert 'classList.add("hidden")' in content or "classList.add('hidden')" in content
+    assert 'classList.remove("hidden")' in content or "classList.remove('hidden')" in content
+
+    # Verify autofocus is guarded against hidden search
+    assert '!this._isSearchHidden()' in content
 
 
 def test_multi_select_dom_structure_and_accessibility() -> None:

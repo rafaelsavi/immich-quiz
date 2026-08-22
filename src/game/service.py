@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -31,7 +31,7 @@ from src.models import (
     RoundResultResponse,
     SyncStatus,
 )
-from src.scoring import accuracy_pct, max_possible_score
+from src.scoring import SCORE_MAX_POINTS, accuracy_pct, haversine_km, max_possible_score
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, SessionStore
@@ -51,10 +51,16 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
         if state.setup.game_mode == GameMode.album_shuffle and q.batch_assets:
             guess_map = {g['photo_id']: g for g in (q.album_shuffle_guesses or [])}
             pin_by_id = {bp['pin_id']: bp for bp in (q.batch_pins or [])}
+            true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in (q.batch_pins or [])}
+            sorted_by_date = sorted(q.batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
+            true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
+            total_photos = len(q.batch_assets)
+            per_photo_max = (SCORE_MAX_POINTS // total_photos) if total_photos > 0 else 0
 
             for idx, ba in enumerate(q.batch_assets):
                 guessed_item = guess_map.get(ba.asset_id, {})
                 assigned_pin_id = guessed_item.get('assigned_pin_id')
+                assigned_timeline_index = guessed_item.get('assigned_timeline_index')
                 assigned_pin = pin_by_id.get(assigned_pin_id) if assigned_pin_id else None
 
                 guess_lat = (
@@ -68,24 +74,60 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     else None
                 )
 
+                dist_km: float | None = None
+                if (
+                    guess_lat is not None
+                    and guess_lng is not None
+                    and ba.answer.latitude is not None
+                    and ba.answer.longitude is not None
+                ):
+                    dist_km = haversine_km(ba.answer.latitude, ba.answer.longitude, guess_lat, guess_lng)
+
+                if state.setup.location_mode:
+                    is_correct_loc: int | None = 1 if (ba.asset_id in true_pin_map and assigned_pin_id == true_pin_map[ba.asset_id]) else 0
+                    loc_points: int | None = per_photo_max if is_correct_loc == 1 else 0
+                else:
+                    is_correct_loc = None
+                    loc_points = None
+
+                if state.setup.date_mode:
+                    is_correct_date: int | None = (
+                        1
+                        if (
+                            ba.asset_id in true_rank_map
+                            and assigned_timeline_index is not None
+                            and assigned_timeline_index == true_rank_map[ba.asset_id]
+                        )
+                        else 0
+                    )
+                    dt_points: int | None = per_photo_max if is_correct_date == 1 else 0
+                else:
+                    is_correct_date = None
+                    dt_points = None
+
+                photo_score = (loc_points or 0) + (dt_points or 0)
+
                 guesses.append(
                     {
                         'match_id': state.match_id,
                         'player_name': q.player_name,
                         'round_index': q.round_index,
                         'photo_index': idx,
+                        'game_mode': state.setup.game_mode.value,
                         'asset_id': ba.asset_id,
                         'guess_latitude': guess_lat,
                         'guess_longitude': guess_lng,
                         'actual_latitude': ba.answer.latitude,
                         'actual_longitude': ba.answer.longitude,
-                        'distance_km': None,
-                        'location_points': None,
+                        'distance_km': dist_km,
+                        'location_points': loc_points,
                         'guess_date': None,
                         'actual_date': ba.answer.capture_date.isoformat() if ba.answer.capture_date else None,
                         'date_diff_days': None,
-                        'date_points': None,
-                        'round_score': q.location_points + q.date_points if idx == 0 else 0,
+                        'date_points': dt_points,
+                        'round_score': photo_score,
+                        'is_correct_location': is_correct_loc,
+                        'is_correct_date_order': is_correct_date,
                         'time_taken_seconds': q.time_taken_seconds,
                         'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
                     }
@@ -103,6 +145,7 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     'player_name': q.player_name,
                     'round_index': q.round_index,
                     'photo_index': 0,
+                    'game_mode': state.setup.game_mode.value,
                     'asset_id': q.asset_id,
                     'guess_latitude': q.guessed_latitude,
                     'guess_longitude': q.guessed_longitude,
@@ -115,6 +158,8 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     'date_diff_days': q.date_diff_days,
                     'date_points': q.date_points if state.setup.date_mode else None,
                     'round_score': q.location_points + q.date_points,
+                    'is_correct_location': None,
+                    'is_correct_date_order': None,
                     'time_taken_seconds': q.time_taken_seconds,
                     'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
                 }

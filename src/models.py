@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from src.i18n import SupportedLanguage, t
 from src.scoring import SCORE_MAX_POINTS
-from typing import Any
+
 # ---------------------------------------------------------------------------
 # Enums and Shared Primitives
 # ---------------------------------------------------------------------------
@@ -133,129 +134,6 @@ class LibraryFiltersResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Game Setup, Filter Hierarchy & Preflight Models
-# ---------------------------------------------------------------------------
-
-
-def format_filter_summary(
-    *,
-    libraries: list[str] | None = None,
-    album_names: list[str] | None = None,
-    countries: list[str] | None = None,
-    cities: list[str] | None = None,
-    person_names: list[str] | None = None,
-    people_mode: PeopleMode | str | None = None,
-    min_date: date | None = None,
-    max_date: date | None = None,
-    include_shared: bool = False,
-    language: SupportedLanguage = SupportedLanguage.EN,
-) -> tuple[int, str]:
-    """Return (is_custom_filtered, summary_str) based on active filter parameters."""
-    active_filters_count = sum(
-        [
-            bool(album_names),
-            bool(countries),
-            bool(cities),
-            bool(person_names),
-            bool(min_date or max_date),
-            bool(include_shared),
-        ]
-    )
-    max_items = 1 if active_filters_count > 1 else 2
-
-    parts: list[str] = []
-
-    if libraries and len(libraries) > 0:
-        if len(libraries) <= max_items:
-            parts.append(', '.join(libraries))
-        else:
-            parts.append(t('filters.libraries_count', language, len(libraries)))
-    if album_names:
-        if len(album_names) <= max_items:
-            parts.append(', '.join(album_names))
-        else:
-            parts.append(t('filters.albums_count', language, len(album_names)))
-    if countries:
-        if len(countries) <= max_items:
-            parts.append(', '.join(countries))
-        else:
-            parts.append(t('filters.countries_count', language, len(countries)))
-    if cities:
-        if len(cities) <= max_items:
-            parts.append(', '.join(cities))
-        else:
-            parts.append(t('filters.cities_count', language, len(cities)))
-    if person_names:
-        if len(person_names) <= max_items:
-            parts.append(', '.join(person_names))
-        else:
-            parts.append(t('filters.people_count', language, len(person_names)))
-    if min_date or max_date:
-        if min_date and max_date:
-            parts.append(t('filters.date_range', language, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
-        elif min_date:
-            parts.append(t('filters.date_from', language, min_date.strftime('%Y/%m')))
-        elif max_date:
-            parts.append(t('filters.date_until', language, max_date.strftime('%Y/%m')))
-    if include_shared:
-        parts.append(t('filters.shared', language))
-
-    if not parts:
-        return 0, t('filters.full_library', language)
-    return 1, ' • '.join(parts)
-
-
-def format_filter_tooltip(
-    *,
-    libraries: list[str] | None = None,
-    album_names: list[str] | None = None,
-    countries: list[str] | None = None,
-    cities: list[str] | None = None,
-    person_names: list[str] | None = None,
-    people_mode: PeopleMode | str | None = None,
-    min_date: date | None = None,
-    max_date: date | None = None,
-    include_shared: bool = False,
-    language: SupportedLanguage = SupportedLanguage.EN,
-) -> str | None:
-    """Return a detailed multiline tooltip string listing all active filter values."""
-    lines: list[str] = []
-
-    if libraries and len(libraries) > 0:
-        label = t('tooltip.libraries', language) if len(libraries) > 1 else t('tooltip.library', language)
-        lines.append(f'{label}: {", ".join(libraries)}')
-    if album_names:
-        label = t('tooltip.albums', language) if len(album_names) > 1 else t('tooltip.album', language)
-        lines.append(f'{label}: {", ".join(album_names)}')
-    if countries:
-        lines.append(f'{t("tooltip.countries", language)}: {", ".join(countries)}')
-    if cities:
-        lines.append(f'{t("tooltip.cities", language)}: {", ".join(cities)}')
-    if person_names:
-        names_str = ', '.join(person_names)
-        count = len(person_names)
-        if count > 1:
-            is_all = people_mode == PeopleMode.ALL or str(people_mode).upper() == 'ALL'
-            prefix = t('tooltip.people_all', language) if is_all else t('tooltip.people_any', language)
-            lines.append(f'{prefix}: {names_str}')
-        elif count == 1:
-            lines.append(f'{t("tooltip.person_single", language)}: {names_str}')
-    if min_date or max_date:
-        if min_date and max_date:
-            lines.append(t('tooltip.dates_range', language, min_date.strftime('%Y/%m'), max_date.strftime('%Y/%m')))
-        elif min_date:
-            lines.append(t('tooltip.dates_from', language, min_date.strftime('%Y/%m')))
-        elif max_date:
-            lines.append(t('tooltip.dates_until', language, max_date.strftime('%Y/%m')))
-    if include_shared:
-        lines.append(t('tooltip.shared', language))
-
-    if not lines:
-        return None
-    return '\n'.join(lines)
-
-
-# ---------------------------------------------------------------------------
 # Composable Filter & Rule Models
 # ---------------------------------------------------------------------------
 
@@ -275,12 +153,6 @@ class PhotoFilterScope(BaseModel):
     max_date: date | None = None
     include_shared: bool = False
 
-    @model_validator(mode='after')
-    def validate_dates(self) -> PhotoFilterScope:
-        if self.min_date and self.max_date and self.min_date > self.max_date:
-            raise ValueError('min_date cannot be greater than max_date')
-        return self
-
 
 class FilterDisplayMeta(BaseModel):
     """Presentation labels and resolved display metadata for filters."""
@@ -298,37 +170,103 @@ class GameFilterConfig(PhotoFilterScope, FilterDisplayMeta):
         self,
         language: SupportedLanguage = SupportedLanguage.EN,
     ) -> tuple[int, str]:
-        """Return (is_custom_filtered, summary_str) for this configuration."""
-        return format_filter_summary(
-            libraries=self.libraries,
-            album_names=self.album_names,
-            countries=self.countries,
-            cities=self.cities,
-            person_names=self.person_names,
-            people_mode=self.people_mode,
-            min_date=self.min_date,
-            max_date=self.max_date,
-            include_shared=self.include_shared,
-            language=language,
+        """Return (is_custom_filtered, summary_str) based on active filter parameters."""
+        active_filters_count = sum(
+            [
+                bool(self.album_names),
+                bool(self.countries),
+                bool(self.cities),
+                bool(self.person_names),
+                bool(self.min_date or self.max_date),
+                bool(self.include_shared),
+            ]
         )
+        max_items = 1 if active_filters_count > 1 else 2
+
+        parts: list[str] = []
+
+        if self.libraries:
+            if len(self.libraries) <= max_items:
+                parts.append(', '.join(self.libraries))
+            else:
+                parts.append(t('filters.libraries_count', language, len(self.libraries)))
+        if self.album_names:
+            if len(self.album_names) <= max_items:
+                parts.append(', '.join(self.album_names))
+            else:
+                parts.append(t('filters.albums_count', language, len(self.album_names)))
+        if self.countries:
+            if len(self.countries) <= max_items:
+                parts.append(', '.join(self.countries))
+            else:
+                parts.append(t('filters.countries_count', language, len(self.countries)))
+        if self.cities:
+            if len(self.cities) <= max_items:
+                parts.append(', '.join(self.cities))
+            else:
+                parts.append(t('filters.cities_count', language, len(self.cities)))
+        if self.person_names:
+            if len(self.person_names) <= max_items:
+                parts.append(', '.join(self.person_names))
+            else:
+                parts.append(t('filters.people_count', language, len(self.person_names)))
+        if self.min_date or self.max_date:
+            if self.min_date and self.max_date:
+                parts.append(
+                    t('filters.date_range', language, self.min_date.strftime('%Y/%m'), self.max_date.strftime('%Y/%m'))
+                )
+            elif self.min_date:
+                parts.append(t('filters.date_from', language, self.min_date.strftime('%Y/%m')))
+            elif self.max_date:
+                parts.append(t('filters.date_until', language, self.max_date.strftime('%Y/%m')))
+        if self.include_shared:
+            parts.append(t('filters.shared', language))
+
+        if not parts:
+            return 0, t('filters.full_library', language)
+        return 1, ' • '.join(parts)
 
     def format_filter_tooltip(
         self,
         language: SupportedLanguage = SupportedLanguage.EN,
     ) -> str | None:
         """Return a detailed multiline tooltip string listing all active filter values."""
-        return format_filter_tooltip(
-            libraries=self.libraries,
-            album_names=self.album_names,
-            countries=self.countries,
-            cities=self.cities,
-            person_names=self.person_names,
-            people_mode=self.people_mode,
-            min_date=self.min_date,
-            max_date=self.max_date,
-            include_shared=self.include_shared,
-            language=language,
-        )
+        lines: list[str] = []
+
+        if self.libraries:
+            label = t('tooltip.libraries', language) if len(self.libraries) > 1 else t('tooltip.library', language)
+            lines.append(f'{label}: {", ".join(self.libraries)}')
+        if self.album_names:
+            label = t('tooltip.albums', language) if len(self.album_names) > 1 else t('tooltip.album', language)
+            lines.append(f'{label}: {", ".join(self.album_names)}')
+        if self.countries:
+            lines.append(f'{t("tooltip.countries", language)}: {", ".join(self.countries)}')
+        if self.cities:
+            lines.append(f'{t("tooltip.cities", language)}: {", ".join(self.cities)}')
+        if self.person_names:
+            names_str = ', '.join(self.person_names)
+            count = len(self.person_names)
+            if count > 1:
+                is_all = self.people_mode == PeopleMode.ALL or str(self.people_mode).upper() == 'ALL'
+                prefix = t('tooltip.people_all', language) if is_all else t('tooltip.people_any', language)
+                lines.append(f'{prefix}: {names_str}')
+            elif count == 1:
+                lines.append(f'{t("tooltip.person_single", language)}: {names_str}')
+        if self.min_date or self.max_date:
+            if self.min_date and self.max_date:
+                lines.append(
+                    t('tooltip.dates_range', language, self.min_date.strftime('%Y/%m'), self.max_date.strftime('%Y/%m'))
+                )
+            elif self.min_date:
+                lines.append(t('tooltip.dates_from', language, self.min_date.strftime('%Y/%m')))
+            elif self.max_date:
+                lines.append(t('tooltip.dates_until', language, self.max_date.strftime('%Y/%m')))
+        if self.include_shared:
+            lines.append(t('tooltip.shared', language))
+
+        if not lines:
+            return None
+        return '\n'.join(lines)
 
 
 class GameRulesConfig(BaseModel):
@@ -342,8 +280,14 @@ class GameRulesConfig(BaseModel):
     date_mode: bool = True
     game_mode: GameMode = GameMode.pinpoint
 
+
+class BaseGameConfig(GameFilterConfig, GameRulesConfig):
+    """Shared filter and mode configuration for preflight checks and game setup."""
+
     @model_validator(mode='after')
-    def validate_rules(self) -> GameRulesConfig:
+    def validate_game_config(self) -> BaseGameConfig:
+        if self.min_date and self.max_date and self.min_date > self.max_date:
+            raise ValueError('min_date cannot be greater than max_date')
         if self.round_count not in {5, 10, 20}:
             raise ValueError('round_count must be one of: 5, 10, 20')
         if not (self.location_mode or self.date_mode):
@@ -351,8 +295,9 @@ class GameRulesConfig(BaseModel):
         return self
 
 
-class BaseGameConfig(GameFilterConfig, GameRulesConfig):
-    """Shared filter and mode configuration for preflight checks and game setup."""
+class MatchConfig(GameFilterConfig, GameRulesConfig):
+    """Read-only deserialization of a stored match configuration without setup validators."""
+
     pass
 
 
@@ -440,6 +385,10 @@ class LeaderboardQuery(BaseModel):
 
     # Search, pagination, and matching mode
     player_name: str | None = None
+    play_mode: PlayMode | None = None
+    challenge_id: str | None = None
+    played_after: date | None = None
+    played_before: date | None = None
     is_custom_filtered: bool | None = None
     exact_filter_match: bool = True
     limit: int | None = None
@@ -672,19 +621,24 @@ class LeaderboardEntry(BaseModel):
     match_id: str
     played_at: datetime
     player_name: str
-    max_possible_score: int
-    total_score: int
-    location_score: int | None = None
-    date_score: int | None = None
-    accuracy_pct: float = 0.0
-    rank: int = 1
-    is_winner: bool = False
-    awards: list[str] = Field(default_factory=list)
+    total_score: int = Field(ge=0)
+    max_possible_score: int = Field(ge=0)
+    accuracy_pct: float = Field(ge=0.0, le=100.0)
+    rank: int = Field(ge=1)
+    is_winner: bool
+    game_mode: GameMode
+    rounds: int = Field(ge=1)
+    play_mode: PlayMode
+    is_custom_filtered: bool
+    config: MatchConfig
+
+    location_score: int | None = Field(default=None, ge=0)
+    date_score: int | None = Field(default=None, ge=0)
+    total_time_seconds: float | None = Field(default=None, ge=0.0)
+    duration_seconds: float | None = Field(default=None, ge=0.0)
     filter_summary: str | None = None
-    is_custom_filtered: bool = False
-    play_mode: PlayMode = PlayMode.local
     challenge_id: str | None = None
     challenge_title: str | None = None
     room_id: str | None = None
     room_name: str | None = None
-    config: dict = Field(default_factory=dict)
+    awards: list[str] = Field(default_factory=list)

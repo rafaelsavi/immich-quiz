@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS challenges (
     asset_ids_json     TEXT NOT NULL,
     created_at         TEXT NOT NULL,
     expires_at         TEXT,                          -- ISO8601 UTC or NULL for Never
-    is_active          INTEGER NOT NULL DEFAULT 1
+    is_active          INTEGER NOT NULL
 );
 
 -- 2. Matches (Every finished local, challenge, or room game)
@@ -35,12 +35,13 @@ CREATE TABLE IF NOT EXISTS matches (
     challenge_id       TEXT,
     room_id            TEXT,                          -- Secure Room Session UUID (if live multiplayer)
     room_name          TEXT,                          -- e.g. "Rafael's Lounge" (optional display name)
-    play_mode          TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
+    play_mode          TEXT NOT NULL,                 -- 'local', 'challenge', 'room'
     played_at          TEXT NOT NULL,
     libraries_json     TEXT,
     game_mode          TEXT NOT NULL,
     rounds             INTEGER NOT NULL,
     round_length       TEXT NOT NULL,
+    player_count       INTEGER NOT NULL,
     location_mode      INTEGER NOT NULL,
     date_mode          INTEGER NOT NULL,
     album_names_json   TEXT,
@@ -51,8 +52,8 @@ CREATE TABLE IF NOT EXISTS matches (
     cities_json        TEXT,
     min_date           TEXT,
     max_date           TEXT,
-    include_shared     INTEGER NOT NULL DEFAULT 0,
-    is_custom_filtered INTEGER NOT NULL DEFAULT 0,
+    include_shared     INTEGER NOT NULL,
+    is_custom_filtered INTEGER NOT NULL,
     filter_summary     TEXT,
     duration_seconds   REAL,
     FOREIGN KEY(challenge_id) REFERENCES challenges(challenge_id) ON DELETE SET NULL
@@ -68,8 +69,8 @@ CREATE TABLE IF NOT EXISTS match_entries (
     total_score        INTEGER NOT NULL,
     max_possible_score INTEGER NOT NULL,
     accuracy_pct       REAL NOT NULL,
-    rank               INTEGER NOT NULL DEFAULT 1,
-    is_winner          INTEGER NOT NULL DEFAULT 0,
+    rank               INTEGER NOT NULL,
+    is_winner          INTEGER NOT NULL,
     total_time_seconds REAL,                          -- Sum of active question response times
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
@@ -80,7 +81,8 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     match_id           TEXT NOT NULL,
     player_name        TEXT NOT NULL,
     round_index        INTEGER NOT NULL,              -- 0-indexed
-    photo_index        INTEGER NOT NULL DEFAULT 0,    -- 0-indexed (0 for pinpoint; 0, 1, 2 for album shuffle)
+    photo_index        INTEGER NOT NULL,              -- 0-indexed (0 for pinpoint; 0, 1, 2 for album shuffle)
+    game_mode          TEXT NOT NULL,
     asset_id           TEXT NOT NULL,
     guess_latitude     REAL,
     guess_longitude    REAL,
@@ -93,6 +95,8 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     date_diff_days     INTEGER,
     date_points        INTEGER,
     round_score        INTEGER NOT NULL,
+    is_correct_location   INTEGER,                    -- 1/0/NULL
+    is_correct_date_order INTEGER,                    -- 1/0/NULL
     time_taken_seconds REAL,                          -- Active seconds on question screen
     submitted_at       TEXT NOT NULL,
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
@@ -129,7 +133,7 @@ class ChallengeStore:
     def create_challenge(
         self,
         creator_name: str,
-        library_name: str,
+        libraries: list[str] | None,
         config: dict[str, Any],
         asset_ids: list[str],
         title: str | None = None,
@@ -144,7 +148,7 @@ class ChallengeStore:
             conn.execute(
                 """
                 INSERT INTO challenges (
-                    challenge_id, capability_token, title, creator_name, library_name,
+                    challenge_id, capability_token, title, creator_name, libraries_json,
                     config_json, asset_ids_json, created_at, expires_at, is_active
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                 """,
@@ -153,7 +157,7 @@ class ChallengeStore:
                     capability_token,
                     title,
                     creator_name,
-                    library_name,
+                    json.dumps(sorted(libraries)) if libraries else None,
                     json.dumps(config),
                     json.dumps(asset_ids),
                     created_at.isoformat(),
@@ -166,7 +170,7 @@ class ChallengeStore:
             'capability_token': capability_token,
             'title': title,
             'creator_name': creator_name,
-            'library_name': library_name,
+            'libraries': libraries or [],
             'config': config,
             'asset_ids': asset_ids,
             'created_at': created_at.isoformat(),
@@ -194,8 +198,9 @@ class ChallengeStore:
         return {
             'challenge_id': row['challenge_id'],
             'capability_token': row['capability_token'],
+            'title': row['title'],
             'creator_name': row['creator_name'],
-            'library_name': row['library_name'],
+            'libraries': json.loads(row['libraries_json']) if row['libraries_json'] else [],
             'config': json.loads(row['config_json']),
             'asset_ids': json.loads(row['asset_ids_json']),
             'created_at': row['created_at'],

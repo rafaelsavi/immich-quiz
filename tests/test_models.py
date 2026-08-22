@@ -4,55 +4,51 @@ from src.models import (
     BaseGameConfig,
     FilterDisplayMeta,
     GameFilterConfig,
-    GameRulesConfig,
-    LeaderboardQuery,
     PeopleMode,
-    PhotoFilterScope,
-    format_filter_summary,
 )
 
 
 def test_format_filter_summary() -> None:
     # Full library (no filters)
-    is_custom, summary = format_filter_summary()
+    is_custom, summary = GameFilterConfig().format_filter_summary()
     assert is_custom == 0
     assert summary == 'Full Library'
 
     # Filter with album
-    is_custom, summary = format_filter_summary(album_names=['Europe 2023'])
+    is_custom, summary = GameFilterConfig(album_names=['Europe 2023']).format_filter_summary()
     assert is_custom == 1
     assert summary == 'Europe 2023'
 
     # Single filter category with up to 2 items (limit is 2)
-    is_custom, summary = format_filter_summary(countries=['Italy', 'France'])
+    is_custom, summary = GameFilterConfig(countries=['Italy', 'France']).format_filter_summary()
     assert is_custom == 1
     assert summary == 'Italy, France'
 
     # Filter with countries & dates (multiple categories -> limit is 1)
-    is_custom, summary = format_filter_summary(
+    is_custom, summary = GameFilterConfig(
         countries=['Italy', 'France'],
         min_date=date(2022, 1, 1),
         max_date=date(2023, 12, 31),
-    )
+    ).format_filter_summary()
     assert is_custom == 1
     assert '2 countries' in summary
     assert '2022/01 - 2023/12' in summary
 
     # Multiple categories with multiple items (2 countries, 2 cities, 2 persons -> all collapsed to count)
-    is_custom, summary = format_filter_summary(
+    is_custom, summary = GameFilterConfig(
         countries=['Italy', 'France'],
         cities=['Rome', 'Paris'],
         person_names=['Alice', 'Bob'],
-    )
+    ).format_filter_summary()
     assert is_custom == 1
     assert summary == '2 countries • 2 cities • 2 people'
 
     # Multiple categories with 1 element each (displayed as names)
-    is_custom, summary = format_filter_summary(
+    is_custom, summary = GameFilterConfig(
         countries=['Italy'],
         cities=['Rome'],
         person_names=['Alice'],
-    )
+    ).format_filter_summary()
     assert is_custom == 1
     assert summary == 'Italy • Rome • Alice'
 
@@ -137,9 +133,19 @@ def test_filter_display_meta_album_names() -> None:
 
 
 def test_models_hierarchy_and_rules_validation() -> None:
-    from pydantic import ValidationError
     import pytest
-    from src.models import GameRulesConfig, PhotoFilterScope, GameFilterConfig, GameMode, RoundLength
+    from pydantic import ValidationError
+
+    from src.models import (
+        BaseGameConfig,
+        FilterDisplayMeta,
+        GameFilterConfig,
+        GameMode,
+        GameRulesConfig,
+        MatchConfig,
+        PhotoFilterScope,
+        RoundLength,
+    )
 
     # PhotoFilterScope default values
     scope = PhotoFilterScope(album_ids=['a1'], countries=['Japan'])
@@ -149,19 +155,23 @@ def test_models_hierarchy_and_rules_validation() -> None:
     assert scope.person_ids == []
     assert scope.include_shared is False
 
-    # GameRulesConfig validation
+    # GameRulesConfig pure values
     rules = GameRulesConfig(round_count=10, location_mode=True, date_mode=False)
     assert rules.round_count == 10
     assert rules.location_mode is True
     assert rules.date_mode is False
 
-    # Invalid round count
+    # BaseGameConfig validates round count
     with pytest.raises(ValidationError):
-        GameRulesConfig(round_count=7)
+        BaseGameConfig(round_count=7)
 
-    # Invalid modes (neither location nor date)
+    # BaseGameConfig validates modes (neither location nor date)
     with pytest.raises(ValidationError):
-        GameRulesConfig(location_mode=False, date_mode=False)
+        BaseGameConfig(location_mode=False, date_mode=False)
+
+    # MatchConfig accepts any historical round count without validation error
+    historic = MatchConfig(round_count=7, location_mode=True, date_mode=False)
+    assert historic.round_count == 7
 
     # BaseGameConfig combines both
     config = BaseGameConfig(
@@ -182,30 +192,32 @@ def test_models_hierarchy_and_rules_validation() -> None:
 
 def test_multi_album_filter_summary_and_tooltip() -> None:
     # Single album
-    is_cust, summary = format_filter_summary(album_names=['Summer 2024'])
+    is_cust, summary = GameFilterConfig(album_names=['Summer 2024']).format_filter_summary()
     assert is_cust == 1
     assert summary == 'Summer 2024'
 
     # Two albums (single category -> lists both)
-    is_cust, summary = format_filter_summary(album_names=['Summer 2024', 'Winter 2024'])
+    is_cust, summary = GameFilterConfig(album_names=['Summer 2024', 'Winter 2024']).format_filter_summary()
     assert is_cust == 1
     assert summary == 'Summer 2024, Winter 2024'
 
     # Three albums (single category -> collapses to count)
-    is_cust, summary = format_filter_summary(album_names=['Trip 1', 'Trip 2', 'Trip 3'])
+    is_cust, summary = GameFilterConfig(album_names=['Trip 1', 'Trip 2', 'Trip 3']).format_filter_summary()
     assert is_cust == 1
     assert summary == '3 albums'
 
     # Three albums in PT
-    is_cust, summary_pt = format_filter_summary(album_names=['Trip 1', 'Trip 2', 'Trip 3'], language='PT')
+    is_cust, summary_pt = GameFilterConfig(
+        album_names=['Trip 1', 'Trip 2', 'Trip 3']
+    ).format_filter_summary(language='PT')
     assert is_cust == 1
     assert summary_pt == '3 álbuns'
 
     # Multiple categories including albums
-    is_cust, summary = format_filter_summary(
+    is_cust, summary = GameFilterConfig(
         album_names=['Trip 1', 'Trip 2'],
         countries=['Italy'],
-    )
+    ).format_filter_summary()
     assert is_cust == 1
     assert summary == '2 albums • Italy'
 
@@ -219,7 +231,9 @@ def test_multi_album_filter_summary_and_tooltip() -> None:
 
 
 def test_leaderboard_query_model() -> None:
-    from src.models import LeaderboardQuery, BaseGameConfig
+    from datetime import date
+
+    from src.models import BaseGameConfig, LeaderboardQuery, PlayMode
 
     config = BaseGameConfig(
         libraries=['main', 'backup'],
@@ -245,4 +259,119 @@ def test_leaderboard_query_model() -> None:
     assert query_str.countries == ['France', 'Italy', 'Germany']
     assert query_str.cities == ['Paris', 'Rome']
     assert query_str.person_ids == ['p1', 'p2']
+
+    # Test new query filter fields
+    q_extended = LeaderboardQuery(
+        play_mode=PlayMode.challenge,
+        challenge_id='ch_123',
+        played_after=date(2025, 1, 1),
+        played_before=date(2025, 1, 31),
+    )
+    assert q_extended.play_mode == PlayMode.challenge
+    assert q_extended.challenge_id == 'ch_123'
+    assert q_extended.played_after == date(2025, 1, 1)
+    assert q_extended.played_before == date(2025, 1, 31)
+
+
+def test_leaderboard_entry_model_validation() -> None:
+    from datetime import datetime, timezone
+
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import GameMode, LeaderboardEntry, MatchConfig, PlayMode, RoundLength
+
+    config = MatchConfig(
+        round_count=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        libraries=['main'],
+    )
+
+    valid_entry = LeaderboardEntry(
+        match_id='m-test',
+        played_at=datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc),
+        player_name='Rafael',
+        total_score=950,
+        max_possible_score=1000,
+        accuracy_pct=95.0,
+        rank=1,
+        is_winner=True,
+        game_mode=GameMode.pinpoint,
+        rounds=5,
+        play_mode=PlayMode.local,
+        is_custom_filtered=False,
+        config=config,
+        total_time_seconds=23.5,
+        duration_seconds=60.0,
+    )
+    assert valid_entry.match_id == 'm-test'
+    assert valid_entry.accuracy_pct == 95.0
+    assert valid_entry.rank == 1
+    assert valid_entry.total_time_seconds == 23.5
+    assert valid_entry.config.round_count == 5
+
+    # Missing mandatory fields raise ValidationError
+    with pytest.raises(ValidationError):
+        LeaderboardEntry(  # type: ignore[call-arg]
+            match_id='m-bad',
+            played_at=datetime.now(timezone.utc),
+            player_name='Test',
+        )
+
+    # Negative total_score raises ValidationError
+    with pytest.raises(ValidationError):
+        LeaderboardEntry(
+            match_id='m-bad',
+            played_at=datetime.now(timezone.utc),
+            player_name='Test',
+            total_score=-10,
+            max_possible_score=1000,
+            accuracy_pct=0.0,
+            rank=1,
+            is_winner=False,
+            game_mode=GameMode.pinpoint,
+            rounds=5,
+            play_mode=PlayMode.local,
+            is_custom_filtered=False,
+            config=config,
+        )
+
+    # accuracy_pct > 100.0 raises ValidationError
+    with pytest.raises(ValidationError):
+        LeaderboardEntry(
+            match_id='m-bad',
+            played_at=datetime.now(timezone.utc),
+            player_name='Test',
+            total_score=1500,
+            max_possible_score=1000,
+            accuracy_pct=150.0,
+            rank=1,
+            is_winner=False,
+            game_mode=GameMode.pinpoint,
+            rounds=5,
+            play_mode=PlayMode.local,
+            is_custom_filtered=False,
+            config=config,
+        )
+
+    # rank < 1 raises ValidationError
+    with pytest.raises(ValidationError):
+        LeaderboardEntry(
+            match_id='m-bad',
+            played_at=datetime.now(timezone.utc),
+            player_name='Test',
+            total_score=500,
+            max_possible_score=1000,
+            accuracy_pct=50.0,
+            rank=0,
+            is_winner=False,
+            game_mode=GameMode.pinpoint,
+            rounds=5,
+            play_mode=PlayMode.local,
+            is_custom_filtered=False,
+            config=config,
+        )
 

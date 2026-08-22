@@ -12,6 +12,7 @@ from src.models import (
     GameSetupRequest,
     LeaderboardEntry,
     LeaderboardQuery,
+    MatchConfig,
     PeopleMode,
     PlayMode,
     RoundLength,
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS challenges (
     asset_ids_json     TEXT NOT NULL,
     created_at         TEXT NOT NULL,
     expires_at         TEXT,                          -- ISO8601 UTC or NULL for Never
-    is_active          INTEGER NOT NULL DEFAULT 1
+    is_active          INTEGER NOT NULL
 );
 
 -- 2. Matches (Every finished local, challenge, or room game)
@@ -42,12 +43,13 @@ CREATE TABLE IF NOT EXISTS matches (
     challenge_id       TEXT,
     room_id            TEXT,                          -- Secure Room Session UUID (if live multiplayer)
     room_name          TEXT,                          -- e.g. "Rafael's Lounge" (optional display name)
-    play_mode          TEXT NOT NULL DEFAULT 'local',  -- 'local', 'challenge', 'room'
+    play_mode          TEXT NOT NULL,                 -- 'local', 'challenge', 'room'
     played_at          TEXT NOT NULL,
     libraries_json     TEXT,
     game_mode          TEXT NOT NULL,
     rounds             INTEGER NOT NULL,
     round_length       TEXT NOT NULL,
+    player_count       INTEGER NOT NULL,
     location_mode      INTEGER NOT NULL,
     date_mode          INTEGER NOT NULL,
     album_names_json   TEXT,
@@ -58,8 +60,8 @@ CREATE TABLE IF NOT EXISTS matches (
     cities_json        TEXT,
     min_date           TEXT,
     max_date           TEXT,
-    include_shared     INTEGER NOT NULL DEFAULT 0,
-    is_custom_filtered INTEGER NOT NULL DEFAULT 0,
+    include_shared     INTEGER NOT NULL,
+    is_custom_filtered INTEGER NOT NULL,
     filter_summary     TEXT,
     duration_seconds   REAL,
     FOREIGN KEY(challenge_id) REFERENCES challenges(challenge_id) ON DELETE SET NULL
@@ -75,8 +77,8 @@ CREATE TABLE IF NOT EXISTS match_entries (
     total_score        INTEGER NOT NULL,
     max_possible_score INTEGER NOT NULL,
     accuracy_pct       REAL NOT NULL,
-    rank               INTEGER NOT NULL DEFAULT 1,
-    is_winner          INTEGER NOT NULL DEFAULT 0,
+    rank               INTEGER NOT NULL,
+    is_winner          INTEGER NOT NULL,
     total_time_seconds REAL,                          -- Sum of active question response times
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
@@ -87,7 +89,8 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     match_id           TEXT NOT NULL,
     player_name        TEXT NOT NULL,
     round_index        INTEGER NOT NULL,              -- 0-indexed
-    photo_index        INTEGER NOT NULL DEFAULT 0,    -- 0-indexed (0 for pinpoint; 0, 1, 2 for album shuffle)
+    photo_index        INTEGER NOT NULL,              -- 0-indexed (0 for pinpoint; 0, 1, 2 for album shuffle)
+    game_mode          TEXT NOT NULL,
     asset_id           TEXT NOT NULL,
     guess_latitude     REAL,
     guess_longitude    REAL,
@@ -100,6 +103,8 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     date_diff_days     INTEGER,
     date_points        INTEGER,
     round_score        INTEGER NOT NULL,
+    is_correct_location   INTEGER,                    -- 1/0/NULL
+    is_correct_date_order INTEGER,                    -- 1/0/NULL
     time_taken_seconds REAL,                          -- Active seconds on question screen
     submitted_at       TEXT NOT NULL,
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
@@ -190,11 +195,11 @@ class LeaderboardStore:
                 INSERT OR REPLACE INTO matches (
                     match_id, challenge_id, room_id, room_name, play_mode, played_at,
                     libraries_json, game_mode,
-                    rounds, round_length, location_mode, date_mode,
+                    rounds, round_length, player_count, location_mode, date_mode,
                     album_names_json, album_ids_json, person_ids_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
@@ -207,6 +212,7 @@ class LeaderboardStore:
                     config.game_mode.value,
                     config.round_count,
                     config.round_length.value,
+                    len(player_scores),
                     1 if config.location_mode else 0,
                     1 if config.date_mode else 0,
                     album_names_json,
@@ -268,18 +274,20 @@ class LeaderboardStore:
                         """
                         INSERT INTO match_round_guesses (
                             match_id, player_name, round_index, photo_index,
-                            asset_id, guess_latitude, guess_longitude,
+                            game_mode, asset_id, guess_latitude, guess_longitude,
                             actual_latitude, actual_longitude, distance_km,
                             location_points, guess_date, actual_date,
                             date_diff_days, date_points, round_score,
+                            is_correct_location, is_correct_date_order,
                             time_taken_seconds, submitted_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             rg.get('match_id', match_id),
                             rg.get('player_name', ordered_players[0] if ordered_players else 'Player'),
                             rg.get('round_index', 0),
                             rg.get('photo_index', 0),
+                            rg.get('game_mode', config.game_mode.value),
                             rg.get('asset_id', ''),
                             rg.get('guess_latitude'),
                             rg.get('guess_longitude'),
@@ -292,6 +300,8 @@ class LeaderboardStore:
                             rg.get('date_diff_days'),
                             rg.get('date_points'),
                             rg.get('round_score', 0),
+                            rg.get('is_correct_location'),
+                            rg.get('is_correct_date_order'),
                             rg.get('time_taken_seconds'),
                             rg.get('submitted_at', played_at),
                         ),
@@ -326,6 +336,18 @@ class LeaderboardStore:
         if q.player_name is not None and q.player_name != '':
             clauses.append('e.player_name = ?')
             params.append(q.player_name)
+        if q.play_mode is not None:
+            clauses.append('m.play_mode = ?')
+            params.append(q.play_mode.value)
+        if q.challenge_id is not None:
+            clauses.append('m.challenge_id = ?')
+            params.append(q.challenge_id)
+        if q.played_after is not None:
+            clauses.append('m.played_at >= ?')
+            params.append(f'{q.played_after.isoformat()}T00:00:00')
+        if q.played_before is not None:
+            clauses.append('m.played_at <= ?')
+            params.append(f'{q.played_before.isoformat()}T23:59:59.999')
         if q.is_custom_filtered is not None:
             clauses.append('m.is_custom_filtered = ?')
             params.append(1 if q.is_custom_filtered else 0)
@@ -494,44 +516,48 @@ class LeaderboardStore:
         entries: list[LeaderboardEntry] = []
 
         for row in rows:
-            config = {
-                'rounds': row['rounds'],
-                'round_length': row['round_length'],
-                'location_mode': bool(row['location_mode']),
-                'date_mode': bool(row['date_mode']),
-                'game_mode': row['game_mode'],
-                'libraries': _parse_json_list(row['libraries_json']),
-                'album_names': _parse_json_list(row['album_names_json']),
-                'album_ids': _parse_json_list(row['album_ids_json']),
-                'person_ids': _parse_json_list(row['person_ids_json']),
-                'people_mode': row['people_mode'] or 'ANY',
-                'countries': _parse_json_list(row['countries_json']),
-                'cities': _parse_json_list(row['cities_json']),
-                'min_date': row['min_date'],
-                'max_date': row['max_date'],
-                'include_shared': bool(row['include_shared']),
-            }
+            config = MatchConfig(
+                round_count=row['rounds'],
+                round_length=RoundLength(row['round_length']),
+                location_mode=bool(row['location_mode']),
+                date_mode=bool(row['date_mode']),
+                game_mode=GameMode(row['game_mode']),
+                libraries=_parse_json_list(row['libraries_json']),
+                album_names=_parse_json_list(row['album_names_json']),
+                album_ids=_parse_json_list(row['album_ids_json']),
+                person_ids=_parse_json_list(row['person_ids_json']),
+                people_mode=PeopleMode(row['people_mode']) if row['people_mode'] else PeopleMode.ANY,
+                countries=_parse_json_list(row['countries_json']),
+                cities=_parse_json_list(row['cities_json']),
+                min_date=date.fromisoformat(row['min_date']) if row['min_date'] else None,
+                max_date=date.fromisoformat(row['max_date']) if row['max_date'] else None,
+                include_shared=bool(row['include_shared']),
+            )
 
             entries.append(
                 LeaderboardEntry(
                     match_id=row['match_id'],
                     played_at=datetime.fromisoformat(row['played_at']),
                     player_name=row['player_name'],
-                    location_score=row['location_score'],
-                    date_score=row['date_score'],
                     total_score=row['total_score'],
                     max_possible_score=row['max_possible_score'],
                     accuracy_pct=float(row['accuracy_pct']),
                     rank=int(row['rank']),
                     is_winner=bool(row['is_winner']),
-                    filter_summary=row['filter_summary'],
-                    is_custom_filtered=bool(row['is_custom_filtered']),
+                    game_mode=GameMode(row['game_mode']),
+                    rounds=int(row['rounds']),
                     play_mode=PlayMode(row['play_mode']),
+                    is_custom_filtered=bool(row['is_custom_filtered']),
+                    config=config,
+                    location_score=row['location_score'],
+                    date_score=row['date_score'],
+                    total_time_seconds=row['total_time_seconds'],
+                    duration_seconds=row['duration_seconds'],
+                    filter_summary=row['filter_summary'],
                     challenge_id=row['challenge_id'],
                     challenge_title=row['challenge_title'],
                     room_id=row['room_id'],
                     room_name=row['room_name'],
-                    config=config,
                 )
             )
 

@@ -99,7 +99,7 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     assert entry.is_custom_filtered is True
     assert 'Japan' in entry.filter_summary
     assert 'Tokyo' in entry.filter_summary
-    assert entry.config['libraries'] == ['family']
+    assert entry.config.libraries == ['family']
 
     # Test min_date and max_date filtering (loose mode)
     date_filtered = store.list_entries(LeaderboardQuery(min_date=date(2023, 1, 1), max_date=date(2023, 12, 31), exact_filter_match=False))
@@ -470,19 +470,19 @@ def test_leaderboard_include_shared_and_album_ids_isolation(tmp_path: Path) -> N
     standard_res = store.list_entries(LeaderboardQuery(libraries=['main'], include_shared=False))
     assert len(standard_res) == 1
     assert standard_res[0].match_id == 'm-standard'
-    assert standard_res[0].config['include_shared'] is False
+    assert standard_res[0].config.include_shared is False
 
     # Shared (include_shared=True)
     shared_res = store.list_entries(LeaderboardQuery(libraries=['main'], include_shared=True))
     assert len(shared_res) == 1
     assert shared_res[0].match_id == 'm-shared'
-    assert shared_res[0].config['include_shared'] is True
+    assert shared_res[0].config.include_shared is True
 
     # Album ID alb-1
     album_res = store.list_entries(LeaderboardQuery(libraries=['main'], album_ids=['alb-1']))
     assert len(album_res) == 1
     assert album_res[0].match_id == 'm-album-1'
-    assert album_res[0].config['album_ids'] == ['alb-1']
+    assert album_res[0].config.album_ids == ['alb-1']
 
 
 def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
@@ -582,7 +582,7 @@ def test_leaderboard_multi_library_json_storage_and_query(tmp_path: Path) -> Non
     res_exact = store.list_entries(LeaderboardQuery(libraries=['family', 'vacation']))
     assert len(res_exact) == 1
     assert res_exact[0].match_id == 'm-multi-lib'
-    assert res_exact[0].config['libraries'] == ['family', 'vacation']
+    assert res_exact[0].config.libraries == ['family', 'vacation']
 
     # Query with single library that doesn't match multi-library match
     res_single = store.list_entries(LeaderboardQuery(libraries=['family']))
@@ -617,7 +617,7 @@ def test_leaderboard_multi_album_storage_and_query(tmp_path: Path) -> None:
     res = store.list_entries(q)
     assert len(res) == 1
     assert res[0].match_id == 'm-multi-album'
-    assert res[0].config['album_ids'] == ['alb-1', 'alb-2']
+    assert res[0].config.album_ids == ['alb-1', 'alb-2']
 
     # Query with subset of album IDs -> should return 0 in exact match mode
     q_subset = LeaderboardQuery(libraries=['main'], album_ids=['alb-1'])
@@ -626,3 +626,186 @@ def test_leaderboard_multi_album_storage_and_query(tmp_path: Path) -> None:
     # Query in loose mode -> should find the match if album_ids not set or exact_filter_match=False
     res_loose = store.list_entries(LeaderboardQuery(libraries=['main'], exact_filter_match=False))
     assert len(res_loose) == 1
+
+
+def test_leaderboard_player_count_and_play_mode_filters(tmp_path: Path) -> None:
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1. Local match with 2 players
+    store.append_match(
+        match_id='m-local-2p',
+        config=BaseGameConfig(libraries=['main'], round_count=5),
+        player_scores={'Alice': {'total': 800}, 'Bob': {'total': 700}},
+        play_mode=PlayMode.local,
+    )
+
+    db = DatabaseManager(db_path)
+    # Insert challenge seed to satisfy FK constraint
+    with db.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO challenges (
+                challenge_id, capability_token, title, creator_name,
+                libraries_json, config_json, asset_ids_json, created_at, expires_at, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
+            """,
+            ('ch_summer_2025', 'token_summer', 'Summer 2025', 'Admin', '["main"]', '{}', '[]', '2025-06-01T00:00:00Z'),
+        )
+
+    # 2. Challenge match with 1 player
+    store.append_match(
+        match_id='m-challenge-1p',
+        config=BaseGameConfig(libraries=['main'], round_count=5),
+        player_scores={'Charlie': {'total': 900}},
+        play_mode=PlayMode.challenge,
+        challenge_id='ch_summer_2025',
+    )
+
+    db = DatabaseManager(db_path)
+    row_local = db.fetch_one('SELECT player_count, play_mode FROM matches WHERE match_id = ?', ('m-local-2p',))
+    assert row_local is not None
+    assert row_local['player_count'] == 2
+    assert row_local['play_mode'] == 'local'
+
+    row_ch = db.fetch_one('SELECT player_count, play_mode, challenge_id FROM matches WHERE match_id = ?', ('m-challenge-1p',))
+    assert row_ch is not None
+    assert row_ch['player_count'] == 1
+    assert row_ch['play_mode'] == 'challenge'
+    assert row_ch['challenge_id'] == 'ch_summer_2025'
+
+    # Filter by play_mode
+    res_ch = store.list_entries(LeaderboardQuery(play_mode=PlayMode.challenge, exact_filter_match=False))
+    assert len(res_ch) == 1
+    assert res_ch[0].player_name == 'Charlie'
+    assert res_ch[0].play_mode == PlayMode.challenge
+    assert res_ch[0].rounds == 5
+    assert res_ch[0].game_mode == GameMode.pinpoint
+
+    # Filter by challenge_id
+    res_ch_id = store.list_entries(LeaderboardQuery(challenge_id='ch_summer_2025', exact_filter_match=False))
+    assert len(res_ch_id) == 1
+    assert res_ch_id[0].match_id == 'm-challenge-1p'
+
+    # Filter by date range (today)
+    today = date.today()
+    res_today = store.list_entries(LeaderboardQuery(played_after=today, played_before=today, exact_filter_match=False))
+    assert len(res_today) == 3  # Alice, Bob, Charlie
+
+
+def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> None:
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # Album Shuffle 3-photo batch round guesses
+    round_guesses = [
+        {
+            'match_id': 'm-shuffle',
+            'player_name': 'Alice',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'album_shuffle',
+            'asset_id': 'photo-1',
+            'guess_latitude': 48.8566,
+            'guess_longitude': 2.3522,
+            'actual_latitude': 48.8584,
+            'actual_longitude': 2.2945,
+            'distance_km': 4.25,
+            'location_points': 33,
+            'guess_date': None,
+            'actual_date': '2023-05-10',
+            'date_diff_days': None,
+            'date_points': 33,
+            'round_score': 66,
+            'is_correct_location': 1,
+            'is_correct_date_order': 1,
+            'time_taken_seconds': 8.5,
+        },
+        {
+            'match_id': 'm-shuffle',
+            'player_name': 'Alice',
+            'round_index': 0,
+            'photo_index': 1,
+            'game_mode': 'album_shuffle',
+            'asset_id': 'photo-2',
+            'guess_latitude': 40.7128,
+            'guess_longitude': -74.0060,
+            'actual_latitude': 48.8584,
+            'actual_longitude': 2.2945,
+            'distance_km': 5837.2,
+            'location_points': 0,
+            'guess_date': None,
+            'actual_date': '2023-06-15',
+            'date_diff_days': None,
+            'date_points': 0,
+            'round_score': 0,
+            'is_correct_location': 0,
+            'is_correct_date_order': 0,
+            'time_taken_seconds': 8.5,
+        },
+        {
+            'match_id': 'm-shuffle',
+            'player_name': 'Alice',
+            'round_index': 0,
+            'photo_index': 2,
+            'game_mode': 'album_shuffle',
+            'asset_id': 'photo-3',
+            'guess_latitude': 51.5074,
+            'guess_longitude': -0.1278,
+            'actual_latitude': 51.5074,
+            'actual_longitude': -0.1278,
+            'distance_km': 0.0,
+            'location_points': 33,
+            'guess_date': None,
+            'actual_date': '2023-07-20',
+            'date_diff_days': None,
+            'date_points': 33,
+            'round_score': 66,
+            'is_correct_location': 1,
+            'is_correct_date_order': 1,
+            'time_taken_seconds': 8.5,
+        },
+    ]
+
+    config = BaseGameConfig(
+        libraries=['main'],
+        round_count=5,
+        game_mode=GameMode.album_shuffle,
+    )
+
+    store.append_match(
+        match_id='m-shuffle',
+        config=config,
+        player_scores={'Alice': {'location': 66, 'date': 66, 'total': 132}},
+        round_guesses=round_guesses,
+    )
+
+    db = DatabaseManager(db_path)
+    guesses = db.fetch_all(
+        'SELECT photo_index, game_mode, round_score, is_correct_location, is_correct_date_order, distance_km FROM match_round_guesses WHERE match_id = ? ORDER BY photo_index ASC',
+        ('m-shuffle',),
+    )
+    assert len(guesses) == 3
+
+    # Photo 0
+    assert guesses[0]['photo_index'] == 0
+    assert guesses[0]['game_mode'] == 'album_shuffle'
+    assert guesses[0]['round_score'] == 66
+    assert guesses[0]['is_correct_location'] == 1
+    assert guesses[0]['is_correct_date_order'] == 1
+    assert round(guesses[0]['distance_km'], 2) == 4.25
+
+    # Photo 1
+    assert guesses[1]['photo_index'] == 1
+    assert guesses[1]['game_mode'] == 'album_shuffle'
+    assert guesses[1]['round_score'] == 0
+    assert guesses[1]['is_correct_location'] == 0
+    assert guesses[1]['is_correct_date_order'] == 0
+
+    # Photo 2
+    assert guesses[2]['photo_index'] == 2
+    assert guesses[2]['game_mode'] == 'album_shuffle'
+    assert guesses[2]['round_score'] == 66
+    assert guesses[2]['is_correct_location'] == 1
+    assert guesses[2]['is_correct_date_order'] == 1
+    assert guesses[2]['distance_km'] == 0.0

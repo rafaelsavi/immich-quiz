@@ -21,6 +21,9 @@ export class MultiSelect {
     this.placeholderKey = config.placeholderKey || "setup.all_photos";
     this.searchPlaceholderKey = config.searchPlaceholderKey || "setup.search_placeholder";
     this.noResultsKey = config.noResultsKey || "setup.no_results_found";
+    this.minSearchItems = config.minSearchItems !== undefined
+      ? config.minSearchItems
+      : (config.searchThreshold !== undefined ? config.searchThreshold : 6);
     this.summaryFormatter = config.summaryFormatter || ((count) => `${count} selected`);
     this.onChange = config.onChange || (() => { });
 
@@ -84,6 +87,7 @@ export class MultiSelect {
     this.valueEl = this.container.querySelector(".multi-select-value");
     this.clearBtnEl = this.container.querySelector(".multi-select-clear");
     this.dropdownEl = this.container.querySelector(".multi-select-dropdown");
+    this.searchWrapEl = this.container.querySelector(".multi-select-search-wrap");
     this.searchInputEl = this.container.querySelector(".multi-select-search");
     this.searchClearBtnEl = this.container.querySelector(".search-clear-btn");
     this.selectAllBtnEl = this.container.querySelector(".select-all-btn");
@@ -93,6 +97,7 @@ export class MultiSelect {
     if (this.searchInputEl) {
       this.searchInputEl.placeholder = t(this.searchPlaceholderKey);
     }
+    this._updateSearchVisibility();
   }
 
   _bindEvents() {
@@ -164,6 +169,24 @@ export class MultiSelect {
     }
   }
 
+  _updateSearchVisibility() {
+    if (!this.searchWrapEl) return;
+    const shouldShow = this.items.length >= this.minSearchItems;
+    if (shouldShow) {
+      this.searchWrapEl.classList.remove("hidden");
+    } else {
+      this.searchWrapEl.classList.add("hidden");
+      if (this.searchInputEl && this.searchInputEl.value) {
+        this.searchInputEl.value = "";
+        this._updateSearchClearVisibility();
+      }
+    }
+  }
+
+  _isSearchHidden() {
+    return !this.searchWrapEl || this.searchWrapEl.classList.contains("hidden");
+  }
+
   // Public API
   setItems(items) {
     this.items = items || [];
@@ -173,6 +196,7 @@ export class MultiSelect {
         this.selectedMap.delete(id);
       }
     }
+    this._updateSearchVisibility();
     this.renderOptions();
     this.updateTriggerUi();
   }
@@ -242,7 +266,9 @@ export class MultiSelect {
   }
 
   selectAll() {
-    const query = this.searchInputEl ? this.searchInputEl.value.trim().toLowerCase() : "";
+    const query = (this.searchInputEl && !this._isSearchHidden())
+      ? this.searchInputEl.value.trim().toLowerCase()
+      : "";
     const filtered = this.items.filter((item) => item.name.toLowerCase().includes(query));
     filtered.forEach((item) => {
       if (this.countsMap !== null && this._getItemCount(item) === 0) return;
@@ -254,7 +280,9 @@ export class MultiSelect {
   }
 
   deselectAll() {
-    const query = this.searchInputEl ? this.searchInputEl.value.trim().toLowerCase() : "";
+    const query = (this.searchInputEl && !this._isSearchHidden())
+      ? this.searchInputEl.value.trim().toLowerCase()
+      : "";
     if (query) {
       const filtered = this.items.filter((item) => item.name.toLowerCase().includes(query));
       filtered.forEach((item) => this.selectedMap.delete(item.id));
@@ -271,13 +299,18 @@ export class MultiSelect {
     if (this.container) this.container.classList.add("open");
     this.triggerEl.setAttribute("aria-expanded", "true");
     this.dropdownEl.classList.remove("hidden");
+    this._updateSearchVisibility();
     if (this.searchInputEl) {
       this.searchInputEl.value = "";
       this._updateSearchClearVisibility();
       this.renderOptions();
       const isTouchDevice = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-      if (!isTouchDevice) {
-        setTimeout(() => this.searchInputEl.focus(), 50);
+      if (!isTouchDevice && !this._isSearchHidden()) {
+        setTimeout(() => {
+          if (this.isOpen && !this._isSearchHidden()) {
+            this.searchInputEl.focus();
+          }
+        }, 50);
       }
     }
   }
@@ -358,7 +391,9 @@ export class MultiSelect {
     if (!this.optionsListEl) return;
     this.optionsListEl.replaceChildren();
 
-    const query = this.searchInputEl ? this.searchInputEl.value.trim().toLowerCase() : "";
+    const query = (this.searchInputEl && !this._isSearchHidden())
+      ? this.searchInputEl.value.trim().toLowerCase()
+      : "";
     const filtered = this.items.filter((item) => item.name.toLowerCase().includes(query));
 
     const visibleItems = filtered.filter((item) => {
