@@ -187,8 +187,8 @@ class LeaderboardStore:
 
         libraries_json = _canonicalize_filter_list(config.libraries)
         album_names_json = _canonicalize_filter_list(config.album_names)
-        album_ids_json = _canonicalize_filter_list(config.album_ids)
-        person_ids_json = _canonicalize_filter_list(config.person_ids)
+        album_ids_json = _canonicalize_filter_list(config.albums)
+        person_ids_json = _canonicalize_filter_list(config.people)
         countries_json = _canonicalize_filter_list(config.countries)
         cities_json = _canonicalize_filter_list(config.cities)
 
@@ -359,10 +359,10 @@ class LeaderboardStore:
         # Check if caller specified any filter scope dimension
         has_filter_scope = bool(
             q.libraries
-            or q.album_ids
+            or q.albums
             or q.countries
             or q.cities
-            or q.person_ids
+            or q.people
             or q.min_date
             or q.max_date
             or q.include_shared
@@ -377,7 +377,7 @@ class LeaderboardStore:
             else:
                 clauses.append('m.libraries_json IS NULL')
 
-            aid_json = _canonicalize_filter_list(q.album_ids)
+            aid_json = _canonicalize_filter_list(q.albums)
             if aid_json:
                 clauses.append('m.album_ids_json = ?')
                 params.append(aid_json)
@@ -398,7 +398,7 @@ class LeaderboardStore:
             else:
                 clauses.append('m.cities_json IS NULL')
 
-            p_json = _canonicalize_filter_list(q.person_ids)
+            p_json = _canonicalize_filter_list(q.people)
             if p_json:
                 clauses.append('m.person_ids_json = ?')
                 params.append(p_json)
@@ -431,7 +431,7 @@ class LeaderboardStore:
                 clauses.append('m.libraries_json = ?')
                 params.append(libs_json)
 
-            aid_json = _canonicalize_filter_list(q.album_ids)
+            aid_json = _canonicalize_filter_list(q.albums)
             if aid_json:
                 clauses.append('m.album_ids_json = ?')
                 params.append(aid_json)
@@ -448,8 +448,8 @@ class LeaderboardStore:
                     clauses.append('m.cities_json = ?')
                     params.append(ci_json)
 
-            if q.person_ids:
-                p_json = _canonicalize_filter_list(q.person_ids)
+            if q.people:
+                p_json = _canonicalize_filter_list(q.people)
                 if p_json:
                     clauses.append('m.person_ids_json = ?')
                     params.append(p_json)
@@ -527,9 +527,9 @@ class LeaderboardStore:
                 date_mode=bool(row['date_mode']),
                 game_mode=GameMode(row['game_mode']),
                 libraries=_parse_json_list(row['libraries_json']),
+                albums=_parse_json_list(row['album_ids_json']),
+                people=_parse_json_list(row['person_ids_json']),
                 album_names=_parse_json_list(row['album_names_json']),
-                album_ids=_parse_json_list(row['album_ids_json']),
-                person_ids=_parse_json_list(row['person_ids_json']),
                 people_mode=PeopleMode(row['people_mode']) if row['people_mode'] else PeopleMode.ANY,
                 countries=_parse_json_list(row['countries_json']),
                 cities=_parse_json_list(row['cities_json']),

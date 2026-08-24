@@ -137,8 +137,7 @@ class AssetFilterCriteria:
     max_date: date | None = None
     countries: tuple[str, ...] = ()
     cities: tuple[str, ...] = ()
-    person_ids: tuple[str, ...] = ()
-    people_mode: PeopleMode = PeopleMode.ANY
+    person_id_groups: tuple[tuple[str, ...], ...] = ()
     album_ids: tuple[str, ...] = ()
     include_shared: bool = False
     # Layer 1 Config Safeguards
@@ -167,6 +166,14 @@ class AssetFilterCriteria:
                 eff_max = min(filter(None, [settings.date_upper_bound, eff_max]), default=None)
 
         libs = tuple(setup.libraries) if setup.libraries else ()
+        if setup.people:
+            if setup.people_mode == PeopleMode.ALL:
+                person_id_groups = tuple((p,) for p in setup.people)
+            else:
+                person_id_groups = (tuple(setup.people),)
+        else:
+            person_id_groups = ()
+
         return cls(
             library_names=libs,
             location_mode=setup.location_mode,
@@ -175,9 +182,8 @@ class AssetFilterCriteria:
             max_date=eff_max,
             countries=tuple(setup.countries) if setup.countries else (),
             cities=tuple(setup.cities) if setup.cities else (),
-            person_ids=tuple(setup.person_ids) if setup.person_ids else (),
-            people_mode=setup.people_mode,
-            album_ids=tuple(setup.album_ids) if setup.album_ids else (),
+            person_id_groups=person_id_groups,
+            album_ids=tuple(setup.albums) if setup.albums else (),
             include_shared=setup.include_shared,
             country_whitelist=settings.country_whitelist if settings else frozenset(),
             country_blacklist=settings.country_blacklist if settings else frozenset(),
@@ -706,7 +712,7 @@ class MetadataStore:
         # 9. People whitelist baseline (if active and user didn't specify people)
         # Excludes photos containing non-whitelisted recognized people (photos where ANY attached person
         # matches neither a whitelisted name nor ID), while allowing photos with no tagged people.
-        if criteria.people_whitelist and not criteria.person_ids:
+        if criteria.people_whitelist and not criteria.person_id_groups:
             name_placeholders = ', '.join('?' for _ in criteria.people_whitelist)
             id_placeholders = ', '.join('?' for _ in criteria.people_whitelist)
             clauses.append(
@@ -781,63 +787,42 @@ class MetadataStore:
             clauses.append(f'LOWER(a.city) IN ({city_placeholders})')
             params.extend(c.lower() for c in criteria.cities)
 
-        # 13. User people filter (ANY union vs ALL intersection) — supports both ID and Name matching
-        if criteria.person_ids:
-            p_targets = list(criteria.person_ids)
-            if criteria.people_mode == PeopleMode.ALL and len(p_targets) > 1:
-                for target in p_targets:
-                    clauses.append(
-                        """EXISTS (
-                            SELECT 1
-                            FROM asset_people ap
-                            JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
-                            WHERE ap.asset_id = a.id
-                              AND ap.library_name = a.library_name
-                              AND (
-                                  p.name COLLATE NOCASE = ?
-                                  OR ap.person_id = ?
-                                  OR p.name IN (SELECT name FROM people WHERE id = ?)
-                              )
-                        )"""
-                    )
-                    params.extend([target, target, target])
-            else:
-                placeholders = ', '.join('?' for _ in p_targets)
+        # 13. User people filter (CNF tuple of ID groups)
+        if criteria.person_id_groups:
+            resolved_groups = self.resolve_person_id_groups(criteria.library_names, criteria.person_id_groups)
+            for group in resolved_groups:
+                if not group:
+                    clauses.append('1 = 0')
+                    continue
+                placeholders = ', '.join('?' for _ in group)
                 clauses.append(
                     f"""EXISTS (
                         SELECT 1
                         FROM asset_people ap
-                        JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
                         WHERE ap.asset_id = a.id
                           AND ap.library_name = a.library_name
-                          AND p.name IN (
-                              SELECT name FROM people
-                              WHERE id IN ({placeholders}) OR name COLLATE NOCASE IN ({placeholders})
-                          )
+                          AND ap.person_id IN ({placeholders})
                     )"""
                 )
-                params.extend(p_targets)
-                params.extend(p_targets)
+                params.extend(group)
 
-        # 14. User albums filter (OR union) — supports both ID and Name matching
+        # 14. User albums filter (resolved album IDs)
         if criteria.album_ids:
-            alb_targets = list(criteria.album_ids)
-            placeholders = ', '.join('?' for _ in alb_targets)
-            clauses.append(
-                f"""EXISTS (
-                    SELECT 1
-                    FROM asset_albums aa
-                    JOIN albums alb ON aa.album_id = alb.id AND aa.library_name = alb.library_name
-                    WHERE aa.asset_id = a.id
-                      AND aa.library_name = a.library_name
-                      AND alb.name IN (
-                          SELECT name FROM albums
-                          WHERE id IN ({placeholders}) OR name COLLATE NOCASE IN ({placeholders})
-                      )
-                )"""
-            )
-            params.extend(alb_targets)
-            params.extend(alb_targets)
+            resolved_album_ids = self.resolve_album_ids(criteria.library_names, criteria.album_ids)
+            if not resolved_album_ids:
+                clauses.append('1 = 0')
+            else:
+                placeholders = ', '.join('?' for _ in resolved_album_ids)
+                clauses.append(
+                    f"""EXISTS (
+                        SELECT 1
+                        FROM asset_albums aa
+                        WHERE aa.asset_id = a.id
+                          AND aa.library_name = a.library_name
+                          AND aa.album_id IN ({placeholders})
+                    )"""
+                )
+                params.extend(resolved_album_ids)
 
         where_sql = ' AND '.join(f'({c})' for c in clauses)
         return where_sql, params
@@ -1064,6 +1049,94 @@ class MetadataStore:
             people=person_options,
         )
 
+    def resolve_person_id_groups(
+        self,
+        library_names: list[str] | tuple[str, ...] | None,
+        person_id_groups: tuple[tuple[str, ...] | list[str] | str, ...] | list[Any] | None,
+    ) -> tuple[tuple[str, ...], ...]:
+        """Resolve person selectors (names or IDs) into CNF ID groups."""
+        if not person_id_groups:
+            return ()
+
+        lib_clause_p2 = ''
+        lib_clause = ''
+        lib_params: list[Any] = []
+        if library_names:
+            placeholders = ', '.join('?' for _ in library_names)
+            lib_clause_p2 = f'AND p2.library_name IN ({placeholders})'
+            lib_clause = f'AND library_name IN ({placeholders})'
+            lib_params = list(library_names)
+
+        resolved_groups: list[tuple[str, ...]] = []
+        for item in person_id_groups:
+            group_targets = item if isinstance(item, (tuple, list, set)) else (item,)
+            resolved_in_group: list[str] = []
+            for target in group_targets:
+                target_str = str(target).strip()
+                if not target_str:
+                    continue
+                rows = self._db.fetch_all(
+                    f"""
+                    SELECT DISTINCT p2.id
+                    FROM people p
+                    JOIN people p2 ON LOWER(p.name) = LOWER(p2.name)
+                    WHERE (p.id = ? OR p.name COLLATE NOCASE = ?) {lib_clause_p2}
+                    UNION
+                    SELECT DISTINCT id FROM people WHERE (id = ? OR name COLLATE NOCASE = ?) {lib_clause}
+                    """,
+                    [target_str, target_str, *lib_params, target_str, target_str, *lib_params],
+                )
+                found = [str(r['id']).strip() for r in rows if r.get('id')]
+                if found:
+                    resolved_in_group.extend(found)
+                else:
+                    resolved_in_group.append(target_str)
+            resolved_groups.append(tuple(dict.fromkeys(resolved_in_group)))
+
+        return tuple(resolved_groups)
+
+    def resolve_album_ids(
+        self,
+        library_names: list[str] | tuple[str, ...] | None,
+        album_ids: tuple[str, ...] | list[str] | None,
+    ) -> tuple[str, ...]:
+        """Resolve album selectors (names or IDs) to matching album IDs."""
+        if not album_ids:
+            return ()
+
+        lib_clause_a2 = ''
+        lib_clause = ''
+        lib_params: list[Any] = []
+        if library_names:
+            placeholders = ', '.join('?' for _ in library_names)
+            lib_clause_a2 = f'AND a2.library_name IN ({placeholders})'
+            lib_clause = f'AND library_name IN ({placeholders})'
+            lib_params = list(library_names)
+
+        resolved: list[str] = []
+        for target in album_ids:
+            target_str = str(target).strip()
+            if not target_str:
+                continue
+            rows = self._db.fetch_all(
+                f"""
+                SELECT DISTINCT a2.id
+                FROM albums a
+                JOIN albums a2 ON LOWER(a.name) = LOWER(a2.name)
+                WHERE (a.id = ? OR a.name COLLATE NOCASE = ?) {lib_clause_a2}
+                UNION
+                SELECT DISTINCT id FROM albums WHERE (id = ? OR name COLLATE NOCASE = ?) {lib_clause}
+                """,
+                [target_str, target_str, *lib_params, target_str, target_str, *lib_params],
+            )
+            found = [str(r['id']).strip() for r in rows if r.get('id')]
+            if found:
+                resolved.extend(found)
+            else:
+                resolved.append(target_str)
+
+        return tuple(dict.fromkeys(resolved))
+
     def get_person_names(self, person_ids: list[str]) -> dict[str, str]:
         """Look up person display names by ID from indexed metadata."""
         if not person_ids:
@@ -1119,7 +1192,7 @@ class MetadataStore:
         city_counts = {str(r['city']).strip(): int(r['count']) for r in city_rows if r.get('city')}
 
         # 3. People (aggregated by name across libraries, populated by both name and ID)
-        people_crit = replace(criteria, person_ids=())
+        people_crit = replace(criteria, person_id_groups=())
         p_where, p_params = self._build_filter_clauses(people_crit)
         people_rows = self._db.fetch_all(
             f"""

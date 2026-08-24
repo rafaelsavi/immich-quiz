@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from src.config import AppSettings
 from src.main import create_app
-from src.models import CityOption, PeopleMode, SyncMode, SyncStage, SyncStatus
+from src.models import CityOption, SyncMode, SyncStage, SyncStatus
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.sync import SyncEngine
@@ -140,14 +140,14 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert 'asset-1' in cand3
 
     # Query 4: People filter with ALL mode (both p1 and p2 by ID)
-    c4 = AssetFilterCriteria(library_names=('family',), person_ids=('p1', 'p2'), people_mode=PeopleMode.ALL)
+    c4 = AssetFilterCriteria(library_names=('family',), person_id_groups=(('p1',), ('p2',)))
     count4 = meta_store.count_eligible_assets(c4)
     cand4 = meta_store.fetch_candidate_assets(c4)
     assert count4 == 1
     assert 'asset-1' in cand4
 
     # Query 5: People filter with ANY mode (p1 or p2 by ID)
-    c5 = AssetFilterCriteria(library_names=('family',), person_ids=('p1', 'p2'), people_mode=PeopleMode.ANY)
+    c5 = AssetFilterCriteria(library_names=('family',), person_id_groups=(('p1', 'p2'),))
     count5 = meta_store.count_eligible_assets(c5)
     cand5 = meta_store.fetch_candidate_assets(c5)
     assert count5 == 2
@@ -168,7 +168,7 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert 'asset-1' in cand7
 
     # Query 8: People filter by Name ('Alice', 'Bob')
-    c8 = AssetFilterCriteria(library_names=('family',), person_ids=('Alice', 'Bob'), people_mode=PeopleMode.ALL)
+    c8 = AssetFilterCriteria(library_names=('family',), person_id_groups=(('Alice',), ('Bob',)))
     assert meta_store.count_eligible_assets(c8) == 1
 
     # Query 9: Album filter by Name ('Summer Trip')
@@ -1054,7 +1054,7 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
         library_names=('lib',),
         location_mode=True,
         date_mode=True,
-        person_ids=('p1',),
+        person_id_groups=(('p1',),),
     )
     alice_counts = meta_store.get_facet_counts(alice_criteria)
     # Countries: Japan has 2, France has 0 (so France not in dict or 0)

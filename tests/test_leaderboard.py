@@ -65,7 +65,7 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
         location_mode=True,
         date_mode=True,
         game_mode=GameMode.pinpoint,
-        person_ids=['p1', 'p2'],
+        people=['p1', 'p2'],
         people_mode=PeopleMode.ALL,
         countries=['Japan'],
         cities=['Tokyo'],
@@ -121,14 +121,12 @@ def test_leaderboard_append_and_retrieve_rich_entry(tmp_path: Path) -> None:
     assert store.list_entries(LeaderboardQuery(cities=['Paris'], exact_filter_match=False)) == []
 
     person_filtered = store.list_entries(
-        LeaderboardQuery(person_ids=['p1', 'p2'], people_mode=PeopleMode.ALL, exact_filter_match=False)
+        LeaderboardQuery(people=['p1', 'p2'], people_mode=PeopleMode.ALL, exact_filter_match=False)
     )
     assert len(person_filtered) == 1
-    assert store.list_entries(LeaderboardQuery(person_ids=['p3'], exact_filter_match=False)) == []
+    assert store.list_entries(LeaderboardQuery(people=['p3'], exact_filter_match=False)) == []
     assert (
-        store.list_entries(
-            LeaderboardQuery(person_ids=['p1', 'p2'], people_mode=PeopleMode.ANY, exact_filter_match=False)
-        )
+        store.list_entries(LeaderboardQuery(people=['p1', 'p2'], people_mode=PeopleMode.ANY, exact_filter_match=False))
         == []
     )
 
@@ -219,7 +217,7 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
         config=BaseGameConfig(
             libraries=['family'],
             album_names=['Holidays'],
-            album_ids=['alb-1'],
+            albums=['alb-1'],
             round_count=5,
             round_length=RoundLength.seconds_30,
             location_mode=False,
@@ -245,8 +243,8 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
     assert len(res) == 1
     assert res[0].player_name == 'Alice'
 
-    # Filter by album_ids
-    custom_entries = store.list_entries(LeaderboardQuery(album_ids=['alb-1'], exact_filter_match=False))
+    # Filter by albums
+    custom_entries = store.list_entries(LeaderboardQuery(albums=['alb-1'], exact_filter_match=False))
     assert len(custom_entries) == 1
     assert custom_entries[0].match_id == 'm2'
 
@@ -354,7 +352,7 @@ def test_leaderboard_custom_filter_isolation(tmp_path: Path) -> None:
     # 4. People ["p1"] only
     store.append_match(
         match_id='m-person',
-        config=BaseGameConfig(libraries=['main'], round_count=5, person_ids=['p1'], people_mode=PeopleMode.ANY),
+        config=BaseGameConfig(libraries=['main'], round_count=5, people=['p1'], people_mode=PeopleMode.ANY),
         player_scores={'Alice': {'total': 950}},
     )
 
@@ -397,7 +395,7 @@ def test_leaderboard_custom_filter_isolation(tmp_path: Path) -> None:
     assert paris_res[0].match_id == 'm-paris'
 
     # Query Person p1 only
-    person_res = store.list_entries(LeaderboardQuery(libraries=['main'], person_ids=['p1']))
+    person_res = store.list_entries(LeaderboardQuery(libraries=['main'], people=['p1']))
     assert len(person_res) == 1
     assert person_res[0].match_id == 'm-person'
 
@@ -475,7 +473,7 @@ def test_leaderboard_include_shared_and_album_ids_isolation(tmp_path: Path) -> N
 
     store.append_match(
         match_id='m-album-1',
-        config=BaseGameConfig(libraries=['main'], album_names=['Vacation'], album_ids=['alb-1'], round_count=5),
+        config=BaseGameConfig(libraries=['main'], album_names=['Vacation'], albums=['alb-1'], round_count=5),
         player_scores={'Charlie': {'total': 900}},
     )
 
@@ -492,10 +490,10 @@ def test_leaderboard_include_shared_and_album_ids_isolation(tmp_path: Path) -> N
     assert shared_res[0].config.include_shared is True
 
     # Album ID alb-1
-    album_res = store.list_entries(LeaderboardQuery(libraries=['main'], album_ids=['alb-1']))
+    album_res = store.list_entries(LeaderboardQuery(libraries=['main'], albums=['alb-1']))
     assert len(album_res) == 1
     assert album_res[0].match_id == 'm-album-1'
-    assert album_res[0].config.album_ids == ['alb-1']
+    assert album_res[0].config.albums == ['alb-1']
 
 
 def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
@@ -609,7 +607,7 @@ def test_leaderboard_multi_album_storage_and_query(tmp_path: Path) -> None:
     # Multi-album match
     config = BaseGameConfig(
         libraries=['main'],
-        album_ids=['alb-1', 'alb-2'],
+        albums=['alb-1', 'alb-2'],
         album_names=['Trip 1', 'Trip 2'],
         round_count=5,
     )
@@ -630,10 +628,10 @@ def test_leaderboard_multi_album_storage_and_query(tmp_path: Path) -> None:
     res = store.list_entries(q)
     assert len(res) == 1
     assert res[0].match_id == 'm-multi-album'
-    assert res[0].config.album_ids == ['alb-1', 'alb-2']
+    assert res[0].config.albums == ['alb-1', 'alb-2']
 
     # Query with subset of album IDs -> should return 0 in exact match mode
-    q_subset = LeaderboardQuery(libraries=['main'], album_ids=['alb-1'])
+    q_subset = LeaderboardQuery(libraries=['main'], albums=['alb-1'])
     assert len(store.list_entries(q_subset)) == 0
 
     # Query in loose mode -> should find the match if album_ids not set or exact_filter_match=False
@@ -835,7 +833,7 @@ def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
     # 1. Match played with ANY mode
     config_any = BaseGameConfig(
         libraries=['main'],
-        person_ids=['p1', 'p2'],
+        people=['p1', 'p2'],
         people_mode=PeopleMode.ANY,
         round_count=5,
         round_length=RoundLength.minute_1,
@@ -851,7 +849,7 @@ def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
     # 2. Match played with ALL mode
     config_all = BaseGameConfig(
         libraries=['main'],
-        person_ids=['p1', 'p2'],
+        people=['p1', 'p2'],
         people_mode=PeopleMode.ALL,
         round_count=5,
         round_length=RoundLength.minute_1,
@@ -867,7 +865,7 @@ def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
     # Query with ALL mode -> only match-all returned
     query_all = LeaderboardQuery(
         libraries=['main'],
-        person_ids=['p1', 'p2'],
+        people=['p1', 'p2'],
         people_mode=PeopleMode.ALL,
         round_length=RoundLength.minute_1,
         location_mode=True,
@@ -880,7 +878,7 @@ def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
     # Query with ANY mode -> only match-any returned
     query_any = LeaderboardQuery(
         libraries=['main'],
-        person_ids=['p1', 'p2'],
+        people=['p1', 'p2'],
         people_mode=PeopleMode.ANY,
         round_length=RoundLength.minute_1,
         location_mode=True,

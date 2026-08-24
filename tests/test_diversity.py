@@ -116,7 +116,7 @@ async def test_selector_prioritizes_diversity_with_graceful_fallback() -> None:
         location_mode=True,
         date_mode=False,
         library_name='family',
-        album_ids=[],
+        albums=[],
     )
     state = store.create_match(setup)
 

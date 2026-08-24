@@ -264,10 +264,10 @@ export function saveCurrentFilters() {
   const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
   const filterState = {
     libraries: libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [],
-    album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
+    albums: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
     countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
     cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
-    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+    people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
     people_mode: getSelectedPeopleMode(),
     min_month: minDate ? minDate.slice(0, 7) : null,
     max_month: maxDate ? maxDate.slice(0, 7) : null,
@@ -292,13 +292,15 @@ export function restoreFilters() {
     }
     const saved = JSON.parse(raw);
     if (saved.libraries && libraryMultiSelect) libraryMultiSelect.setSelectedIds(saved.libraries);
-    if (saved.album_ids && albumMultiSelect) albumMultiSelect.setSelectedIds(saved.album_ids);
+    const albums = saved.albums || saved.album_ids;
+    if (albums && albumMultiSelect) albumMultiSelect.setSelectedIds(albums);
     if (saved.countries && countryMultiSelect) {
       countryMultiSelect.setSelectedIds(saved.countries);
       updateDependentCities(saved.countries);
     }
     if (saved.cities && cityMultiSelect) cityMultiSelect.setSelectedIds(saved.cities);
-    if (saved.person_ids && peopleMultiSelect) peopleMultiSelect.setSelectedIds(saved.person_ids);
+    const people = saved.people || saved.person_ids;
+    if (people && peopleMultiSelect) peopleMultiSelect.setSelectedIds(people);
     if (saved.people_mode) setPeopleMode(saved.people_mode);
     if (dateRangeSlider && saved.min_month && saved.max_month) {
       dateRangeSlider.setSelectedRange(saved.min_month, saved.max_month);
@@ -574,8 +576,8 @@ export async function executePreflight() {
     date_mode: dateMode,
     game_mode: activeMode ? activeMode.name : "pinpoint",
     libraries: selectedLibs,
-    album_ids: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
-    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+    albums: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
+    people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
     people_mode: getSelectedPeopleMode(),
     countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
     cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],

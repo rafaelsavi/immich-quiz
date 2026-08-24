@@ -202,13 +202,13 @@ def test_preflight_custom_filters_validation(tmp_path: Path) -> None:
         'round_count': 5,
         'location_mode': True,
         'date_mode': True,
-        'person_ids': ['p1', 'p2'],
+        'people': ['p1', 'p2'],
         'people_mode': 'ANY',
         'countries': ['Brazil', 'France'],
         'cities': ['Florianopolis', 'Paris'],
         'min_date': '2022-01-01',
         'max_date': '2024-01-01',
-        'album_ids': ['album-1'],
+        'albums': ['album-1'],
     }
     response = client.post('/api/game/preflight', json=payload)
     assert response.status_code == 200
@@ -338,7 +338,7 @@ def test_selector_load_asset_pool_filters(tmp_path: Path) -> None:
         location_mode=True,
         date_mode=True,
         libraries=['family'],
-        person_ids=['p1'],
+        people=['p1'],
         people_mode='ANY',
         countries=['Brazil'],
         cities=['Florianopolis'],
@@ -410,8 +410,8 @@ def test_game_setup_accepts_filter_criteria(tmp_path: Path) -> None:
         'location_mode': True,
         'date_mode': True,
         'libraries': ['family'],
-        'album_ids': [],
-        'person_ids': ['p1'],
+        'albums': [],
+        'people': ['p1'],
         'people_mode': 'ALL',
         'countries': ['Brazil'],
         'cities': ['Florianopolis'],
@@ -444,7 +444,7 @@ def test_preflight_people_mode_any_vs_all(tmp_path: Path) -> None:
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
-            'person_ids': ['p1', 'p2'],
+            'people': ['p1', 'p2'],
             'people_mode': 'ANY',
         },
     )
@@ -460,7 +460,7 @@ def test_preflight_people_mode_any_vs_all(tmp_path: Path) -> None:
             'round_count': 5,
             'location_mode': True,
             'date_mode': False,
-            'person_ids': ['p1', 'p2'],
+            'people': ['p1', 'p2'],
             'people_mode': 'ALL',
         },
     )
@@ -616,7 +616,7 @@ def test_preflight_and_setup_enforce_whitelists_and_blacklists(tmp_path: Path) -
             'libraries': ['family'],
             'countries': [],
             'cities': [],
-            'person_ids': [],
+            'people': [],
             'round_count': 5,
         },
     )
@@ -632,7 +632,7 @@ def test_preflight_and_setup_enforce_whitelists_and_blacklists(tmp_path: Path) -
             'players': ['Alice'],
             'countries': [],
             'cities': [],
-            'person_ids': [],
+            'people': [],
             'round_count': 5,
         },
     )
@@ -847,12 +847,12 @@ def test_multi_library_and_multi_album_filters_api(tmp_path: Path) -> None:
     assert set(data['countries']) == {'Brazil', 'France'}
     assert {c['name'] for c in data['cities']} == {'Rio', 'Paris'}
 
-    # 3. /api/game/preflight with multiple album_ids across libraries
+    # 3. /api/game/preflight with multiple albums across libraries
     res_preflight = client.post(
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'album_ids': ['alb-1', 'alb-2'],
+            'albums': ['alb-1', 'alb-2'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': True,
@@ -941,12 +941,12 @@ def test_cross_library_duplicate_person_and_album_deduplication(tmp_path: Path) 
     bob_id = next(p['id'] for p in people if p['name'] == 'Bob')
     trip_id = albums[0]['id']
 
-    # 3. Preflight with person_ids=['Alice', 'Bob'] in PeopleMode.ALL matches BOTH photos!
+    # 3. Preflight with people=['Alice', 'Bob'] in PeopleMode.ALL matches BOTH photos!
     res_preflight = client.post(
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['Alice', 'Bob'],
+            'people': ['Alice', 'Bob'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -959,12 +959,12 @@ def test_cross_library_duplicate_person_and_album_deduplication(tmp_path: Path) 
     assert pf_data['facet_counts']['people'][alice_id] == 2
     assert pf_data['facet_counts']['people'][bob_id] == 2
 
-    # 4. Preflight with album_ids=['Trip 2023'] matches BOTH photos!
+    # 4. Preflight with albums=['Trip 2023'] matches BOTH photos!
     res_album_pf = client.post(
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'album_ids': ['Trip 2023'],
+            'albums': ['Trip 2023'],
             'round_count': 5,
             'location_mode': True,
             'date_mode': True,
@@ -979,7 +979,7 @@ def test_cross_library_duplicate_person_and_album_deduplication(tmp_path: Path) 
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': [alice_id],
+            'people': [alice_id],
             'round_count': 5,
             'location_mode': True,
             'date_mode': True,
@@ -1100,7 +1100,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['Alice', 'Bob'],
+            'people': ['Alice', 'Bob'],
             'people_mode': 'ANY',
             'round_count': 5,
             'location_mode': True,
@@ -1115,7 +1115,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['Alice', 'Bob'],
+            'people': ['Alice', 'Bob'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -1130,7 +1130,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['p1-alice', 'p2-bob'],
+            'people': ['p1-alice', 'p2-bob'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -1146,7 +1146,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['p1-alice', 'p2-alice', 'p1-bob'],
+            'people': ['p1-alice', 'p2-alice', 'p1-bob'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -1161,7 +1161,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['Alice', 'Bob', 'Charlie'],
+            'people': ['Alice', 'Bob', 'Charlie'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -1196,7 +1196,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['Alice', 'David'],
+            'people': ['Alice', 'David'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -1210,7 +1210,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['p1-alice', 'p1-david'],
+            'people': ['p1-alice', 'p1-david'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -1225,7 +1225,7 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
         '/api/game/preflight',
         json={
             'libraries': ['lib1', 'lib2'],
-            'person_ids': ['p1-alice', 'non-existent-uuid-999'],
+            'people': ['p1-alice', 'non-existent-uuid-999'],
             'people_mode': 'ALL',
             'round_count': 5,
             'location_mode': True,
@@ -1237,12 +1237,10 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
 
     # 8. Candidate asset pool query matches preflight count exactly
     from src.storage.metadata import AssetFilterCriteria
-    from src.storage.metadata import PeopleMode as PM
 
     crit_all = AssetFilterCriteria(
         library_names=('lib1', 'lib2'),
-        person_ids=('Alice', 'Bob'),
-        people_mode=PM.ALL,
+        person_id_groups=(('Alice',), ('Bob',)),
         location_mode=True,
         date_mode=True,
     )

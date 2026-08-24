@@ -230,9 +230,9 @@ async function startMatch(event) {
     round_count: Number(el.roundCount.value),
     round_length: el.roundLength.value,
     libraries: selectedLibs,
-    album_ids: albumIds,
+    albums: albumIds,
     album_names: albumNames,
-    person_ids: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+    people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
     person_names: peopleMultiSelect
       ? peopleMultiSelect.getSelectedItems().map((p) => p.name)
       : [],

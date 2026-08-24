@@ -205,10 +205,10 @@ flowchart TD
 ```json
 {
   "libraries": ["Personal"],
-  "album_ids": ["uuid-1"],
+  "albums": ["uuid-1"],
   "countries": ["Italy"],
   "cities": ["Rome"],
-  "person_ids": ["person-uuid-2"],
+  "people": ["person-uuid-2"],
   "people_mode": "ALL",
   "min_month": "2022-01",
   "max_month": "2024-12",

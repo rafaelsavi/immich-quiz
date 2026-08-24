@@ -193,8 +193,8 @@ class PhotoFilterScope(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     libraries: list[str] = Field(default_factory=list)
-    album_ids: list[str] = Field(default_factory=list)
-    person_ids: list[str] = Field(default_factory=list)
+    albums: list[str] = Field(default_factory=list)
+    people: list[str] = Field(default_factory=list)
     people_mode: PeopleMode = PeopleMode.ANY
     countries: list[str] = Field(default_factory=list)
     cities: list[str] = Field(default_factory=list)
@@ -451,10 +451,10 @@ class LeaderboardQuery(BaseModel):
 
     # Dataset filters with strict list typing
     libraries: list[str] = Field(default_factory=list)
-    album_ids: list[str] = Field(default_factory=list)
+    albums: list[str] = Field(default_factory=list)
     countries: list[str] = Field(default_factory=list)
     cities: list[str] = Field(default_factory=list)
-    person_ids: list[str] = Field(default_factory=list)
+    people: list[str] = Field(default_factory=list)
     people_mode: PeopleMode = PeopleMode.ANY
     min_date: date | None = None
     max_date: date | None = None
@@ -474,7 +474,7 @@ class LeaderboardQuery(BaseModel):
     @classmethod
     def normalize_query_inputs(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            for field in ('libraries', 'album_ids', 'countries', 'cities', 'person_ids'):
+            for field in ('libraries', 'albums', 'countries', 'cities', 'people'):
                 val = data.get(field)
                 if isinstance(val, str):
                     data[field] = [x.strip() for x in val.split(',') if x.strip()]
@@ -513,10 +513,10 @@ class LeaderboardQuery(BaseModel):
             date_mode=config.date_mode,
             game_mode=config.game_mode,
             libraries=list(config.libraries),
-            album_ids=list(config.album_ids),
+            albums=list(config.albums),
             countries=list(config.countries),
             cities=list(config.cities),
-            person_ids=list(config.person_ids),
+            people=list(config.people),
             people_mode=config.people_mode,
             min_date=config.min_date,
             max_date=config.max_date,

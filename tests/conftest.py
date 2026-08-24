@@ -61,8 +61,10 @@ def setup_payload(**overrides: Any) -> dict[str, Any]:
         'location_mode': True,
         'date_mode': True,
         'libraries': [],
-        'album_ids': [],
+        'albums': [],
         'album_names': [],
+        'people': [],
+        'person_names': [],
     }
     payload.update(overrides)
     return payload

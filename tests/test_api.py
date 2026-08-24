@@ -323,7 +323,7 @@ def test_match_summary_with_custom_filters(tmp_path: Path) -> None:
         ]
     )
     client = build_client(tmp_path, immich)
-    match_id = start_match(client, album_ids=['album-1'], round_count=5)
+    match_id = start_match(client, albums=['album-1'], round_count=5)
 
     for _ in range(5):
         q = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
@@ -398,9 +398,9 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
 
     filtered_albums = client.get('/api/leaderboard').json()
     assert len(filtered_albums) == 1
-    assert filtered_albums[0]['config']['album_ids'] == []
+    assert filtered_albums[0]['config']['albums'] == []
 
-    empty_albums = client.get('/api/leaderboard?album_ids=non-existent-id').json()
+    empty_albums = client.get('/api/leaderboard?albums=non-existent-id').json()
     assert len(empty_albums) == 0
 
     # Non-matching min_date
@@ -414,7 +414,7 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
     empty_cities = client.get('/api/leaderboard?cities=Paris').json()
     assert len(empty_cities) == 0
 
-    empty_people = client.get('/api/leaderboard?person_ids=p1&people_mode=ANY').json()
+    empty_people = client.get('/api/leaderboard?people=p1&people_mode=ANY').json()
     assert len(empty_people) == 0
 
 
@@ -515,18 +515,18 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
 
 def test_album_names_are_resolved_server_side(client: TestClient) -> None:
     # 1. Resolving album by ID ('album-1')
-    match_id_by_id = start_match(client, album_ids=['album-1'])
+    match_id_by_id = start_match(client, albums=['album-1'])
     summary_by_id = client.get(f'/api/match/{match_id_by_id}/summary').json()
     assert summary_by_id['album_names'] == ['Holidays']
 
     # 2. Resolving album by Name ('Holidays')
-    match_id_by_name = start_match(client, album_ids=['Holidays'])
+    match_id_by_name = start_match(client, albums=['Holidays'])
     summary_by_name = client.get(f'/api/match/{match_id_by_name}/summary').json()
     assert summary_by_name['album_names'] == ['Holidays']
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
-    response = client.post('/api/game/setup', json=setup_payload(album_ids=['does-not-exist']))
+    response = client.post('/api/game/setup', json=setup_payload(albums=['does-not-exist']))
     assert response.status_code == 400
 
 
@@ -1349,7 +1349,7 @@ def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
             'date_mode': True,
             'game_mode': 'pinpoint',
             'libraries': ['lib1', 'lib2'],
-            'album_ids': ['Album 1', 'Album 2'],
+            'albums': ['Album 1', 'Album 2'],
         },
     )
     assert res.status_code == 200

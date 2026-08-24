@@ -196,44 +196,42 @@ class GameService:
     async def resolve_album_names(
         self,
         libraries: list[str] | tuple[str, ...] | None,
-        album_ids: list[str] | None = None,
+        albums: list[str] | None = None,
     ) -> list[str]:
         """Resolve album IDs or names to human-readable display names."""
-        if not album_ids:
+        if not albums:
             return []
 
-        albums = self.metadata_store.get_albums(libraries, include_shared=True)
+        indexed_albums = self.metadata_store.get_albums(libraries, include_shared=True)
         lookup = {
             key: str(a['name']).strip()
-            for a in albums
+            for a in indexed_albums
             if isinstance(a, dict) and a.get('name')
             for key in (str(a.get('id', '')).strip(), str(a['name']).strip().lower())
             if key
         }
 
         resolved: dict[str, str] = {}
-        for aid in album_ids:
+        for aid in albums:
             aid_clean = str(aid).strip()
             name = lookup.get(aid_clean) or lookup.get(aid_clean.lower())
             if not name:
-                raise HTTPException(status_code=400, detail=f'Unknown album_id: {aid}')
+                raise HTTPException(status_code=400, detail=f'Unknown album: {aid}')
             resolved[name.lower()] = name
 
         return sorted(resolved.values(), key=lambda s: (s.lower(), s))
 
     def resolve_person_names(
         self,
-        person_ids: list[str] | None = None,
+        people: list[str] | None = None,
         existing_names: list[str] | None = None,
     ) -> list[str]:
         """Resolve person IDs or names to human-readable display names."""
-        if not person_ids:
+        if not people:
             return existing_names or []
 
-        name_map = self.metadata_store.get_person_names(person_ids)
-        resolved: dict[str, str] = {
-            (name := name_map.get(pid.strip(), pid.strip())).lower(): name for pid in person_ids
-        }
+        name_map = self.metadata_store.get_person_names(people)
+        resolved: dict[str, str] = {(name := name_map.get(pid.strip(), pid.strip())).lower(): name for pid in people}
         return sorted(resolved.values(), key=lambda s: (s.lower(), s))
 
     async def preflight(self, setup: PreflightRequest) -> PreflightResponse:
@@ -262,11 +260,11 @@ class GameService:
             active_filters.append('date')
         if setup.libraries:
             active_filters.append('libraries')
-        if setup.album_ids:
+        if setup.albums:
             active_filters.append('albums')
-        if setup.person_ids:
+        if setup.people:
             active_filters.append(
-                'people_all' if setup.people_mode == PeopleMode.ALL and len(setup.person_ids) > 1 else 'people'
+                'people_all' if setup.people_mode == PeopleMode.ALL and len(setup.people) > 1 else 'people'
             )
         if setup.countries:
             active_filters.append('countries')
@@ -305,9 +303,9 @@ class GameService:
 
         setup.album_names = await self.resolve_album_names(
             target_libs,
-            album_ids=setup.album_ids,
+            albums=setup.albums,
         )
-        setup.person_names = self.resolve_person_names(setup.person_ids, setup.person_names)
+        setup.person_names = self.resolve_person_names(people=setup.people, existing_names=setup.person_names)
         state = self.store.create_match(setup)
 
         map_bounds: MapBounds | None = None

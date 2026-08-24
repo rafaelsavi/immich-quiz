@@ -148,11 +148,11 @@ def test_models_hierarchy_and_rules_validation() -> None:
     )
 
     # PhotoFilterScope default values
-    scope = PhotoFilterScope(album_ids=['a1'], countries=['Japan'])
-    assert scope.album_ids == ['a1']
+    scope = PhotoFilterScope(albums=['a1'], countries=['Japan'])
+    assert scope.albums == ['a1']
     assert scope.countries == ['Japan']
     assert scope.cities == []
-    assert scope.person_ids == []
+    assert scope.people == []
     assert scope.include_shared is False
 
     # GameRulesConfig pure values
@@ -237,14 +237,14 @@ def test_leaderboard_query_model() -> None:
 
     config = BaseGameConfig(
         libraries=['main', 'backup'],
-        album_ids=['alb-1'],
+        albums=['alb-1'],
         countries=['Italy'],
         round_count=10,
         include_shared=True,
     )
     query = LeaderboardQuery.from_config(config)
     assert query.libraries == ['main', 'backup']
-    assert query.album_ids == ['alb-1']
+    assert query.albums == ['alb-1']
     assert query.countries == ['Italy']
     assert query.rounds == 10
     assert query.include_shared is True
@@ -254,11 +254,11 @@ def test_leaderboard_query_model() -> None:
     query_str = LeaderboardQuery(
         countries='France, Italy, Germany',
         cities='Paris, Rome',
-        person_ids='p1, p2',
+        people='p1, p2',
     )
     assert query_str.countries == ['France', 'Italy', 'Germany']
     assert query_str.cities == ['Paris', 'Rome']
-    assert query_str.person_ids == ['p1', 'p2']
+    assert query_str.people == ['p1', 'p2']
 
     # Test new query filter fields
     q_extended = LeaderboardQuery(

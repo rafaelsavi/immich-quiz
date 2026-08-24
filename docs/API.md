@@ -141,8 +141,8 @@ Request:
   "date_mode": true,
   "game_mode": "pinpoint",
   "players": ["Alice", "Bob"],
-  "album_ids": ["album-uuid-1"],
-  "person_ids": ["person-uuid-1"],
+  "albums": ["album-uuid-1"],
+  "people": ["person-uuid-1"],
   "people_mode": "ANY",
   "countries": ["France"],
   "cities": ["Paris"],
@@ -193,8 +193,8 @@ Request:
   "date_mode": true,
   "game_mode": "pinpoint",
   "players": ["Alice", "Bob"],
-  "album_ids": ["album-uuid-1"],
-  "person_ids": [],
+  "albums": ["album-uuid-1"],
+  "people": [],
   "people_mode": "ANY",
   "countries": [],
   "cities": [],
@@ -207,7 +207,7 @@ Request:
 * `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
 * `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
 * `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
-* `album_names` (list) are resolved server-side from `album_ids`.
+* `album_names` (list) are resolved server-side from `albums`.
 * `people_mode` supports `"ANY"` (Any person) or `"ALL"` (All selected people together).
 
 Response:
@@ -457,11 +457,11 @@ Query Parameters:
 * `date_mode`: Filter by date mode enabled (`true`/`false`)
 * `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`)
 * `libraries`: Filter by JSON array or comma-separated library names
-* `album_ids`: Filter by JSON array or comma-separated album IDs
+* `albums`: Filter by JSON array or comma-separated album names or IDs
 * `player_name`: Filter by player name
 * `countries`: Filter by JSON array or comma-separated countries
 * `cities`: Filter by JSON array or comma-separated cities
-* `person_ids`: Filter by JSON array or comma-separated person IDs
+* `people`: Filter by JSON array or comma-separated person names or IDs
 * `people_mode`: Filter by person match mode (`ANY`, `ALL`)
 * `min_date`: Filter by earliest capture date (`YYYY-MM-DD`)
 * `max_date`: Filter by latest capture date (`YYYY-MM-DD`)

@@ -71,7 +71,7 @@ export function setupFilterParams() {
   });
 
   selectedLibs.forEach((lib) => params.append("libraries", lib));
-  albumIds.forEach((aid) => params.append("album_ids", aid));
+  albumIds.forEach((aid) => params.append("albums", aid));
 
   const slider = state.filters && state.filters.dateRangeSlider;
   if (slider) {
@@ -94,9 +94,9 @@ export function setupFilterParams() {
 
   const peopleSelect = state.filters && state.filters.peopleMultiSelect;
   if (peopleSelect) {
-    const personIds = peopleSelect.getSelectedIds().sort();
-    personIds.forEach((pid) => params.append("person_ids", pid));
-    if (personIds.length > 0) {
+    const peopleList = peopleSelect.getSelectedIds().sort();
+    peopleList.forEach((pid) => params.append("people", pid));
+    if (peopleList.length > 0) {
       const peopleMode = typeof getSelectedPeopleMode === "function" ? getSelectedPeopleMode() : "ANY";
       params.set("people_mode", peopleMode);
     }
