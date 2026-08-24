@@ -139,14 +139,14 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert count3 == 1
     assert 'asset-1' in cand3
 
-    # Query 4: People filter with ALL mode (both p1 and p2)
+    # Query 4: People filter with ALL mode (both p1 and p2 by ID)
     c4 = AssetFilterCriteria(library_names=('family',), person_ids=('p1', 'p2'), people_mode=PeopleMode.ALL)
     count4 = meta_store.count_eligible_assets(c4)
     cand4 = meta_store.fetch_candidate_assets(c4)
     assert count4 == 1
     assert 'asset-1' in cand4
 
-    # Query 5: People filter with ANY mode (p1 or p2)
+    # Query 5: People filter with ANY mode (p1 or p2 by ID)
     c5 = AssetFilterCriteria(library_names=('family',), person_ids=('p1', 'p2'), people_mode=PeopleMode.ANY)
     count5 = meta_store.count_eligible_assets(c5)
     cand5 = meta_store.fetch_candidate_assets(c5)
@@ -160,12 +160,20 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert count6 == 1
     assert 'asset-1' in cand6
 
-    # Query 7: Album filter 'a1'
+    # Query 7: Album filter 'a1' (by ID)
     c7 = AssetFilterCriteria(library_names=('family',), album_ids=('a1',))
     count7 = meta_store.count_eligible_assets(c7)
     cand7 = meta_store.fetch_candidate_assets(c7)
     assert count7 == 1
     assert 'asset-1' in cand7
+
+    # Query 8: People filter by Name ('Alice', 'Bob')
+    c8 = AssetFilterCriteria(library_names=('family',), person_ids=('Alice', 'Bob'), people_mode=PeopleMode.ALL)
+    assert meta_store.count_eligible_assets(c8) == 1
+
+    # Query 9: Album filter by Name ('Summer Trip')
+    c9 = AssetFilterCriteria(library_names=('family',), album_ids=('Summer Trip',))
+    assert meta_store.count_eligible_assets(c9) == 1
 
     # Query 8: get_asset_counts breakdown
     counts = meta_store.get_asset_counts(
@@ -1032,8 +1040,14 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
     counts = meta_store.get_facet_counts(base_criteria)
     assert counts.countries == {'Japan': 2, 'France': 1}
     assert counts.cities == {'Tokyo': 1, 'Kyoto': 1, 'Paris': 1}
-    assert counts.people == {'p1': 2, 'p2': 1}
-    assert counts.albums == {'alb1': 2, 'alb2': 1}
+    assert counts.people['p1'] == 2
+    assert counts.people['p2'] == 1
+    assert counts.people['Alice'] == 2
+    assert counts.people['Bob'] == 1
+    assert counts.albums['alb1'] == 2
+    assert counts.albums['alb2'] == 1
+    assert counts.albums['Japan Trip'] == 2
+    assert counts.albums['France Trip'] == 1
 
     # 2. Filtered by Person: Alice ('p1')
     alice_criteria = AssetFilterCriteria(
@@ -1048,9 +1062,11 @@ def test_get_facet_counts(meta_store: MetadataStore) -> None:
     # Cities: Tokyo has 1, Kyoto has 1, Paris has 0
     assert alice_counts.cities == {'Tokyo': 1, 'Kyoto': 1}
     # People (excluding person filter): all people show their base count with lib
-    assert alice_counts.people == {'p1': 2, 'p2': 1}
+    assert alice_counts.people['p1'] == 2
+    assert alice_counts.people['p2'] == 1
     # Albums: alb1 (Japan) has 2, alb2 (France) has 0
-    assert alice_counts.albums == {'alb1': 2}
+    assert alice_counts.albums['alb1'] == 2
+    assert alice_counts.albums['Japan Trip'] == 2
 
 
 def test_tags_and_state_and_sync_metadata(meta_store: MetadataStore) -> None:
@@ -1689,7 +1705,7 @@ def test_multi_album_filtering_across_libraries(meta_store: MetadataStore) -> No
     # Filter with multiple albums across both libraries
     criteria = AssetFilterCriteria(
         library_names=('lib1', 'lib2'),
-        album_ids=('alb-a', 'alb-c'),
+        album_ids=('Summer', 'Spring'),
     )
     count = meta_store.count_eligible_assets(criteria)
     candidates = meta_store.fetch_candidate_assets(criteria)

@@ -781,45 +781,63 @@ class MetadataStore:
             clauses.append(f'LOWER(a.city) IN ({city_placeholders})')
             params.extend(c.lower() for c in criteria.cities)
 
-        # 13. User people filter (ANY union vs ALL intersection)
+        # 13. User people filter (ANY union vs ALL intersection) — supports both ID and Name matching
         if criteria.person_ids:
-            if criteria.people_mode == PeopleMode.ALL and len(criteria.person_ids) > 1:
-                placeholders = ', '.join('?' for _ in criteria.person_ids)
-                clauses.append(
-                    f"""a.id IN (
-                        SELECT ap.asset_id
-                        FROM asset_people ap
-                        WHERE ap.person_id IN ({placeholders}) AND ap.library_name = a.library_name
-                        GROUP BY ap.asset_id
-                        HAVING COUNT(DISTINCT ap.person_id) = ?
-                    )"""
-                )
-                params.extend(criteria.person_ids)
-                params.append(len(set(criteria.person_ids)))
+            p_targets = list(criteria.person_ids)
+            if criteria.people_mode == PeopleMode.ALL and len(p_targets) > 1:
+                for target in p_targets:
+                    clauses.append(
+                        """EXISTS (
+                            SELECT 1
+                            FROM asset_people ap
+                            JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
+                            WHERE ap.asset_id = a.id
+                              AND ap.library_name = a.library_name
+                              AND (
+                                  p.name COLLATE NOCASE = ?
+                                  OR ap.person_id = ?
+                                  OR p.name IN (SELECT name FROM people WHERE id = ?)
+                              )
+                        )"""
+                    )
+                    params.extend([target, target, target])
             else:
-                placeholders = ', '.join('?' for _ in criteria.person_ids)
+                placeholders = ', '.join('?' for _ in p_targets)
                 clauses.append(
                     f"""EXISTS (
                         SELECT 1
                         FROM asset_people ap
+                        JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
                         WHERE ap.asset_id = a.id
                           AND ap.library_name = a.library_name
-                          AND ap.person_id IN ({placeholders})
+                          AND p.name IN (
+                              SELECT name FROM people
+                              WHERE id IN ({placeholders}) OR name COLLATE NOCASE IN ({placeholders})
+                          )
                     )"""
                 )
-                params.extend(criteria.person_ids)
+                params.extend(p_targets)
+                params.extend(p_targets)
 
-        # 14. User albums filter (OR union)
+        # 14. User albums filter (OR union) — supports both ID and Name matching
         if criteria.album_ids:
-            placeholders = ', '.join('?' for _ in criteria.album_ids)
+            alb_targets = list(criteria.album_ids)
+            placeholders = ', '.join('?' for _ in alb_targets)
             clauses.append(
                 f"""EXISTS (
                     SELECT 1
                     FROM asset_albums aa
-                    WHERE aa.asset_id = a.id AND aa.library_name = a.library_name AND aa.album_id IN ({placeholders})
+                    JOIN albums alb ON aa.album_id = alb.id AND aa.library_name = alb.library_name
+                    WHERE aa.asset_id = a.id
+                      AND aa.library_name = a.library_name
+                      AND alb.name IN (
+                          SELECT name FROM albums
+                          WHERE id IN ({placeholders}) OR name COLLATE NOCASE IN ({placeholders})
+                      )
                 )"""
             )
-            params.extend(criteria.album_ids)
+            params.extend(alb_targets)
+            params.extend(alb_targets)
 
         where_sql = ' AND '.join(f'({c})' for c in clauses)
         return where_sql, params
@@ -988,14 +1006,15 @@ class MetadataStore:
                     continue
                 city_options.append(CityOption(name=c_name, country=c_country))
 
-        # 3. People
+        # 3. People (deduplicated by name across libraries)
         people_rows = self._db.fetch_all(
             f"""
-            SELECT DISTINCT p.id, p.name
+            SELECT p.name, MIN(p.id) as id
             FROM people p
             JOIN asset_people ap ON p.id = ap.person_id AND p.library_name = ap.library_name
             JOIN assets a ON ap.asset_id = a.id AND ap.library_name = a.library_name
             WHERE {base_where}
+            GROUP BY p.name COLLATE NOCASE
             ORDER BY p.name COLLATE NOCASE
             """,
             params,
@@ -1046,7 +1065,7 @@ class MetadataStore:
         )
 
     def get_person_names(self, person_ids: list[str]) -> dict[str, str]:
-        """Look up person names by their IDs from indexed metadata."""
+        """Look up person display names by ID from indexed metadata."""
         if not person_ids:
             return {}
         placeholders = ', '.join('?' for _ in person_ids)
@@ -1059,9 +1078,9 @@ class MetadataStore:
     def get_facet_counts(self, criteria: AssetFilterCriteria) -> FacetCounts:
         """Compute matching photo counts for each facet option under current criteria.
 
-        In standard multi-select faceted search:
-        - The count for each country option is evaluated using criteria excluding user-selected countries.
-        - The count for each city option is evaluated using criteria excluding user-selected cities.
+        Facets are evaluated independently:
+        - The count for each country is evaluated using criteria excluding user-selected countries.
+        - The count for each city is evaluated using criteria excluding user-selected cities.
         - The count for each person option is evaluated using criteria excluding user-selected person_ids.
         - The count for each album option is evaluated using criteria excluding user-selected album_ids.
         """
@@ -1099,35 +1118,49 @@ class MetadataStore:
         )
         city_counts = {str(r['city']).strip(): int(r['count']) for r in city_rows if r.get('city')}
 
-        # 3. People
+        # 3. People (aggregated by name across libraries, populated by both name and ID)
         people_crit = replace(criteria, person_ids=())
         p_where, p_params = self._build_filter_clauses(people_crit)
         people_rows = self._db.fetch_all(
             f"""
-            SELECT ap.person_id, COUNT(DISTINCT a.id) as count
+            SELECT ap.person_id, p.name, COUNT(DISTINCT a.id) as count
             FROM assets a
             JOIN asset_people ap ON a.id = ap.asset_id AND a.library_name = ap.library_name
+            JOIN people p ON ap.person_id = p.id AND ap.library_name = p.library_name
             WHERE {p_where}
-            GROUP BY ap.person_id
+            GROUP BY p.name COLLATE NOCASE
             """,
             p_params,
         )
-        people_counts = {str(r['person_id']).strip(): int(r['count']) for r in people_rows if r.get('person_id')}
+        people_counts: dict[str, int] = {}
+        for r in people_rows:
+            cnt = int(r['count'])
+            if r.get('name'):
+                people_counts[str(r['name']).strip()] = cnt
+            if r.get('person_id'):
+                people_counts[str(r['person_id']).strip()] = cnt
 
-        # 4. Albums
+        # 4. Albums (aggregated by name across libraries, populated by both name and ID)
         album_crit = replace(criteria, album_ids=())
         al_where, al_params = self._build_filter_clauses(album_crit)
         album_rows = self._db.fetch_all(
             f"""
-            SELECT aa.album_id, COUNT(DISTINCT a.id) as count
+            SELECT aa.album_id, alb.name, COUNT(DISTINCT a.id) as count
             FROM assets a
             JOIN asset_albums aa ON a.id = aa.asset_id AND a.library_name = aa.library_name
+            JOIN albums alb ON aa.album_id = alb.id AND aa.library_name = alb.library_name
             WHERE {al_where}
-            GROUP BY aa.album_id
+            GROUP BY alb.name COLLATE NOCASE
             """,
             al_params,
         )
-        album_counts = {str(r['album_id']).strip(): int(r['count']) for r in album_rows if r.get('album_id')}
+        album_counts: dict[str, int] = {}
+        for r in album_rows:
+            cnt = int(r['count'])
+            if r.get('name'):
+                album_counts[str(r['name']).strip()] = cnt
+            if r.get('album_id'):
+                album_counts[str(r['album_id']).strip()] = cnt
 
         return FacetCounts(
             countries=country_counts,
@@ -1138,22 +1171,37 @@ class MetadataStore:
 
     def get_albums(
         self,
-        libraries: list[str] | tuple[str, ...] | None = None,
+        library_names: list[str] | tuple[str, ...] | None = None,
         include_shared: bool = True,
-    ) -> list[dict[str, str]]:
-        """Return indexed albums for one or more libraries (or all libraries if None)."""
-        clauses = []
+    ) -> list[dict[str, Any]]:
+        """Return distinct albums deduplicated by name across libraries, matching ownership constraints."""
+        where_clauses: list[str] = []
         params: list[Any] = []
-        if libraries:
-            placeholders = ', '.join('?' for _ in libraries)
-            clauses.append(f'library_name IN ({placeholders})')
-            params.extend(tuple(libraries))
+
+        if library_names:
+            placeholders = ', '.join('?' for _ in library_names)
+            where_clauses.append(f'library_name IN ({placeholders})')
+            params.extend(library_names)
+
         if not include_shared:
-            clauses.append('is_shared = 0')
-        where_str = f'WHERE {" AND ".join(clauses)}' if clauses else ''
-        sql = f'SELECT DISTINCT id, name FROM albums {where_str} ORDER BY name COLLATE NOCASE'
-        rows = self._db.fetch_all(sql, tuple(params))
-        return [{'id': str(r['id']), 'name': str(r['name'])} for r in rows]
+            where_clauses.append('is_shared = 0')
+
+        where_str = f'WHERE {" AND ".join(where_clauses)}' if where_clauses else ''
+        album_rows = self._db.fetch_all(
+            f"""
+            SELECT MIN(id) as id, name
+            FROM albums
+            {where_str}
+            GROUP BY name COLLATE NOCASE
+            ORDER BY name COLLATE NOCASE
+            """,
+            params,
+        )
+        return [
+            {'id': str(r['id']).strip(), 'name': str(r['name']).strip()}
+            for r in album_rows
+            if r.get('id') and r.get('name')
+        ]
 
     def get_tags(
         self,

@@ -591,7 +591,29 @@ def test_is_eligible_asset_people_mode_enum() -> None:
         'people': [{'id': 'p1', 'name': 'Alice'}],
     }
 
-    # ANY mode with p1, p2: matches both
+    # ANY mode with Names (Alice, Bob): matches both
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_p1_p2,
+            location_mode=True,
+            date_mode=True,
+            person_ids=('Alice', 'Bob'),
+            people_mode=PeopleMode.ANY,
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_p1_only,
+            location_mode=True,
+            date_mode=True,
+            person_ids=('Alice', 'Bob'),
+            people_mode=PeopleMode.ANY,
+        )
+        is True
+    )
+
+    # ANY mode with IDs (p1, p2): matches both
     assert (
         ImmichClient.is_eligible_asset(
             asset_p1_p2,
@@ -613,7 +635,29 @@ def test_is_eligible_asset_people_mode_enum() -> None:
         is True
     )
 
-    # ALL mode with p1, p2: matches asset_p1_p2 only
+    # ALL mode with Names (Alice, Bob): matches asset_p1_p2 only
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_p1_p2,
+            location_mode=True,
+            date_mode=True,
+            person_ids=('Alice', 'Bob'),
+            people_mode=PeopleMode.ALL,
+        )
+        is True
+    )
+    assert (
+        ImmichClient.is_eligible_asset(
+            asset_p1_only,
+            location_mode=True,
+            date_mode=True,
+            person_ids=('Alice', 'Bob'),
+            people_mode=PeopleMode.ALL,
+        )
+        is False
+    )
+
+    # ALL mode with IDs (p1, p2): matches asset_p1_p2 only
     assert (
         ImmichClient.is_eligible_asset(
             asset_p1_p2,

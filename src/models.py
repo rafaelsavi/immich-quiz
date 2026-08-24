@@ -698,7 +698,7 @@ class BatchRevealItem(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     photo_id: str = Field(min_length=1)
-    true_pin_id: str = Field(min_length=1)
+    true_pin_id: str | None = None
     actual_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     actual_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
     actual_date: date | None = None

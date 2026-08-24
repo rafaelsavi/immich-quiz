@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 from cachetools import TTLCache
 
-from src.api.routes import FILTERS_CACHE_TTL_SECONDS, _filters_cache
+from src.api.routes import FILTERS_CACHE_TTL_SECONDS, _filters_cache, invalidate_filters_cache
 from src.game.selector import load_asset_pool, select_round_asset
 from src.immich.client import ImmichClient
 from src.models import (
@@ -121,6 +121,26 @@ def test_get_filters_success_and_caching(tmp_path: Path) -> None:
     assert cached_data['countries'] == ['Brazil', 'France', 'Italy']
     assert cached_data['people'][0]['name'] == 'Alice'
     assert t_cached < t_first + 0.05
+
+
+def test_invalidate_filters_cache_clears_global_and_library_keys() -> None:
+    _filters_cache.clear()
+    _filters_cache[()] = 'global_filter_payload'
+    _filters_cache[('family',)] = 'family_filter_payload'
+    _filters_cache[('other',)] = 'other_filter_payload'
+    _filters_cache[('family', 'vacation')] = 'multi_filter_payload'
+
+    # Invalidation of 'family' must evict ('family',), ('family', 'vacation'), AND global ()
+    invalidate_filters_cache('family')
+
+    assert () not in _filters_cache
+    assert ('family',) not in _filters_cache
+    assert ('family', 'vacation') not in _filters_cache
+    assert ('other',) in _filters_cache
+
+    # Complete invalidation clears remaining items
+    invalidate_filters_cache()
+    assert len(_filters_cache) == 0
 
 
 def test_get_filters_env_date_bounds_override(tmp_path: Path) -> None:
@@ -410,7 +430,10 @@ def test_preflight_people_mode_any_vs_all(tmp_path: Path) -> None:
     a2 = make_filter_asset('a2', people_ids=['p2'])
     a3 = make_filter_asset('a3', people_ids=['p1', 'p2'])
 
-    immich = FakeImmichClient(assets=[a1, a2, a3])
+    immich = FakeImmichClient(
+        assets=[a1, a2, a3],
+        people=[PersonInfo(id='p1', name='Alice'), PersonInfo(id='p2', name='Bob')],
+    )
     client = build_client(tmp_path, immich)
 
     # ANY mode: all 3 photos match (a1, a2, a3)
@@ -841,3 +864,388 @@ def test_multi_library_and_multi_album_filters_api(tmp_path: Path) -> None:
     assert pf['eligible_count'] == 2
     assert pf['facet_counts']['albums']['alb-1'] == 1
     assert pf['facet_counts']['albums']['alb-2'] == 1
+
+
+def test_cross_library_duplicate_person_and_album_deduplication(tmp_path: Path) -> None:
+    """Verify that duplicate person and album names across multiple libraries are deduplicated in the GUI
+
+    and that selecting them filters assets across all libraries.
+    """
+    immich = FakeImmichClient()
+    client = build_client(
+        tmp_path,
+        immich,
+        immich_libraries={'lib1': 'key1', 'lib2': 'key2'},
+        auto_seed=False,
+    )
+    meta_store = client.app.state.metadata_store  # type: ignore
+
+    # Both libraries have a person named 'Alice' (different IDs) and 'Bob' (different IDs)
+    meta_store.upsert_people('lib1', [{'id': 'p-lib1-alice', 'name': 'Alice'}, {'id': 'p-lib1-bob', 'name': 'Bob'}])
+    meta_store.upsert_people('lib2', [{'id': 'p-lib2-alice', 'name': 'Alice'}, {'id': 'p-lib2-bob', 'name': 'Bob'}])
+
+    # Both libraries have an album named 'Trip 2023' (different IDs)
+    meta_store.upsert_albums('lib1', [{'id': 'alb-lib1-trip', 'name': 'Trip 2023'}])
+    meta_store.upsert_albums('lib2', [{'id': 'alb-lib2-trip', 'name': 'Trip 2023'}])
+
+    # Lib1: 1 photo with Alice & Bob in Trip 2023
+    assets1 = [
+        {
+            'id': 'ast-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 10.0,
+            'country': 'Brazil',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+    ]
+    # Lib2: 1 photo with Alice & Bob in Trip 2023
+    assets2 = [
+        {
+            'id': 'ast-2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 20.0,
+            'longitude': 20.0,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2023-02-01T12:00:00',
+        },
+    ]
+    meta_store.upsert_assets_batch(
+        'lib1', assets1, [('ast-1', 'p-lib1-alice'), ('ast-1', 'p-lib1-bob')], [('ast-1', 'alb-lib1-trip')]
+    )
+    meta_store.upsert_assets_batch(
+        'lib2', assets2, [('ast-2', 'p-lib2-alice'), ('ast-2', 'p-lib2-bob')], [('ast-2', 'alb-lib2-trip')]
+    )
+
+    # 1. GET /api/filters deduplicates people by name: exactly 2 entries (Alice, Bob)
+    res_filters = client.get('/api/filters?libraries=lib1&libraries=lib2')
+    assert res_filters.status_code == 200
+    people = res_filters.json()['people']
+    assert len(people) == 2
+    assert {p['name'] for p in people} == {'Alice', 'Bob'}
+
+    # 2. GET /api/albums deduplicates albums by name: exactly 1 entry ('Trip 2023')
+    res_albums = client.get('/api/albums?libraries=lib1&libraries=lib2')
+    assert res_albums.status_code == 200
+    albums = res_albums.json()['albums']
+    assert len(albums) == 1
+    assert albums[0]['name'] == 'Trip 2023'
+
+    alice_id = next(p['id'] for p in people if p['name'] == 'Alice')
+    bob_id = next(p['id'] for p in people if p['name'] == 'Bob')
+    trip_id = albums[0]['id']
+
+    # 3. Preflight with person_ids=['Alice', 'Bob'] in PeopleMode.ALL matches BOTH photos!
+    res_preflight = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['Alice', 'Bob'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_preflight.status_code == 200
+    pf_data = res_preflight.json()
+    assert pf_data['eligible_count'] == 2
+    assert pf_data['facet_counts']['people'][alice_id] == 2
+    assert pf_data['facet_counts']['people'][bob_id] == 2
+
+    # 4. Preflight with album_ids=['Trip 2023'] matches BOTH photos!
+    res_album_pf = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'album_ids': ['Trip 2023'],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_album_pf.status_code == 200
+    assert res_album_pf.json()['eligible_count'] == 2
+    assert res_album_pf.json()['facet_counts']['albums'][trip_id] == 2
+
+    # 5. Filtering by the dropdown option ID ('p-lib1-alice') matches across all libraries
+    res_id_pf = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': [alice_id],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_id_pf.status_code == 200
+    assert res_id_pf.json()['eligible_count'] == 2
+
+
+def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
+    """Verify PeopleMode.ALL accurately filters only photos containing ALL specified people."""
+    immich = FakeImmichClient()
+    client = build_client(
+        tmp_path,
+        immich,
+        immich_libraries={'lib1': 'key1', 'lib2': 'key2'},
+        auto_seed=False,
+    )
+    meta_store = client.app.state.metadata_store  # type: ignore
+
+    # lib1 people
+    meta_store.upsert_people(
+        'lib1',
+        [
+            {'id': 'p1-alice', 'name': 'Alice'},
+            {'id': 'p1-bob', 'name': 'Bob'},
+            {'id': 'p1-charlie', 'name': 'Charlie'},
+        ],
+    )
+    # lib2 people
+    meta_store.upsert_people(
+        'lib2',
+        [
+            {'id': 'p2-alice', 'name': 'Alice'},
+            {'id': 'p2-bob', 'name': 'Bob'},
+            {'id': 'p2-charlie', 'name': 'Charlie'},
+        ],
+    )
+
+    # Assets:
+    # Photo 1 (lib1): Alice & Bob (has both Alice and Bob)
+    # Photo 2 (lib1): Alice only (has only Alice)
+    # Photo 3 (lib2): Alice, Bob & Charlie (has both Alice and Bob)
+    # Photo 4 (lib2): Charlie only
+    assets_lib1 = [
+        {
+            'id': 'ast-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 10.0,
+            'longitude': 20.0,
+            'country': 'BR',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-01T12:00:00',
+        },
+        {
+            'id': 'ast-2',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 11.0,
+            'longitude': 21.0,
+            'country': 'BR',
+            'city': 'Rio',
+            'capture_datetime': '2023-01-02T12:00:00',
+        },
+    ]
+    meta_store.upsert_assets_batch(
+        'lib1',
+        assets_lib1,
+        [
+            ('ast-1', 'p1-alice'),
+            ('ast-1', 'p1-bob'),
+            ('ast-2', 'p1-alice'),
+        ],
+        [],
+    )
+
+    assets_lib2 = [
+        {
+            'id': 'ast-3',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 12.0,
+            'longitude': 22.0,
+            'country': 'FR',
+            'city': 'Paris',
+            'capture_datetime': '2023-02-01T12:00:00',
+        },
+        {
+            'id': 'ast-4',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 13.0,
+            'longitude': 23.0,
+            'country': 'FR',
+            'city': 'Paris',
+            'capture_datetime': '2023-02-02T12:00:00',
+        },
+    ]
+    meta_store.upsert_assets_batch(
+        'lib2',
+        assets_lib2,
+        [
+            ('ast-3', 'p2-alice'),
+            ('ast-3', 'p2-bob'),
+            ('ast-3', 'p2-charlie'),
+            ('ast-4', 'p2-charlie'),
+        ],
+        [],
+    )
+
+    # 1. PeopleMode.ANY with ['Alice', 'Bob'] matches ast-1 (Alice+Bob), ast-2 (Alice), ast-3 (Alice+Bob) -> 3 photos
+    res_any = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['Alice', 'Bob'],
+            'people_mode': 'ANY',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_any.status_code == 200
+    assert res_any.json()['eligible_count'] == 3
+
+    # 2. PeopleMode.ALL with ['Alice', 'Bob'] matches ONLY photos with BOTH -> ast-1 and ast-3 -> exactly 2 photos
+    res_all = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['Alice', 'Bob'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_all.status_code == 200
+    assert res_all.json()['eligible_count'] == 2
+
+    # 3. PeopleMode.ALL with UUIDs across libraries: ['p1-alice', 'p2-bob'] matches ast-1 and ast-3 -> exactly 2 photos
+    res_all_uuids = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['p1-alice', 'p2-bob'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_all_uuids.status_code == 200
+    assert res_all_uuids.json()['eligible_count'] == 2
+
+    # 4. PeopleMode.ALL with duplicate UUIDs for the same person: ['p1-alice', 'p2-alice', 'p1-bob']
+    # Dynamic SQL distinct count handles cross-library duplicates correctly -> 2 photos (Alice + Bob)
+    res_all_dups = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['p1-alice', 'p2-alice', 'p1-bob'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_all_dups.status_code == 200
+    assert res_all_dups.json()['eligible_count'] == 2
+
+    # 5. PeopleMode.ALL with 3 people: ['Alice', 'Bob', 'Charlie'] matches ONLY ast-3 -> 1 photo
+    res_all_three = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['Alice', 'Bob', 'Charlie'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_all_three.status_code == 200
+    assert res_all_three.json()['eligible_count'] == 1
+
+    # 6. PeopleMode.ALL with 2 people who NEVER appear together in any photo returns 0
+    # Setup David (ast-5) who never shares a photo with Alice
+    meta_store.upsert_people('lib1', [{'id': 'p1-david', 'name': 'David'}])
+    meta_store.upsert_assets_batch(
+        'lib1',
+        [
+            {
+                'id': 'ast-5',
+                'is_shared': 0,
+                'is_partner': 0,
+                'file_type': 'IMAGE',
+                'latitude': 14.0,
+                'longitude': 24.0,
+                'country': 'US',
+                'city': 'NY',
+                'capture_datetime': '2023-03-01T12:00:00',
+            }
+        ],
+        [('ast-5', 'p1-david')],
+        [],
+    )
+    res_disjoint = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['Alice', 'David'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_disjoint.status_code == 200
+    assert res_disjoint.json()['eligible_count'] == 0
+
+    res_disjoint_ids = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['p1-alice', 'p1-david'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_disjoint_ids.status_code == 200
+    assert res_disjoint_ids.json()['eligible_count'] == 0
+
+    # 7. PeopleMode.ALL with a valid person and a completely non-existent person ID returns 0
+    res_unknown = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['lib1', 'lib2'],
+            'person_ids': ['p1-alice', 'non-existent-uuid-999'],
+            'people_mode': 'ALL',
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_unknown.status_code == 200
+    assert res_unknown.json()['eligible_count'] == 0
+
+    # 8. Candidate asset pool query matches preflight count exactly
+    from src.storage.metadata import AssetFilterCriteria
+    from src.storage.metadata import PeopleMode as PM
+
+    crit_all = AssetFilterCriteria(
+        library_names=('lib1', 'lib2'),
+        person_ids=('Alice', 'Bob'),
+        people_mode=PM.ALL,
+        location_mode=True,
+        date_mode=True,
+    )
+    candidates = meta_store.fetch_candidate_assets(crit_all)
+    assert len(candidates) == 2
+    assert set(candidates.keys()) == {'ast-1', 'ast-3'}

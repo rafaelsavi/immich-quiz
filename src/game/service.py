@@ -198,39 +198,43 @@ class GameService:
         libraries: list[str] | tuple[str, ...] | None,
         album_ids: list[str] | None = None,
     ) -> list[str]:
-        """Resolve album IDs to human-readable names server-side from indexed metadata."""
+        """Resolve album IDs or names to human-readable display names."""
         if not album_ids:
             return []
 
         albums = self.metadata_store.get_albums(libraries, include_shared=True)
-        album_map = {
-            str(album.get('id', '')).strip(): str(album.get('name', '-')).strip()
-            for album in albums
-            if isinstance(album, dict) and album.get('id')
+        lookup = {
+            key: str(a['name']).strip()
+            for a in albums
+            if isinstance(a, dict) and a.get('name')
+            for key in (str(a.get('id', '')).strip(), str(a['name']).strip().lower())
+            if key
         }
-        names: list[str] = []
-        for aid in album_ids:
-            if aid not in album_map:
-                raise HTTPException(status_code=400, detail=f'Unknown album_id: {aid}')
-            names.append(album_map[aid])
 
-        names.sort(key=lambda s: (s.lower(), s))
-        return names
+        resolved: dict[str, str] = {}
+        for aid in album_ids:
+            aid_clean = str(aid).strip()
+            name = lookup.get(aid_clean) or lookup.get(aid_clean.lower())
+            if not name:
+                raise HTTPException(status_code=400, detail=f'Unknown album_id: {aid}')
+            resolved[name.lower()] = name
+
+        return sorted(resolved.values(), key=lambda s: (s.lower(), s))
 
     def resolve_person_names(
         self,
         person_ids: list[str] | None = None,
         existing_names: list[str] | None = None,
     ) -> list[str]:
-        """Resolve person IDs to names server-side from indexed metadata."""
+        """Resolve person IDs or names to human-readable display names."""
         if not person_ids:
             return existing_names or []
+
         name_map = self.metadata_store.get_person_names(person_ids)
-        if name_map:
-            names = [name_map.get(pid, pid) for pid in person_ids if pid in name_map or pid]
-            names.sort(key=lambda s: (s.lower(), s))
-            return names
-        return existing_names or person_ids
+        resolved: dict[str, str] = {
+            (name := name_map.get(pid.strip(), pid.strip())).lower(): name for pid in person_ids
+        }
+        return sorted(resolved.values(), key=lambda s: (s.lower(), s))
 
     async def preflight(self, setup: PreflightRequest) -> PreflightResponse:
         """Perform live preflight check evaluating candidate asset counts against game requirements."""

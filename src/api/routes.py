@@ -42,6 +42,7 @@ def invalidate_filters_cache(library_name: str | None = None) -> None:
     """Invalidate cached library filter responses (e.g. after sync completion)."""
     if library_name is not None:
         _filters_cache.pop(library_name, None)
+        _filters_cache.pop((), None)
         to_remove = [k for k in _filters_cache if isinstance(k, tuple) and library_name in k]
         for k in to_remove:
             _filters_cache.pop(k, None)

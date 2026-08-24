@@ -369,3 +369,40 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     assert 'loadLeaderboardDebounced' in leaderboard_js, 'leaderboard.js must export loadLeaderboardDebounced'
     assert 'getActiveFilterSummary' in setup_filters_js, 'setup_filters.js must export getActiveFilterSummary'
     assert 'isCustomFilteredActive' in setup_filters_js, 'setup_filters.js must export isCustomFilteredActive'
+
+
+def test_filter_persistence_and_people_mode_lifecycle() -> None:
+    """Verify that initial library loading does not overwrite saved filters with defaults."""
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+
+    # 1. HTML markup defines both Any and All buttons with proper data-people-mode
+    assert 'id="people-mode-toggle"' in index_html
+    assert 'data-people-mode="ANY"' in index_html
+    assert 'data-people-mode="ALL"' in index_html
+
+    # 2. setup_filters.js exports people mode helpers
+    assert 'export function getSelectedPeopleMode' in setup_filters_js
+    assert 'export function setPeopleMode' in setup_filters_js
+    assert 'export function resetPeopleMode' in setup_filters_js
+    assert 'export function updatePeopleModeToggleVisibility' in setup_filters_js
+
+    # 3. onLibrariesChanged must accept shouldSave flag and default or allow avoiding overwrite during init
+    assert 'export async function onLibrariesChanged(shouldSave = true)' in setup_filters_js
+    # 4. initLibraries must call onLibrariesChanged(false) before restoreFilters
+    assert 'await onLibrariesChanged(false)' in setup_filters_js
+    assert 'restoreFilters()' in setup_filters_js
+
+
+def test_batch_reveal_item_supports_optional_pin_id() -> None:
+    """Verify BatchRevealItem supports optional true_pin_id for locationless Album Shuffle."""
+    from src.models import BatchRevealItem
+
+    item_without_pin = BatchRevealItem(
+        photo_id='photo-123',
+        true_pin_id=None,
+        actual_year=2024,
+        actual_month=5,
+    )
+    assert item_without_pin.photo_id == 'photo-123'
+    assert item_without_pin.true_pin_id is None

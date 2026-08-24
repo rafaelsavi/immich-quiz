@@ -454,7 +454,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             batch_reveal = [
                 BatchRevealItem(
                     photo_id=ba.asset_id,
-                    true_pin_id=str(true_pin_map.get(ba.asset_id, '')),
+                    true_pin_id=true_pin_map.get(ba.asset_id),
                     actual_latitude=ba.answer.latitude,
                     actual_longitude=ba.answer.longitude,
                     actual_date=ba.answer.capture_date,

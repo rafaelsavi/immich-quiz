@@ -439,14 +439,16 @@ class ImmichClient:
             if asset_city not in allowed_cities:
                 return False
 
-        # User Person check (if person_ids filter specified)
+        # User Person check (if person_ids filter specified — supports both ID and Name matching)
         if person_ids:
-            target_person_ids = set(person_ids)
             if people_mode == PeopleMode.ALL:
-                if not target_person_ids.issubset(asset_person_ids):
-                    return False
+                for target in person_ids:
+                    if not (target in asset_person_ids or target.lower() in asset_person_names):
+                        return False
             else:
-                if not asset_person_ids.intersection(target_person_ids):
+                target_ids = set(person_ids)
+                target_names = {p.lower() for p in person_ids}
+                if not (asset_person_ids.intersection(target_ids) or asset_person_names.intersection(target_names)):
                     return False
 
         return True

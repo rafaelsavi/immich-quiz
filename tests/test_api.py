@@ -514,9 +514,15 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
 
 
 def test_album_names_are_resolved_server_side(client: TestClient) -> None:
-    match_id = start_match(client, album_ids=['album-1'])
-    summary = client.get(f'/api/match/{match_id}/summary').json()
-    assert summary['album_names'] == ['Holidays']
+    # 1. Resolving album by ID ('album-1')
+    match_id_by_id = start_match(client, album_ids=['album-1'])
+    summary_by_id = client.get(f'/api/match/{match_id_by_id}/summary').json()
+    assert summary_by_id['album_names'] == ['Holidays']
+
+    # 2. Resolving album by Name ('Holidays')
+    match_id_by_name = start_match(client, album_ids=['Holidays'])
+    summary_by_name = client.get(f'/api/match/{match_id_by_name}/summary').json()
+    assert summary_by_name['album_names'] == ['Holidays']
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
@@ -871,6 +877,24 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
 
     assert q_data['batch_pins'] is None
     assert len(q_data['batch_photos']) == 3
+
+    # Answer and fetch round result in Date-Only Album Shuffle mode
+    answers = [
+        {'photo_id': p['photo_id'], 'assigned_pin_id': None, 'assigned_timeline_index': i}
+        for i, p in enumerate(q_data['batch_photos'])
+    ]
+    a_res = client.post(
+        '/api/answer',
+        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle_answers': answers},
+    )
+    assert a_res.status_code == 200
+    res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1})
+    assert res.status_code == 200
+    res_data = res.json()
+    assert res_data['batch_reveal'] is not None
+    assert len(res_data['batch_reveal']) == 3
+    for item in res_data['batch_reveal']:
+        assert item['true_pin_id'] is None
 
 
 def test_question_reselects_asset_when_cached_asset_marked_played(tmp_path: Path) -> None:
@@ -1325,7 +1349,7 @@ def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
             'date_mode': True,
             'game_mode': 'pinpoint',
             'libraries': ['lib1', 'lib2'],
-            'album_ids': ['alb-1', 'alb-2'],
+            'album_ids': ['Album 1', 'Album 2'],
         },
     )
     assert res.status_code == 200

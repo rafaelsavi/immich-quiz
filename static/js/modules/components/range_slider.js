@@ -87,19 +87,31 @@ export class DateRangeSlider {
   setBounds(minMonth, maxMonth) {
     if (!minMonth || !maxMonth) {
       this.allMonths = [];
-      this.reset();
+      if (this.minThumb) {
+        this.minThumb.disabled = true;
+        this.minThumb.value = "0";
+      }
+      if (this.maxThumb) {
+        this.maxThumb.disabled = true;
+        this.maxThumb.value = "0";
+      }
+      if (this.boundMinEl) this.boundMinEl.textContent = "-";
+      if (this.boundMaxEl) this.boundMaxEl.textContent = "-";
+      this.updateVisuals();
       return;
     }
     this.allMonths = this._generateMonthSpan(minMonth, maxMonth);
     const maxIdx = Math.max(0, this.allMonths.length - 1);
 
     if (this.minThumb) {
+      this.minThumb.disabled = false;
       this.minThumb.min = "0";
       this.minThumb.max = String(maxIdx);
       this.minThumb.value = "0";
     }
 
     if (this.maxThumb) {
+      this.maxThumb.disabled = false;
       this.maxThumb.min = "0";
       this.maxThumb.max = String(maxIdx);
       this.maxThumb.value = String(maxIdx);
@@ -148,7 +160,7 @@ export class DateRangeSlider {
       if (this.readoutEl) this.readoutEl.textContent = t("setup.all_dates");
       if (this.fillEl) {
         this.fillEl.style.left = "0%";
-        this.fillEl.style.width = "100%";
+        this.fillEl.style.width = "0%";
       }
       return;
     }
@@ -179,8 +191,27 @@ export class DateRangeSlider {
   }
 
   reset() {
-    if (this.minThumb) this.minThumb.value = this.minThumb.min || "0";
-    if (this.maxThumb) this.maxThumb.value = this.maxThumb.max || "100";
+    if (this.allMonths.length === 0) {
+      if (this.minThumb) {
+        this.minThumb.disabled = true;
+        this.minThumb.value = "0";
+      }
+      if (this.maxThumb) {
+        this.maxThumb.disabled = true;
+        this.maxThumb.value = "0";
+      }
+      if (this.boundMinEl) this.boundMinEl.textContent = "-";
+      if (this.boundMaxEl) this.boundMaxEl.textContent = "-";
+    } else {
+      if (this.minThumb) {
+        this.minThumb.disabled = false;
+        this.minThumb.value = this.minThumb.min || "0";
+      }
+      if (this.maxThumb) {
+        this.maxThumb.disabled = false;
+        this.maxThumb.value = this.maxThumb.max || String(Math.max(0, this.allMonths.length - 1));
+      }
+    }
     this.updateVisuals();
   }
 }

@@ -627,7 +627,7 @@ export async function executePreflight() {
   }
 }
 
-export async function onLibrariesChanged() {
+export async function onLibrariesChanged(shouldSave = true) {
   const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
   const queryParams = new URLSearchParams();
   selectedLibs.forEach((lib) => queryParams.append("libraries", lib));
@@ -655,7 +655,9 @@ export async function onLibrariesChanged() {
     }
 
     updatePeopleModeToggleVisibility();
-    saveCurrentFilters();
+    if (shouldSave) {
+      saveCurrentFilters();
+    }
     updateFiltersSummaryBadge();
     triggerPreflightDebounced();
     loadLeaderboardDebounced();
@@ -670,8 +672,20 @@ export async function initLibraries() {
   if (libraryMultiSelect) {
     libraryMultiSelect.setItems((data.libraries || []).map((name) => ({ id: name, name })));
   }
+  // Restore library selection first so onLibrariesChanged queries the right library
+  const raw = localStorage.getItem(STORAGE_KEY_PREFIX + "global");
+  if (raw) {
+    try {
+      const saved = JSON.parse(raw);
+      if (saved.libraries && libraryMultiSelect) libraryMultiSelect.setSelectedIds(saved.libraries);
+    } catch (_) {}
+  }
+  await onLibrariesChanged(false);
   restoreFilters();
-  await onLibrariesChanged();
+  updatePeopleModeToggleVisibility();
+  saveCurrentFilters();
+  updateFiltersSummaryBadge();
+  triggerPreflightDebounced();
   checkSyncStatus(onLibrariesChanged);
 }
 

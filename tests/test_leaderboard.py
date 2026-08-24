@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from src.models import (
@@ -703,7 +703,7 @@ def test_leaderboard_player_count_and_play_mode_filters(tmp_path: Path) -> None:
     assert res_ch_id[0].match_id == 'm-challenge-1p'
 
     # Filter by date range (today)
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     res_today = store.list_entries(LeaderboardQuery(played_after=today, played_before=today, exact_filter_match=False))
     assert len(res_today) == 3  # Alice, Bob, Charlie
 
@@ -825,3 +825,67 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
     assert guesses[2]['is_correct_location'] == 1
     assert guesses[2]['is_correct_date_order'] == 1
     assert guesses[2]['distance_km'] == 0.0
+
+
+def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
+    """Verify that leaderboard queries distinguish between matches played in ANY vs ALL people modes."""
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1. Match played with ANY mode
+    config_any = BaseGameConfig(
+        libraries=['main'],
+        person_ids=['p1', 'p2'],
+        people_mode=PeopleMode.ANY,
+        round_count=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+    )
+    store.append_match(
+        match_id='match-any',
+        config=config_any,
+        player_scores={'Alice': {'location': 100, 'date': 100, 'total': 200}},
+    )
+
+    # 2. Match played with ALL mode
+    config_all = BaseGameConfig(
+        libraries=['main'],
+        person_ids=['p1', 'p2'],
+        people_mode=PeopleMode.ALL,
+        round_count=5,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+    )
+    store.append_match(
+        match_id='match-all',
+        config=config_all,
+        player_scores={'Bob': {'location': 90, 'date': 90, 'total': 180}},
+    )
+
+    # Query with ALL mode -> only match-all returned
+    query_all = LeaderboardQuery(
+        libraries=['main'],
+        person_ids=['p1', 'p2'],
+        people_mode=PeopleMode.ALL,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+    )
+    entries_all = store.list_entries(query_all)
+    assert len(entries_all) == 1
+    assert entries_all[0].player_name == 'Bob'
+
+    # Query with ANY mode -> only match-any returned
+    query_any = LeaderboardQuery(
+        libraries=['main'],
+        person_ids=['p1', 'p2'],
+        people_mode=PeopleMode.ANY,
+        round_length=RoundLength.minute_1,
+        location_mode=True,
+        date_mode=True,
+    )
+    entries_any = store.list_entries(query_any)
+    assert len(entries_any) == 1
+    assert entries_any[0].player_name == 'Alice'
