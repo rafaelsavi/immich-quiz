@@ -58,41 +58,46 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 
 ### Environment Variables
 
-| Variable                           | Required | Default                | Notes                                                                         |
-|------------------------------------|----------|------------------------|-------------------------------------------------------------------------------|
-| `IMMICH_SERVER_URL`                | Yes      | —                      | Full URL to the Immich API, e.g. `https://photos.example.com/api`             |
-| `IMMICH_LIBRARIES`                 | Yes      | —                      | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`    |
-| `APP_TITLE`                        | No       | `Immich Quiz`          | Browser tab title and main heading shown on the landing page                  |
-| `APP_TAGLINE`                      | No       |                        | Optional tagline shown below the main heading on the landing page             |
-| `DATE_LOWER_BOUND`                  | No       | —                      | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
-| `DATE_UPPER_BOUND`                  | No       | —                      | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds |
-| `COUNTRY_WHITELIST`                | No       | —                      | Comma-separated list of allowed countries in filters (case-insensitive)       |
-| `COUNTRY_BLACKLIST`                | No       | —                      | Comma-separated list of excluded countries in filters (case-insensitive)      |
-| `CITY_WHITELIST`                   | No       | —                      | Comma-separated list of allowed cities/regions in filters (case-insensitive)  |
-| `CITY_BLACKLIST`                   | No       | —                      | Comma-separated list of excluded cities/regions in filters (case-insensitive) |
-| `PEOPLE_WHITELIST`                 | No       | —                      | Comma-separated list of allowed people names or IDs in filters (case-insensitive)    |
-| `PEOPLE_BLACKLIST`                 | No       | —                      | Comma-separated list of excluded people names or IDs in filters (case-insensitive)   |
-| `TAG_WHITELIST`                    | No       | —                      | Comma-separated list of allowed asset tag names or IDs in filters (case-insensitive) |
-| `TAG_BLACKLIST`                    | No       | —                      | Comma-separated list of excluded asset tag names or IDs in filters (case-insensitive)|
-| `DATA_PATH`                        | No       | `data`                 | Directory for SQLite persistence (`metadata.db` and `leaderboard.db`)        |
-| `AUTO_SYNC_ON_STARTUP`             | No       | `true`                 | Auto-trigger metadata sync in the background on server startup                |
-| `AUTO_DELTA_SYNC_INTERVAL_HOURS`   | No       | `6`                    | Interval in hours for periodic delta metadata sync (`0` disables)             |
-| `AUTO_FULL_SYNC_INTERVAL_HOURS`    | No       | `120`                  | Interval in hours for periodic full metadata sync & pruning (`0` disables)   |
-| `APP_HOST`                         | No       | `127.0.0.1`            | Set to `0.0.0.0` in Docker so the port is reachable from the host             |
-| `APP_PORT`                         | No       | `8010`                 | Port the app listens on                                                       |
-| `LOCATION_SCORE_DECAY_KM`          | No       | `500`                  | Location decay constant in km for `exp(-distance/decay)`                      |
-| `DATE_SCORE_DECAY_DAYS`            | No       | `500`                  | Date decay constant in days for `exp(-delta_days/decay)`                      |
-| `LANGUAGE`                         | No       | `EN`                   | UI language (`EN` for English, `PT` for Brazilian Portuguese)                 |
+| Variable                         | Required | Default       | Notes                                                                                 |
+|----------------------------------|----------|---------------|---------------------------------------------------------------------------------------|
+| `IMMICH_SERVER_URL`              | Yes      | —             | Full URL to the Immich API, e.g. `https://photos.example.com/api`                     |
+| `IMMICH_LIBRARIES`               | Yes      | —             | JSON object mapping display names to API keys, e.g. `{"Family": "key123"}`            |
+| `APP_TITLE`                      | No       | `Immich Quiz` | Browser tab title and main heading shown on the landing page                          |
+| `APP_TAGLINE`                    | No       |               | Optional tagline shown below the main heading on the landing page                     |
+| `DATE_LOWER_BOUND`               | No       | —             | Inclusive lower date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds         |
+| `DATE_UPPER_BOUND`               | No       | —             | Inclusive upper date bound (`YYYY-MM-DD`) for photos fetched into quiz rounds         |
+| `COUNTRY_WHITELIST`              | No       | —             | Comma-separated list of allowed countries in filters (case-insensitive)               |
+| `COUNTRY_BLACKLIST`              | No       | —             | Comma-separated list of excluded countries in filters (case-insensitive)              |
+| `CITY_WHITELIST`                 | No       | —             | Comma-separated list of allowed cities/regions in filters (case-insensitive)          |
+| `CITY_BLACKLIST`                 | No       | —             | Comma-separated list of excluded cities/regions in filters (case-insensitive)         |
+| `PEOPLE_WHITELIST`               | No       | —             | Comma-separated list of allowed people names or IDs in filters (case-insensitive)     |
+| `PEOPLE_BLACKLIST`               | No       | —             | Comma-separated list of excluded people names or IDs in filters (case-insensitive)    |
+| `TAG_WHITELIST`                  | No       | —             | Comma-separated list of allowed asset tag names or IDs in filters (case-insensitive)  |
+| `TAG_BLACKLIST`                  | No       | —             | Comma-separated list of excluded asset tag names or IDs in filters (case-insensitive) |
+| `DATA_PATH`                      | No       | `data`        | Directory for SQLite persistence (`metadata.db` and `leaderboard.db`)                 |
+| `AUTO_SYNC_ON_STARTUP`           | No       | `true`        | Auto-trigger metadata sync in the background on server startup                        |
+| `AUTO_DELTA_SYNC_INTERVAL_HOURS` | No       | `6`           | Interval in hours for periodic delta metadata sync (`0` disables)                     |
+| `AUTO_FULL_SYNC_INTERVAL_HOURS`  | No       | `120`         | Interval in hours for periodic full metadata sync & pruning (`0` disables)            |
+| `APP_HOST`                       | No       | `127.0.0.1`   | Set to `0.0.0.0` in Docker so the port is reachable from the host                     |
+| `APP_PORT`                       | No       | `8010`        | Port the app listens on                                                               |
+| `LOCATION_SCORE_DECAY_KM`        | No       | `500`         | Location decay constant in km for `exp(-distance/decay)`                              |
+| `DATE_SCORE_DECAY_DAYS`          | No       | `500`         | Date decay constant in days for `exp(-delta_days/decay)`                              |
+| `LANGUAGE`                       | No       | `EN`          | UI language (`EN` for English, `PT` for Brazilian Portuguese)                         |
 
-### Immich API Token Permissions
+### Immich API Key Permissions
 
-The `IMMICH_LIBRARIES` value is a JSON object where keys are display names of the libraries and values are Immich v3 API keys. Each API key must be custom-scoped with exactly the following permissions:
+The `IMMICH_LIBRARIES` variable is a JSON object where keys are display names for your libraries and values are Immich API keys (e.g. `{"Family": "apiKey123"}`).
 
-- `asset.read` — required for photo search.
-- `album.read` — required for album listing.
-- `asset.view` — required for visualization.
+API keys can be generated in Immich under **Account Settings > API Keys**. Following the principle of least privilege, each API key only requires read/view access. To enable all application features (metadata indexing, round image previews, album filtering, face/people filters, asset tag filters, and shared library segregation), custom-scope each key with the following permissions:
 
-The app requests preview thumbnails only; original files are never downloaded.
+| Permission Scope | Required For                | Endpoints Used                                       | Description                                                                                                                           |
+|:-----------------|:----------------------------|:-----------------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------|
+| `asset.read`     | Asset Metadata & Sync       | `POST /search/metadata`<br>`POST /search/statistics` | Discovers photos/videos, extracts EXIF coordinates/dates, computes library statistics, and validates connection.                      |
+| `asset.view`     | Gameplay Image Previews     | `GET /assets/{id}/thumbnail`                         | Streams compressed preview thumbnails during active quiz rounds. *(Original full-resolution files are never accessed or downloaded).* |
+| `album.read`     | Album Filtering & Shuffle   | `GET /albums`<br>`GET /albums/{id}`                  | Fetches album listings and album asset associations for setup filters and Album Shuffle mode.                                         |
+| `person.read`    | People / Face Filters       | `GET /people`                                        | Discovers recognized people and names for setup filtering (Any / All matching) and whitelist/blacklist rules.                         |
+| `tag.read`       | Asset Tag Filters           | `GET /tags`                                          | Retrieves custom asset tags for setup filtering and tag whitelist/blacklist rules.                                                    |
+| `user.read`      | Ownership & Sharing Context | `GET /users/me`                                      | Identifies the authenticated account to distinguish personal photos from shared albums and partner assets.                            |
 
 ---
 
