@@ -15,24 +15,47 @@ In Pinpoint mode, you guess where and when an individual photo was taken. Each g
 
 Points drop off exponentially with distance ($d$) using the Haversine formula (great-circle distance on Earth):
 
-$$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{d}{\text{LOCATION\_SCORE\_DECAY\_KM}}\right)\right)\right)$$
+$$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{d}{\text{decay\_km}}\right)\right)\right)$$
 
-- **Default decay**: `LOCATION_SCORE_DECAY_KM = 500` km (configurable in `.env`).
-- **How it feels**: Guesses within a few kilometers award almost full points (~99–100). As distance grows into hundreds of kilometers, points taper off smoothly until reaching 0 on the other side of the world.
+- **Pool Decay ($\text{decay\_km}$)**: Dynamically calculated based on the geographic diagonal span ($D_{\text{span}}$) of candidate photos in the match pool, using **5th–95th percentile trimming** to filter out isolated airport layovers or GPS glitches:
+  $$\text{decay\_km} = \text{clamp}\left(\frac{D_{\text{span}}}{\text{LOCATION\_SPAN\_RATIO}},\; 2.5\text{ km},\; 500.0\text{ km}\right)$$
+  *(where $\text{LOCATION\_SPAN\_RATIO} = 8.0$ sets the decay unit to $\frac{1}{8}\text{th}$ of the map diagonal)*
+- **How it feels**:
+  - **Single City / Walking Tour** ($D_{\text{span}} \le 20\text{ km}$): Decay scales down to $\approx 2.5\text{ km}$. A $500\text{m}$ error earns $82$ points, while being $10\text{ km}$ away yields nearly $0$ points.
+  - **Regional / Country Match** ($D_{\text{span}} \approx 300\text{ km}$): Decay scales to $\approx 37.5\text{ km}$.
+  - **Worldwide / Global Match** ($D_{\text{span}} > 5000\text{ km}$): Decay uses the full $500.0\text{ km}$ ceiling.
 
 ### 📅 Date Scoring
 
 Because players select a **year and month** rather than a specific calendar day, your guess gives you credit for the entire month!
 
 Error is measured in **days** ($\Delta D$) from the closest boundary of your guessed month:
+
 - **Right on target**: If the photo was taken inside your guessed month, your error is **0 days** $\rightarrow$ **100 points**.
 - **Earlier than guess**: Measured in days from the 1st of your guessed month back to the capture date.
 - **Later than guess**: Measured in days from the last day of your guessed month to the capture date (accounting for month lengths and leap years).
 
-$$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{\Delta D}{\text{DATE\_SCORE\_DECAY\_DAYS}}\right)\right)\right)$$
+$$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{\Delta D}{\text{decay\_days}}\right)\right)\right)$$
 
-- **Default decay**: `DATE_SCORE_DECAY_DAYS = 500` days (~16 months, configurable in `.env`).
-- **How it feels**: Nailing the month or being off by just a few weeks yields 95–100 points. Being off by several years quickly reduces your score towards 0.
+- **Pool Decay ($\text{decay\_days}$)**: Dynamically calculated based on the timespan ($\Delta T_{\text{days}} = p_{95}(\text{dates}) - p_5(\text{dates})$) of candidate photos in the match pool, using **5th–95th percentile trimming** to ignore isolated misdated scans or clock resets:
+  $$\text{decay\_days} = \text{clamp}\left(\frac{\Delta T_{\text{days}}}{\text{DATE\_SPAN\_RATIO}},\; 30.0\text{ days},\; 500.0\text{ days}\right)$$
+  *(where $\text{DATE\_SPAN\_RATIO} = 6.0$ sets the decay unit to $\frac{1}{6}\text{th}$ of the album timespan)*
+- **How it feels**:
+  - **Short Vacation / Trip** ($\Delta T \le 180\text{ days}$): Decay scales down to $\approx 30.0\text{ days}$ (~1 month), making month guesses competitive for vacation albums.
+  - **Multi-Year Archive** ($\Delta T > 8\text{ years}$): Decay uses the full $500.0\text{ days}$ (~16 months) ceiling.
+
+### 🎯 How `span_ratio` Shapes the Scoring Curve
+
+The `span_ratio` translates the total geographic or temporal scope of an album into the decay parameter, defining what fraction of the map or timeline corresponds to specific score benchmarks:
+
+| Relative Error (% of Album Span) | Location Score (`ratio = 8.0`) | Date Score (`ratio = 6.0`) | Player Feedback |
+|:---|:---|:---|:---|
+| **$\le 1\%$ of album span** | **$92\text{--}100\text{ pts}$** | **$94\text{--}100\text{ pts}$** | Bullseye pinpoint accuracy |
+| **$3\%$ of album span** | **$79\text{ pts}$** | **$83\text{ pts}$** | Very close (correct neighborhood / exact season) |
+| **$6\%$ of album span** | **$62\text{ pts}$** | **$70\text{ pts}$** | Close (correct metro area / adjacent month) |
+| **$12.5\%$ ($1/\text{ratio}$)** | **$37\text{ pts}$** ($1/e$) | **$47\text{ pts}$** | General ballpark |
+| **$25\%$ of album span** | **$14\text{ pts}$** | **$22\text{ pts}$** | Significantly off |
+| **$\ge 50\%$ of album span** | **$\le 1\text{ pt}$** | **$\le 5\text{ pts}$** | Missed entirely |
 
 ---
 

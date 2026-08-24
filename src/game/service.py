@@ -309,16 +309,16 @@ class GameService:
         state = self.store.create_match(setup)
 
         map_bounds: MapBounds | None = None
-        if setup.location_mode and setup.game_mode == GameMode.pinpoint:
-            try:
-                load_asset_pool(
-                    state,
-                    self.metadata_store,
-                    settings=self.settings,
-                )
+        try:
+            load_asset_pool(
+                state,
+                self.metadata_store,
+                settings=self.settings,
+            )
+            if setup.location_mode and setup.game_mode == GameMode.pinpoint:
                 map_bounds = calculate_match_bounds(state.asset_pool)
-            except Exception as exc:
-                logger.warning('Failed to pre-compute match bounds during setup: %s', exc)
+        except Exception as exc:
+            logger.warning('Failed to pre-compute pool and match bounds during setup: %s', exc)
 
         return GameSetupResponse(
             match_id=state.match_id,
@@ -401,7 +401,7 @@ class GameService:
             raise HTTPException(status_code=409, detail='Question already answered')
 
         engine = self.registry.get(state.setup.game_mode)
-        updated_state = engine.evaluate_and_apply_answer(state, question_state, payload, self.settings, self.store)
+        updated_state = engine.evaluate_and_apply_answer(state, question_state, payload, self.store)
 
         if updated_state.finished:
             duration_sec = max(0.0, time.time() - updated_state.created_at)

@@ -20,7 +20,7 @@ from typing import Any
 
 from src.immich.client import AssetAnswer, ImmichClient
 from src.models import MapBounds
-from src.scoring import haversine_km
+from src.scoring import calculate_date_decay, calculate_location_decay, haversine_km
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, RoundAsset
 
@@ -102,7 +102,8 @@ def load_asset_pool(
     """Populate the per-match candidate pool once with active filter criteria.
 
     Queries the fast indexed local SQLite metadata store. Clamps match setup dates against
-    global configuration date boundaries. Mutates `state.asset_pool` in place.
+    global configuration date boundaries. Mutates `state.asset_pool` in place and computes
+    adaptive scoring decay parameters for the match session.
 
     Args:
         state: Active match state containing setup filters and pool storage.
@@ -112,6 +113,8 @@ def load_asset_pool(
     """
     criteria = AssetFilterCriteria.from_setup(state.setup, settings)
     state.asset_pool = metadata_store.fetch_candidate_assets(criteria, limit=250)
+    state.location_decay_km = calculate_location_decay(state.asset_pool)
+    state.date_decay_days = calculate_date_decay(state.asset_pool)
 
 
 def is_asset_valid_for_batch(

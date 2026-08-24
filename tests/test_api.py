@@ -217,13 +217,11 @@ def test_any_day_inside_the_guessed_month_is_a_perfect_date_score(client: TestCl
     assert entry['date_score'] == 100
 
 
-def test_custom_scoring_env_parameters_affect_round_and_summary(tmp_path: Path) -> None:
+def test_scoring_affects_round_and_summary(tmp_path: Path) -> None:
     immich = FakeImmichClient([make_asset('asset-1')])
     client = build_client(
         tmp_path,
         immich,
-        location_score_decay_km=500.0,
-        date_score_decay_days=300.0,
     )
     match_id = start_match(client, round_count=5)
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
