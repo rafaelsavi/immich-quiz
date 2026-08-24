@@ -156,10 +156,6 @@ class AppSettings:
     app_port: int = 8010
     language: SupportedLanguage = SupportedLanguage.EN
 
-    # 3. Scoring & Gameplay Defaults
-    location_score_decay_km: float = 500.0
-    date_score_decay_days: float = 500.0
-
     # 4. Global Filter Safeguards
     date_lower_bound: date | None = None
     date_upper_bound: date | None = None
@@ -189,20 +185,6 @@ class AppSettings:
         # Validate network port
         if not (1 <= self.app_port <= 65535):
             raise ConfigError('APP_PORT must be between 1 and 65535')
-
-        # Validate scoring decay values
-        if (
-            math.isnan(self.location_score_decay_km)
-            or math.isinf(self.location_score_decay_km)
-            or self.location_score_decay_km <= 0
-        ):
-            raise ConfigError('LOCATION_SCORE_DECAY_KM must be greater than 0')
-        if (
-            math.isnan(self.date_score_decay_days)
-            or math.isinf(self.date_score_decay_days)
-            or self.date_score_decay_days <= 0
-        ):
-            raise ConfigError('DATE_SCORE_DECAY_DAYS must be greater than 0')
 
         # Validate auto sync intervals
         if not (0 <= self.auto_delta_sync_interval_hours <= 8760):
@@ -269,12 +251,6 @@ def load_settings() -> AppSettings:
         kwargs['app_port'] = _parse_int_range(val, 'APP_PORT', min_value=1, max_value=65535)
     if val := _get_env('LANGUAGE'):
         kwargs['language'] = _parse_language(val)
-
-    # Scoring Decays
-    if val := _get_env('LOCATION_SCORE_DECAY_KM'):
-        kwargs['location_score_decay_km'] = _parse_positive_float(val, 'LOCATION_SCORE_DECAY_KM')
-    if val := _get_env('DATE_SCORE_DECAY_DAYS'):
-        kwargs['date_score_decay_days'] = _parse_positive_float(val, 'DATE_SCORE_DECAY_DAYS')
 
     # Date Bounds
     if val := _get_env('DATE_LOWER_BOUND', 'FETCH_PHOTOS_DATE_LOWER_BOUND'):

@@ -111,7 +111,6 @@ class BaseGameModeEngine(ABC):
         state: MatchState,
         question_state: QuestionState,
         payload: AnswerRequest,
-        settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
         """Score player submissions according to mode rules and update match state."""
@@ -185,7 +184,6 @@ class PinpointEngine(BaseGameModeEngine):
         state: MatchState,
         question_state: QuestionState,
         payload: AnswerRequest,
-        settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
         location_points = 0
@@ -209,7 +207,7 @@ class PinpointEngine(BaseGameModeEngine):
             )
             location_points = location_score(
                 distance,
-                decay_km=settings.location_score_decay_km,
+                decay_km=state.location_decay_km,
             )
 
         if (
@@ -222,7 +220,7 @@ class PinpointEngine(BaseGameModeEngine):
             delta_months = date_diff_months(payload.guessed_year, payload.guessed_month, question_state.actual_date)
             date_points = date_score(
                 delta_days,
-                decay_days=settings.date_score_decay_days,
+                decay_days=state.date_decay_days,
             )
 
         try:
@@ -375,7 +373,6 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         state: MatchState,
         question_state: QuestionState,
         payload: AnswerRequest,
-        settings: AppSettings,
         store: SessionStore,
     ) -> MatchState:
         location_points = 0

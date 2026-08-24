@@ -23,8 +23,6 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'DATE_UPPER_BOUND',
         'FETCH_PHOTOS_DATE_LOWER_BOUND',
         'FETCH_PHOTOS_DATE_UPPER_BOUND',
-        'LOCATION_SCORE_DECAY_KM',
-        'DATE_SCORE_DECAY_DAYS',
         'LANGUAGE',
         'DATA_PATH',
         'DATA_DIR',
@@ -95,8 +93,6 @@ def test_valid_settings_normalizes_url(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.app_port == 8010
     assert settings.date_lower_bound is None
     assert settings.date_upper_bound is None
-    assert settings.location_score_decay_km == 500.0
-    assert settings.date_score_decay_days == 500.0
 
 
 @pytest.mark.parametrize(
@@ -168,24 +164,6 @@ def test_custom_app_title(monkeypatch: pytest.MonkeyPatch) -> None:
     settings = load_settings()
 
     assert settings.app_title == 'Quiz Night'
-
-
-def test_location_score_decay_km_rejects_non_positive(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('LOCATION_SCORE_DECAY_KM', '-1')
-
-    with pytest.raises(ConfigError, match='LOCATION_SCORE_DECAY_KM'):
-        load_settings()
-
-
-def test_date_score_decay_days_rejects_non_numeric(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('DATE_SCORE_DECAY_DAYS', 'fast')
-
-    with pytest.raises(ConfigError, match='DATE_SCORE_DECAY_DAYS'):
-        load_settings()
 
 
 def test_language_setting_supports_pt(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -355,8 +333,6 @@ def test_app_settings_dataclass_defaults() -> None:
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
     assert settings.language == 'EN'
-    assert settings.location_score_decay_km == 500.0
-    assert settings.date_score_decay_days == 500.0
     assert settings.date_lower_bound is None
     assert settings.date_upper_bound is None
     assert settings.country_whitelist == frozenset()
@@ -401,8 +377,6 @@ def test_empty_and_whitespace_env_vars_fallback_to_defaults(monkeypatch: pytest.
     monkeypatch.setenv('APP_TAGLINE', '')
     monkeypatch.setenv('APP_HOST', '  ')
     monkeypatch.setenv('APP_PORT', '')
-    monkeypatch.setenv('LOCATION_SCORE_DECAY_KM', '')
-    monkeypatch.setenv('DATE_SCORE_DECAY_DAYS', '')
     monkeypatch.setenv('LANGUAGE', '  ')
     monkeypatch.setenv('DATA_PATH', '')
     monkeypatch.setenv('AUTO_SYNC_ON_STARTUP', '')
@@ -415,8 +389,6 @@ def test_empty_and_whitespace_env_vars_fallback_to_defaults(monkeypatch: pytest.
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
     assert settings.language == 'EN'
-    assert settings.location_score_decay_km == 500.0
-    assert settings.date_score_decay_days == 500.0
     assert settings.data_path == Path('data').resolve()
     assert settings.auto_sync_on_startup is True
     assert settings.auto_delta_sync_interval_hours == 6
@@ -433,48 +405,10 @@ def test_app_port_rejects_out_of_range(monkeypatch: pytest.MonkeyPatch, invalid_
         load_settings()
 
 
-@pytest.mark.parametrize('invalid_float', ['nan', 'inf', '-inf', '0', '-5.0'])
-def test_location_score_decay_rejects_non_finite_or_non_positive(
-    monkeypatch: pytest.MonkeyPatch, invalid_float: str
-) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('LOCATION_SCORE_DECAY_KM', invalid_float)
-
-    with pytest.raises(ConfigError, match='LOCATION_SCORE_DECAY_KM must be greater than 0'):
-        load_settings()
-
-
-@pytest.mark.parametrize('invalid_float', ['nan', 'inf', '-inf', '0', '-10.0'])
-def test_date_score_decay_rejects_non_finite_or_non_positive(
-    monkeypatch: pytest.MonkeyPatch, invalid_float: str
-) -> None:
-    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
-    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
-    monkeypatch.setenv('DATE_SCORE_DECAY_DAYS', invalid_float)
-
-    with pytest.raises(ConfigError, match='DATE_SCORE_DECAY_DAYS must be greater than 0'):
-        load_settings()
-
-
-def test_app_settings_dataclass_port_and_decay_validation() -> None:
+def test_app_settings_dataclass_port_validation() -> None:
     with pytest.raises(ConfigError, match='APP_PORT must be between 1 and 65535'):
         AppSettings(
             immich_server_url='https://example.test',
             immich_libraries={'a': 'b'},
             app_port=0,
-        )
-
-    with pytest.raises(ConfigError, match='LOCATION_SCORE_DECAY_KM must be greater than 0'):
-        AppSettings(
-            immich_server_url='https://example.test',
-            immich_libraries={'a': 'b'},
-            location_score_decay_km=float('nan'),
-        )
-
-    with pytest.raises(ConfigError, match='DATE_SCORE_DECAY_DAYS must be greater than 0'):
-        AppSettings(
-            immich_server_url='https://example.test',
-            immich_libraries={'a': 'b'},
-            date_score_decay_days=float('inf'),
         )

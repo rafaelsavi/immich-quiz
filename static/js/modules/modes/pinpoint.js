@@ -24,7 +24,7 @@ import {
 import { playChime } from "../audio.js";
 
 const EARLIEST_YEAR = 1930;
-const SMART_MAP_MAX_INITIAL_ZOOM = 9;
+const SMART_MAP_MAX_INITIAL_ZOOM = 13;
 
 function stepSelectOption(selectEl, direction) {
   if (!selectEl || selectEl.disabled || selectEl.options.length === 0) {

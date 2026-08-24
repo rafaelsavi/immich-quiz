@@ -816,13 +816,6 @@ def test_supporting_dataclasses_validation() -> None:
             app_port=70000,
         )
 
-    with pytest.raises(ConfigError, match='LOCATION_SCORE_DECAY_KM'):
-        AppSettings(
-            immich_server_url='http://localhost:2283/api',
-            immich_libraries={'lib1': 'key1'},
-            location_score_decay_km=-10.0,
-        )
-
     with pytest.raises(ConfigError, match='AUTO_DELTA_SYNC_INTERVAL_HOURS'):
         AppSettings(
             immich_server_url='http://localhost:2283/api',

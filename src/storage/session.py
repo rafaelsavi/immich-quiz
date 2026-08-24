@@ -10,6 +10,7 @@ from uuid import uuid4
 
 from src.immich.client import AssetAnswer
 from src.models import GameSetupRequest
+from src.scoring import DATE_MAX_DECAY_DAYS, LOCATION_MAX_DECAY_KM
 
 
 class QuestionAlreadyAnsweredError(RuntimeError):
@@ -68,6 +69,8 @@ class MatchState:
     played_asset_ids: set[str] = field(default_factory=set)
     active_question_id: str | None = None
     asset_pool: dict[str, AssetAnswer] = field(default_factory=dict)
+    location_decay_km: float = LOCATION_MAX_DECAY_KM
+    date_decay_days: float = DATE_MAX_DECAY_DAYS
     round_assets: dict[int, RoundAsset] = field(default_factory=dict)
     batch_round_assets: dict[int, list[RoundAsset]] = field(default_factory=dict)
     batch_round_pins: dict[int, list[dict[str, object]]] = field(default_factory=dict)
