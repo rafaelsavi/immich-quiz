@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from src.config import AppSettings
 from src.main import create_app
-from src.models import CityOption, SyncMode, SyncStage, SyncStatus
+from src.models import CityOption, PeopleMode, SyncMode, SyncStage, SyncStatus
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.sync import SyncEngine
@@ -988,6 +988,27 @@ def test_asset_filter_criteria_from_setup_factory() -> None:
     assert criteria.people_blacklist == frozenset({'bob'})
     assert criteria.tag_whitelist == frozenset({'vacation'})
     assert criteria.tag_blacklist == frozenset({'private'})
+    assert criteria.person_id_groups == ()
+
+    setup_all = GameSetupRequest(
+        libraries=['family'],
+        players=['Player 1'],
+        round_count=5,
+        people=['p1', 'p2'],
+        people_mode=PeopleMode.ALL,
+    )
+    criteria_all = AssetFilterCriteria.from_setup(setup_all)
+    assert criteria_all.person_id_groups == (('p1',), ('p2',))
+
+    setup_any = GameSetupRequest(
+        libraries=['family'],
+        players=['Player 1'],
+        round_count=5,
+        people=['p1', 'p2'],
+        people_mode=PeopleMode.ANY,
+    )
+    criteria_any = AssetFilterCriteria.from_setup(setup_any)
+    assert criteria_any.person_id_groups == (('p1', 'p2'),)
 
 
 def test_get_facet_counts(meta_store: MetadataStore) -> None:

@@ -166,6 +166,7 @@ class AssetFilterCriteria:
                 eff_max = min(filter(None, [settings.date_upper_bound, eff_max]), default=None)
 
         libs = tuple(setup.libraries) if setup.libraries else ()
+        person_id_groups: tuple[tuple[str, ...], ...]
         if setup.people:
             if setup.people_mode == PeopleMode.ALL:
                 person_id_groups = tuple((p,) for p in setup.people)
