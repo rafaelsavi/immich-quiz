@@ -1,7 +1,14 @@
 import { state, el } from "./state.js";
 
+let cooldownUntil = 0;
+const DEFAULT_COOLDOWN_MS = 20;
+
+export function markShortcutCooldown(durationMs = DEFAULT_COOLDOWN_MS) {
+  cooldownUntil = Math.max(cooldownUntil, Date.now() + durationMs);
+}
+
 export function activeActionButton() {
-  if (state.submitting) {
+  if (state.submitting || Date.now() < cooldownUntil) {
     return null;
   }
   if (el.passOverlay && !el.passOverlay.classList.contains("hidden")) {
@@ -23,7 +30,7 @@ export function activeActionButton() {
 
 export function bindGlobalShortcuts() {
   document.addEventListener("keydown", (event) => {
-    if ((event.key !== "Enter" && event.key !== " ") || event.isComposing) {
+    if (event.repeat || (event.key !== "Enter" && event.key !== " ") || event.isComposing) {
       return;
     }
     if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
@@ -43,10 +50,15 @@ export function bindGlobalShortcuts() {
       return;
     }
 
+    if (Date.now() < cooldownUntil) {
+      return;
+    }
+
     const button = activeActionButton();
     if (!button || button.disabled) {
       return;
     }
+    markShortcutCooldown(DEFAULT_COOLDOWN_MS);
     event.preventDefault();
     button.click();
   });

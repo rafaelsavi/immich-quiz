@@ -30,7 +30,7 @@ import { pinpointMode } from "./modules/modes/pinpoint.js";
 import { albumShuffleMode, getShuffleMaps } from "./modules/modes/album_shuffle.js";
 import { renderSyncStatus, getLastSyncStatus } from "./modules/sync.js";
 import { clearTimer, resetTimerBar, startTimer } from "./modules/timer.js";
-import { bindGlobalShortcuts } from "./modules/shortcuts.js";
+import { bindGlobalShortcuts, markShortcutCooldown } from "./modules/shortcuts.js";
 import { renderPodium } from "./modules/summary/podium.js";
 import { renderAwards } from "./modules/summary/awards.js";
 import { renderSummaryTable } from "./modules/summary/table.js";
@@ -107,7 +107,7 @@ function resetGameUi() {
 
   try {
     getActiveMode().unmount();
-  } catch (_) {}
+  } catch (_) { }
 
   if (el.roundMeta) el.roundMeta.replaceChildren();
   if (el.passOverlay) el.passOverlay.classList.add("hidden");
@@ -140,7 +140,7 @@ function resetGameUi() {
     state.revealLayers.forEach((l) => {
       try {
         if (state.revealMap) state.revealMap.removeLayer(l);
-      } catch (_) {}
+      } catch (_) { }
     });
     state.revealLayers = [];
   }
@@ -148,7 +148,7 @@ function resetGameUi() {
     try {
       unregisterActiveMap(state.revealMap);
       state.revealMap.remove();
-    } catch (_) {}
+    } catch (_) { }
     state.revealMap = null;
   }
 
@@ -156,7 +156,7 @@ function resetGameUi() {
     state.journeyLayers.forEach((l) => {
       try {
         if (state.journeyMap) state.journeyMap.removeLayer(l);
-      } catch (_) {}
+      } catch (_) { }
     });
     state.journeyLayers = [];
   }
@@ -164,7 +164,7 @@ function resetGameUi() {
     try {
       unregisterActiveMap(state.journeyMap);
       state.journeyMap.remove();
-    } catch (_) {}
+    } catch (_) { }
     state.journeyMap = null;
   }
   if (el.journeyMapShell) el.journeyMapShell.classList.add("hidden");
@@ -204,9 +204,9 @@ async function startMatch(event) {
   const players = playerInput
     ? playerInput.getPlayers()
     : el.players.value
-        .split(",")
-        .map((name) => name.trim())
-        .filter(Boolean);
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
 
   if (players.length === 0) {
     if (playerInput) {
@@ -441,6 +441,7 @@ async function loadQuestion() {
     activeMode.onReady(data);
     startTimer(data.round_length, getActiveMode);
   }
+  markShortcutCooldown(20);
 }
 
 async function submitAnswer(fromTimeout = false) {
@@ -546,6 +547,7 @@ async function showRoundReveal(roundNumber) {
   if (targetScrollEl) {
     targetScrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+  markShortcutCooldown(20);
 }
 
 async function handleNextRound() {
@@ -659,6 +661,7 @@ el.readyBtn.addEventListener("click", () => {
   const activeMode = getActiveMode();
   activeMode.onReady(state.currentQuestion);
   startTimer(state.currentQuestion.round_length, getActiveMode);
+  markShortcutCooldown(20);
 });
 
 el.submitAnswer.addEventListener("click", () => {

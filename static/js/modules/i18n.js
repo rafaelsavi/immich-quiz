@@ -329,7 +329,7 @@ export const TRANSLATIONS = {
     "setup.filters_heading": "Filtros da Biblioteca",
     "setup.filters_summary_default": "Todas as fotos",
     "setup.filters_active_count": (count) => `${count} filtro${count > 1 ? "s" : ""} ativo${count > 1 ? "s" : ""}`,
-    "setup.reset_filters": "Redefinir filtros",
+    "setup.reset_filters": "Limpar filtros",
     "setup.include_shared_photos": "Incluir fotos compartilhadas",
     "setup.date_range_label": "Intervalo de Datas",
     "setup.all_dates": "Todo o período",
