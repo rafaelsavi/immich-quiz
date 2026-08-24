@@ -8,17 +8,35 @@ Immich Quiz is a pass-and-play trivia game that tests how well you know your pho
 
 Customize your match on the setup screen:
 
-| Option           | Description                                                                                     |
-|------------------|-------------------------------------------------------------------------------------------------|
-| **Players**      | Enter player names separated by commas (e.g. `Alice, Bob, Charlie`).                            |
-| **Rounds**       | Choose the length of the game: **5**, **10**, or **20** rounds.                                 |
-| **Round Length** | Set a turn timer: **30s**, **1 min**, **2 min**, **5 min**, or **Unlimited**.                   |
-| **Library**      | Select which Immich library to pull photos from.                                                |
-| **Album**        | Optional. Search and pick one or more albums to quiz from, or leave empty for the full library. |
-| **Game Mode**    | Choose **Pinpoint** (one photo per turn) or **Album Shuffle** (match 3 photos at once).         |
-| **Guess Mode**   | Choose to guess **Location**, **Date**, or **Both**.                                            |
+### 1. Player Settings
 
-Press **Start Match** when you are ready. You can also change the interface language between **English** and **Portuguese** at any time using the header button.
+- **Players**: Add players using the interactive tag input. Type a name and press **Enter** or **,** (comma), or paste comma-separated lists. Each player gets a distinctive avatar color.
+- **Rounds**: Choose the number of rounds per player: **5**, **10**, or **20** rounds.
+- **Round Length**: Set a turn timer: **30s**, **1 min**, **2 min**, **5 min**, or **Unlimited**.
+
+### 2. Library & Photo Filters (Optional)
+
+Expand the **Library & Photo Filters** accordion to customize your photo pool. An active filter count badge reflects your selections:
+
+- **Libraries**: Select one or more Immich media libraries to pull photos from, or select all.
+- **Albums**: Search and select one or more albums, or leave empty for all albums across the selected libraries.
+- **Date Range**: Use the dual-handle interactive timeline slider to restrict photos to a specific year/month span.
+- **Countries & Cities**: Searchable multi-select dropdowns for geographic filtering. Selecting a country dynamically narrows the available cities to that country.
+- **People / Faces**: Filter by recognized people. When selecting multiple people, choose between:
+  - **Any (ANY)**: Photos containing at least one of the selected individuals.
+  - **All (ALL)**: Photos where all selected individuals appear together in the same photo.
+- **Shared & Partner Media**: Checkbox toggles to dynamically include or exclude shared albums and partner photos.
+
+### 3. Game & Guessing Mode
+
+- **Game Mode**:
+  - **🎯 Pinpoint**: One photo per turn. Players guess location on a world map and/or capture date.
+  - **🔀 Album Shuffle**: 3 photos at once. Match photos to lettered map pins and/or arrange them chronologically.
+- **Guess Mode**: Choose to guess **Location**, **Date**, or **Both**.
+
+### 4. Live Preflight Validation
+
+As you adjust filters, a live preflight indicator validates your library to ensure enough diverse, eligible photos exist. The **Start Match** button activates once requirements are met.
 
 ---
 
@@ -34,18 +52,19 @@ Before each turn, a privacy screen hides the upcoming photo. Hand the device to 
 
 #### 2. Make Your Guess
 
+- **Photo**: Tap the photo to inspect it in high-resolution fullscreen.
 - **Location**: Drag and drop your pin on the interactive world map. You can zoom freely or open the map in fullscreen.
-- **Date**: Pick the month and year you think the photo was taken (you can also scroll your mouse wheel over the selectors to quickly spin through dates).
-- **Smart Auto-Framing**: When playing regional or vacation albums, the guess map automatically opens framed to that region so you don't have to zoom in from across the globe on every turn. If you ever pan away, tap the **Focus region** map button to snap back instantly.
-- Tap **Submit** when you are done. If the turn timer expires, your pin and date are submitted automatically.
+- **Date**: Pick the month and year you think the photo was taken (scroll wheel enabled).
+- **Smart Auto-Framing**: When playing regional or vacation albums, the guess map automatically opens framed to that region. Tap the **Focus region** button anytime to snap back.
+- Tap **Submit** when you are done. If the turn timer expires, your current pin and date are submitted automatically.
 
 #### 3. The Reveal
 
 Once all players have taken their turn, the reveal screen shows:
 
-- **Location**: Your pin compared to the actual photo location, linked by a dashed line showing your distance error in kilometers.
-- **Date**: Your guessed date compared to the real month and year.
-- **Points & Badges**: Points awarded based on how close you were. Spot-on guesses earn special celebratory badges!
+- **Location**: Your pin compared to the true photo coordinates, connected by a dashed line showing distance error in kilometers.
+- **Date**: Your guessed date compared to the real month, year, and day error.
+- **Points & Badges**: Points awarded based on proximity. Spot-on guesses earn celebratory badges!
 
 ---
 
@@ -61,18 +80,21 @@ In **Album Shuffle**, players receive a set of 3 photos to solve together.
 
 #### 2. The Reveal
 
-See the real locations and chronology side-by-side, along with each player's score breakdown.
+See true locations and chronology side-by-side with per-player score breakdowns.
 
 ---
 
 ## Scoring & Achievements
 
 - **Accuracy Matters**: The closer your pin or date is to reality, the higher your score.
-- **Bonus Badges**: Outstanding performances (like pinpointing within meters or nailing the exact month/year) earn custom achievement badges.
-- Full scoring details are available in [SCORING.md](SCORING.md), and badge criteria in [AWARDS.md](AWARDS.md).
+- **Performance Awards**: Outstanding performances (e.g., pinpoint accuracy, exact date matching, lightning-fast round submissions) earn end-of-match awards:
+  - 🎯 **Sniper**: Player with the most perfect location guesses.
+  - ⏳ **Time Traveler**: Player with the most perfect date guesses.
+  - ⚡ **Speed Demon**: Fastest player with zero timeouts.
+- Full scoring formulas are detailed in [SCORING.md](SCORING.md), and award criteria in [AWARDS.md](AWARDS.md).
 
 ---
 
 ## Leaderboard
 
-View high scores and personal bests at the end of every match—or directly from the home screen—filtered by your match settings.
+View all-time high scores and match summaries directly from the home screen or at the end of each game. The leaderboard tracks match configurations, player rankings, accuracy percentages, and performance awards stored persistently in SQLite.

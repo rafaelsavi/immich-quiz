@@ -1,3 +1,5 @@
+"""Application version retrieval and package metadata utilities."""
+
 from __future__ import annotations
 
 import importlib.metadata
@@ -9,7 +11,7 @@ import tomllib
 logger = logging.getLogger(__name__)
 
 
-def get_app_version() -> str:
+def get_app_version(ignore_rc: bool = False) -> str:
     """Retrieve application version from pyproject.toml or package metadata."""
     pyproject_path = Path(__file__).parent.parent / 'pyproject.toml'
     if pyproject_path.exists():
@@ -18,6 +20,9 @@ def get_app_version() -> str:
                 data = tomllib.load(f)
                 version = data.get('project', {}).get('version')
                 if version:
+                    if ignore_rc and 'rc' in version:
+                        # Convert 2.0.0rc0 to 2.0.0
+                        version = version.split('rc')[0]
                     return str(version)
         except Exception as exc:
             logger.warning('Failed to parse version from pyproject.toml: %s', exc)

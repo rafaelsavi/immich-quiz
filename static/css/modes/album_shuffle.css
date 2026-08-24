@@ -117,7 +117,7 @@
   min-height: 260px;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 700px) {
   .shuffle-board {
     flex-direction: row;
     align-items: stretch;
@@ -137,12 +137,13 @@
     aspect-ratio: auto;
     height: 100%;
     max-height: none;
-    min-height: 580px;
+    min-height: 0;
   }
 
   .shuffle-photo-column {
-    flex: 0 0 400px;
-    width: 400px;
+    flex: 0 0 min(calc(50% - 0.5rem), 400px);
+    width: min(calc(50% - 0.5rem), 400px);
+    max-width: min(calc(50% - 0.5rem), 400px);
     max-height: none !important;
     overflow: visible !important;
     overflow-y: visible !important;

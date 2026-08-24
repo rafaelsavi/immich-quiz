@@ -171,8 +171,14 @@ export function playPinDropSound() {
   } catch (_) { }
 }
 
+let lastScoreTickAudioTime = 0;
+
 export function playScoreRollupTick(progress = 0) {
   if (!state || !state.audioEnabled) return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (now - lastScoreTickAudioTime < 35) return;
+  lastScoreTickAudioTime = now;
+
   try {
     const ctx = getAudioContext();
     if (!ctx) return;

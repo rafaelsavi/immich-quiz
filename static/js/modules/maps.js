@@ -179,6 +179,10 @@ export function ensureMapFullscreenButton(shell, titleKey = "game.fullscreen_map
     shell.appendChild(btn);
   }
   btn.classList.add("leaflet-control");
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableClickPropagation(btn);
+    L.DomEvent.disableScrollPropagation(btn);
+  }
   const tryMove = () => {
     const rightCorner = shell.querySelector(".leaflet-top.leaflet-right");
     if (rightCorner && btn.parentElement !== rightCorner) {
@@ -371,6 +375,15 @@ export function ensureGuessMap() {
     if (state.guessMap) {
       state.guessMap.on("click", (event) => {
         if (state.timedOut || state.submitting) {
+          return;
+        }
+        const origTarget = event.originalEvent && event.originalEvent.target;
+        if (
+          origTarget &&
+          origTarget.closest(
+            "button, a, input, select, label, .leaflet-control, .leaflet-bar, .fullscreen-timer, .map-fullscreen-btn, .map-reset-zoom-btn"
+          )
+        ) {
           return;
         }
         const lat = event.latlng.lat;
@@ -741,7 +754,14 @@ export function createMapFullscreenButton(shell, titleKey = "game.fullscreen_map
   btn.title = t(titleKey);
   btn.setAttribute("data-i18n-title", titleKey);
   btn.innerHTML = ENTER_FS_SVG;
-  btn.addEventListener("click", () => toggleMapFullscreen(shell));
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableClickPropagation(btn);
+    L.DomEvent.disableScrollPropagation(btn);
+  }
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMapFullscreen(shell);
+  });
   return btn;
 }
 
@@ -793,6 +813,10 @@ export function createMapResetZoomButton(map) {
   btn.setAttribute("data-i18n-title", titleKey);
   btn.setAttribute("aria-label", t(titleKey));
   btn.innerHTML = RESET_ZOOM_SVG;
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableClickPropagation(btn);
+    L.DomEvent.disableScrollPropagation(btn);
+  }
   btn.addEventListener("click", (e) => {
     e.stopPropagation();
     resetMapZoom(map);
@@ -811,6 +835,10 @@ export function ensureMapResetZoomButton(map) {
     btn = createMapResetZoomButton(map);
   }
   btn.classList.add("leaflet-control");
+  if (window.L && L.DomEvent) {
+    L.DomEvent.disableClickPropagation(btn);
+    L.DomEvent.disableScrollPropagation(btn);
+  }
   const tryMove = () => {
     const rightCorner = shell.querySelector(".leaflet-top.leaflet-right");
     if (rightCorner && btn.parentElement !== rightCorner) {

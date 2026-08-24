@@ -75,7 +75,7 @@ def test_changelog_contains_current_version() -> None:
     assert changelog_path.exists()
 
     content = changelog_path.read_text(encoding='utf-8')
-    version = get_app_version()
+    version = get_app_version(ignore_rc=True)
     pattern = r'##\s*\[?v?' + re.escape(version) + r'\]?'
 
     assert re.search(pattern, content), f"Version '{version}' from pyproject.toml not found in CHANGELOG.md"

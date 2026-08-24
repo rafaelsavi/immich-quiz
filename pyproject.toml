@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "immich-quiz"
-version = "1.2.1"
-description = "Local-first pass-and-play trivia game powered by Immich"
+version = "2.0.0"
+description = "Trivia game powered by Immich libraries"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -13,7 +13,8 @@ dependencies = [
   "uvicorn[standard]>=0.35.0",
   "httpx>=0.28.0",
   "pydantic>=2.11.0",
-  "python-dotenv>=1.1.0"
+  "python-dotenv>=1.1.0",
+  "cachetools>=7.1.7"
 ]
 
 [project.optional-dependencies]

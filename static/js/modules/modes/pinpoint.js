@@ -18,14 +18,12 @@ import {
 import {
   createPerfectBadge,
   animateScoreRollup,
-  spawnFloatingScorePop,
   launchGoldConfetti,
   launchStarBurst,
 } from "../effects.js";
 import { playChime } from "../audio.js";
 
 const EARLIEST_YEAR = 1930;
-const SMART_MAP_ZOOM_ENABLED = true;
 const SMART_MAP_MAX_INITIAL_ZOOM = 9;
 
 function stepSelectOption(selectEl, direction) {
@@ -347,6 +345,9 @@ function renderRevealSummary(reveal, skipEffects = false) {
         items: [
           {
             value: result.location_score === null ? "-" : String(result.location_score),
+            scoreNum: result.location_score,
+            isScore: result.location_score !== null && result.location_score !== undefined,
+            maxScore: maxPoints,
             subtext: distStr !== t("fmt.no_guess") ? distStr : null,
             class: "",
           },
@@ -365,6 +366,9 @@ function renderRevealSummary(reveal, skipEffects = false) {
         items: [
           {
             value: result.date_score === null ? "-" : String(result.date_score),
+            scoreNum: result.date_score,
+            isScore: result.date_score !== null && result.date_score !== undefined,
+            maxScore: maxPoints,
             subtext: dateErrStr !== "-" ? dateErrStr : null,
             class: "",
           },
@@ -380,14 +384,24 @@ function renderRevealSummary(reveal, skipEffects = false) {
       });
     }
 
-    const isTotalScoreGroup = true;
     valueGroups.push({
       isPerfect: isPerfectRound,
-      isScoreGroup: isTotalScoreGroup,
-      roundScoreNum: result.round_score,
       items: [
-        { value: String(result.round_score), class: "hide-on-mobile" },
-        { value: String(result.total_score), class: "group-start-mobile" },
+        {
+          value: String(result.round_score ?? 0),
+          scoreNum: result.round_score ?? 0,
+          isScore: true,
+          maxScore: maxRoundPoints,
+          class: "hide-on-mobile",
+        },
+        {
+          value: String(result.total_score ?? 0),
+          scoreNum: result.total_score ?? 0,
+          startScore: Math.max(0, (result.total_score ?? 0) - (result.round_score ?? 0)),
+          isScore: true,
+          maxScore: maxRoundPoints * (reveal.round_number || 1),
+          class: "group-start-mobile",
+        },
       ],
     });
 
@@ -410,26 +424,14 @@ function renderRevealSummary(reveal, skipEffects = false) {
             cell.appendChild(createPerfectBadge());
           }
         }
-        if (group.isScoreGroup && index === 0) {
-          animateScoreRollup(cell, group.roundScoreNum, maxRoundPoints);
+        if (itemObj.isScore) {
+          animateScoreRollup(cell, itemObj.scoreNum, itemObj.maxScore, "", skipEffects, itemObj.startScore || 0);
         }
         row.appendChild(cell);
       });
     });
 
     el.revealTableBody.appendChild(row);
-
-    if (!skipEffects) {
-      setTimeout(() => {
-        if (isPerfectLocation) {
-          spawnFloatingScorePop(row, `🎯 BULLSEYE! +${result.location_score}`, "bullseye");
-        } else if (isPerfectDate) {
-          spawnFloatingScorePop(row, `⏳ TIME TRAVELER! +${result.date_score}`, "perfect");
-        } else if (result.round_score > 0) {
-          spawnFloatingScorePop(row, `+${result.round_score} pts`, "good");
-        }
-      }, rIdx * 250);
-    }
   });
 
   if (!skipEffects && hasAnyPerfectInRound) {
@@ -534,7 +536,7 @@ export const pinpointMode = {
   name: "pinpoint",
 
   renderSettings(containerEl) {
-    renderGuessingModeSettings(containerEl);
+    renderGuessingModeSettings(containerEl, "pinpoint");
   },
 
   getModePayload() {
@@ -543,14 +545,18 @@ export const pinpointMode = {
     const dateCard = document.getElementById("card-goal-date");
     const dateCheckbox = document.getElementById("goal-date");
 
-    const locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
-    const dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+    let locationMode = locCheckbox ? locCheckbox.checked : (locCard ? locCard.classList.contains("active") : true);
+    let dateMode = dateCheckbox ? dateCheckbox.checked : (dateCard ? dateCard.classList.contains("active") : true);
+
+    if (!locationMode && !dateMode) {
+      locationMode = true;
+      dateMode = true;
+    }
 
     return {
       game_mode: "pinpoint",
       location_mode: locationMode,
       date_mode: dateMode,
-      smart_map_zoom: SMART_MAP_ZOOM_ENABLED,
     };
   },
 
@@ -572,10 +578,20 @@ export const pinpointMode = {
     initDateDropdowns();
 
     if (el.quizImageFullscreen) {
-      el.quizImageFullscreen.addEventListener("click", () => toggleMapFullscreen(el.mediaFrame));
+      el.quizImageFullscreen.onclick = (e) => {
+        e.stopPropagation();
+        toggleMapFullscreen(el.mediaFrame);
+      };
     }
     if (el.guessMapFullscreen) {
-      el.guessMapFullscreen.addEventListener("click", () => toggleMapFullscreen(el.guessMapShell));
+      if (window.L && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(el.guessMapFullscreen);
+        L.DomEvent.disableScrollPropagation(el.guessMapFullscreen);
+      }
+      el.guessMapFullscreen.onclick = (e) => {
+        e.stopPropagation();
+        toggleMapFullscreen(el.guessMapShell);
+      };
     }
   },
 
@@ -587,6 +603,9 @@ export const pinpointMode = {
   unmount() {
     if (el.mediaFrame) {
       el.mediaFrame.classList.add("hidden");
+    }
+    if (el.quizImageFullscreen) {
+      el.quizImageFullscreen.classList.add("hidden");
     }
     if (state.guessMap) {
       try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) { }
@@ -637,6 +656,9 @@ export const pinpointMode = {
       el.quizImage.removeAttribute("src");
       el.quizImage.onerror = null;
     }
+    if (el.quizImageFullscreen) {
+      el.quizImageFullscreen.classList.add("hidden");
+    }
     if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
 
     resetDateGuess();
@@ -651,7 +673,7 @@ export const pinpointMode = {
     }
 
     if (state.guessMap) {
-      if (SMART_MAP_ZOOM_ENABLED && state.mapBounds) {
+      if (state.mapBounds) {
         const bounds = L.latLngBounds(
           [state.mapBounds.min_lat, state.mapBounds.min_lng],
           [state.mapBounds.max_lat, state.mapBounds.max_lng]
@@ -670,11 +692,12 @@ export const pinpointMode = {
     if (el.quizImage && questionData && questionData.media_url) {
       el.quizImage.src = questionData.media_url;
       el.quizImage.classList.remove("hidden");
+      if (el.quizImageFullscreen) el.quizImageFullscreen.classList.remove("hidden");
       if (el.mediaPlaceholder) el.mediaPlaceholder.classList.add("hidden");
     }
     if (questionData && questionData.location_mode) {
       ensureGuessMap();
-      if (state.guessMap && SMART_MAP_ZOOM_ENABLED && state.mapBounds) {
+      if (state.guessMap && state.mapBounds) {
         const bounds = L.latLngBounds(
           [state.mapBounds.min_lat, state.mapBounds.min_lng],
           [state.mapBounds.max_lat, state.mapBounds.max_lng]
@@ -703,6 +726,9 @@ export const pinpointMode = {
     if (shuffleReveal) shuffleReveal.classList.add("hidden");
 
     if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
+    if (el.quizImage) el.quizImage.classList.remove("hidden");
+    if (el.quizImageFullscreen) el.quizImageFullscreen.classList.remove("hidden");
+    if (el.mediaPlaceholder) el.mediaPlaceholder.classList.add("hidden");
     renderRevealSummary(revealData);
     renderRevealMap(revealData);
   },

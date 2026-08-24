@@ -1,4 +1,5 @@
 import { state, el } from "./state.js";
+import { getSelectedPeopleMode } from "./setup_filters.js";
 
 export async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -48,23 +49,62 @@ export async function api(path, options = {}) {
  * leaderboard entries filtered to that exact game configuration.
  */
 export function setupFilterParams() {
-  const selectedOptions = el.album ? Array.from(el.album.selectedOptions).filter((opt) => opt.value !== "") : [];
-  const albumText = selectedOptions.length > 0 ? selectedOptions.map((opt) => opt.textContent).join(", ") : "-";
+  const albumSelect = state.filters && state.filters.albumMultiSelect;
+  const albumIds = albumSelect ? albumSelect.getSelectedIds().sort() : [];
+
   const locEl = el.goalLocation;
   const dateEl = el.goalDate;
   const locCard = document.getElementById("card-goal-location");
   const dateCard = document.getElementById("card-goal-date");
   const locationMode = locEl ? Boolean(locEl.checked) : (locCard ? locCard.classList.contains("active") : true);
   const dateMode = dateEl ? Boolean(dateEl.checked) : (dateCard ? dateCard.classList.contains("active") : true);
-  const gameMode = (state && state.gameMode) || (el.gameModeSelect ? el.gameModeSelect.value : "pinpoint");
+  const gameMode = (state && state.gameMode) || "pinpoint";
+
+  const selectedLibs = state.filters && state.filters.libraryMultiSelect
+    ? state.filters.libraryMultiSelect.getSelectedIds()
+    : [];
   const params = new URLSearchParams({
-    rounds: el.roundCount ? el.roundCount.value : "10",
     round_length: el.roundLength ? el.roundLength.value : "1m",
     location_mode: String(locationMode),
     date_mode: String(dateMode),
     game_mode: gameMode,
-    library: el.library ? el.library.value : "",
-    album: albumText,
   });
+
+  selectedLibs.forEach((lib) => params.append("libraries", lib));
+  albumIds.forEach((aid) => params.append("albums", aid));
+
+  const slider = state.filters && state.filters.dateRangeSlider;
+  if (slider) {
+    const { minDate, maxDate } = slider.getSelectedRange();
+    if (minDate) params.set("min_date", minDate);
+    if (maxDate) params.set("max_date", maxDate);
+  }
+
+  const countrySelect = state.filters && state.filters.countryMultiSelect;
+  if (countrySelect) {
+    const countries = countrySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
+    countries.forEach((c) => params.append("countries", c));
+  }
+
+  const citySelect = state.filters && state.filters.cityMultiSelect;
+  if (citySelect) {
+    const cities = citySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
+    cities.forEach((c) => params.append("cities", c));
+  }
+
+  const peopleSelect = state.filters && state.filters.peopleMultiSelect;
+  if (peopleSelect) {
+    const peopleList = peopleSelect.getSelectedIds().sort();
+    peopleList.forEach((pid) => params.append("people", pid));
+    if (peopleList.length > 0) {
+      const peopleMode = typeof getSelectedPeopleMode === "function" ? getSelectedPeopleMode() : "ANY";
+      params.set("people_mode", peopleMode);
+    }
+  }
+
+  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) {
+    params.set("include_shared", "true");
+  }
+
   return params;
 }

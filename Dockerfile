@@ -15,7 +15,7 @@ RUN uv sync --frozen --no-dev
 COPY src ./src
 COPY static ./static
 
-# Create default data directory for leaderboard persistence
+# Create default data directory for SQLite persistence (metadata.db and leaderboard.db)
 RUN mkdir -p data
 
 EXPOSE 8010

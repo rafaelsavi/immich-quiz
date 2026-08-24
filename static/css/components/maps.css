@@ -129,7 +129,7 @@
 .shuffle-card-fullscreen-btn:hover {
   background: #f8fafc !important;
   border-color: #98a2b3 !important;
-  color: var(--accent, #2563eb) !important;
+  color: var(--accent, #0f7c7f) !important;
 }
 
 .map-fullscreen-btn:hover .fs-icon,
@@ -190,7 +190,7 @@
 .leaflet-bar a:hover,
 .leaflet-touch .leaflet-bar a:hover {
   background-color: #f8fafc !important;
-  color: var(--accent, #2563eb) !important;
+  color: var(--accent, #0f7c7f) !important;
 }
 
 /* Layer Control Toggle Button & Expanded View */

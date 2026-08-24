@@ -1,13 +1,40 @@
+"""Asset selection, diversity sampling, and map bounding box calculations.
+
+This module provides the core asset selection engine for the quiz game, including:
+- **Pool Ingestion & Caching**: Loading candidate assets per match from the fast indexed SQLite
+  metadata store (`MetadataStore`) or falling back to the Immich Search API.
+- **Smart Map Bounds**: Calculating match-wide geographic bounding boxes with anti-spoiler guards.
+- **Photo Diversity Engine**: Preventing near-duplicate burst photos or tightly clustered locations
+  through spatial (Haversine distance) and temporal (capture time delta) constraints.
+- **Round Selection Algorithms**: Single-photo selection (`select_round_asset`) and batch selection
+  (`select_batch_round_assets`) with multi-pass diversity prioritization and graceful fallback.
+- **Pin Labeling**: Generating randomized pin identifiers ('A', 'B', 'C'...) for multi-photo and
+  pin-matching game modes.
+"""
+
+from __future__ import annotations
+
 import random
 from datetime import date
+from typing import Any
 
 from src.immich.client import AssetAnswer, ImmichClient
 from src.models import MapBounds
 from src.scoring import haversine_km
+from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, RoundAsset
 
-# Hardcoded Smart Map Zoom internal safeguards
+# Hardcoded Smart Map Zoom internal safeguards:
+# Maximum geographic diagonal distance (in kilometers) before the match is considered global.
+# If exceeded, the map view defaults to the global world view to prevent giving away spoilers.
 SMART_MAP_ZOOM_MAX_SPAN_KM: float = 5000.0
+
+# Internal Photo Diversity sampling parameters (soft prioritization thresholds):
+# Minimum spatial separation (in kilometers) between selected photos when location mode is active.
+DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM: float = 0.1
+
+# Minimum temporal separation (in seconds) between selected photos when date mode is active.
+DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS: float = 60.0
 
 
 def calculate_match_bounds(
@@ -22,6 +49,15 @@ def calculate_match_bounds(
       so the client defaults cleanly to standard world view.
     - The client enforces `maxZoom` in Leaflet `fitBounds`, guaranteeing
       single-location and city albums never over-zoom to street level regardless of screen size.
+
+    Args:
+        pool: List or dictionary of `AssetAnswer` objects representing candidate photos in the match.
+        max_span_km: Maximum diagonal distance threshold in kilometers. Defaults to 5000 km.
+
+    Returns:
+        A `MapBounds` object containing min/max latitude and longitude, or `None` if no valid
+        coordinates exist or if the pool span exceeds global threshold limits.
+
     """
     answers = pool.values() if isinstance(pool, dict) else pool
     coords = [
@@ -58,54 +94,52 @@ def calculate_match_bounds(
     )
 
 
-async def load_asset_pool(
+def load_asset_pool(
     state: MatchState,
-    immich: ImmichClient,
-    min_capture_date: date | None,
-    max_capture_date: date | None,
-    include_shared_albums: bool = False,
-    include_partner_assets: bool = False,
+    metadata_store: MetadataStore,
+    settings: Any | None = None,
 ) -> None:
-    """Populate the per-match candidate pool once instead of searching every round."""
-    raw_assets = await immich.search_random_assets(
-        state.setup.library_name,
-        album_ids=state.setup.album_ids,
-        include_shared_albums=include_shared_albums,
-        include_partner_assets=include_partner_assets,
-        min_date=min_capture_date,
-        max_date=max_capture_date,
-    )
-    pool: dict[str, AssetAnswer] = {}
-    for asset in raw_assets:
-        if not ImmichClient.is_eligible_asset(
-            asset,
-            state.setup.location_mode,
-            state.setup.date_mode,
-            min_capture_date,
-            max_capture_date,
-        ):
-            continue
-        asset_id = str(asset.get('id', '')).strip()
-        if asset_id:
-            pool[asset_id] = ImmichClient.extract_answer(asset)
-    state.asset_pool = pool
+    """Populate the per-match candidate pool once with active filter criteria.
+
+    Queries the fast indexed local SQLite metadata store. Clamps match setup dates against
+    global configuration date boundaries. Mutates `state.asset_pool` in place.
+
+    Args:
+        state: Active match state containing setup filters and pool storage.
+        metadata_store: Local SQLite metadata store for fast indexed querying.
+        settings: Optional application settings for global whitelist/blacklist enforcement.
+
+    """
+    criteria = AssetFilterCriteria.from_setup(state.setup, settings)
+    state.asset_pool = metadata_store.fetch_candidate_assets(criteria, limit=250)
 
 
 def is_asset_valid_for_batch(
     candidate_ans: AssetAnswer,
-    selected_assets: list[RoundAsset],
+    selected_answers: list[AssetAnswer] | list[RoundAsset] | list[AssetAnswer | RoundAsset],
     location_mode: bool,
     date_mode: bool,
-    min_dist_km: float = 0.1,
-    min_time_sec: float = 60.0,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
 ) -> bool:
-    """
-    Determine if a photo selection is valid.
+    """Determine if a candidate photo satisfies diversity separation against selected match photos.
 
-    A photo selection is valid if:
-    - All photos have valid coordinates when location_mode is active
-    - All photos are located more than min_dist_km away from each other when location_mode is active
-    - All photos are captured more than min_time_sec apart from each other when date_mode is active
+    Enforces:
+    - Non-zero valid coordinates when `location_mode` is active.
+    - Haversine distance separation >= `min_dist_km` from all selected photos when `location_mode` is active.
+    - Time separation >= `min_time_sec` from all selected photos when `date_mode` is active.
+
+    Args:
+        candidate_ans: The candidate photo's metadata and ground truth answers.
+        selected_answers: List of previously selected or played photos to test against.
+        location_mode: Whether geographic distance separation should be checked.
+        date_mode: Whether capture time separation should be checked.
+        min_dist_km: Minimum distance threshold in kilometers. Defaults to 0.1 km (100m).
+        min_time_sec: Minimum temporal threshold in seconds. Defaults to 60.0 seconds.
+
+    Returns:
+        `True` if the candidate meets all active diversity constraints, `False` otherwise.
+
     """
     if location_mode:
         if candidate_ans.latitude is None or candidate_ans.longitude is None:
@@ -113,8 +147,8 @@ def is_asset_valid_for_batch(
         if abs(candidate_ans.latitude) < 1e-6 and abs(candidate_ans.longitude) < 1e-6:
             return False
 
-    for sel in selected_assets:
-        sel_ans = sel.answer
+    for sel in selected_answers:
+        sel_ans = sel.answer if isinstance(sel, RoundAsset) else sel
         if location_mode and (
             candidate_ans.latitude is not None
             and candidate_ans.longitude is not None
@@ -138,98 +172,157 @@ def is_asset_valid_for_batch(
     return True
 
 
-async def select_round_asset(
-    state: MatchState,
-    immich: ImmichClient,
-    client_excluded: set[str],
-    min_capture_date: date | None,
-    max_capture_date: date | None,
-    include_shared_albums: bool = False,
-    include_partner_assets: bool = False,
-) -> RoundAsset | None:
-    """Draw an unplayed asset, refreshing the pool once if it is exhausted."""
-    excluded = state.played_asset_ids | client_excluded
+def filter_diverse_asset_answers(
+    eligible_answers: list[AssetAnswer],
+    location_mode: bool,
+    date_mode: bool,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
+) -> list[AssetAnswer]:
+    """Greedily build a diverse subset of asset answers satisfying minimum distance and time constraints.
 
-    if not state.asset_pool:
-        await load_asset_pool(
-            state,
-            immich,
-            min_capture_date,
-            max_capture_date,
-            include_shared_albums=include_shared_albums,
-            include_partner_assets=include_partner_assets,
+    Iterates through candidates in order and appends any candidate that satisfies diversity constraints
+    relative to all previously accepted candidates.
+
+    Args:
+        eligible_answers: Candidate list of `AssetAnswer` instances.
+        location_mode: Whether geographic distance separation should be evaluated.
+        date_mode: Whether capture time separation should be evaluated.
+        min_dist_km: Minimum distance separation in kilometers. Defaults to 0.1 km.
+        min_time_sec: Minimum time separation in seconds. Defaults to 60.0 seconds.
+
+    Returns:
+        A list of `AssetAnswer` instances that are mutually diverse.
+
+    """
+    diverse: list[AssetAnswer] = []
+    for ans in eligible_answers:
+        if is_asset_valid_for_batch(
+            ans,
+            diverse,
+            location_mode,
+            date_mode,
+            min_dist_km=min_dist_km,
+            min_time_sec=min_time_sec,
+        ):
+            diverse.append(ans)
+    return diverse
+
+
+def generate_batch_pins(
+    assets: list[RoundAsset],
+    location_mode: bool,
+) -> list[dict[str, object]]:
+    """Generate randomized lettered map markers ('A', 'B', ...) for batch assets.
+
+    When `location_mode` is enabled, filters out assets without valid coordinates (or placed at (0, 0)),
+    shuffles the true coordinate locations to prevent order-correlation hints, and assigns sequential
+    letters ('A', 'B', ... 'Z', 'A1', ...).
+
+    Args:
+        assets: List of `RoundAsset` instances chosen for the batch.
+        location_mode: Whether location mode is enabled for the match.
+
+    Returns:
+        List of dictionaries containing `pin_id`, `true_asset_id`, `latitude`, and `longitude`.
+        Returns an empty list if `location_mode` is disabled.
+
+    """
+    if not location_mode:
+        return []
+
+    letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    raw_pins = []
+    for ra in assets:
+        if ra.answer.latitude is None or ra.answer.longitude is None:
+            continue
+        if abs(ra.answer.latitude) < 1e-6 and abs(ra.answer.longitude) < 1e-6:
+            continue
+        raw_pins.append(
+            {
+                'true_asset_id': ra.asset_id,
+                'latitude': ra.answer.latitude,
+                'longitude': ra.answer.longitude,
+            }
         )
-    candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
-    if not candidates:
-        await load_asset_pool(
-            state,
-            immich,
-            min_capture_date,
-            max_capture_date,
-            include_shared_albums=include_shared_albums,
-            include_partner_assets=include_partner_assets,
+    random.shuffle(raw_pins)
+    pins_data: list[dict[str, object]] = []
+    for idx, p in enumerate(raw_pins):
+        letter = letters[idx % len(letters)]
+        if idx >= len(letters):
+            letter = f'{letter}{idx // len(letters)}'
+        pins_data.append(
+            {
+                'pin_id': letter,
+                'true_asset_id': p['true_asset_id'],
+                'latitude': p['latitude'],
+                'longitude': p['longitude'],
+            }
         )
-        candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
-    if not candidates:
-        return None
-
-    shuffled = list(candidates)
-    random.shuffle(shuffled)
-
-    played_assets = [
-        RoundAsset(asset_id=aid, answer=state.asset_pool[aid])
-        for aid in state.played_asset_ids
-        if aid in state.asset_pool
-    ]
-
-    # Prefer an asset that is >= 100m away and >= 60s apart from previously played match assets
-    for aid in shuffled:
-        ans = state.asset_pool[aid]
-        if is_asset_valid_for_batch(ans, played_assets, state.setup.location_mode, state.setup.date_mode):
-            return RoundAsset(asset_id=aid, answer=ans)
-
-    # Fallback if pool is constrained: pick any unplayed candidate
-    asset_id = random.choice(candidates)
-    return RoundAsset(asset_id=asset_id, answer=state.asset_pool[asset_id])
+    return pins_data
 
 
-async def select_batch_round_assets(
+async def _select_diverse_assets(
     state: MatchState,
     immich: ImmichClient,
     count: int,
     client_excluded: set[str],
-    min_capture_date: date | None,
-    max_capture_date: date | None,
-    include_shared_albums: bool = False,
-    include_partner_assets: bool = False,
-) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
+    min_capture_date: date | None = None,
+    max_capture_date: date | None = None,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
+    metadata_store: MetadataStore | None = None,
+    settings: Any | None = None,
+) -> list[RoundAsset] | None:
+    """Core candidate selection routine: draws up to `count` unplayed, diverse assets with fallback.
+
+    Selection Workflow:
+    1. Filters out previously played match asset IDs and client-excluded IDs.
+    2. If candidates < `count`, attempts to reload the match pool (via metadata store or Immich).
+    3. **Primary pass**: Shuffles candidate IDs and greedily picks up to `count` assets that satisfy
+       both distance and time diversity constraints relative to previously played match assets
+       and any assets already selected in the current round/batch.
+    4. **Fallback pass**: If diversity constraints cannot fill all `count` slots (e.g. tightly clustered
+       album photos or small pools), fills remaining slots with distinct unplayed candidates.
+
+    Args:
+        state: Active match state.
+        immich: Immich API client for pool fetching fallback.
+        count: Number of assets required for the round or batch.
+        client_excluded: Set of asset IDs excluded by the client.
+        min_capture_date: Minimum capture date boundary.
+        max_capture_date: Maximum capture date boundary.
+        min_dist_km: Minimum distance threshold in kilometers. Defaults to 0.1 km.
+        min_time_sec: Minimum temporal threshold in seconds. Defaults to 60.0 seconds.
+        metadata_store: Optional local SQLite metadata store.
+        settings: Optional application settings for global whitelist/blacklist enforcement.
+
+    Returns:
+        List of `RoundAsset` instances of length `count`, or `None` if fewer than `count`
+        unplayed candidates are available.
+
+    """
     excluded = state.played_asset_ids | client_excluded
 
-    if not state.asset_pool:
-        await load_asset_pool(
+    if not state.asset_pool and metadata_store is not None:
+        load_asset_pool(
             state,
-            immich,
-            min_capture_date,
-            max_capture_date,
-            include_shared_albums=include_shared_albums,
-            include_partner_assets=include_partner_assets,
+            metadata_store,
+            settings=settings,
         )
     candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
-    if len(candidates) < count:
-        await load_asset_pool(
+    if len(candidates) < count and metadata_store is not None:
+        load_asset_pool(
             state,
-            immich,
-            min_capture_date,
-            max_capture_date,
-            include_shared_albums=include_shared_albums,
-            include_partner_assets=include_partner_assets,
+            metadata_store,
+            settings=settings,
         )
         candidates = [asset_id for asset_id in state.asset_pool if asset_id not in excluded]
 
-    if not candidates:
+    if len(candidates) < count:
         return None
 
     shuffled_candidates = list(candidates)
@@ -243,66 +336,134 @@ async def select_batch_round_assets(
         if aid in state.asset_pool
     ]
 
-    # First pass: enforce location distance >= 0.1 km and capture date separation >= 60 seconds
+    # Primary pass: Greedily pick diverse assets (location distance >= min_dist_km, time separation >= min_time_sec)
     for aid in shuffled_candidates:
         ans = state.asset_pool[aid]
         if is_asset_valid_for_batch(
-            ans, played_assets + selected_assets, state.setup.location_mode, state.setup.date_mode
+            ans,
+            played_assets + selected_assets,
+            state.setup.location_mode,
+            state.setup.date_mode,
+            min_dist_km=min_dist_km,
+            min_time_sec=min_time_sec,
         ):
             selected_ids.append(aid)
             selected_assets.append(RoundAsset(asset_id=aid, answer=ans))
             if len(selected_assets) == count:
                 break
 
-    # Fallback pass: if pool is constrained, fill remaining slots from available candidates
+    # Fallback pass: If diversity requirements couldn't fill all `count` slots,
+    # fill with remaining distinct unplayed candidates
     if len(selected_assets) < count:
         for aid in shuffled_candidates:
             if aid not in selected_ids:
-                ans = state.asset_pool[aid]
-                if state.setup.location_mode:
-                    if ans.latitude is None or ans.longitude is None:
-                        continue
-                    if abs(ans.latitude) < 1e-6 and abs(ans.longitude) < 1e-6:
-                        continue
                 selected_ids.append(aid)
-                selected_assets.append(RoundAsset(asset_id=aid, answer=ans))
+                selected_assets.append(RoundAsset(asset_id=aid, answer=state.asset_pool[aid]))
                 if len(selected_assets) == count:
                     break
 
-    if not selected_assets:
+    if len(selected_assets) < count:
         return None
 
-    assets = selected_assets
+    return selected_assets
 
-    pins_data: list[dict[str, object]] = []
-    if state.setup.location_mode:
-        letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-        raw_pins = []
-        for ra in assets:
-            if ra.answer.latitude is None or ra.answer.longitude is None:
-                continue
-            if abs(ra.answer.latitude) < 1e-6 and abs(ra.answer.longitude) < 1e-6:
-                continue
-            raw_pins.append(
-                {
-                    'true_asset_id': ra.asset_id,
-                    'latitude': ra.answer.latitude,
-                    'longitude': ra.answer.longitude,
-                }
-            )
 
-        random.shuffle(raw_pins)
-        for idx, p in enumerate(raw_pins):
-            letter = letters[idx % len(letters)]
-            if idx >= len(letters):
-                letter = f'{letter}{idx // len(letters)}'
-            pins_data.append(
-                {
-                    'pin_id': letter,
-                    'true_asset_id': p['true_asset_id'],
-                    'latitude': p['latitude'],
-                    'longitude': p['longitude'],
-                }
-            )
+async def select_round_asset(
+    state: MatchState,
+    immich: ImmichClient,
+    client_excluded: set[str],
+    min_capture_date: date | None = None,
+    max_capture_date: date | None = None,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
+    metadata_store: MetadataStore | None = None,
+    settings: Any | None = None,
+) -> RoundAsset | None:
+    """Draw an unplayed asset, prioritizing diverse assets but falling back to any unplayed candidate.
 
+    Delegates to `_select_diverse_assets` with `count=1`.
+
+    Args:
+        state: Active match state.
+        immich: Immich client for pool reloading if required.
+        client_excluded: Set of asset IDs reported as played or excluded by the client.
+        min_capture_date: Minimum capture date boundary.
+        max_capture_date: Maximum capture date boundary.
+        min_dist_km: Minimum distance separation in km. Defaults to 0.1 km.
+        min_time_sec: Minimum time separation in seconds. Defaults to 60.0 seconds.
+        metadata_store: Optional local SQLite metadata store.
+        settings: Optional application settings.
+
+    Returns:
+        A `RoundAsset` containing the selected asset ID and answer metadata, or `None` if no
+        unplayed assets are available.
+
+    """
+    assets = await _select_diverse_assets(
+        state,
+        immich,
+        count=1,
+        client_excluded=client_excluded,
+        min_capture_date=min_capture_date,
+        max_capture_date=max_capture_date,
+        min_dist_km=min_dist_km,
+        min_time_sec=min_time_sec,
+        metadata_store=metadata_store,
+        settings=settings,
+    )
+    return assets[0] if assets else None
+
+
+async def select_batch_round_assets(
+    state: MatchState,
+    immich: ImmichClient,
+    count: int,
+    client_excluded: set[str],
+    min_capture_date: date | None = None,
+    max_capture_date: date | None = None,
+    min_dist_km: float = DEFAULT_PHOTO_DIVERSITY_MIN_DISTANCE_KM,
+    min_time_sec: float = DEFAULT_PHOTO_DIVERSITY_MIN_TIME_SECONDS,
+    metadata_store: MetadataStore | None = None,
+    settings: Any | None = None,
+) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
+    """Select a batch of diverse round assets and generate randomized map pins.
+
+    Designed for multi-photo batch game modes (e.g. Album Shuffle).
+    Ensures selected assets are diverse both relative to previously played rounds and among each other
+    within the batch.
+
+    Args:
+        state: Active match state.
+        immich: Immich API client for pool fetching fallback.
+        count: Number of assets required for the batch.
+        client_excluded: Set of asset IDs excluded by the client.
+        min_capture_date: Minimum capture date boundary.
+        max_capture_date: Maximum capture date boundary.
+        min_dist_km: Minimum distance threshold in kilometers. Defaults to 0.1 km.
+        min_time_sec: Minimum temporal threshold in seconds. Defaults to 60.0 seconds.
+        metadata_store: Optional local SQLite metadata store.
+        settings: Optional application settings.
+
+    Returns:
+        A tuple of `(selected_assets, pins_data)` where `selected_assets` is a list of `RoundAsset`
+        instances and `pins_data` is a list of dictionary representations of map pins.
+        Returns `None` if fewer than `count` candidates are available.
+
+    """
+    assets = await _select_diverse_assets(
+        state,
+        immich,
+        count=count,
+        client_excluded=client_excluded,
+        min_capture_date=min_capture_date,
+        max_capture_date=max_capture_date,
+        min_dist_km=min_dist_km,
+        min_time_sec=min_time_sec,
+        metadata_store=metadata_store,
+        settings=settings,
+    )
+    if not assets:
+        return None
+
+    pins_data = generate_batch_pins(assets, location_mode=state.setup.location_mode)
     return assets, pins_data

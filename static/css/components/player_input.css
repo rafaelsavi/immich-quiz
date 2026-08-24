@@ -1,0 +1,266 @@
+/* === Professional Player Input & Chip Management Component === */
+
+.player-input-group {
+  margin-bottom: 0.2rem;
+}
+
+.player-count-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(15, 124, 127, 0.08);
+  color: var(--accent, #0f7c7f);
+  border: 1px solid rgba(15, 124, 127, 0.18);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.player-count-badge.multi {
+  background: rgba(112, 72, 232, 0.08);
+  color: #7048e8;
+  border-color: rgba(112, 72, 232, 0.2);
+}
+
+.player-count-badge.empty {
+  background: rgba(100, 116, 139, 0.08);
+  color: var(--text-muted, #64748b);
+  border-color: rgba(100, 116, 139, 0.2);
+}
+
+.player-input-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 48px;
+  padding: 0.4rem 0.55rem;
+  background: #ffffff;
+  border: 1px solid #c7ccd8;
+  border-radius: 10px;
+  cursor: text;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  position: relative;
+}
+
+.player-input-container:hover {
+  border-color: #94a3b8;
+}
+
+.player-input-container:focus-within {
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 0 0 3px rgba(15, 124, 127, 0.15);
+  background-color: #ffffff;
+}
+
+.player-input-container.has-error {
+  border-color: var(--accent-2, #f25f5c);
+  box-shadow: 0 0 0 3px rgba(242, 95, 92, 0.18);
+}
+
+/* Player Chip (Tag) */
+.player-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.4rem 0.25rem 0.35rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink, #1f2a44);
+  max-width: 100%;
+  animation: chipPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.player-chip:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.player-chip-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.player-chip-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.player-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  margin-left: 0.1rem;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+
+.player-chip-remove:hover {
+  background: rgba(242, 95, 92, 0.15);
+  color: var(--accent-2, #f25f5c);
+  transform: scale(1.1);
+}
+
+.player-chip-remove:focus-visible {
+  outline: none;
+  background: rgba(242, 95, 92, 0.2);
+  color: var(--accent-2, #f25f5c);
+}
+
+/* Touch enhancement for mobile */
+@media (max-width: 768px) {
+  .player-chip {
+    padding: 0.3rem 0.5rem 0.3rem 0.4rem;
+    font-size: 0.92rem;
+  }
+
+  .player-chip-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 0.78rem;
+  }
+
+  .player-chip-remove {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+  }
+}
+
+/* Field input inside container */
+.player-input-entry-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1 1 140px;
+  min-width: 120px;
+  gap: 0.25rem;
+  position: relative;
+}
+
+.player-text-input {
+  flex: 1;
+  min-width: 80px;
+  border: none;
+  padding: 0.35rem 0.4rem;
+  font-size: 1rem; /* 16px to prevent iOS auto-zoom */
+  font-family: inherit;
+  color: var(--ink, #1f2a44);
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+  height: 32px;
+}
+
+.player-text-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+  opacity: 1;
+}
+
+.player-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  width: auto;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  background: rgba(15, 124, 127, 0.08);
+  color: var(--accent, #0f7c7f);
+  border: 1px solid rgba(15, 124, 127, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+  flex-shrink: 0;
+}
+
+.player-add-btn:hover {
+  background: var(--accent, #0f7c7f);
+  color: #ffffff;
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 2px 6px rgba(15, 124, 127, 0.25);
+}
+
+.player-add-btn:active {
+  transform: scale(0.96);
+}
+
+.player-add-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  box-shadow: none;
+}
+
+/* Feedback message */
+.player-input-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--accent-2, #f25f5c);
+  margin-top: 0.3rem;
+  min-height: 1.1rem;
+  animation: fadeIn 0.15s ease;
+}
+
+.player-input-feedback.hidden {
+  display: none !important;
+}
+
+@keyframes chipPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
