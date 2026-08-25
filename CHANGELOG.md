@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Progressive Web App (PWA) Support**: Transformed Immich Quiz into an installable standalone web application with Web App Manifest (`manifest.webmanifest`, `manifest.json`), service worker (`sw.js`) caching for instant app shell loading and offline resiliency, and mobile viewport/standalone meta tags.
-- **Enhanced Favicon & Icon Suite**: Unified branding across high-DPI vector SVG favicon (`favicon.svg`) and multi-size raster asset bundle (`static/favicons/`) including Apple Touch Icon (`apple-touch-icon.png`), Android Chrome launcher icons (`android-chrome-192x192.png`, `android-chrome-512x512.png`), and legacy `favicon.ico` fallback.
+- **Progressive Web App (PWA) Support**: Transformed Immich Quiz into an installable standalone web application with Web App Manifest (`manifest.webmanifest`, `manifest.json`), service worker (`sw.js`) caching for instant app shell loading and offline resiliency, and mobile viewport/standalone meta tags. Includes a 1-click in-app install button (`#pwa-install-btn`) with automatic prompt interception and full multi-language localization.
+- **Enhanced Favicon & Icon Suite**: Unified branding across high-DPI vector SVG favicon (`favicon.svg`) with `viewBox` scaling and multi-size raster asset bundle (`static/favicons/`) including Apple Touch Icon (`apple-touch-icon.png`), Android Chrome launcher icons (`android-chrome-192x192.png`, `android-chrome-512x512.png`), and legacy `favicon.ico` fallback.
+- **Mobile Ergonomics & Safe-Area Insets**: Added `env(safe-area-inset-*)` padding for iPhone notch, Dynamic Island, and navigation bar ergonomics, alongside tap highlight resets and button selection protection.
+- **Wall-Clock Round Timer Synchronization**: Upgraded round countdown timer in `timer.js` to calculate real-time elapsed time against target timestamps (`Date.now()`) with Page Visibility API (`visibilitychange`) synchronization, preventing timer freezing or time-extension exploits when minimizing the browser or locking mobile screens.
+- **Tactile Haptic Feedback (Web Vibration API)**: Added vibration feedback (`navigator.vibrate`) for mobile/PWA devices with subtle tick pulses during the last 5-second countdown, timeout buzzer pulses, map pin drops, submit confirmations, and victory fanfare bursts (automatically silenced when muted).
+- **Internationalization (i18n) & Locale Formatting**: Standardized language keys to BCP-47 tags (`en-US`, `pt-BR`), added HTTP `Accept-Language` header negotiation for initial page render and match summaries, and integrated `Intl.ListFormat`, `Intl.DateTimeFormat`, and `Intl.NumberFormat` for locale-aware list and number rendering.
 
 ## [2.1.0] - 2026-08-24
 

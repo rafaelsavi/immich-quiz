@@ -347,7 +347,10 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
     leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
     leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
-    i18n_js = (JS_DIR / 'modules' / 'i18n.js').read_text(encoding='utf-8')
+    i18n_locales = (
+        (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+        + (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+    )
 
     api_js = (JS_DIR / 'modules' / 'api.js').read_text(encoding='utf-8')
     setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
@@ -358,8 +361,8 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     assert 'leaderboard-empty-row' in leaderboard_css, 'leaderboard.css must style empty state'
     assert 'rank-medal' in leaderboard_js, 'leaderboard.js must apply rank medals'
     assert 'leaderboard-scope-pill' in leaderboard_css, 'leaderboard.css must style scope pill'
-    assert '"leaderboard.empty"' in i18n_js, 'i18n.js must define leaderboard.empty key'
-    assert '"leaderboard.perfect_badge"' in i18n_js, 'i18n.js must define leaderboard.perfect_badge key'
+    assert '"leaderboard.empty"' in i18n_locales, 'locales must define leaderboard.empty key'
+    assert '"leaderboard.perfect_badge"' in i18n_locales, 'locales must define leaderboard.perfect_badge key'
     assert 'min_date' in api_js, 'api.js must support min_date query parameter'
     assert 'max_date' in api_js, 'api.js must support max_date query parameter'
     assert 'countries' in api_js, 'api.js must support countries query parameter'

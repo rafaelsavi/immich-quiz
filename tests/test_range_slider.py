@@ -150,8 +150,11 @@ def test_index_html_contains_accordion_and_filter_containers() -> None:
 
 
 def test_bilingual_i18n_keys_present() -> None:
-    assert I18N_JS.exists(), f'{I18N_JS} does not exist'
-    content = I18N_JS.read_text(encoding='utf-8')
+    en_js = STATIC_DIR / 'js' / 'modules' / 'locales' / 'en_US.js'
+    pt_js = STATIC_DIR / 'js' / 'modules' / 'locales' / 'pt_BR.js'
+    assert en_js.exists(), f'{en_js} does not exist'
+    assert pt_js.exists(), f'{pt_js} does not exist'
+    content = en_js.read_text(encoding='utf-8') + pt_js.read_text(encoding='utf-8')
 
     required_keys = [
         'setup.filters_heading',

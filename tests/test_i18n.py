@@ -122,30 +122,43 @@ def test_backend_catalog_key_parity() -> None:
     assert not missing_in_en, f'Keys present in PT but missing in EN: {missing_in_en}'
 
 
-def test_frontend_catalog_key_parity() -> None:
-    import re
+def test_json_catalog_parity() -> None:
+    import json
     from pathlib import Path
 
-    i18n_js_path = Path(__file__).parent.parent / 'static' / 'js' / 'modules' / 'i18n.js'
-    assert i18n_js_path.exists()
-    content = i18n_js_path.read_text(encoding='utf-8')
+    locales_dir = Path(__file__).parent.parent / 'locales'
+    en_file = locales_dir / 'en-US.json'
+    pt_file = locales_dir / 'pt-BR.json'
 
-    en_match = re.search(r'"en-US":\s*\{(.*?)\n\s*\},', content, re.DOTALL)
-    pt_match = re.search(r'"pt-BR":\s*\{(.*?)\n\s*\},', content, re.DOTALL)
+    assert en_file.exists(), 'locales/en-US.json missing'
+    assert pt_file.exists(), 'locales/pt-BR.json missing'
 
-    assert en_match is not None, 'Could not locate "en-US" dictionary in i18n.js'
-    assert pt_match is not None, 'Could not locate "pt-BR" dictionary in i18n.js'
+    with open(en_file, 'r', encoding='utf-8') as f:
+        en_data = json.load(f)
+    with open(pt_file, 'r', encoding='utf-8') as f:
+        pt_data = json.load(f)
 
-    en_block = en_match.group(1)
-    pt_block = pt_match.group(1)
-
-    key_regex = re.compile(r'^\s*"([^"]+)":', re.MULTILINE)
-    en_keys = set(key_regex.findall(en_block))
-    pt_keys = set(key_regex.findall(pt_block))
+    en_keys = set(en_data.keys())
+    pt_keys = set(pt_data.keys())
 
     missing_in_pt = en_keys - pt_keys
     missing_in_en = pt_keys - en_keys
 
-    assert not missing_in_pt, f'Frontend keys present in en-US but missing in pt-BR: {missing_in_pt}'
-    assert not missing_in_en, f'Frontend keys present in pt-BR but missing in en-US: {missing_in_en}'
-    assert len(en_keys) > 50, f'Expected at least 50 translation keys, found {len(en_keys)}'
+    assert not missing_in_pt, f'Keys present in locales/en-US.json but missing in pt-BR: {missing_in_pt}'
+    assert not missing_in_en, f'Keys present in locales/pt-BR.json but missing in en-US: {missing_in_en}'
+    assert len(en_keys) >= 100, f'Expected at least 100 translation keys in json, found {len(en_keys)}'
+
+
+def test_plural_resolution() -> None:
+    # Test singular and plural in EN
+    assert t('filters.albums_count', SupportedLanguage.EN, 1) == '1 album'
+    assert t('filters.albums_count', SupportedLanguage.EN, 2) == '2 albums'
+    assert t('setup.libraries_selected', SupportedLanguage.EN, 1) == '1 library selected'
+    assert t('setup.libraries_selected', SupportedLanguage.EN, 4) == '4 libraries selected'
+
+    # Test singular and plural in PT
+    assert t('filters.albums_count', SupportedLanguage.PT, 1) == '1 álbum'
+    assert t('filters.albums_count', SupportedLanguage.PT, 2) == '2 álbuns'
+    assert t('setup.libraries_selected', SupportedLanguage.PT, 1) == '1 biblioteca selecionada'
+    assert t('setup.libraries_selected', SupportedLanguage.PT, 4) == '4 bibliotecas selecionadas'
+

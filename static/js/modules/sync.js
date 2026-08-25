@@ -1,5 +1,5 @@
 import { state, el } from "./state.js";
-import { t, formatDateTime, formatNumber } from "./i18n.js";
+import { t, formatDateTime, formatNumber, formatRelativeTime } from "./i18n.js";
 import { api } from "./api.js";
 
 let _syncPollInterval = null;
@@ -10,10 +10,13 @@ export function getLastSyncStatus() {
 }
 
 export function formatSyncDate(isoStr) {
-  return formatDateTime(isoStr, {
+  if (!isoStr) return "";
+  const relative = formatRelativeTime(isoStr);
+  const exact = formatDateTime(isoStr, {
     dateStyle: "medium",
     timeStyle: "short",
   });
+  return relative ? `${relative} (${exact})` : exact;
 }
 
 export function renderSyncStatus(status) {
