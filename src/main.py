@@ -157,7 +157,20 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     @app.get('/favicon.ico')
     async def favicon() -> FileResponse:
-        return FileResponse(static_path / 'favicon.svg', media_type='image/svg+xml')
+        return FileResponse(static_path / 'favicons' / 'favicon.ico', media_type='image/x-icon')
+
+    @app.get('/manifest.webmanifest')
+    @app.get('/manifest.json')
+    async def webmanifest() -> FileResponse:
+        return FileResponse(static_path / 'favicons' / 'manifest.json', media_type='application/manifest+json')
+
+    @app.get('/sw.js')
+    async def service_worker() -> FileResponse:
+        return FileResponse(
+            static_path / 'sw.js',
+            media_type='application/javascript',
+            headers={'Service-Worker-Allowed': '/'},
+        )
 
     app.include_router(router)
     return app

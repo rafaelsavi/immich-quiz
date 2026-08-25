@@ -1043,6 +1043,9 @@ class MetadataStore:
             env_max = settings.date_upper_bound.strftime('%Y-%m')
             max_month = min(max_month, env_max) if max_month is not None else env_max
 
+        if min_month is not None and max_month is not None and min_month > max_month:
+            min_month = max_month
+
         return LibraryFiltersResponse(
             date_range=DateRangeOption(min_month=min_month, max_month=max_month),
             countries=filtered_countries,

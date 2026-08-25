@@ -1373,3 +1373,28 @@ def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
         )
 
     assert len(set(drawn_ids)) == 5
+
+
+def test_favicon_endpoint(client: TestClient) -> None:
+    response = client.get('/favicon.ico')
+    assert response.status_code == 200
+    assert response.headers['content-type'].startswith('image/x-icon')
+
+
+def test_webmanifest_endpoint(client: TestClient) -> None:
+    for path in ('/manifest.webmanifest', '/manifest.json'):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.headers['content-type'].startswith('application/manifest+json')
+        data = response.json()
+        assert data['name'] == 'Immich Quiz'
+        assert data['display'] == 'standalone'
+        assert len(data['icons']) > 0
+
+
+def test_service_worker_endpoint(client: TestClient) -> None:
+    response = client.get('/sw.js')
+    assert response.status_code == 200
+    assert 'javascript' in response.headers['content-type']
+    assert response.headers.get('service-worker-allowed') == '/'
+

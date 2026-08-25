@@ -377,6 +377,25 @@ def test_metadata_store_date_bounds_clamping(meta_store: MetadataStore, tmp_path
     assert res2.date_range.min_month == '2020-01'
     assert res2.date_range.max_month == '2022-12'
 
+    # Case 3: Lower bound in .env (2025-01) is newer than all actual photos (max 2023-08)
+    # -> min_month clamped to max_month
+    settings_newer_lower = AppSettings(
+        immich_server_url='https://example.com/api',
+        immich_libraries={'family': 'token'},
+        app_title='Quiz',
+        app_tagline='',
+        date_lower_bound=date(2025, 1, 1),
+        date_upper_bound=date(2030, 1, 1),
+        app_host='127.0.0.1',
+        app_port=8010,
+        language='EN',
+        data_path=tmp_path,
+        auto_sync_on_startup=False,
+    )
+    res3 = meta_store.get_filter_options(['family'], settings_newer_lower)
+    assert res3.date_range.min_month == '2023-08'
+    assert res3.date_range.max_month == '2023-08'
+
 
 def test_metadata_store_prune_and_invalidation(meta_store: MetadataStore) -> None:
     assets = [
@@ -1284,6 +1303,8 @@ async def test_sync_engine_delta_vs_full_sync(tmp_path: Path) -> None:
     assert status1['sync_status'] == 'idle'
     assert status1['sync_mode'] == SyncMode.full.value
     assert status1['last_immich_updated_at'] == '2024-05-01T12:00:00Z'
+    assert status1['last_sync_duration_seconds'] is not None
+    assert status1['last_sync_duration_seconds'] >= 0
     assert len(captured_payloads) == 2  # page 1 and page 2
     assert 'updatedAfter' not in captured_payloads[0]
 

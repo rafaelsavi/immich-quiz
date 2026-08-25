@@ -407,3 +407,30 @@ def test_batch_reveal_item_supports_optional_pin_id() -> None:
     )
     assert item_without_pin.photo_id == 'photo-123'
     assert item_without_pin.true_pin_id is None
+
+
+def test_html_favicon_and_pwa_assets_exist() -> None:
+    """Verify all local favicon, icon, and manifest asset links in HTML markup resolve to disk."""
+    import json
+
+    html_files = [INDEX_HTML, AUDIO_PLAYGROUND_HTML]
+    for html_file in html_files:
+        assert html_file.exists(), f'{html_file} must exist'
+        content = html_file.read_text(encoding='utf-8')
+        # Extract href attributes targeting /static/
+        static_hrefs = re.findall(r'href=["\'](/static/[^"\'?]+)', content)
+        for href in static_hrefs:
+            rel_path = href.removeprefix('/static/')
+            target_file = STATIC_DIR / rel_path
+            assert target_file.exists(), f'File referenced in {html_file.name} not found: {target_file}'
+
+    manifest_file = STATIC_DIR / 'favicons' / 'manifest.json'
+    assert manifest_file.exists(), 'manifest.json must exist in static/favicons/'
+    manifest_data = json.loads(manifest_file.read_text(encoding='utf-8'))
+    for icon in manifest_data.get('icons', []):
+        src = icon['src']
+        if src.startswith('/static/'):
+            rel_path = src.removeprefix('/static/')
+            target_file = STATIC_DIR / rel_path
+            assert target_file.exists(), f'Icon referenced in manifest.json not found: {target_file}'
+

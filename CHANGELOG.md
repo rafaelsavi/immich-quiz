@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-08-25
+
+### Added
+
+- **Progressive Web App (PWA) Support**: Transformed Immich Quiz into an installable standalone web application with Web App Manifest (`manifest.webmanifest`, `manifest.json`), service worker (`sw.js`) caching for instant app shell loading and offline resiliency, and mobile viewport/standalone meta tags.
+- **Enhanced Favicon & Icon Suite**: Unified branding across high-DPI vector SVG favicon (`favicon.svg`) and multi-size raster asset bundle (`static/favicons/`) including Apple Touch Icon (`apple-touch-icon.png`), Android Chrome launcher icons (`android-chrome-192x192.png`, `android-chrome-512x512.png`), and legacy `favicon.ico` fallback.
+
 ## [2.1.0] - 2026-08-24
 
 ### Added

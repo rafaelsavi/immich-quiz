@@ -917,4 +917,12 @@ function applyUiConfig(config) {
     const details = startupErrors.map((err) => translateError(err)).join("\n");
     showAlert(t("setup.startup_error", details));
   }
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("[PWA] ServiceWorker registration failed:", err);
+      });
+    });
+  }
 })();
