@@ -14,8 +14,8 @@ from fastapi.staticfiles import StaticFiles
 
 from src.api.routes import invalidate_filters_cache, router
 from src.config import AppSettings, ConfigError, load_settings
-from src.i18n import SupportedLanguage, parse_accept_language
 from src.game.service import GameService
+from src.i18n import SupportedLanguage, parse_accept_language
 from src.immich.client import ImmichClient, ImmichClientError
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore

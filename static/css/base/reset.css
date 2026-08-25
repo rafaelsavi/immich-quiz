@@ -13,7 +13,6 @@ body {
   min-height: 100vh;
   max-width: 100vw;
   overflow-x: hidden;
-  overscroll-behavior-y: contain;
 }
 
 .bg-shape {
@@ -55,11 +54,11 @@ button {
   border-radius: 10px;
   border: 1px solid #c7ccd8;
   font-family: inherit;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
 }
 
 button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
   cursor: pointer;
