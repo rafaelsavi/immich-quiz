@@ -80,6 +80,15 @@ export function formatRelativeTime(dateInput, options = {}) {
  * Locale-aware number formatter using active language.
  */
 export function formatNumber(numInput, options) {
+  if (numInput === undefined || numInput === null) return "0";
+  if (typeof numInput === "string") {
+    const trimmed = numInput.trim();
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      const n = Number(trimmed);
+      return isNaN(n) ? "0" : n.toLocaleString(getLocale(), options);
+    }
+    return numInput;
+  }
   const n = Number(numInput);
   if (isNaN(n)) return "0";
   return n.toLocaleString(getLocale(), options);
@@ -89,7 +98,27 @@ export function formatNumber(numInput, options) {
  * Select plural category using standard Unicode CLDR rules (Intl.PluralRules).
  */
 export function plural(count, forms = {}) {
-  const n = Number(count) || 0;
+  let n = 0;
+  let displayStr = "";
+
+  if (typeof count === "number") {
+    n = isNaN(count) ? 0 : count;
+    displayStr = formatNumber(n);
+  } else if (typeof count === "string") {
+    const trimmed = count.trim();
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+      n = Number(trimmed);
+      displayStr = formatNumber(n);
+    } else {
+      displayStr = trimmed;
+      const digitsOnly = trimmed.replace(/[^\d-]/g, "");
+      n = digitsOnly ? Number(digitsOnly) : 0;
+    }
+  } else {
+    n = Number(count) || 0;
+    displayStr = formatNumber(n);
+  }
+
   let rule = "other";
   if (typeof Intl !== "undefined" && Intl.PluralRules) {
     try {
@@ -103,11 +132,11 @@ export function plural(count, forms = {}) {
 
   const template = forms[rule] || forms.other || forms.one || "";
   if (typeof template === "function") {
-    return template(n);
+    return template(displayStr);
   }
   return String(template)
-    .replace(/\{count\}/g, formatNumber(n))
-    .replace(/\{0\}/g, formatNumber(n));
+    .replace(/\{count\}/g, displayStr)
+    .replace(/\{0\}/g, displayStr);
 }
 
 /**
@@ -130,7 +159,11 @@ export function t(key, ...args) {
   if (typeof entry === "string" && args.length > 0) {
     let res = entry;
     args.forEach((arg, idx) => {
-      res = res.replace(new RegExp(`\\{${idx}\\}`, "g"), String(arg));
+      const formattedArg = typeof arg === "number" ? formatNumber(arg) : String(arg);
+      res = res.replace(new RegExp(`\\{${idx}\\}`, "g"), formattedArg);
+      if (idx === 0) {
+        res = res.replace(/\{count\}/g, formattedArg);
+      }
     });
     return res;
   }

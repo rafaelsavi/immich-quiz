@@ -496,7 +496,6 @@ export function updatePreflightCount(preflight) {
     return;
   }
 
-  const display = formatNumber(count);
   let key = "setup.preflight_count_all";
   if (locMode && dtMode) {
     key = "setup.preflight_count_both";
@@ -506,7 +505,7 @@ export function updatePreflightCount(preflight) {
     key = "setup.preflight_count_date";
   }
 
-  countEl.textContent = t(key, display);
+  countEl.textContent = t(key, count);
 
   if (totalCount !== undefined && totalCount !== null) {
     const dispTotal = formatNumber(totalCount);
