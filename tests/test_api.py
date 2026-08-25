@@ -1416,5 +1416,3 @@ def test_summary_accept_language_negotiation(client: TestClient) -> None:
     resp = client.get(f'/api/match/{match_id}/summary', headers={'Accept-Language': 'pt-BR,pt;q=0.9'})
     assert resp.status_code == 200
     assert resp.headers['content-language'] == 'pt-BR'
-
-

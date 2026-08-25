@@ -133,9 +133,9 @@ def test_json_catalog_parity() -> None:
     assert en_file.exists(), 'locales/en-US.json missing'
     assert pt_file.exists(), 'locales/pt-BR.json missing'
 
-    with open(en_file, 'r', encoding='utf-8') as f:
+    with open(en_file, encoding='utf-8') as f:
         en_data = json.load(f)
-    with open(pt_file, 'r', encoding='utf-8') as f:
+    with open(pt_file, encoding='utf-8') as f:
         pt_data = json.load(f)
 
     en_keys = set(en_data.keys())
@@ -161,4 +161,3 @@ def test_plural_resolution() -> None:
     assert t('filters.albums_count', SupportedLanguage.PT, 2) == '2 álbuns'
     assert t('setup.libraries_selected', SupportedLanguage.PT, 1) == '1 biblioteca selecionada'
     assert t('setup.libraries_selected', SupportedLanguage.PT, 4) == '4 bibliotecas selecionadas'
-

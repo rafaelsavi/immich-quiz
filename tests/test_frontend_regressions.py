@@ -347,10 +347,9 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
     leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
     leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
-    i18n_locales = (
-        (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
-        + (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
-    )
+    i18n_locales = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8') + (
+        JS_DIR / 'modules' / 'locales' / 'pt_BR.js'
+    ).read_text(encoding='utf-8')
 
     api_js = (JS_DIR / 'modules' / 'api.js').read_text(encoding='utf-8')
     setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
@@ -436,4 +435,3 @@ def test_html_favicon_and_pwa_assets_exist() -> None:
             rel_path = src.removeprefix('/static/')
             target_file = STATIC_DIR / rel_path
             assert target_file.exists(), f'Icon referenced in manifest.json not found: {target_file}'
-
