@@ -435,3 +435,14 @@ def test_html_favicon_and_pwa_assets_exist() -> None:
             rel_path = src.removeprefix('/static/')
             target_file = STATIC_DIR / rel_path
             assert target_file.exists(), f'Icon referenced in manifest.json not found: {target_file}'
+
+
+def test_game_navigation_guards_and_history_handling() -> None:
+    """Verify that browser back button (popstate) and tab-close (beforeunload) confirmation guards are registered."""
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    assert 'window.addEventListener("beforeunload", handleBeforeUnload)' in app_js
+    assert 'window.addEventListener("popstate", handlePopState)' in app_js
+    assert 'function isGameActive()' in app_js
+    assert 'function pushGameHistoryState()' in app_js
+    assert 'pushGameHistoryState()' in app_js

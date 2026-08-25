@@ -282,6 +282,8 @@ async function startMatch(event) {
   state.playerStats = {};
   state.roundHistory = [];
 
+  pushGameHistoryState();
+
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
 
@@ -608,6 +610,38 @@ function returnToSetup() {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function isGameActive() {
+  return Boolean(state.matchId && !state.lastSummary);
+}
+
+function pushGameHistoryState() {
+  try {
+    history.pushState({ matchActive: true, matchId: state.matchId }, "");
+  } catch (_) {}
+}
+
+function handleBeforeUnload(event) {
+  if (isGameActive()) {
+    event.preventDefault();
+    event.returnValue = "";
+    return "";
+  }
+}
+
+function handlePopState() {
+  if (isGameActive()) {
+    const label = t("game.abandon_exit");
+    if (confirm(t("game.abandon_confirm", label))) {
+      clearTimer();
+      returnToSetup();
+    } else {
+      pushGameHistoryState();
+    }
+  } else if (state.lastSummary && el.summaryCard && !el.summaryCard.classList.contains("hidden")) {
+    returnToSetup();
+  }
+}
+
 function handleAbandonGame(action) {
   const label = action === "restart" ? t("game.abandon_restart") : t("game.abandon_exit");
   if (!confirm(t("game.abandon_confirm", label))) {
@@ -640,6 +674,7 @@ async function restartSameGame() {
   state.matchId = response.match_id;
   state.players = response.players;
   state.mapBounds = response.map_bounds || null;
+  pushGameHistoryState();
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
 
@@ -717,6 +752,9 @@ document.addEventListener("fullscreenchange", () => {
 window.addEventListener("resize", () => {
   refitAllMaps();
 });
+
+window.addEventListener("beforeunload", handleBeforeUnload);
+window.addEventListener("popstate", handlePopState);
 
 [el.roundCount, el.roundLength].forEach((control) => {
   if (control) {
