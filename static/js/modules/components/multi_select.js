@@ -46,7 +46,7 @@ export class MultiSelect {
       <div class="multi-select-trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" tabindex="0">
         <div class="multi-select-value"></div>
         <div class="multi-select-controls">
-          <button type="button" class="multi-select-clear hidden" title="Clear selection" aria-label="Clear selection">
+          <button type="button" class="multi-select-clear hidden" title="${t("setup.multi_select_clear")}" aria-label="${t("setup.multi_select_clear")}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -66,7 +66,7 @@ export class MultiSelect {
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
           <input type="text" class="multi-select-search" autocomplete="off" />
-          <button type="button" class="search-clear-btn hidden" title="Clear search" aria-label="Clear search">
+          <button type="button" class="search-clear-btn hidden" title="${t("setup.clear_search")}" aria-label="${t("setup.clear_search")}">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -334,7 +334,7 @@ export class MultiSelect {
     const selectedNames = Array.from(this.selectedMap.values());
     const allNamesList = selectedNames.length > 0
       ? (selectedNames.length > 1
-        ? `Selected (${selectedNames.length}):\n• ` + selectedNames.join("\n• ")
+        ? `${t("setup.multi_select_selected_count", selectedNames.length)}\n• ` + selectedNames.join("\n• ")
         : selectedNames[0])
       : "";
 
@@ -359,7 +359,8 @@ export class MultiSelect {
         const removeBtn = document.createElement("button");
         removeBtn.type = "button";
         removeBtn.className = "tag-remove";
-        removeBtn.setAttribute("aria-label", `Remove ${name}`);
+        removeBtn.title = t("setup.multi_select_remove_item", name);
+        removeBtn.setAttribute("aria-label", t("setup.multi_select_remove_item", name));
         removeBtn.innerHTML = `
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"></line>

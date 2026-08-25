@@ -87,10 +87,13 @@ def _parse_date(value: str, env_name: str) -> date:
 
 def _parse_language(value: str) -> SupportedLanguage:
     """Parse and normalize language code string to a SupportedLanguage enum."""
-    normalized = value.strip().upper()
-    if normalized not in {lang.value for lang in SupportedLanguage}:
-        raise ConfigError("LANGUAGE must be 'EN' or 'PT'")
-    return SupportedLanguage(normalized)
+    raw = value.strip()
+    norm = raw.lower().replace('_', '-')
+    if norm.startswith('pt'):
+        return SupportedLanguage.PT
+    if norm.startswith('en'):
+        return SupportedLanguage.EN
+    raise ConfigError(f"LANGUAGE must be 'en-US' (or 'en') or 'pt-BR' (or 'pt'), got '{value}'")
 
 
 def _parse_comma_set(value: str | None) -> frozenset[str]:

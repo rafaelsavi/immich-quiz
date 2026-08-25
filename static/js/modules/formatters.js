@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { t } from "./i18n.js";
+import { t, formatNumber } from "./i18n.js";
 
 export const PLAYER_COLORS = [
   "#f25f5c",
@@ -64,7 +64,7 @@ export function formatDistance(km) {
   if (km < 10) {
     return `${km.toFixed(1)} km`;
   }
-  return `${Math.round(km).toLocaleString()} km`;
+  return `${formatNumber(Math.round(km))} km`;
 }
 
 export function formatMonthError(result) {

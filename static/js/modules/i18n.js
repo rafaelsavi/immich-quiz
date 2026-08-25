@@ -1,7 +1,7 @@
 import { state, el } from "./state.js";
 
 export const TRANSLATIONS = {
-  EN: {
+  "en-US": {
     "setup.heading": "Game Setup",
     "setup.players_label": "Players",
     "setup.players_placeholder": "Add player name...",
@@ -261,11 +261,17 @@ export const TRANSLATIONS = {
     "audio.muted": "Sound Effects: Muted",
     "audio.toggle_title": "Toggle Sound Effects",
     "lang.title": "Language: English",
-    "lang.toggle_title": "Switch Language",
-    "pwa.install_title": "Install App",
-    "game.shuffle_help_title": "Album Shuffle Help",
+    "summary.share_title": "Immich Quiz Results",
+    "summary.scores_header": "Scores:",
+    "setup.multi_select_clear": "Clear selection",
+    "setup.multi_select_selected_count": (count) => `Selected (${count}):`,
+    "setup.multi_select_remove_item": (name) => `Remove ${name}`,
+    "setup.sync_scanned_count": (count) => `${count.toLocaleString ? count.toLocaleString() : count} scanned`,
+    "leaderboard.rank_1st": "1st Place",
+    "leaderboard.rank_2nd": "2nd Place",
+    "leaderboard.rank_3rd": "3rd Place",
   },
-  PT: {
+  "pt-BR": {
     "setup.heading": "Configuração do Jogo",
     "setup.players_label": "Jogadores",
     "setup.players_placeholder": "Adicionar jogador...",
@@ -525,20 +531,73 @@ export const TRANSLATIONS = {
     "audio.muted": "Efeitos de Som: Mudos",
     "audio.toggle_title": "Alternar Efeitos de Som",
     "lang.title": "Idioma: Português",
-    "lang.toggle_title": "Mudar Idioma",
-    "pwa.install_title": "Instalar Aplicativo",
-    "game.shuffle_help_title": "Ajuda do Álbum Embaralhado",
+    "summary.share_title": "Resultados do Immich Quiz",
+    "summary.scores_header": "Pontuações:",
+    "setup.multi_select_clear": "Limpar seleção",
+    "setup.multi_select_selected_count": (count) => `Selecionados (${count}):`,
+    "setup.multi_select_remove_item": (name) => `Remover ${name}`,
+    "setup.sync_scanned_count": (count) => `${count.toLocaleString ? count.toLocaleString() : count} varridas`,
+    "leaderboard.rank_1st": "1º Lugar",
+    "leaderboard.rank_2nd": "2º Lugar",
+    "leaderboard.rank_3rd": "3º Lugar",
   },
 };
+
+/**
+ * Normalize arbitrary language code string into supported BCP-47 tag ('en-US' or 'pt-BR').
+ */
+export function normalizeLanguage(lang) {
+  if (!lang) return null;
+  const s = String(lang).trim().toLowerCase().replace("_", "-");
+  if (s.startsWith("pt")) return "pt-BR";
+  if (s.startsWith("en")) return "en-US";
+  return null;
+}
+
+/**
+ * Return current active BCP-47 locale tag ('en-US' or 'pt-BR').
+ */
+export function getLocale() {
+  return (state && normalizeLanguage(state.language)) || "en-US";
+}
+
+/**
+ * Locale-aware date formatter using active language.
+ */
+export function formatDate(dateInput, options) {
+  if (!dateInput) return "";
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(getLocale(), options);
+}
+
+/**
+ * Locale-aware date & time formatter using active language.
+ */
+export function formatDateTime(dateInput, options) {
+  if (!dateInput) return "";
+  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString(getLocale(), options);
+}
+
+/**
+ * Locale-aware number formatter using active language.
+ */
+export function formatNumber(numInput, options) {
+  const n = Number(numInput);
+  if (isNaN(n)) return "0";
+  return n.toLocaleString(getLocale(), options);
+}
 
 /**
  * Translate a key using the current language stored in state.
  * For function-valued entries, extra args are forwarded.
  */
 export function t(key, ...args) {
-  const lang = state ? state.language || "EN" : "EN";
-  const dict = TRANSLATIONS[lang] || TRANSLATIONS.EN;
-  const entry = key in dict ? dict[key] : TRANSLATIONS.EN[key];
+  const lang = getLocale();
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS["en-US"];
+  const entry = key in dict ? dict[key] : TRANSLATIONS["en-US"][key];
   if (typeof entry === "function") {
     return entry(...args);
   }
@@ -571,22 +630,30 @@ export function showAlert(msg) {
 export function getInitialLanguagePreference() {
   try {
     const stored = localStorage.getItem("immich_quiz_language");
-    if (stored === "PT" || stored === "EN") return stored;
+    const normalized = normalizeLanguage(stored);
+    if (normalized) return normalized;
   } catch (_) { }
-  return null;
+
+  if (typeof navigator !== "undefined") {
+    const browserLang = navigator.language || (navigator.languages && navigator.languages[0]);
+    const normalized = normalizeLanguage(browserLang);
+    if (normalized) return normalized;
+  }
+
+  return "en-US";
 }
 
 export const FLAGS = {
-  EN: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#012169"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6"/><path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16"/><path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10"/></svg>`,
-  PT: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#009B3A"/><polygon points="30,10 52,30 30,50 8,30" fill="#FEDF00"/><circle cx="30" cy="30" r="12" fill="#002776"/><path d="M18,31 C23,26.5 37,26.5 42,31 C37,28 23,28 18,31 Z" fill="#FFFFFF"/></svg>`,
+  "en-US": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#012169"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10"/><path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6"/><path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16"/><path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10"/></svg>`,
+  "pt-BR": `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg" aria-hidden="true"><rect width="60" height="60" fill="#009B3A"/><polygon points="30,10 52,30 30,50 8,30" fill="#FEDF00"/><circle cx="30" cy="30" r="12" fill="#002776"/><path d="M18,31 C23,26.5 37,26.5 42,31 C37,28 23,28 18,31 Z" fill="#FFFFFF"/></svg>`,
 };
 
 export function updateLanguageUi() {
-  const lang = state ? state.language || "EN" : "EN";
+  const lang = getLocale();
   const iconEl = (el && el.langIcon) || document.getElementById("lang-icon");
   const btnEl = (el && el.langToggleBtn) || document.getElementById("lang-toggle-btn");
   if (iconEl) {
-    iconEl.innerHTML = FLAGS[lang] || FLAGS.EN;
+    iconEl.innerHTML = FLAGS[lang] || FLAGS["en-US"];
   }
   if (btnEl) {
     btnEl.setAttribute("title", t("lang.title"));
@@ -596,7 +663,8 @@ export function updateLanguageUi() {
 
 export function toggleLanguage(onLanguageChanged) {
   if (!state) return;
-  state.language = state.language === "PT" ? "EN" : "PT";
+  const current = getLocale();
+  state.language = current === "pt-BR" ? "en-US" : "pt-BR";
   try {
     localStorage.setItem("immich_quiz_language", state.language);
   } catch (_) { }
@@ -613,11 +681,15 @@ export function toggleLanguage(onLanguageChanged) {
  * Dynamic function-valued keys (expecting parameters) are skipped to avoid overwriting runtime state.
  */
 export function applyLanguage() {
+  const currentLocale = getLocale();
+  if (typeof document !== "undefined" && document.documentElement) {
+    document.documentElement.lang = currentLocale;
+  }
+
   document.querySelectorAll("[data-i18n]").forEach((element) => {
     const key = element.getAttribute("data-i18n");
-    const lang = state ? state.language || "EN" : "EN";
-    const dict = TRANSLATIONS[lang] || TRANSLATIONS.EN;
-    const rawEntry = key in dict ? dict[key] : TRANSLATIONS.EN[key];
+    const dict = TRANSLATIONS[currentLocale] || TRANSLATIONS["en-US"];
+    const rawEntry = key in dict ? dict[key] : TRANSLATIONS["en-US"][key];
 
     // Skip dynamic entries whose translation value is a function needing arguments
     if (typeof rawEntry === "function") {

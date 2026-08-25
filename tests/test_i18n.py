@@ -5,12 +5,16 @@ from src.models import BaseGameConfig, PeopleMode
 
 
 def test_supported_language_from_str() -> None:
+    assert SupportedLanguage.EN == 'en-US'
+    assert SupportedLanguage.PT == 'pt-BR'
     assert SupportedLanguage.from_str('EN') == SupportedLanguage.EN
     assert SupportedLanguage.from_str('en') == SupportedLanguage.EN
     assert SupportedLanguage.from_str('en-US') == SupportedLanguage.EN
+    assert SupportedLanguage.from_str('en_us') == SupportedLanguage.EN
     assert SupportedLanguage.from_str('PT') == SupportedLanguage.PT
     assert SupportedLanguage.from_str('pt') == SupportedLanguage.PT
     assert SupportedLanguage.from_str('pt-BR') == SupportedLanguage.PT
+    assert SupportedLanguage.from_str('pt_br') == SupportedLanguage.PT
     assert SupportedLanguage.from_str(None) == SupportedLanguage.EN
     assert SupportedLanguage.from_str('unknown_lang') == SupportedLanguage.EN
 

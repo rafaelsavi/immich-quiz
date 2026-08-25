@@ -7,6 +7,7 @@ import pytest
 
 from src import config
 from src.config import AppSettings, ConfigError, load_settings
+from src.i18n import SupportedLanguage
 
 
 @pytest.fixture(autouse=True)
@@ -173,7 +174,8 @@ def test_language_setting_supports_pt(monkeypatch: pytest.MonkeyPatch) -> None:
 
     settings = load_settings()
 
-    assert settings.language == 'PT'
+    assert settings.language == SupportedLanguage.PT
+    assert settings.language == 'pt-BR'
 
 
 def test_language_setting_rejects_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -332,7 +334,8 @@ def test_app_settings_dataclass_defaults() -> None:
     assert settings.app_tagline == ''
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
-    assert settings.language == 'EN'
+    assert settings.language == SupportedLanguage.EN
+    assert settings.language == 'en-US'
     assert settings.date_lower_bound is None
     assert settings.date_upper_bound is None
     assert settings.country_whitelist == frozenset()
@@ -388,7 +391,8 @@ def test_empty_and_whitespace_env_vars_fallback_to_defaults(monkeypatch: pytest.
     assert settings.app_tagline == ''
     assert settings.app_host == '127.0.0.1'
     assert settings.app_port == 8010
-    assert settings.language == 'EN'
+    assert settings.language == SupportedLanguage.EN
+    assert settings.language == 'en-US'
     assert settings.data_path == Path('data').resolve()
     assert settings.auto_sync_on_startup is True
     assert settings.auto_delta_sync_interval_hours == 6

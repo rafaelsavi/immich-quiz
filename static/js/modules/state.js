@@ -1,9 +1,20 @@
 function getInitialLanguagePreference() {
   try {
     const stored = localStorage.getItem("immich_quiz_language");
-    if (stored === "PT" || stored === "EN") return stored;
+    if (stored) {
+      const s = String(stored).trim().toLowerCase().replace("_", "-");
+      if (s.startsWith("pt")) return "pt-BR";
+      if (s.startsWith("en")) return "en-US";
+    }
   } catch (_) {}
-  return "EN";
+  if (typeof navigator !== "undefined") {
+    const browserLang = navigator.language || (navigator.languages && navigator.languages[0]);
+    if (browserLang) {
+      const s = String(browserLang).trim().toLowerCase().replace("_", "-");
+      if (s.startsWith("pt")) return "pt-BR";
+    }
+  }
+  return "en-US";
 }
 
 export const state = {

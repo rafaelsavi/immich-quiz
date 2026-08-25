@@ -9,8 +9,8 @@ from typing import Any
 class SupportedLanguage(str, Enum):
     """Supported application languages."""
 
-    EN = 'EN'
-    PT = 'PT'
+    EN = 'en-US'
+    PT = 'pt-BR'
 
     @classmethod
     def from_str(
@@ -24,13 +24,13 @@ class SupportedLanguage(str, Enum):
             return fallback
         if isinstance(value, cls):
             return value
-        normalized = str(value).strip().upper()
-        if normalized.startswith('PT'):
+        normalized = str(value).strip().lower().replace('_', '-')
+        if normalized.startswith('pt'):
             return cls.PT
-        if normalized.startswith('EN'):
+        if normalized.startswith('en'):
             return cls.EN
         try:
-            return cls(normalized)
+            return cls(str(value).strip())
         except ValueError:
             return fallback
 

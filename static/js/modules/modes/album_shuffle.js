@@ -1,4 +1,4 @@
-import { t } from "../i18n.js";
+import { t, formatDate } from "../i18n.js";
 import { state, el } from "../state.js";
 import { createStandardMap, createBadgePinIcon, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
@@ -628,8 +628,8 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
   sortedTrueBatch.forEach((item, trueRankIdx) => {
     const imgUrl = `/api/media/${item.photo_id}`;
     const dateStr = item.actual_date
-      ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
-      : "Unknown date";
+      ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" })
+      : t("fmt.unknown_place");
 
     const card = document.createElement("div");
     card.className = "shuffle-photo-card";
@@ -1148,7 +1148,7 @@ function renderBatchRevealMap(containerEl, batchItems) {
     const pinColor = getPinColor(item.true_pin_id);
     const icon = createBadgePinIcon(item.true_pin_id, pinColor, { isTaken: true, size: 36 });
 
-    const dateStr = item.actual_date ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
+    const dateStr = item.actual_date ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" }) : "";
     const marker = L.marker([lat, lon], { icon })
       .bindPopup(`<b>${item.true_pin_id}</b><br>${dateStr}`)
       .addTo(map);

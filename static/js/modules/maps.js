@@ -1,5 +1,5 @@
 import { state, el } from "./state.js";
-import { t, showAlert } from "./i18n.js";
+import { t, showAlert, formatDate } from "./i18n.js";
 import { playerInitial, playerColor, ACTUAL_COLOR, formatPlace } from "./formatters.js";
 import { playPinDropSound } from "./audio.js";
 
@@ -591,7 +591,7 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
         ) {
           const locStr = formatPlace(item);
           const dateStr = item.actual_date
-            ? new Date(item.actual_date).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
+            ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" })
             : "";
           allPins.push({
             label: `${r.round_number}-${item.true_pin_id}`,

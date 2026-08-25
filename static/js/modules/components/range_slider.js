@@ -1,4 +1,4 @@
-import { t } from "../i18n.js";
+import { t, formatDate } from "../i18n.js";
 
 /**
  * Dual-handle Year-Month Range Slider
@@ -77,7 +77,7 @@ export class DateRangeSlider {
     if (!yyyyMm) return "";
     const [year, month] = yyyyMm.split("-").map(Number);
     const dateObj = new Date(Date.UTC(year, month - 1, 1));
-    return dateObj.toLocaleDateString(undefined, {
+    return formatDate(dateObj, {
       month: "short",
       year: "numeric",
       timeZone: "UTC",

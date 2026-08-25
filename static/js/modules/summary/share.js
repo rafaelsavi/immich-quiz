@@ -32,16 +32,16 @@ export async function shareMatchSummary(summary) {
   const libLabel =
     summary.libraries && summary.libraries.length > 0
       ? summary.libraries.join(", ")
-      : "All Libraries";
-  text += `📍 ${libLabel}${filterInfo} | ${summary.rounds_played} rounds\n\n`;
-  text += `Scores:\n`;
+      : t("leaderboard.scope_all");
+  text += `📍 ${libLabel}${filterInfo} | ${t("summary.meta_rounds", summary.rounds_played)}\n\n`;
+  text += `${t("summary.scores_header")}\n`;
   (summary.players || []).forEach((p) => {
     text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;
   });
 
   try {
     if (navigator.share && navigator.canShare && navigator.canShare({ text })) {
-      await navigator.share({ title: "Immich Quiz Results", text });
+      await navigator.share({ title: t("summary.share_title"), text });
     } else {
       await navigator.clipboard.writeText(text);
       showShareToast(t("summary.share_copied"));

@@ -7,6 +7,8 @@ import {
   getInitialLanguagePreference,
   updateLanguageUi,
   toggleLanguage,
+  getLocale,
+  normalizeLanguage,
 } from "./modules/i18n.js";
 import {
   playSubmitTone,
@@ -582,7 +584,7 @@ function renderSummaryContent(summary) {
 }
 
 async function showMatchSummary() {
-  const lang = state ? state.language || "EN" : "EN";
+  const lang = getLocale();
   const summary = await api(
     `/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`
   );
@@ -881,8 +883,9 @@ function applyUiConfig(config) {
   const savedLang = getInitialLanguagePreference();
   if (savedLang) {
     state.language = savedLang;
-  } else if (config.language && (config.language === "PT" || config.language === "EN")) {
-    state.language = config.language;
+  } else if (config.language) {
+    const normalized = normalizeLanguage(config.language);
+    if (normalized) state.language = normalized;
   }
   if (config.score_max_points) {
     state.scoreMaxPoints = Number(config.score_max_points);

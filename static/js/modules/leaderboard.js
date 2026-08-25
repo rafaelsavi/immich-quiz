@@ -1,7 +1,7 @@
 import { state, el } from "./state.js";
 import { api, setupFilterParams } from "./api.js";
 import { buildCell } from "./formatters.js";
-import { t } from "./i18n.js";
+import { t, formatDateTime } from "./i18n.js";
 import { getActiveFilterSummary } from "./setup_filters.js";
 
 export function formatAccuracy(pct) {
@@ -110,7 +110,7 @@ export function renderLeaderboard() {
       tr.classList.add("is-perfect-row");
     }
 
-    const cell1 = buildCell(new Date(row.played_at).toLocaleString(state.language));
+    const cell1 = buildCell(formatDateTime(row.played_at));
 
     // Player cell with rank medal and optional perfect badge
     const playerWrap = document.createElement("span");
@@ -123,15 +123,15 @@ export function renderLeaderboard() {
     if (effectiveRank === 1) {
       rankSpan.className = "rank-medal";
       rankSpan.textContent = "🥇";
-      rankSpan.setAttribute("title", "1st Place");
+      rankSpan.setAttribute("title", t("leaderboard.rank_1st"));
     } else if (effectiveRank === 2) {
       rankSpan.className = "rank-medal";
       rankSpan.textContent = "🥈";
-      rankSpan.setAttribute("title", "2nd Place");
+      rankSpan.setAttribute("title", t("leaderboard.rank_2nd"));
     } else if (effectiveRank === 3) {
       rankSpan.className = "rank-medal";
       rankSpan.textContent = "🥉";
-      rankSpan.setAttribute("title", "3rd Place");
+      rankSpan.setAttribute("title", t("leaderboard.rank_3rd"));
     } else {
       rankSpan.className = "rank-num";
       rankSpan.textContent = `${effectiveRank || index + 1}.`;
