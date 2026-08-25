@@ -142,8 +142,7 @@ def test_date_decay_multi_decade_ceiling() -> None:
 def test_location_decay_filters_gps_outlier() -> None:
     # 20 photos in Florence (~5 km spread) + 1 outlier photo in Frankfurt (~800 km away)
     florence_pool = [
-        _make_answer(43.7695 + (i * 0.001), 11.2558 + (i * 0.001), '2024-06-01T12:00:00Z')
-        for i in range(20)
+        _make_answer(43.7695 + (i * 0.001), 11.2558 + (i * 0.001), '2024-06-01T12:00:00Z') for i in range(20)
     ]
     outlier = _make_answer(50.1109, 8.6821, '2024-06-01T12:00:00Z')
     pool_with_outlier = [*florence_pool, outlier]
@@ -155,10 +154,7 @@ def test_location_decay_filters_gps_outlier() -> None:
 
 def test_date_decay_filters_timestamp_outlier() -> None:
     # 20 photos in June 2024 (14-day vacation) + 1 corrupted scan from 1970
-    vacation_pool = [
-        _make_answer(43.7695, 11.2558, f'2024-06-{(i % 14) + 1:02d}T12:00:00Z')
-        for i in range(20)
-    ]
+    vacation_pool = [_make_answer(43.7695, 11.2558, f'2024-06-{(i % 14) + 1:02d}T12:00:00Z') for i in range(20)]
     outlier = _make_answer(43.7695, 11.2558, '1970-01-01T12:00:00Z')
     pool_with_outlier = [*vacation_pool, outlier]
 

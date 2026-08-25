@@ -5,12 +5,16 @@ from src.models import BaseGameConfig, PeopleMode
 
 
 def test_supported_language_from_str() -> None:
+    assert SupportedLanguage.EN == 'en-US'
+    assert SupportedLanguage.PT == 'pt-BR'
     assert SupportedLanguage.from_str('EN') == SupportedLanguage.EN
     assert SupportedLanguage.from_str('en') == SupportedLanguage.EN
     assert SupportedLanguage.from_str('en-US') == SupportedLanguage.EN
+    assert SupportedLanguage.from_str('en_us') == SupportedLanguage.EN
     assert SupportedLanguage.from_str('PT') == SupportedLanguage.PT
     assert SupportedLanguage.from_str('pt') == SupportedLanguage.PT
     assert SupportedLanguage.from_str('pt-BR') == SupportedLanguage.PT
+    assert SupportedLanguage.from_str('pt_br') == SupportedLanguage.PT
     assert SupportedLanguage.from_str(None) == SupportedLanguage.EN
     assert SupportedLanguage.from_str('unknown_lang') == SupportedLanguage.EN
 
@@ -91,3 +95,69 @@ def test_format_filter_summary_and_tooltip_i18n() -> None:
     assert 'Pessoas (Juntas): Alice, Bob' in tip_pt
     assert 'Datas: 2023/01 – 2024/06' in tip_pt
     assert 'Fotos Compartilhadas: Incluídas' in tip_pt
+
+
+def test_parse_accept_language() -> None:
+    from src.i18n import parse_accept_language
+
+    assert parse_accept_language('pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7') == SupportedLanguage.PT
+    assert parse_accept_language('en-US,en;q=0.9,pt;q=0.8') == SupportedLanguage.EN
+    assert parse_accept_language('fr-FR,fr;q=0.9,pt-BR;q=0.8') == SupportedLanguage.PT
+    assert parse_accept_language('fr-FR,fr;q=0.9,en-US;q=0.8') == SupportedLanguage.EN
+    assert parse_accept_language('fr-FR,de-DE;q=0.9', default=SupportedLanguage.PT) == SupportedLanguage.PT
+    assert parse_accept_language('', default=SupportedLanguage.PT) == SupportedLanguage.PT
+    assert parse_accept_language(None, default=SupportedLanguage.EN) == SupportedLanguage.EN
+
+
+def test_backend_catalog_key_parity() -> None:
+    from src.i18n import CATALOGS
+
+    en_keys = set(CATALOGS[SupportedLanguage.EN].keys())
+    pt_keys = set(CATALOGS[SupportedLanguage.PT].keys())
+
+    missing_in_pt = en_keys - pt_keys
+    missing_in_en = pt_keys - en_keys
+
+    assert not missing_in_pt, f'Keys present in EN but missing in PT: {missing_in_pt}'
+    assert not missing_in_en, f'Keys present in PT but missing in EN: {missing_in_en}'
+
+
+def test_json_catalog_parity() -> None:
+    import json
+    from pathlib import Path
+
+    locales_dir = Path(__file__).parent.parent / 'locales'
+    en_file = locales_dir / 'en-US.json'
+    pt_file = locales_dir / 'pt-BR.json'
+
+    assert en_file.exists(), 'locales/en-US.json missing'
+    assert pt_file.exists(), 'locales/pt-BR.json missing'
+
+    with open(en_file, encoding='utf-8') as f:
+        en_data = json.load(f)
+    with open(pt_file, encoding='utf-8') as f:
+        pt_data = json.load(f)
+
+    en_keys = set(en_data.keys())
+    pt_keys = set(pt_data.keys())
+
+    missing_in_pt = en_keys - pt_keys
+    missing_in_en = pt_keys - en_keys
+
+    assert not missing_in_pt, f'Keys present in locales/en-US.json but missing in pt-BR: {missing_in_pt}'
+    assert not missing_in_en, f'Keys present in locales/pt-BR.json but missing in en-US: {missing_in_en}'
+    assert len(en_keys) >= 100, f'Expected at least 100 translation keys in json, found {len(en_keys)}'
+
+
+def test_plural_resolution() -> None:
+    # Test singular and plural in EN
+    assert t('filters.albums_count', SupportedLanguage.EN, 1) == '1 album'
+    assert t('filters.albums_count', SupportedLanguage.EN, 2) == '2 albums'
+    assert t('setup.libraries_selected', SupportedLanguage.EN, 1) == '1 library selected'
+    assert t('setup.libraries_selected', SupportedLanguage.EN, 4) == '4 libraries selected'
+
+    # Test singular and plural in PT
+    assert t('filters.albums_count', SupportedLanguage.PT, 1) == '1 álbum'
+    assert t('filters.albums_count', SupportedLanguage.PT, 2) == '2 álbuns'
+    assert t('setup.libraries_selected', SupportedLanguage.PT, 1) == '1 biblioteca selecionada'
+    assert t('setup.libraries_selected', SupportedLanguage.PT, 4) == '4 bibliotecas selecionadas'

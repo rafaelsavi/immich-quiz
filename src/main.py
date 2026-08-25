@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from src.api.routes import invalidate_filters_cache, router
 from src.config import AppSettings, ConfigError, load_settings
 from src.game.service import GameService
+from src.i18n import SupportedLanguage, parse_accept_language
 from src.immich.client import ImmichClient, ImmichClientError
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
@@ -26,9 +27,14 @@ from src.version import APP_VERSION
 logger = logging.getLogger(__name__)
 
 
-def _render_index_html(static_path: Path, settings: AppSettings) -> str:
+def _render_index_html(
+    static_path: Path,
+    settings: AppSettings,
+    lang: SupportedLanguage | None = None,
+) -> str:
     """Interpolate dynamic settings and version information into the single-page HTML template."""
-    lang_code = 'pt-BR' if settings.language == 'PT' else 'en'
+    active_lang = lang or settings.language
+    lang_code = active_lang.value if hasattr(active_lang, 'value') else str(active_lang)
     template = (static_path / 'index.html').read_text(encoding='utf-8')
     version_badge = f'<span class="app-version-badge">v{APP_VERSION}</span>' if APP_VERSION else ''
     return (
@@ -148,8 +154,14 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.mount('/static', StaticFiles(directory=static_path), name='static')
 
     @app.get('/')
-    async def index() -> HTMLResponse:
-        return HTMLResponse(_render_index_html(static_path, settings))
+    async def index(request: Request) -> HTMLResponse:
+        accept_lang = request.headers.get('accept-language')
+        resolved_lang = parse_accept_language(accept_lang, default=settings.language)
+        lang_code = resolved_lang.value if hasattr(resolved_lang, 'value') else str(resolved_lang)
+        return HTMLResponse(
+            _render_index_html(static_path, settings, lang=resolved_lang),
+            headers={'Content-Language': lang_code},
+        )
 
     @app.get('/audio-playground')
     async def audio_playground() -> FileResponse:
@@ -157,7 +169,20 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     @app.get('/favicon.ico')
     async def favicon() -> FileResponse:
-        return FileResponse(static_path / 'favicon.svg', media_type='image/svg+xml')
+        return FileResponse(static_path / 'favicons' / 'favicon.ico', media_type='image/x-icon')
+
+    @app.get('/manifest.webmanifest')
+    @app.get('/manifest.json')
+    async def webmanifest() -> FileResponse:
+        return FileResponse(static_path / 'favicons' / 'manifest.json', media_type='application/manifest+json')
+
+    @app.get('/sw.js')
+    async def service_worker() -> FileResponse:
+        return FileResponse(
+            static_path / 'sw.js',
+            media_type='application/javascript',
+            headers={'Service-Worker-Allowed': '/'},
+        )
 
     app.include_router(router)
     return app

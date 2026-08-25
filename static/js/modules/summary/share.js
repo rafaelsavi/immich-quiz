@@ -1,4 +1,4 @@
-import { t, showAlert } from "../i18n.js";
+import { t, showAlert, formatList } from "../i18n.js";
 
 export function showShareToast(message) {
   let toast = document.querySelector(".share-toast");
@@ -17,7 +17,7 @@ export async function shareMatchSummary(summary) {
 
   const winnerText =
     summary.winners && summary.winners.length > 1
-      ? t("summary.tie", summary.winners.join(" & "))
+      ? t("summary.tie", formatList(summary.winners))
       : summary.winners && summary.winners.length > 0
         ? t("summary.winner", summary.winners[0])
         : "";
@@ -27,21 +27,21 @@ export async function shareMatchSummary(summary) {
     summary.filter_summary && summary.filter_summary !== "Full Library"
       ? ` • ${summary.filter_summary}`
       : summary.album_names && summary.album_names.length > 0
-        ? ` • ${summary.album_names.join(", ")}`
+        ? ` • ${formatList(summary.album_names)}`
         : "";
   const libLabel =
     summary.libraries && summary.libraries.length > 0
-      ? summary.libraries.join(", ")
-      : "All Libraries";
-  text += `📍 ${libLabel}${filterInfo} | ${summary.rounds_played} rounds\n\n`;
-  text += `Scores:\n`;
+      ? formatList(summary.libraries)
+      : t("leaderboard.scope_all");
+  text += `📍 ${libLabel}${filterInfo} | ${t("summary.meta_rounds", summary.rounds_played)}\n\n`;
+  text += `${t("summary.scores_header")}\n`;
   (summary.players || []).forEach((p) => {
     text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;
   });
 
   try {
     if (navigator.share && navigator.canShare && navigator.canShare({ text })) {
-      await navigator.share({ title: "Immich Quiz Results", text });
+      await navigator.share({ title: t("summary.share_title"), text });
     } else {
       await navigator.clipboard.writeText(text);
       showShareToast(t("summary.share_copied"));

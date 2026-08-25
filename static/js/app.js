@@ -7,6 +7,8 @@ import {
   getInitialLanguagePreference,
   updateLanguageUi,
   toggleLanguage,
+  getLocale,
+  normalizeLanguage,
 } from "./modules/i18n.js";
 import {
   playSubmitTone,
@@ -279,6 +281,8 @@ async function startMatch(event) {
   state.perfectCounts = {};
   state.playerStats = {};
   state.roundHistory = [];
+
+  pushGameHistoryState();
 
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
@@ -582,7 +586,7 @@ function renderSummaryContent(summary) {
 }
 
 async function showMatchSummary() {
-  const lang = state ? state.language || "EN" : "EN";
+  const lang = getLocale();
   const summary = await api(
     `/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`
   );
@@ -604,6 +608,38 @@ function returnToSetup() {
   showCard(el.setupCard);
   el.leaderboardCard.classList.remove("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function isGameActive() {
+  return Boolean(state.matchId && !state.lastSummary);
+}
+
+function pushGameHistoryState() {
+  try {
+    history.pushState({ matchActive: true, matchId: state.matchId }, "");
+  } catch (_) {}
+}
+
+function handleBeforeUnload(event) {
+  if (isGameActive()) {
+    event.preventDefault();
+    event.returnValue = "";
+    return "";
+  }
+}
+
+function handlePopState() {
+  if (isGameActive()) {
+    const label = t("game.abandon_exit");
+    if (confirm(t("game.abandon_confirm", label))) {
+      clearTimer();
+      returnToSetup();
+    } else {
+      pushGameHistoryState();
+    }
+  } else if (state.lastSummary && el.summaryCard && !el.summaryCard.classList.contains("hidden")) {
+    returnToSetup();
+  }
 }
 
 function handleAbandonGame(action) {
@@ -638,6 +674,7 @@ async function restartSameGame() {
   state.matchId = response.match_id;
   state.players = response.players;
   state.mapBounds = response.map_bounds || null;
+  pushGameHistoryState();
   el.leaderboardCard.classList.add("hidden");
   showCard(el.gameCard);
 
@@ -715,6 +752,9 @@ document.addEventListener("fullscreenchange", () => {
 window.addEventListener("resize", () => {
   refitAllMaps();
 });
+
+window.addEventListener("beforeunload", handleBeforeUnload);
+window.addEventListener("popstate", handlePopState);
 
 [el.roundCount, el.roundLength].forEach((control) => {
   if (control) {
@@ -881,8 +921,9 @@ function applyUiConfig(config) {
   const savedLang = getInitialLanguagePreference();
   if (savedLang) {
     state.language = savedLang;
-  } else if (config.language && (config.language === "PT" || config.language === "EN")) {
-    state.language = config.language;
+  } else if (config.language) {
+    const normalized = normalizeLanguage(config.language);
+    if (normalized) state.language = normalized;
   }
   if (config.score_max_points) {
     state.scoreMaxPoints = Number(config.score_max_points);
@@ -917,4 +958,43 @@ function applyUiConfig(config) {
     const details = startupErrors.map((err) => translateError(err)).join("\n");
     showAlert(t("setup.startup_error", details));
   }
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("[PWA] ServiceWorker registration failed:", err);
+      });
+    });
+  }
+
+  // Handle PWA 1-click install prompt
+  let deferredInstallPrompt = null;
+  const pwaInstallBtn = document.getElementById("pwa-install-btn");
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (pwaInstallBtn) {
+      pwaInstallBtn.classList.remove("hidden");
+    }
+  });
+
+  if (pwaInstallBtn) {
+    pwaInstallBtn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if (outcome === "accepted") {
+        pwaInstallBtn.classList.add("hidden");
+      }
+    });
+  }
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    if (pwaInstallBtn) {
+      pwaInstallBtn.classList.add("hidden");
+    }
+  });
 })();

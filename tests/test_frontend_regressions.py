@@ -347,7 +347,9 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
     leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
     leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
-    i18n_js = (JS_DIR / 'modules' / 'i18n.js').read_text(encoding='utf-8')
+    i18n_locales = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8') + (
+        JS_DIR / 'modules' / 'locales' / 'pt_BR.js'
+    ).read_text(encoding='utf-8')
 
     api_js = (JS_DIR / 'modules' / 'api.js').read_text(encoding='utf-8')
     setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
@@ -358,8 +360,8 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     assert 'leaderboard-empty-row' in leaderboard_css, 'leaderboard.css must style empty state'
     assert 'rank-medal' in leaderboard_js, 'leaderboard.js must apply rank medals'
     assert 'leaderboard-scope-pill' in leaderboard_css, 'leaderboard.css must style scope pill'
-    assert '"leaderboard.empty"' in i18n_js, 'i18n.js must define leaderboard.empty key'
-    assert '"leaderboard.perfect_badge"' in i18n_js, 'i18n.js must define leaderboard.perfect_badge key'
+    assert '"leaderboard.empty"' in i18n_locales, 'locales must define leaderboard.empty key'
+    assert '"leaderboard.perfect_badge"' in i18n_locales, 'locales must define leaderboard.perfect_badge key'
     assert 'min_date' in api_js, 'api.js must support min_date query parameter'
     assert 'max_date' in api_js, 'api.js must support max_date query parameter'
     assert 'countries' in api_js, 'api.js must support countries query parameter'
@@ -407,3 +409,40 @@ def test_batch_reveal_item_supports_optional_pin_id() -> None:
     )
     assert item_without_pin.photo_id == 'photo-123'
     assert item_without_pin.true_pin_id is None
+
+
+def test_html_favicon_and_pwa_assets_exist() -> None:
+    """Verify all local favicon, icon, and manifest asset links in HTML markup resolve to disk."""
+    import json
+
+    html_files = [INDEX_HTML, AUDIO_PLAYGROUND_HTML]
+    for html_file in html_files:
+        assert html_file.exists(), f'{html_file} must exist'
+        content = html_file.read_text(encoding='utf-8')
+        # Extract href attributes targeting /static/
+        static_hrefs = re.findall(r'href=["\'](/static/[^"\'?]+)', content)
+        for href in static_hrefs:
+            rel_path = href.removeprefix('/static/')
+            target_file = STATIC_DIR / rel_path
+            assert target_file.exists(), f'File referenced in {html_file.name} not found: {target_file}'
+
+    manifest_file = STATIC_DIR / 'favicons' / 'manifest.json'
+    assert manifest_file.exists(), 'manifest.json must exist in static/favicons/'
+    manifest_data = json.loads(manifest_file.read_text(encoding='utf-8'))
+    for icon in manifest_data.get('icons', []):
+        src = icon['src']
+        if src.startswith('/static/'):
+            rel_path = src.removeprefix('/static/')
+            target_file = STATIC_DIR / rel_path
+            assert target_file.exists(), f'Icon referenced in manifest.json not found: {target_file}'
+
+
+def test_game_navigation_guards_and_history_handling() -> None:
+    """Verify that browser back button (popstate) and tab-close (beforeunload) confirmation guards are registered."""
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    assert 'window.addEventListener("beforeunload", handleBeforeUnload)' in app_js
+    assert 'window.addEventListener("popstate", handlePopState)' in app_js
+    assert 'function isGameActive()' in app_js
+    assert 'function pushGameHistoryState()' in app_js
+    assert 'pushGameHistoryState()' in app_js

@@ -72,8 +72,17 @@ export function playTone(freq, type, duration, gainValue = 0.22) {
   }
 }
 
+export function haptic(pattern = 15) {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator && state && state.audioEnabled) {
+    try {
+      navigator.vibrate(pattern);
+    } catch (_) { }
+  }
+}
+
 export function playSubmitTone() {
   if (!state || !state.audioEnabled) return;
+  haptic(15);
   playTone(480, "sine", 0.08, 0.12);
 }
 
@@ -87,11 +96,13 @@ export function playTick(clampedSec = 5) {
   // Moderate volume rise: 0.15 at 5s up to 0.25 at 1s
   const gain = 0.15 + step * 0.025;
 
+  haptic(18);
   playTone(freq, "sine", 0.09, gain);
 }
 
 export function playBuzzer() {
   if (!state || !state.audioEnabled) return;
+  haptic([120, 60, 200]);
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -126,6 +137,7 @@ export function playBuzzer() {
 
 export function playChime() {
   if (!state || !state.audioEnabled) return;
+  haptic([25, 40, 25, 40, 50]);
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -149,6 +161,7 @@ export function playChime() {
 
 export function playPinDropSound() {
   if (!state || !state.audioEnabled) return;
+  haptic(12);
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
@@ -204,6 +217,7 @@ export function playScoreRollupTick(progress = 0) {
 
 export function playVictoryFanfare() {
   if (!state || !state.audioEnabled) return;
+  haptic([35, 70, 35, 70, 100]);
   try {
     const ctx = getAudioContext();
     if (!ctx) return;

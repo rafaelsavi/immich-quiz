@@ -56,6 +56,14 @@ button {
   font-family: inherit;
 }
 
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+}
+
 select {
   appearance: none;
   -webkit-appearance: none;

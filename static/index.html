@@ -3,8 +3,14 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>{{APP_TITLE}}</title>
+  <meta name="description" content="Multiplayer photo quiz game powered by your Immich photos." />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Immich Quiz" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
@@ -12,7 +18,14 @@
     rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
+  <!-- Favicon and App Icons -->
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/favicons/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/static/favicons/favicon-16x16.png" />
+  <link rel="shortcut icon" href="/static/favicons/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/favicons/apple-touch-icon.png" />
+  <!-- Web App Manifest -->
+  <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/static/css/style.css?v=7" />
 </head>
 
@@ -27,6 +40,11 @@
         <p>{{APP_TAGLINE}}</p>
       </div>
       <div class="header-controls">
+        <button type="button" id="pwa-install-btn" class="header-icon-btn pwa-install-btn hidden"
+          data-i18n-title="pwa.install_title" data-i18n-aria-label="pwa.install_title"
+          title="Install App" aria-label="Install App">
+          <span id="pwa-install-icon">📲</span>
+        </button>
         <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
           aria-label="Switch Language">
           <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"

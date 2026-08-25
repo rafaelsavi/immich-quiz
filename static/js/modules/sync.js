@@ -1,5 +1,5 @@
 import { state, el } from "./state.js";
-import { t } from "./i18n.js";
+import { t, formatDateTime, formatNumber, formatRelativeTime } from "./i18n.js";
 import { api } from "./api.js";
 
 let _syncPollInterval = null;
@@ -11,17 +11,12 @@ export function getLastSyncStatus() {
 
 export function formatSyncDate(isoStr) {
   if (!isoStr) return "";
-  try {
-    const d = new Date(isoStr);
-    if (isNaN(d.getTime())) return "";
-    const locale = state && state.language === "PT" ? "pt-BR" : "en-US";
-    return d.toLocaleString(locale, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch (_) {
-    return "";
-  }
+  const relative = formatRelativeTime(isoStr);
+  const exact = formatDateTime(isoStr, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+  return relative ? `${relative} (${exact})` : exact;
 }
 
 export function renderSyncStatus(status) {
@@ -76,9 +71,9 @@ export function renderSyncStatus(status) {
         } else if (stage === "scanning_assets" || stage === "indexing_assets" || synced > 0) {
           if (total > 0 && total >= synced && synced > 0) {
             const pct = Math.min(100, Math.round((synced / total) * 100));
-            el.syncBtnLabel.textContent = `${synced.toLocaleString()} / ${total.toLocaleString()} (${pct}%)`;
+            el.syncBtnLabel.textContent = `${formatNumber(synced)} / ${formatNumber(total)} (${pct}%)`;
           } else if (synced > 0) {
-            el.syncBtnLabel.textContent = `${synced.toLocaleString()} scanned`;
+            el.syncBtnLabel.textContent = t("setup.sync_scanned_count", synced);
           } else {
             el.syncBtnLabel.textContent = t("setup.sync_stage_scanning_assets");
           }

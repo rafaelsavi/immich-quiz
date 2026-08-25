@@ -1,5 +1,5 @@
 import { state, el } from "./state.js";
-import { t } from "./i18n.js";
+import { t, formatNumber } from "./i18n.js";
 import { api } from "./api.js";
 import { MultiSelect } from "./components/multi_select.js";
 import { DateRangeSlider } from "./components/range_slider.js";
@@ -496,7 +496,6 @@ export function updatePreflightCount(preflight) {
     return;
   }
 
-  const display = Number(count).toLocaleString();
   let key = "setup.preflight_count_all";
   if (locMode && dtMode) {
     key = "setup.preflight_count_both";
@@ -506,13 +505,13 @@ export function updatePreflightCount(preflight) {
     key = "setup.preflight_count_date";
   }
 
-  countEl.textContent = t(key, display);
+  countEl.textContent = t(key, count);
 
   if (totalCount !== undefined && totalCount !== null) {
-    const dispTotal = Number(totalCount).toLocaleString();
-    const dispGps = Number(gpsCount ?? 0).toLocaleString();
-    const dispDate = Number(dateCount ?? 0).toLocaleString();
-    const dispBoth = Number(count).toLocaleString();
+    const dispTotal = formatNumber(totalCount);
+    const dispGps = formatNumber(gpsCount ?? 0);
+    const dispDate = formatNumber(dateCount ?? 0);
+    const dispBoth = formatNumber(count);
     countEl.title = t("setup.preflight_count_breakdown_tooltip", dispTotal, dispGps, dispDate, dispBoth);
   } else {
     countEl.removeAttribute("title");

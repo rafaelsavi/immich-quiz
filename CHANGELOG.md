@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-08-25
+
+### Added
+
+- **Progressive Web App (PWA) Support**: Installable standalone application with web app manifests, service worker offline shell caching, in-app install button, and high-DPI vector/raster icon suite (`favicon.svg`, Apple Touch Icon, Android Chrome launchers).
+- **Mobile Ergonomics & Tactile Haptics**: Added iOS notch/safe-area insets (`env(safe-area-inset-*)`) and Web Vibration API haptics for countdowns, buzzer, map pin drops, submit confirmations, and victory fanfares.
+- **Wall-Clock Timer Synchronization**: Real-time round timer calculation against target epoch timestamps (`Date.now()`) with Page Visibility API sync to prevent timer freezing when minimizing the browser or locking the screen.
+- **In-Game Navigation & Tab-Close Protection**: Added browser Back button (`popstate`) and tab close/refresh (`beforeunload`) confirmation guards during active gameplay to prevent accidental match abandonment while maintaining seamless setup and summary transitions.
+- **Enterprise Internationalization (i18n)**: Migrated to BCP-47 language tags (`en-US`, `pt-BR`), externalized JSON catalogs (`locales/`), RFC 9110 `Accept-Language` negotiation, Unicode CLDR plural rules (`Intl.PluralRules`), relative timestamps (`Intl.RelativeTimeFormat`), conjunction lists (`Intl.ListFormat`), and locale-aware sorting (`Intl.Collator`).
+
 ## [2.1.0] - 2026-08-24
 
 ### Added
@@ -16,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart Map Initial Zoom**: Increased `SMART_MAP_MAX_INITIAL_ZOOM` to `13` (neighborhood / street zoom level) in Pinpoint mode for tighter initial framing on city and neighborhood-scale albums.
 
 ### Removed
+
 
 - **Static Decay Environment Variables**: Removed `LOCATION_SCORE_DECAY_KM` and `DATE_SCORE_DECAY_DAYS` configuration parameters from `AppSettings`, `.env.example`, and server validation in favor of automated per-match calculations.
 

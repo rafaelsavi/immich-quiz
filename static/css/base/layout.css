@@ -2,12 +2,19 @@
   max-width: 1440px;
   width: 100%;
   margin: 0 auto;
-  padding: 1.2rem;
+  padding-top: max(1.2rem, env(safe-area-inset-top, 0px));
+  padding-bottom: max(1.2rem, env(safe-area-inset-bottom, 0px));
+  padding-left: max(1.2rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1.2rem, env(safe-area-inset-right, 0px));
   display: grid;
   gap: 1rem;
   animation: slideIn 0.5s ease;
   overflow-x: hidden;
   box-sizing: border-box;
+}
+
+.hidden {
+  display: none !important;
 }
 
 @media (min-width: 1440px) {
@@ -123,7 +130,10 @@
 
 @media (max-width: 760px) {
   .app-shell {
-    padding: 0.65rem;
+    padding-top: max(0.65rem, env(safe-area-inset-top, 0px));
+    padding-bottom: max(0.65rem, env(safe-area-inset-bottom, 0px));
+    padding-left: max(0.65rem, env(safe-area-inset-left, 0px));
+    padding-right: max(0.65rem, env(safe-area-inset-right, 0px));
     gap: 0.75rem;
   }
 

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
 from src.config import AppSettings
 from src.game.service import GameService
+from src.i18n import SupportedLanguage, parse_accept_language
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     AnswerRequest,
@@ -238,7 +239,16 @@ async def round_result(
 @router.get('/match/{match_id}/summary', response_model=MatchSummaryResponse)
 async def match_summary(
     match_id: str,
+    request: Request,
+    response: Response,
     lang: str | None = None,
     game_service: GameService = Depends(get_game_service),
 ) -> MatchSummaryResponse:
-    return await game_service.get_match_summary(match_id, language=lang)
+    if not lang:
+        accept_lang = request.headers.get('accept-language')
+        if accept_lang:
+            lang = parse_accept_language(accept_lang, default=request.app.state.settings.language).value
+    res_lang = SupportedLanguage.from_str(lang, default=request.app.state.settings.language)
+    lang_code = res_lang.value if hasattr(res_lang, 'value') else str(res_lang)
+    response.headers['Content-Language'] = lang_code
+    return await game_service.get_match_summary(match_id, language=lang_code)

@@ -100,12 +100,11 @@ class SyncEngine:
                 syncing_found = True
                 break
 
+        most_recent = max(states, key=lambda s: s.get('last_sync_at') or '', default=None) if states else None
         if not syncing_found:
             active_stage = SyncStage.idle.value
-            if states:
-                most_recent = max(states, key=lambda s: s.get('last_sync_at') or '', default=None)
-                if most_recent and most_recent.get('sync_mode'):
-                    active_mode = most_recent['sync_mode']
+            if most_recent and most_recent.get('sync_mode'):
+                active_mode = most_recent['sync_mode']
 
         sync_dates = [str(s['last_sync_at']) for s in states if s.get('last_sync_at')]
         last_sync_at = max(sync_dates) if sync_dates else None
@@ -118,6 +117,8 @@ class SyncEngine:
 
         errors = [str(s['sync_error']) for s in states if s.get('sync_error')]
         sync_error = '; '.join(errors) if errors else None
+
+        last_sync_duration = most_recent.get('last_sync_duration_seconds') if most_recent else None
 
         target_warning_libs = libs or list(self._sync_warnings.keys())
         warnings_dict = {lib: self._sync_warnings[lib] for lib in target_warning_libs if lib in self._sync_warnings}
@@ -134,6 +135,7 @@ class SyncEngine:
             'sync_error': sync_error,
             'total_assets': total_assets,
             'synced_assets': synced_assets,
+            'last_sync_duration_seconds': last_sync_duration,
             'warnings': warnings_dict,
         }
 
