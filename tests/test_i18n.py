@@ -95,3 +95,57 @@ def test_format_filter_summary_and_tooltip_i18n() -> None:
     assert 'Pessoas (Juntas): Alice, Bob' in tip_pt
     assert 'Datas: 2023/01 – 2024/06' in tip_pt
     assert 'Fotos Compartilhadas: Incluídas' in tip_pt
+
+
+def test_parse_accept_language() -> None:
+    from src.i18n import parse_accept_language
+
+    assert parse_accept_language('pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7') == SupportedLanguage.PT
+    assert parse_accept_language('en-US,en;q=0.9,pt;q=0.8') == SupportedLanguage.EN
+    assert parse_accept_language('fr-FR,fr;q=0.9,pt-BR;q=0.8') == SupportedLanguage.PT
+    assert parse_accept_language('fr-FR,fr;q=0.9,en-US;q=0.8') == SupportedLanguage.EN
+    assert parse_accept_language('fr-FR,de-DE;q=0.9', default=SupportedLanguage.PT) == SupportedLanguage.PT
+    assert parse_accept_language('', default=SupportedLanguage.PT) == SupportedLanguage.PT
+    assert parse_accept_language(None, default=SupportedLanguage.EN) == SupportedLanguage.EN
+
+
+def test_backend_catalog_key_parity() -> None:
+    from src.i18n import CATALOGS
+
+    en_keys = set(CATALOGS[SupportedLanguage.EN].keys())
+    pt_keys = set(CATALOGS[SupportedLanguage.PT].keys())
+
+    missing_in_pt = en_keys - pt_keys
+    missing_in_en = pt_keys - en_keys
+
+    assert not missing_in_pt, f'Keys present in EN but missing in PT: {missing_in_pt}'
+    assert not missing_in_en, f'Keys present in PT but missing in EN: {missing_in_en}'
+
+
+def test_frontend_catalog_key_parity() -> None:
+    import re
+    from pathlib import Path
+
+    i18n_js_path = Path(__file__).parent.parent / 'static' / 'js' / 'modules' / 'i18n.js'
+    assert i18n_js_path.exists()
+    content = i18n_js_path.read_text(encoding='utf-8')
+
+    en_match = re.search(r'"en-US":\s*\{(.*?)\n\s*\},', content, re.DOTALL)
+    pt_match = re.search(r'"pt-BR":\s*\{(.*?)\n\s*\},', content, re.DOTALL)
+
+    assert en_match is not None, 'Could not locate "en-US" dictionary in i18n.js'
+    assert pt_match is not None, 'Could not locate "pt-BR" dictionary in i18n.js'
+
+    en_block = en_match.group(1)
+    pt_block = pt_match.group(1)
+
+    key_regex = re.compile(r'^\s*"([^"]+)":', re.MULTILINE)
+    en_keys = set(key_regex.findall(en_block))
+    pt_keys = set(key_regex.findall(pt_block))
+
+    missing_in_pt = en_keys - pt_keys
+    missing_in_en = pt_keys - en_keys
+
+    assert not missing_in_pt, f'Frontend keys present in en-US but missing in pt-BR: {missing_in_pt}'
+    assert not missing_in_en, f'Frontend keys present in pt-BR but missing in en-US: {missing_in_en}'
+    assert len(en_keys) > 50, f'Expected at least 50 translation keys, found {len(en_keys)}'

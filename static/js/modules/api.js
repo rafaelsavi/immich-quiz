@@ -1,5 +1,6 @@
 import { state, el } from "./state.js";
 import { getSelectedPeopleMode } from "./setup_filters.js";
+import { getCollator } from "./i18n.js";
 
 export async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -80,21 +81,23 @@ export function setupFilterParams() {
     if (maxDate) params.set("max_date", maxDate);
   }
 
+  const collator = getCollator();
+
   const countrySelect = state.filters && state.filters.countryMultiSelect;
   if (countrySelect) {
-    const countries = countrySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
+    const countries = countrySelect.getSelectedIds().sort((a, b) => collator.compare(a, b));
     countries.forEach((c) => params.append("countries", c));
   }
 
   const citySelect = state.filters && state.filters.cityMultiSelect;
   if (citySelect) {
-    const cities = citySelect.getSelectedIds().sort((a, b) => a.localeCompare(b));
+    const cities = citySelect.getSelectedIds().sort((a, b) => collator.compare(a, b));
     cities.forEach((c) => params.append("cities", c));
   }
 
   const peopleSelect = state.filters && state.filters.peopleMultiSelect;
   if (peopleSelect) {
-    const peopleList = peopleSelect.getSelectedIds().sort();
+    const peopleList = peopleSelect.getSelectedIds().sort((a, b) => collator.compare(a, b));
     peopleList.forEach((pid) => params.append("people", pid));
     if (peopleList.length > 0) {
       const peopleMode = typeof getSelectedPeopleMode === "function" ? getSelectedPeopleMode() : "ANY";

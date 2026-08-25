@@ -676,6 +676,45 @@ export function toggleLanguage(onLanguageChanged) {
 }
 
 /**
+ * Locale-aware list formatter using active language and conjunction.
+ * e.g. ['France', 'Germany', 'Spain'] -> "France, Germany, and Spain" (en-US) or "França, Alemanha e Espanha" (pt-BR)
+ */
+export function formatList(items, options = {}) {
+  if (!items || !items.length) return "";
+  if (typeof Intl !== "undefined" && Intl.ListFormat) {
+    try {
+      const formatter = new Intl.ListFormat(getLocale(), {
+        style: "long",
+        type: "conjunction",
+        ...options,
+      });
+      return formatter.format(items);
+    } catch (_) { }
+  }
+  const sep = getLocale() === "pt-BR" ? " e " : " & ";
+  if (items.length <= 2) return items.join(sep);
+  return `${items.slice(0, -1).join(", ")}${sep}${items[items.length - 1]}`;
+}
+
+/**
+ * Locale-aware collator for alphabetical sorting respecting accents.
+ */
+export function getCollator(options = {}) {
+  if (typeof Intl !== "undefined" && Intl.Collator) {
+    try {
+      return new Intl.Collator(getLocale(), {
+        sensitivity: "base",
+        numeric: true,
+        ...options,
+      });
+    } catch (_) { }
+  }
+  return {
+    compare: (a, b) => String(a).localeCompare(String(b)),
+  };
+}
+
+/**
  * Apply translations to all [data-i18n], [data-i18n-title], and [data-i18n-placeholder] elements in the DOM.
  * Elements with a sort arrow child keep the arrow intact.
  * Dynamic function-valued keys (expecting parameters) are skipped to avoid overwriting runtime state.
@@ -684,6 +723,7 @@ export function applyLanguage() {
   const currentLocale = getLocale();
   if (typeof document !== "undefined" && document.documentElement) {
     document.documentElement.lang = currentLocale;
+    document.documentElement.dir = "ltr";
   }
 
   document.querySelectorAll("[data-i18n]").forEach((element) => {

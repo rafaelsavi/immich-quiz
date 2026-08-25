@@ -1398,3 +1398,23 @@ def test_service_worker_endpoint(client: TestClient) -> None:
     assert 'javascript' in response.headers['content-type']
     assert response.headers.get('service-worker-allowed') == '/'
 
+
+def test_index_accept_language_negotiation(client: TestClient) -> None:
+    resp_pt = client.get('/', headers={'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8'})
+    assert resp_pt.status_code == 200
+    assert resp_pt.headers['content-language'] == 'pt-BR'
+    assert 'lang="pt-BR"' in resp_pt.text
+
+    resp_en = client.get('/', headers={'Accept-Language': 'en-US,en;q=0.9'})
+    assert resp_en.status_code == 200
+    assert resp_en.headers['content-language'] == 'en-US'
+    assert 'lang="en-US"' in resp_en.text
+
+
+def test_summary_accept_language_negotiation(client: TestClient) -> None:
+    match_id = start_match(client, players=['Alice'])
+    resp = client.get(f'/api/match/{match_id}/summary', headers={'Accept-Language': 'pt-BR,pt;q=0.9'})
+    assert resp.status_code == 200
+    assert resp.headers['content-language'] == 'pt-BR'
+
+

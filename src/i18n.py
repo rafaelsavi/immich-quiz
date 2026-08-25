@@ -114,3 +114,48 @@ def translate(key: str, lang: str | SupportedLanguage | None = None, *args: Any,
 
 
 t = translate
+
+
+def parse_accept_language(
+    header: str | None,
+    default: str | SupportedLanguage | None = None,
+) -> SupportedLanguage:
+    """Parse an HTTP Accept-Language header and resolve to best matching SupportedLanguage.
+
+    Supports quality weights, e.g. 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'.
+    """
+    fallback = SupportedLanguage.from_str(default) if default is not None else SupportedLanguage.EN
+    if not header or not header.strip():
+        return fallback
+
+    items: list[tuple[float, str]] = []
+    for part in header.split(','):
+        part = part.strip()
+        if not part:
+            continue
+        params = part.split(';')
+        tag = params[0].strip().lower().replace('_', '-')
+        if not tag:
+            continue
+        q = 1.0
+        for param in params[1:]:
+            param_clean = param.strip()
+            if param_clean.startswith('q='):
+                try:
+                    q = float(param_clean[2:].strip())
+                except ValueError:
+                    q = 0.0
+        items.append((q, tag))
+
+    # Sort descending by quality weight
+    items.sort(key=lambda x: x[0], reverse=True)
+
+    for _, tag in items:
+        if tag == '*':
+            continue
+        if tag.startswith('pt'):
+            return SupportedLanguage.PT
+        if tag.startswith('en'):
+            return SupportedLanguage.EN
+
+    return fallback
