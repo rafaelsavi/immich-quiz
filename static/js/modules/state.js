@@ -59,6 +59,7 @@ export const state = {
   leaderboardSort: { key: "accuracy_pct", asc: false },
   timerTotalSeconds: 0,
   timerRemainingSeconds: 0,
+  timerEndTimeMs: null,
   /** @type {Record<string, number>} Total perfect rounds per player in current match */
   perfectCounts: {},
   /** @type {Record<string, {totalDistanceKm: number, distanceCount: number, totalDateDiffDays: number, dateCount: number, perfectLocationCount: number, perfectDateCount: number, perfectRounds: number, timedOutCount: number, fastRoundCount: number, totalDurationSec: number}>} */

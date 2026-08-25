@@ -3,11 +3,15 @@ import { t } from "./i18n.js";
 import { playTick, playBuzzer } from "./audio.js";
 import { updateSubmitState } from "./maps.js";
 
+let _getActiveModeFn = null;
+let _visibilityBound = false;
+
 export function clearTimer() {
   if (state.timerRef) {
     clearInterval(state.timerRef);
     state.timerRef = null;
   }
+  state.timerEndTimeMs = null;
 }
 
 export function resetTimerBar() {
@@ -67,6 +71,7 @@ export function handleTimeout(activeMode = null) {
     return;
   }
   state.timedOut = true;
+  clearTimer();
   if (el.timerLabel) el.timerLabel.textContent = t("game.timer_time_up_label");
   if (el.timerRemaining) el.timerRemaining.textContent = "0s";
   if (activeMode && activeMode.setDisabled) {
@@ -84,9 +89,76 @@ export function handleTimeout(activeMode = null) {
   updateSubmitState();
 }
 
+function updateTimerUi(clamped, total, shouldPlayTick = true) {
+  const ratio = total > 0 ? clamped / total : 0;
+  const isCritical = ratio <= 0.2 || clamped <= 5;
+  const isWarning = ratio <= 0.5 && ratio > 0.2 && clamped > 5;
+
+  if (el.timerRemaining) el.timerRemaining.textContent = `${clamped}s`;
+  if (el.timerFill) {
+    el.timerFill.style.width = `${ratio * 100}%`;
+    el.timerFill.classList.toggle("is-warning", isWarning);
+    el.timerFill.classList.toggle("is-critical", isCritical);
+  }
+
+  const timerRow = el.timerTrack ? el.timerTrack.closest(".timer-row") : null;
+  if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
+  if (el.timerRemaining) el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
+
+  syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
+
+  if (shouldPlayTick && clamped <= 5 && clamped > 0) {
+    playTick(clamped);
+  }
+
+  if (clamped <= 0) {
+    clearTimer();
+    playBuzzer();
+    const activeMode = _getActiveModeFn ? _getActiveModeFn() : null;
+    handleTimeout(activeMode);
+  }
+}
+
+function tick() {
+  if (!state.timerEndTimeMs || state.timedOut || state.submitting || !state.currentQuestion) {
+    return;
+  }
+  const now = Date.now();
+  const remainingMs = state.timerEndTimeMs - now;
+  const clamped = Math.max(0, Math.ceil(remainingMs / 1000));
+  state.timerRemainingSeconds = clamped;
+  updateTimerUi(clamped, state.timerTotalSeconds, true);
+}
+
+function syncOnVisibilityChange() {
+  if (
+    document.visibilityState === "visible" &&
+    state.timerRef &&
+    state.timerEndTimeMs &&
+    !state.timedOut &&
+    !state.submitting &&
+    state.currentQuestion
+  ) {
+    const now = Date.now();
+    const remainingMs = state.timerEndTimeMs - now;
+    const clamped = Math.max(0, Math.ceil(remainingMs / 1000));
+    state.timerRemainingSeconds = clamped;
+    updateTimerUi(clamped, state.timerTotalSeconds, false);
+  }
+}
+
+function bindVisibilityListener() {
+  if (_visibilityBound) return;
+  _visibilityBound = true;
+  document.addEventListener("visibilitychange", syncOnVisibilityChange);
+  window.addEventListener("focus", syncOnVisibilityChange);
+}
+
 export function startTimer(roundLength, getActiveModeFn = null) {
   resetTimerBar();
   state.timedOut = false;
+  _getActiveModeFn = getActiveModeFn;
+  bindVisibilityListener();
 
   if (roundLength === "unlimited") {
     if (el.timerLabel) el.timerLabel.textContent = t("game.timer_unlimited");
@@ -99,44 +171,13 @@ export function startTimer(roundLength, getActiveModeFn = null) {
   else if (roundLength === "2m") total = 120;
   else if (roundLength === "5m") total = 300;
 
-  let remaining = total;
   state.timerTotalSeconds = total;
-  state.timerRemainingSeconds = remaining;
+  state.timerRemainingSeconds = total;
+  state.timerEndTimeMs = Date.now() + total * 1000;
 
   if (el.timerTrack) el.timerTrack.classList.remove("is-idle");
   if (el.timerLabel) el.timerLabel.textContent = t("game.timer_time_left");
-  if (el.timerRemaining) el.timerRemaining.textContent = `${remaining}s`;
+  if (el.timerRemaining) el.timerRemaining.textContent = `${total}s`;
 
-  state.timerRef = setInterval(() => {
-    remaining -= 1;
-    const clamped = Math.max(remaining, 0);
-    state.timerRemainingSeconds = clamped;
-    const ratio = clamped / total;
-    const isCritical = ratio <= 0.2 || clamped <= 5;
-    const isWarning = ratio <= 0.5 && ratio > 0.2 && clamped > 5;
-
-    if (el.timerRemaining) el.timerRemaining.textContent = `${clamped}s`;
-    if (el.timerFill) {
-      el.timerFill.style.width = `${ratio * 100}%`;
-      el.timerFill.classList.toggle("is-warning", isWarning);
-      el.timerFill.classList.toggle("is-critical", isCritical);
-    }
-
-    const timerRow = el.timerTrack ? el.timerTrack.closest(".timer-row") : null;
-    if (timerRow) timerRow.classList.toggle("is-pulsing", clamped <= 5 && clamped > 0);
-    if (el.timerRemaining) el.timerRemaining.classList.toggle("is-critical-text", clamped <= 5 && clamped > 0);
-
-    syncFullscreenTimers(clamped, ratio, isWarning, isCritical);
-
-    if (clamped <= 5 && clamped > 0) {
-      playTick(clamped);
-    }
-
-    if (clamped <= 0) {
-      clearTimer();
-      playBuzzer();
-      const activeMode = getActiveModeFn ? getActiveModeFn() : null;
-      handleTimeout(activeMode);
-    }
-  }, 1000);
+  state.timerRef = setInterval(tick, 1000);
 }
