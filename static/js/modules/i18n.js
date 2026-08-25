@@ -262,6 +262,7 @@ export const TRANSLATIONS = {
     "audio.toggle_title": "Toggle Sound Effects",
     "lang.title": "Language: English",
     "lang.toggle_title": "Switch Language",
+    "pwa.install_title": "Install App",
     "game.shuffle_help_title": "Album Shuffle Help",
   },
   PT: {
@@ -525,6 +526,7 @@ export const TRANSLATIONS = {
     "audio.toggle_title": "Alternar Efeitos de Som",
     "lang.title": "Idioma: Português",
     "lang.toggle_title": "Mudar Idioma",
+    "pwa.install_title": "Instalar Aplicativo",
     "game.shuffle_help_title": "Ajuda do Álbum Embaralhado",
   },
 };

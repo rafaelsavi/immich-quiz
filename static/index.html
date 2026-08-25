@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>{{APP_TITLE}}</title>
   <meta name="description" content="Multiplayer photo quiz game powered by your Immich photos." />
   <meta name="theme-color" content="#0f172a" />
@@ -40,6 +40,11 @@
         <p>{{APP_TAGLINE}}</p>
       </div>
       <div class="header-controls">
+        <button type="button" id="pwa-install-btn" class="header-icon-btn pwa-install-btn hidden"
+          data-i18n-title="pwa.install_title" data-i18n-aria-label="pwa.install_title"
+          title="Install App" aria-label="Install App">
+          <span id="pwa-install-icon">📲</span>
+        </button>
         <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
           aria-label="Switch Language">
           <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"

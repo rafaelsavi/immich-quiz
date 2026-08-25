@@ -925,4 +925,35 @@ function applyUiConfig(config) {
       });
     });
   }
+
+  // Handle PWA 1-click install prompt
+  let deferredInstallPrompt = null;
+  const pwaInstallBtn = document.getElementById("pwa-install-btn");
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if (pwaInstallBtn) {
+      pwaInstallBtn.classList.remove("hidden");
+    }
+  });
+
+  if (pwaInstallBtn) {
+    pwaInstallBtn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      if (outcome === "accepted") {
+        pwaInstallBtn.classList.add("hidden");
+      }
+    });
+  }
+
+  window.addEventListener("appinstalled", () => {
+    deferredInstallPrompt = null;
+    if (pwaInstallBtn) {
+      pwaInstallBtn.classList.add("hidden");
+    }
+  });
 })();
