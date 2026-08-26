@@ -20,6 +20,21 @@ function initializeAudioState() {
 
 initializeAudioState();
 
+const UNLOCK_EVENTS = ["click", "keydown", "touchend"];
+
+function removeUnlockListeners() {
+  UNLOCK_EVENTS.forEach((evt) => {
+    document.removeEventListener(evt, handleUserGesture, { capture: true });
+  });
+}
+
+function handleUserGesture() {
+  unlockAudioContext();
+  if (audioCtx && audioCtx.state === "running") {
+    removeUnlockListeners();
+  }
+}
+
 export function unlockAudioContext() {
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -28,15 +43,20 @@ export function unlockAudioContext() {
     }
   }
   if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume().catch(() => { });
+    audioCtx
+      .resume()
+      .then(() => {
+        if (audioCtx && audioCtx.state === "running") {
+          removeUnlockListeners();
+        }
+      })
+      .catch(() => { });
   }
 }
 
-document.addEventListener("pointerdown", unlockAudioContext, { capture: true });
-document.addEventListener("mousedown", unlockAudioContext, { capture: true });
-document.addEventListener("touchstart", unlockAudioContext, { capture: true });
-document.addEventListener("keydown", unlockAudioContext, { capture: true });
-document.addEventListener("click", unlockAudioContext, { capture: true });
+UNLOCK_EVENTS.forEach((evt) => {
+  document.addEventListener(evt, handleUserGesture, { capture: true });
+});
 
 export function getAudioContext() {
   unlockAudioContext();
