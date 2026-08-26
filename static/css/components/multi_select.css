@@ -372,3 +372,9 @@
 .hidden {
   display: none !important;
 }
+
+@media (max-width: 480px) {
+  .multi-select-tag {
+    max-width: 120px;
+  }
+}

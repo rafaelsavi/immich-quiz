@@ -609,3 +609,10 @@ td.hide-on-desktop {
     margin-left: 0.25rem;
   }
 }
+
+@media (max-width: 480px) {
+  .leaderboard-head {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}

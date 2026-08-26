@@ -134,11 +134,14 @@
   color: var(--accent-2, #f25f5c);
 }
 
-/* Touch enhancement for mobile */
 @media (max-width: 768px) {
   .player-chip {
     padding: 0.3rem 0.5rem 0.3rem 0.4rem;
     font-size: 0.92rem;
+  }
+
+  .player-chip-name {
+    max-width: 120px;
   }
 
   .player-chip-avatar {
@@ -151,6 +154,10 @@
     width: 24px;
     height: 24px;
     min-width: 24px;
+  }
+
+  .player-input-entry-wrap {
+    min-width: 100px;
   }
 }
 

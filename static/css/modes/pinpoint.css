@@ -371,4 +371,14 @@
   line-height: 1.4;
 }
 
+@media (max-width: 520px) {
+  .mode-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-btn {
+    padding: 0.75rem 0.85rem;
+  }
+}
+
 

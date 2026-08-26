@@ -193,3 +193,10 @@
   font-weight: 700;
   cursor: pointer;
 }
+
+@media (max-width: 480px) {
+  .card {
+    padding: 0.75rem;
+    border-radius: 14px;
+  }
+}
