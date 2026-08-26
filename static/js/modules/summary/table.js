@@ -77,37 +77,30 @@ export function renderSummaryMeta(summary) {
     );
   }
 
-  // 4. Library Chip
-  const libraryLabel =
-    summary.libraries && summary.libraries.length > 0
-      ? summary.libraries.join(", ")
-      : "Immich";
-  chips.push(
-    createMetaChip(
-      ICONS.library,
-      t("summary.meta_library", libraryLabel),
-      "meta-library",
-      `${t("setup.library_label")}: ${libraryLabel}`
-    )
-  );
+  // 4. Library Chip (only shown when specific libraries are selected)
+  if (summary.libraries && summary.libraries.length > 0) {
+    const libraryLabel = summary.libraries.join(", ");
+    chips.push(
+      createMetaChip(
+        ICONS.library,
+        t("summary.meta_library", libraryLabel),
+        "meta-library",
+        `${t("setup.library_label")}: ${libraryLabel}`
+      )
+    );
+  }
 
   // 5. Filters / Scope Chip
   const hasCustomFilters = Boolean(
     summary.is_custom_filtered ||
-      (summary.filter_summary &&
-        summary.filter_summary !== "Full Library" &&
-        summary.filter_summary !== t("leaderboard.scope_all")) ||
       (summary.album_names && summary.album_names.length > 0)
   );
 
   const filterText =
-    summary.filter_summary &&
-    summary.filter_summary !== "Full Library" &&
-    summary.filter_summary !== t("leaderboard.scope_all")
-      ? summary.filter_summary
-      : summary.album_names && summary.album_names.length > 0
-        ? summary.album_names.join(", ")
-        : null;
+    summary.filter_summary ||
+    (summary.album_names && summary.album_names.length > 0
+      ? summary.album_names.join(", ")
+      : null);
 
   const tooltipText =
     summary.filter_tooltip ||
