@@ -54,6 +54,7 @@ export const state = {
   timerRef: null,
   timedOut: false,
   submitting: false,
+  startingMatch: false,
   matchFinished: false,
   leaderboardRows: [],
   leaderboardSort: { key: "accuracy_pct", asc: false },

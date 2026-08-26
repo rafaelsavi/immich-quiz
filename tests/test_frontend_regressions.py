@@ -317,6 +317,8 @@ def test_preflight_warning_disables_start_button_and_guards_submission() -> None
     # startMatch must guard against starting if button is disabled or preflight warning is visible
     assert 'async function startMatch' in app_js
     assert 'submitBtn.disabled' in app_js, 'startMatch must check submitBtn.disabled'
+    assert 'state.startingMatch' in app_js, 'startMatch must check state.startingMatch'
+    assert 'startingMatch' in state_js, 'startingMatch must be initialized in state.js'
 
 
 def test_pinpoint_quiz_image_fullscreen_button_handling() -> None:
