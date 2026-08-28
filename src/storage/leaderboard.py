@@ -248,6 +248,18 @@ class LeaderboardStore:
 
     def _init_db(self) -> None:
         self._db.execute_script(LEADERBOARD_SCHEMA_SQL)
+        self._migrate_db()
+
+    def _migrate_db(self) -> None:
+        """Ensure backward compatibility for databases created in earlier versions."""
+        with self._db.connection() as conn:
+            cursor = conn.execute('PRAGMA table_info(match_round_guesses)')
+            existing_cols = {row[1] for row in cursor.fetchall()}
+            if existing_cols:
+                if 'actual_city' not in existing_cols:
+                    conn.execute('ALTER TABLE match_round_guesses ADD COLUMN actual_city TEXT')
+                if 'actual_country' not in existing_cols:
+                    conn.execute('ALTER TABLE match_round_guesses ADD COLUMN actual_country TEXT')
 
     def append_match(
         self,

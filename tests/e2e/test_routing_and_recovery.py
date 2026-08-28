@@ -116,7 +116,9 @@ async def test_match_summary_reload_recovery(page: Page) -> None:
 
 
 async def test_pass_and_play_multiplayer_ready_overlay_flow(page: Page) -> None:
-    """Verify pass-and-play multiplayer flow displays the pass overlay and ready button clicks/shortcuts without errors."""
+    """Verify pass-and-play multiplayer flow displays the pass overlay and ready button clicks/shortcuts
+    without errors.
+    """
     await page.goto('/')
 
     # Add a second player

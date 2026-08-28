@@ -43,15 +43,23 @@ export function formatMonth(year, month) {
 }
 
 export function formatPlace(reveal) {
+  if (!reveal) {
+    return t("fmt.unknown_place");
+  }
   // Immich reverse-geocodes assets already, so reuse its labels.
-  const parts = [reveal.actual_country, reveal.actual_city].filter(Boolean);
+  const parts = [reveal.actual_city, reveal.actual_country].filter(Boolean);
   if (parts.length > 0) {
     return parts.join(", ");
   }
-  if (reveal.actual_latitude === null || reveal.actual_longitude === null) {
+  if (
+    reveal.actual_latitude === null ||
+    reveal.actual_latitude === undefined ||
+    reveal.actual_longitude === null ||
+    reveal.actual_longitude === undefined
+  ) {
     return t("fmt.unknown_place");
   }
-  return `${reveal.actual_latitude.toFixed(4)}, ${reveal.actual_longitude.toFixed(4)}`;
+  return `${Number(reveal.actual_latitude).toFixed(4)}, ${Number(reveal.actual_longitude).toFixed(4)}`;
 }
 
 export function formatDistance(km) {
