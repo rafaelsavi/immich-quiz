@@ -490,7 +490,7 @@ export const albumShuffleMode = {
             scoreNum: pRes.total_score ?? 0,
             startScore: Math.max(0, (pRes.total_score ?? 0) - (pRes.round_score ?? 0)),
             isScore: true,
-            maxScore: maxRoundPoints * (revealData.round_number || 1),
+            maxScore: maxRoundPoints,
             class: "group-start-mobile",
           },
         ],

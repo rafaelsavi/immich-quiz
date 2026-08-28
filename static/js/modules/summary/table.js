@@ -157,6 +157,11 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
 
   if (el.summaryTableBody) {
     el.summaryTableBody.replaceChildren();
+    const activeGoalCount = (summary.location_mode ? 1 : 0) + (summary.date_mode ? 1 : 0);
+    const maxGoalScore = activeGoalCount > 0
+      ? Math.round((summary.max_possible_score || ((summary.rounds_played || 1) * 100 * activeGoalCount)) / activeGoalCount)
+      : (summary.max_possible_score || 100);
+
     (summary.players || []).forEach((player) => {
       const row = document.createElement("tr");
 
@@ -174,12 +179,12 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
 
       if (summary.location_mode) {
         const locCell = buildCell(String(player.location_score ?? 0));
-        animateScoreRollup(locCell, player.location_score ?? 0, summary.max_possible_score || 100);
+        animateScoreRollup(locCell, player.location_score ?? 0, maxGoalScore);
         row.appendChild(locCell);
       }
       if (summary.date_mode) {
         const dateCell = buildCell(String(player.date_score ?? 0));
-        animateScoreRollup(dateCell, player.date_score ?? 0, summary.max_possible_score || 100);
+        animateScoreRollup(dateCell, player.date_score ?? 0, maxGoalScore);
         row.appendChild(dateCell);
       }
       const totalCell = buildCell(`${player.total_score}/${player.max_possible_score}`);

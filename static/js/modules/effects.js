@@ -1,6 +1,42 @@
 import { t } from "./i18n.js";
 import { playScoreRollupTick } from "./audio.js";
 
+let activeRollupSession = null;
+
+function registerRollupAnimation(durationMs) {
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  if (!activeRollupSession || now - activeRollupSession.lastActivity > 200) {
+    activeRollupSession = {
+      startTime: now,
+      maxDuration: durationMs,
+      lastTickTime: 0,
+      activeCount: 1,
+      lastActivity: now,
+    };
+  } else {
+    activeRollupSession.maxDuration = Math.max(activeRollupSession.maxDuration, durationMs);
+    activeRollupSession.activeCount += 1;
+    activeRollupSession.lastActivity = now;
+  }
+}
+
+function unregisterRollupAnimation() {
+  if (activeRollupSession) {
+    activeRollupSession.activeCount = Math.max(0, activeRollupSession.activeCount - 1);
+  }
+}
+
+function triggerRollupAudioTick(timestamp) {
+  if (!activeRollupSession || activeRollupSession.activeCount <= 0) return;
+  activeRollupSession.lastActivity = timestamp;
+  const tickInterval = 45;
+  if (timestamp - activeRollupSession.lastTickTime >= tickInterval) {
+    activeRollupSession.lastTickTime = timestamp;
+    const progress = Math.min(1, (timestamp - activeRollupSession.startTime) / activeRollupSession.maxDuration);
+    playScoreRollupTick(progress);
+  }
+}
+
 export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 200, suffix = "", skipAnimation = false, startScore = 0) {
   if (!cellElement) return;
 
@@ -40,10 +76,10 @@ export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 
   const maxPossible = maxPossibleScore || 200;
   const scoreRatio = Math.max(0.05, Math.min(1, delta / maxPossible));
   const durationMs = Math.round(300 + scoreRatio * 1500);
-  const tickInterval = 45;
+
+  registerRollupAnimation(durationMs);
 
   let startTime = null;
-  let lastTickTime = 0;
 
   function step(timestamp) {
     if (!startTime) startTime = timestamp;
@@ -51,16 +87,14 @@ export function animateScoreRollup(cellElement, targetScore, maxPossibleScore = 
     const currentVal = Math.floor(initialNum + progress * delta);
     span.textContent = String(currentVal);
 
-    if (timestamp - lastTickTime > tickInterval && progress < 1) {
-      lastTickTime = timestamp;
-      playScoreRollupTick(progress);
-    }
+    triggerRollupAudioTick(timestamp);
 
     if (progress < 1) {
       requestAnimationFrame(step);
     } else {
       span.textContent = String(scoreNum);
       span.classList.remove("is-rolling");
+      unregisterRollupAnimation();
     }
   }
 

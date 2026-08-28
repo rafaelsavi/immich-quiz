@@ -399,7 +399,7 @@ function renderRevealSummary(reveal, skipEffects = false) {
           scoreNum: result.total_score ?? 0,
           startScore: Math.max(0, (result.total_score ?? 0) - (result.round_score ?? 0)),
           isScore: true,
-          maxScore: maxRoundPoints * (reveal.round_number || 1),
+          maxScore: maxRoundPoints,
           class: "group-start-mobile",
         },
       ],

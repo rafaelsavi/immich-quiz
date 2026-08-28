@@ -18,15 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Tuned Spatial Scoring Parameters**: Updated spatial decay constants in [`src/scoring.py`](file:///d:/Rafael/Projects/immich-quiz/src/scoring.py) to `LOCATION_SPAN_RATIO = 10.0`, `LOCATION_MIN_DECAY_KM = 5.0` (for more forgiving city/neighborhood guesses), and `LOCATION_MAX_DECAY_KM = 200.0` (for tighter precision on nationwide/worldwide rounds).
+- **Tuned Spatial Scoring Parameters**: Updated spatial decay constants in `src/scoring.py` to `LOCATION_SPAN_RATIO = 10.0`, `LOCATION_MIN_DECAY_KM = 5.0` (for more forgiving city/neighborhood guesses), and `LOCATION_MAX_DECAY_KM = 200.0` (for tighter precision on nationwide/worldwide rounds).
+- **Coordinated Score Rollup Audio Session**: Centralized audio ticker synchronization during score rollup animations in `static/js/modules/effects.js` so that multiplayer and multi-column animations share a single monotonic pitch-rising ticker without frequency jumping or throttle race conditions.
 
 ### Removed
 
-- **Redundant `LOCATION_MAX_SPAN_KM` Parameter**: Removed `LOCATION_MAX_SPAN_KM` and `max_span_km` parameter from spatial adaptive scoring in [`src/scoring.py`](file:///d:/Rafael/Projects/immich-quiz/src/scoring.py) and scoring simulations, as `LOCATION_MAX_DECAY_KM` already mathematically caps the decay ceiling at $\text{MAX\_DECAY} \times \text{SPAN\_RATIO}$.
+- **Redundant `LOCATION_MAX_SPAN_KM` Parameter**: Removed `LOCATION_MAX_SPAN_KM` and `max_span_km` parameter from spatial adaptive scoring in `src/scoring.py` and scoring simulations, as `LOCATION_MAX_DECAY_KM` already mathematically caps the decay ceiling at $\text{MAX\_DECAY} \times \text{SPAN\_RATIO}$.
 
 ### Fixed
 
 - **Match Start Concurrency & Image Reload on Slow Networks**: Prevented duplicate match creations and repeated image loads when clicking the "Start Match" button multiple times under high latency by introducing a `startingMatch` state guard, immediately disabling the submit button on submission, and verifying match state freshness before rendering round questions.
+- **Score Rollup Duration & Denominator Inconsistencies**:
+  - Fixed cumulative round multiplier dilution in Pinpoint (`static/js/modules/modes/pinpoint.js`) and Album Shuffle (`static/js/modules/modes/album_shuffle.js`) round reveal tables by benchmarking total score rollup against single-round max points (`maxRoundPoints`), keeping rollup speeds consistent across all rounds.
+  - Fixed single-goal score denominator mismatch on the final match summary table (`static/js/modules/summary/table.js`), ensuring 100% location and date scores roll up for the full 1.8s duration in sync with the total score.
 
 ## [2.2.0] - 2026-08-25
 
