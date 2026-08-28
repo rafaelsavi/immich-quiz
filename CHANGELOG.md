@@ -5,257 +5,231 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2026-08-28
+
+### Added
+
+- **Playwright End-to-End (E2E) Test Suite**:
+  - Live FastAPI test harness with simulated Immich client (`tests/e2e/conftest.py`).
+  - Pinpoint map pin placement, distance lines, and round reveal tests (`test_pinpoint_gameplay.py`).
+  - Dual-handle timeline range slider and single-year/month date guessing tests (`test_date_selection.py`).
+  - Album Shuffle photo card reordering and multi-pin (A, B, C) placement tests (`test_album_shuffle_gameplay.py`).
+  - Client routing, deep links, reload recovery, and guard tests (`test_routing_and_recovery.py`).
+  - Score rollup animations, podium rendering, and polaroid gallery tests (`test_summary_and_effects.py`).
+  - Playwright Chromium installation in CI workflow and pre-push git hook.
+- **Match Place Metadata Persistence**: Stored `actual_city` and `actual_country` in SQLite `match_round_guesses` for replayable match summaries.
+
+### Changed
+
+- **Unified Place Formatting**: Standardized polaroid cards and journey maps to display `City, Country` across all game modes.
+
+### Fixed
+
+- **Audio & Haptic Autoplay Restrictions**: Added user-activation guards to prevent browser console warnings on page reload.
+- **Victory Fanfare Trigger**: Scoped fanfare audio to active match completions, suppressing it during page refreshes and direct permalinks.
+- **Frontend Controller Cleanup**: Added missing module imports, fixed button click bindings with safe null checks, and resolved DOM ID collision in Album Shuffle reveal tables.
+- **UI Config Endpoint**: Aligned frontend configuration request with `/api/ui-config`.
+- **Game Mode Initialization**: Fixed mode selector settings initialization on startup.
+
 ## [2.4.0] - 2026-08-28
 
 ### Added
 
 - **Client-Side History API Router & Deep Links**:
-  - **Match URLs & Navigation**: Added zero-dependency History API client-side routing supporting `/` (Lobby), `/game/{match_id}` (Active Match), and `/game/{match_id}/summary` (Shareable Replay & Podium).
-  - **Active Session State Recovery**: Page refreshes during active gameplay seamlessly restore match state from `sessionStorage`.
-  - **Ended Match View**: Navigating to an expired or ended match URL displays a dedicated Match Ended card with quick paths to the match summary or lobby.
-  - **In-Game Navigation Guards**: Prevents accidental abandonment by intercepting browser back/forward buttons and tab closes with localized confirmation dialogs.
-  - **Shareable Permalink URLs**: "Share Match" payloads now include canonical summary URLs (`/game/{match_id}/summary`).
-
-- **Permanent SQLite Match Summaries & Single Source of Truth**:
-  - **Lifetime Match Replays**: Finished match summaries and full round histories are permanently stored and queried directly from SQLite (`LeaderboardStore`), eliminating in-memory expiration for completed games.
-  - **Media Access for Recorded Matches**: Proxied media endpoint (`/api/media/{asset_id}`) authorizes photo assets for all recorded match summaries in SQLite history, ensuring polaroid gallery and journey map images always load on shared permalinks.
-
-- **FastAPI SPA Catch-All Route & PWA Navigation Caching**:
-  - **Catch-All Handler**: Backend route `/{full_path:path}` serves `index.html` with security headers and language negotiation while strictly preserving 404s for missing `/api/*` and `/static/*` paths.
-  - **Service Worker Navigation Fallback**: Updated `sw.js` (cache `immich-quiz-v2`) with navigation fallback to the app shell and precached router modules.
+  - Direct URL routing for `/` (Lobby), `/game/{match_id}` (Active Match), and `/game/{match_id}/summary` (Replay & Podium).
+  - In-game session recovery from `sessionStorage` on page reload.
+  - Dedicated "Match Ended" screen with quick links when visiting expired matches.
+  - In-game navigation guards to prevent accidental tab closing or abandonment.
+  - Shareable match summary permalink URLs.
+- **Permanent SQLite Match History**: Replaced in-memory match summaries with persistent SQLite storage (`LeaderboardStore`) and authorized photo proxy access (`/api/media/{asset_id}`) for replays.
+- **FastAPI SPA Catch-All Route**: Added `/{full_path:path}` fallback handler and updated PWA service worker caching for seamless offline routing.
 
 ### Changed
 
-- **Frontend Screen Controllers Modularization**:
-  - Refactored monolithic `app.js` into domain-focused screen controllers under `static/js/modules/screens/` (`setup.js`, `game.js`, `reveal.js`, `summary.js`, `common.js`).
-  - Centralized game mode strategy accessor into `static/js/modules/modes/index.js`.
-  - Streamlined `app.js` into a lightweight (~450 lines) coordinator handling router dispatch, PWA lifecycle, and global shortcuts.
-
-- **Backend Code Quality & Datetime Safety**:
-  - Added safe ISO datetime parsers (`_parse_iso_datetime`) in `src/storage/leaderboard.py` to prevent unhandled exceptions on malformed timestamps.
-  - Added typed `.seconds` property on `RoundLength` model in `src/models.py`.
+- **Modular Screen Controllers**: Refactored monolithic `app.js` into focused controllers under `static/js/modules/screens/` (`setup.js`, `game.js`, `reveal.js`, `summary.js`, `common.js`).
+- **Datetime Safety**: Added safe ISO datetime parsers in SQLite storage and a typed `.seconds` helper on `RoundLength`.
 
 ### Fixed
 
-- **Pass-and-Play Timer Handover**: Fixed an issue where the round timer would tick in the background while waiting on the "Pass Device" screen or following a page reload prior to clicking "I'm ready".
+- **Pass-and-Play Timer**: Fixed round timer ticking during the "Pass Device" screen and prior to clicking "I'm ready".
 
 ## [2.3.0] - 2026-08-28
 
 ### Added
 
 - **Album Shuffle Partial Credit Scoring**:
-  - **Nearby Map Pin Credit**: Swapping two close pins (like two landmarks in the same city during a worldwide match) now earns high partial points based on actual distance instead of giving zero points.
-  - **Close Timeline Date Credit**: Flipping photos taken only a few days apart in a multi-year album now gives nearly full score instead of punishing minor ordering errors.
-  - **Batch-Adaptive Scaling**: Scoring sensitivity automatically adjusts to the geographic span and date range of each photo batch.
-  - **Per-Photo Round Telemetry**: Detailed match history now records individual photo distance errors, day differences, and points earned.
-
-- **Structured Console & Container Logging**:
-  - **Clean Formatted Logs**: Added color-coded, timestamped console logs (`YYYY-MM-DD HH:MM:SS [LEVEL] [subsystem] Message`) optimized for Docker (`docker logs`) and local terminal debugging.
-  - **Match & Request Tracing**: Automatically tracks `match_id`, `player_name`, `library_name`, and `request_id` across all log messages.
-  - **Automatic Credential Masking**: Automatically redacts Immich API keys and Bearer tokens in log output.
-  - **HTTP Request Duration Logging**: Measures and logs API endpoint response times with clean status summaries.
-  - **Customizable Log Levels**: Set overall level with `LOG_LEVEL` or configure individual subsystems (`LOG_LEVEL_SCORING`, `LOG_LEVEL_SYNC`, `LOG_LEVEL_IMMICH`, etc.).
-
-- **Smooth 60 FPS Countdown Timer & Dynamic Audio**:
-  - **Fluid Progress Bar**: Timer drains continuously at 60 FPS using `requestAnimationFrame`, eliminating 1-second stepped jumps.
-  - **Dynamic Color Transitions**: Smoothly transitions from Teal (100%) to Amber (50%) to Crimson (0%) with pulsating warning animations in the final 5 seconds.
-  - **Rising Pitch Audio Ticker**: Replaced monotone beeps with a frequency-rising audio ticker (440 Hz up to 880 Hz) during the last 10 seconds, paired with device vibration.
-  - **Smart Time Display**: Shows `M:SS` (e.g. `1:15`) for long timers and `Xs` (e.g. `45s`) for sub-minute rounds.
+  - Nearby map pin credit based on distance error instead of all-or-nothing points.
+  - Close timeline date credit for near-accurate chronological order.
+  - Batch-adaptive scoring scaling adjusted to the photo pool's geographic and temporal span.
+  - Detailed per-photo distance errors and day differences in round telemetry.
+- **Structured Console & Container Logging**: Color-coded, timestamped console logs with match tracing, request ID tracking, and automatic Immich API credential masking.
+- **Smooth 60 FPS Countdown Timer**: Fluid progress bar driven by `requestAnimationFrame`, dynamic color transitions (Teal → Amber → Crimson), rising-pitch audio ticks (440 Hz → 880 Hz), and smart `M:SS` / `Xs` time formatting.
 
 ### Changed
 
-- **Tuned Location Scoring Sensitivity**: Adjusted distance scaling to make city/neighborhood rounds more forgiving (5 km base) while keeping nationwide and worldwide rounds appropriately challenging (200 km maximum decay).
-- **Synchronized Score Rollup Sounds**: Centralized audio ticker playback during score rollup animations so multiplayer reveals play one smooth rising tone.
-- **Unified Scoring Engine**: Replaced rigid matching code with shared adaptive decay functions across all game modes.
+- **Location Sensitivity Tuning**: Adjusted base decay scaling (5 km base for neighborhoods, up to 200 km for worldwide albums).
+- **Audio Synchronization**: Centralized score rollup sound effects across multiplayer reveals.
+- **Scoring Engine**: Unified adaptive decay functions across all game modes.
 
 ### Removed
 
-- **Unused `LOCATION_MAX_SPAN_KM` Config**: Removed redundant maximum span setting, as the maximum decay setting already sets the scoring ceiling.
+- **Redundant Config**: Removed unused `LOCATION_MAX_SPAN_KM` environment setting.
 
 ### Fixed
 
-- **Start Match Double-Clicking**: Prevented duplicate match creation and duplicate photo loading when clicking "Start Match" multiple times on slow connections.
-- **Score Rollup Animation Timing**:
-  - Fixed speed inconsistencies on round reveal tables so score counting rolls up smoothly across all rounds regardless of total points.
-  - Fixed summary table score animation duration for single-mode games (location-only or date-only).
+- **Double-Click Protection**: Prevented duplicate match creation when rapidly clicking "Start Match".
+- **Score Rollup Animation**: Fixed score counter speed inconsistencies on reveal and summary screens.
 
 ## [2.2.0] - 2026-08-25
 
 ### Added
 
-- **Progressive Web App (PWA) Support**: Installable standalone application with web app manifests, service worker offline shell caching, in-app install button, and high-DPI vector/raster icon suite (`favicon.svg`, Apple Touch Icon, Android Chrome launchers).
-- **Mobile Ergonomics & Tactile Haptics**: Added iOS notch/safe-area insets (`env(safe-area-inset-*)`) and Web Vibration API haptics for countdowns, buzzer, map pin drops, submit confirmations, and victory fanfares.
-- **Wall-Clock Timer Synchronization**: Real-time round timer calculation against target epoch timestamps (`Date.now()`) with Page Visibility API sync to prevent timer freezing when minimizing the browser or locking the screen.
-- **In-Game Navigation & Tab-Close Protection**: Added browser Back button (`popstate`) and tab close/refresh (`beforeunload`) confirmation guards during active gameplay to prevent accidental match abandonment while maintaining seamless setup and summary transitions.
-- **Enterprise Internationalization (i18n)**: Migrated to BCP-47 language tags (`en-US`, `pt-BR`), externalized JSON catalogs (`locales/`), RFC 9110 `Accept-Language` negotiation, Unicode CLDR plural rules (`Intl.PluralRules`), relative timestamps (`Intl.RelativeTimeFormat`), conjunction lists (`Intl.ListFormat`), and locale-aware sorting (`Intl.Collator`).
+- **Progressive Web App (PWA)**: Installable standalone web app with service worker offline shell caching, in-app install prompt, and high-DPI icon suite.
+- **Mobile Ergonomics & Haptics**: Added iOS notch/safe-area insets (`env(safe-area-inset-*)`) and Web Vibration API haptics for timer countdowns, buzzer, pin drops, and victory fanfares.
+- **Wall-Clock Timer Synchronization**: Real-time timer calculation against target timestamps (`Date.now()`) with Page Visibility API sync to prevent timer freezing in background tabs.
+- **Navigation Protection**: Added confirmation dialogs for browser back navigation and tab closure during active rounds.
+- **Internationalization (i18n)**: Migrated to BCP-47 language tags (`en-US`, `pt-BR`), externalized JSON catalogs, RFC 9110 `Accept-Language` negotiation, and Unicode CLDR plural/date formatting.
 
 ## [2.1.0] - 2026-08-24
 
 ### Added
 
-- **Dynamic / Adaptive Scoring Decay**: Replaced static global decay constants with per-match dynamic calculations tailored to the geographic and temporal distribution of candidate photos in the match pool.
+- **Dynamic Scoring Decay**: Replaced static global decay constants with per-match calculations tailored to the geographic and temporal distribution of candidate photos.
 
 ### Changed
 
-- **Smart Map Initial Zoom**: Increased `SMART_MAP_MAX_INITIAL_ZOOM` to `13` (neighborhood / street zoom level) in Pinpoint mode for tighter initial framing on city and neighborhood-scale albums.
+- **Smart Map Initial Zoom**: Increased maximum initial zoom to level 13 for tighter framing on neighborhood and city-scale albums.
 
 ### Removed
 
-- **Static Decay Environment Variables**: Removed `LOCATION_SCORE_DECAY_KM` and `DATE_SCORE_DECAY_DAYS` configuration parameters from `AppSettings`, `.env.example`, and server validation in favor of automated per-match calculations.
+- **Static Decay Configuration**: Removed `LOCATION_SCORE_DECAY_KM` and `DATE_SCORE_DECAY_DAYS` environment variables in favor of dynamic per-match calculations.
 
 ## [2.0.0] - 2026-08-17
 
 ### Added
 
-- **Local Metadata Storage & Sync Engine**: SQLite-backed metadata caching layer (`data/metadata.db`) storing assets, albums, recognized faces, and geographic places locally. Includes manual and automatic background sync (`SyncEngine`) with real-time indexing status indicators and instant 0ms query response times.
-- **Library & Photo Filters Accordion**: Collapsible section grouping dataset filters (Library, Multi-Album, Date Range, Geography, People) with dynamic active filter count badge and one-click reset.
-- **Dynamic Date Range Slider**: Dual-handle interactive range slider with year-month resolution, live readouts, and automatic Immich timeline bucket boundary discovery.
-- **Geographic Granularity (Countries & Dependent Cities)**: Searchable multi-select dropdowns for countries and cities with cascading dependencies (selecting a country dynamically filters the available cities).
-- **Face Recognition / People Filter with Match Modes**: Searchable multi-select dropdown for recognized people with support for both `ANY` (Any person) and `ALL` (All people together in the same photo).
-- **Photo Play Frequency Tracking & Least-Played Prioritization**: Automatically tracks `times_played` and `last_played_at` per asset in SQLite to prioritize unplayed and least-frequently seen photos (`ORDER BY a.times_played ASC, RANDOM()`), maximizing photo discovery and freshness across matches without sync data loss.
-- **Smart Photo Diversity Downsampling**: Soft prioritization sampling strategy in candidate photo selection that prioritizes photos with spatial (>= 100m) and temporal (>= 60s) separation against previously played match photos, while gracefully falling back to unplayed candidates when playing clustered single-event or local albums (preventing premature 404 match aborts).
-- **Dynamic Shared & Partner Library Toggles**: Added setup filter toggles to dynamically include or exclude shared albums and partner assets per-match without restarting the server.
-- **Modern Interactive Player Input**: Tag/chip based player management component with avatar badges, game-matched player colors, duplicate detection, keyboard shortcuts, paste splitting, and touch-screen virtual keyboard optimizations.
-- **Live Preflight Counter**: Live feedback counter displaying eligible photos and breakdown tooltips (GPS, Date, Eligible total) dynamically updating on every filter or game mode change.
-- **Per-Library Filter Persistence**: Active filter selections saved in `localStorage` per library, automatically restoring when switching libraries.
-- **Asset Tag Whitelist & Blacklist**: Added `TAG_WHITELIST` and `TAG_BLACKLIST` configuration settings enforcing global server-level safeguards across SQLite metadata queries and in-memory asset filtering. Assets labeled with any blacklisted tag are strictly excluded from candidate pools, and when a whitelist is specified, only assets tagged with at least one whitelisted tag are eligible.
-- **Unified 4-Table Relational Match & Multiplayer Foundation**: Implemented a comprehensive relational SQLite schema (`challenges`, `matches`, `match_entries`, `match_round_guesses`) under `data/leaderboard.db`. Features type-safe `PlayMode` enum (`local`, `challenge`, `room`), exact per-photo round guess records (`photo_index`), actual and guessed coordinates/dates, sub-score breakdowns, and active response time tracking (`time_taken_seconds`, `total_time_seconds`) for fair tiebreaking.
+- **Local Metadata Storage & Sync Engine**: SQLite-backed caching layer (`data/metadata.db`) for assets, albums, recognized faces, and geographic places with automatic background sync.
+- **Library & Photo Filters Accordion**: Collapsible filter section for Libraries, Multi-Album selection, Date Range, Geography (Countries & Cities), and People (ANY/ALL matching).
+- **Dynamic Date Range Slider**: Dual-handle interactive range slider with year-month resolution and live timeline boundary discovery.
+- **Photo Play Tracking & Diversity**: Tracks photo play frequencies in SQLite (`times_played`) to prioritize unplayed photos, paired with spatial (≥100m) and temporal (≥60s) downsampling.
+- **Relational Match & Multiplayer Schema**: 4-table SQLite schema (`matches`, `match_entries`, `match_round_guesses`, `challenges`) under `data/leaderboard.db` tracking detailed round telemetry and fair tiebreaking.
+- **Live Preflight Counter**: Real-time counter showing eligible photo counts and filter breakdown tooltips before starting a match.
+- **Interactive Player Input**: Chip-based player input with avatar badges, player colors, duplicate detection, and keyboard navigation.
+- **Tag Filtering**: Global `TAG_WHITELIST` and `TAG_BLACKLIST` support for server-level asset eligibility filtering.
 
 ### Changed
 
-- **Photo Diversity Decoupling**: Decoupled candidate diversity checks from global configuration parameters into internal defaults within the sampling engine, ensuring Preflight filtering remains the single source of truth for photo eligibility.
-- **Setup Screen Hierarchy**: Reorganized match setup into top-down logical flow: Players, Library & Photo Filters, Game Mode, and Guessing Mode settings.
-- **Preflight & Setup Validation**: Hardened validation to disable start match button and show informative warnings when insufficient matching media is available.
-- **Leaderboard API & Querying**: Updated `/api/leaderboard` endpoint with support for querying by `player_name`, `is_custom_filtered`, and `limit`.
+- **Setup Screen Hierarchy**: Streamlined match setup flow into logical sections: Players, Dataset Filters, Game Mode, and Guessing Settings.
+- **Leaderboard API**: Enhanced `/api/leaderboard` with filtering by `player_name`, `is_custom_filtered`, and `limit`.
 
 ### Removed
 
-- **Photo Diversity Configuration**: Removed `PHOTO_DIVERSITY_MIN_DISTANCE_KM` and `PHOTO_DIVERSITY_MIN_TIME_SECONDS` configuration parameters from `AppSettings` and `.env` in favor of internal sampling parameters.
-- **Smart Map Zoom Config**: Removed `SMART_MAP_ZOOM` environment toggle in favor of built-in internal safeguards.
-- **Legacy CSV Storage**: Removed `LEADERBOARD_CSV_PATH` configuration and CSV-based leaderboard persistence in favor of dedicated SQLite storage under `DATA_PATH` (`metadata.db` and `leaderboard.db`).
+- **Legacy CSV Storage**: Removed CSV leaderboard persistence in favor of SQLite databases (`metadata.db` and `leaderboard.db`).
+- **Redundant Settings**: Removed static photo diversity and map zoom environment variables in favor of automatic heuristics.
 
 ## [1.2.1] - 2026-08-15
 
 ### Fixed
 
-- **Shared Album Filtering**: Fixed `INCLUDE_SHARED_ALBUMS=false` filtering so shared albums owned by the authenticated user are kept and only albums shared with the user by others are hidden.
+- **Shared Album Filtering**: Ensured user-owned shared albums remain visible when `INCLUDE_SHARED_ALBUMS=false`.
 
 ## [1.2.0] - 2026-08-13
 
 ### Added
 
-- **Smart Map Zoom (Pinpoint Mode)**: Added dynamic geographic auto-framing for Pinpoint guess maps based on the overall geographic distribution of photos selected for the match, eliminating repetitive manual zooming when playing regional or trip albums.
-- **Regional Focus Map Control**: Added a dedicated "Focus match region" button to Leaflet map toolbars, allowing players to snap back to the album's regional view at any point during a round.
-- **Map Canvas Zoom Bounds Guard**: Implemented dynamic `minZoom` computation on all Leaflet maps to prevent over-zooming out where map tiles are smaller than the container canvas height.
+- **Smart Map Zoom (Pinpoint Mode)**: Geographic auto-framing based on match photo distribution, eliminating repetitive manual map zooming.
+- **Regional Focus Button**: Added a Leaflet toolbar control to snap back to the album's regional view at any time.
+- **Map Canvas Zoom Bounds Guard**: Computed dynamic `minZoom` to prevent tiles from rendering smaller than the container canvas.
 
 ### Changed
 
-- **Setup Screen Organization**: Reordered the match setup screen into clear logical groups: Player Settings (Players, Rounds, Round Length), Library Settings (Library, Albums), and Game Settings (Game Mode, Guessing Mode).
+- **Setup Layout**: Reorganized match setup into Player Settings, Library Settings, and Game Settings.
 
 ## [1.1.0] - 2026-08-13
 
 ### Added
 
-- **Searchable Multi-Select Album Selector**: Added a searchable multi-select album dropdown component on the setup screen, allowing real-time text searching of albums, multi-album selection, and batch quick actions (Select All / Deselect All).
+- **Searchable Multi-Select Album Selector**: Added real-time text searching of albums, multi-album selection, and batch Select All / Deselect All actions.
 
 ## [1.0.2] - 2026-08-12
 
 ### Fixed
 
-- **Round Reset**: Fixed round reset to properly reset game state
+- **Round Reset**: Fixed game state reset when restarting rounds.
 
 ### Added
 
-- **Button to reset map to default zoom**
+- **Map Reset Control**: Added button to reset map view to default zoom.
 
-### Refactored
+### Changed
 
-- **Unified map creation**
-- **Better Immich query controls**
+- **Map Creation**: Unified Leaflet map initialization and Immich query controls.
 
 ## [1.0.1] - 2026-08-12
 
 ### Fixed
 
-- **Improved design uniformization**
+- **Design Polish**: Standardized UI element styling and layout consistency.
 
 ## [1.0.0] - 2026-08-08
 
 ### Added
 
-- **Album Shuffle Game Mode** (`album_shuffle`): Introduced a new hybrid batch mode where players guess locations by matching a batch of photos ($N=3$) to lettered map pins (`A`, `B`, `C`) and sort photos chronologically (`1st`, `2nd`, `3rd`).
-- **On-the-Fly Language Toggle**: Added header button to dynamically toggle between English (EN) and Brazilian Portuguese (PT) without resetting game state.
-- **Improved support for mobile screens**: Adjusted content and dimensions for narrow screens.
-- **Extended Round Length Options**: Added `2m` and `5m` round length options optimized for batch photo sessions.
-- **Auto-Zoom & Smooth Map Navigation**: Automatic map bounding box zoom during reveal phase and turn interactions.
-- **Automatic Valid Photo Reload**: Automatic fallback and recovery if photo media fails to load or lacks valid metadata.
-- **Audio Testing Playground Enhancements**: Added dedicated countdown timer simulator, submit confirmation cue (`playSubmitTone`), and real-time Web Audio oscilloscope visualizer.
-- **Frontend Regression Test Suite**: Added `test_frontend_regressions.py` covering HTML structure, modal accessibility, and script references.
-- **Footnote**: Added footnote containing app version.
+- **Album Shuffle Game Mode**: Hybrid batch mode where players match 3 photos to map pins (`A`, `B`, `C`) and sort them chronologically (`1st`, `2nd`, `3rd`).
+- **On-the-Fly Language Toggle**: Dynamic switching between English (EN) and Brazilian Portuguese (PT) without resetting active game state.
+- **Extended Round Lengths**: Added `2m` and `5m` timers for batch photo sessions.
+- **Mobile Responsive Layout**: Optimized UI dimensions and touch controls for narrow screens.
+- **Audio Playground**: Web Audio API oscilloscope and sound effect testing suite (`/audio-test`).
+- **Frontend Regression Tests**: Automated structural tests for HTML markup, IDs, and script exports.
 
 ### Changed
 
-- **Setup Layout Re-ordering**: Moved Game Mode selector to the bottom of the setup options list for improved visual hierarchy.
+- **Modular Code Architecture**: Modularized frontend scripts (`modules/modes/`) and stylesheets (`static/css/`).
 
 ### Fixed
 
-- **Date Error Rounding**: Fixed rounding calculation errors when displaying date error deltas.
-- **Multiplayer Leaderboard Tie-Breaking**: Improved tie-breaking algorithm when multiple players achieve identical scores.
-
-### Refactored
-
-- **Modular Frontend Architecture**: Split monolithic game UI logic into specialized ES modules (`static/js/modules/modes/album_shuffle.js`, `pinpoint.js`, `common.js`).
-- **Modular CSS Architecture**: Refactored monolithic `static/css/style.css` into domain-focused sub-stylesheets
+- **Date Error Rounding**: Fixed precision rounding for date error deltas.
+- **Multiplayer Tie-Breaking**: Improved leaderboard tiebreaker resolution.
 
 ## [0.3.0] - 2026-08-08
 
 ### Added
 
-- **UI Animations**: Added visual animations and dynamic transition effects for UI components and round reveals.
-- **i18n Updates**: Expanded internationalization support across game views.
+- **UI Animations**: Visual transitions for modals, round reveals, and buttons.
+- **i18n Expansion**: Expanded translations across all screens.
 
 ### Changed
 
-- **Map Interaction & View**: Improved Leaflet map view rendering, auto-centering, and interaction behavior.
-- **Multiplayer Awards & Podium**: Refined award criteria calculations and updated post-game end screens to display podium awards exclusively for multiplayer sessions.
-- **Reveal Screen Layout**: Reordered reveal phase elements to present scoring and metadata details more clearly.
-
-### Fixed
-
-- **Tie-Breaking Logic**: Enhanced leaderboard tie-breaking for equal score results.
-- **General Robustness**: Hardened edge-case handling across map rendering and turn transitions.
+- **Podium Awards**: Scoped podium avatars exclusively to multiplayer matches.
+- **Map Rendering**: Improved Leaflet auto-centering and viewport responsiveness.
 
 ## [0.2.0] - 2026-08-08
 
 ### Added
 
-- **Interactive Audio Playground**: Introduced a dedicated audio testing route (`/audio-test`) to audition and test Web Audio API sound effects.
+- **Audio Playground**: Audition and test Web Audio sound effects.
 
 ## [0.1.2] - 2026-08-08
 
 ### Added
 
-- **Developer & Pipeline Tooling**: Added VS Code `launch.json`/`tasks.json`, a Git pre-push hook for automated testing, and a GitHub Actions release workflow (`release.yml`) with automated Docker image tagging based on `pyproject.toml`.
-- **Project Ownership**: Added `CODEOWNERS` file.
-- **Server URL Normalization**: Automatically appends `/api` to server URLs if omitted during setup.
+- **Developer Tooling**: Added VS Code task definitions, git pre-push hooks, and GitHub Actions release workflows.
+- **URL Normalization**: Automatically appends `/api` to server endpoints if omitted.
 
 ### Changed
 
-- **Album Selection**: Sorted album selection dropdown alphabetically.
-- **Scoring System**: Updated scoring rounding calculation (`round` instead of `floor`) and adjusted location distance decay scaling.
-- **JS Modularity**: Refactored frontend scripts to improve module structure.
+- **Album Ordering**: Sorted album dropdown items alphabetically.
 
 ### Fixed
 
-- **Audio Settings Toggle**: Fixed issue where disabling audio feedback did not persist correctly.
+- **Audio Preference Persistence**: Fixed localStorage audio setting persistence.
 
 ## [0.1.0] - 2026-08-08
 
 ### Added
 
 - Initial release of **Immich Quiz**.
-- Single photo **Pinpoint** mode for Location and Date guessing.
-- Immich API integration with preflight asset validation.
-- Pass-and-play local multiplayer support with end-of-match performance awards (**Sniper**, **Time Traveler**, **Speed Demon**).
-- CSV-backed Leaderboard persistence.
-- Zero-dependency Web Audio sound engine.
+- Single photo **Pinpoint** mode (Location and Date guessing).
+- Immich API integration with asset preflight validation.
+- Pass-and-play local multiplayer with performance awards (**Sniper**, **Time Traveler**, **Speed Demon**).
+- Web Audio sound engine.

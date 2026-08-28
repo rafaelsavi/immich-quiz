@@ -887,3 +887,222 @@ def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
     entries_any = store.list_entries(query_any)
     assert len(entries_any) == 1
     assert entries_any[0].player_name == 'Alice'
+
+
+def test_leaderboard_round_history_persists_city_and_country(tmp_path: Path) -> None:
+    """Verify that match_round_guesses stores and retrieves actual_city and actual_country
+    for both single-photo (Pinpoint) and batch-photo (Album Shuffle) match summaries.
+    """
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1. Pinpoint match
+    pinpoint_guesses = [
+        {
+            'match_id': 'm-pinpoint-loc',
+            'player_name': 'Alice',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'pinpoint',
+            'asset_id': 'paris-photo',
+            'guess_latitude': 48.85,
+            'guess_longitude': 2.35,
+            'actual_latitude': 48.8584,
+            'actual_longitude': 2.2945,
+            'actual_city': 'Paris',
+            'actual_country': 'France',
+            'distance_km': 4.25,
+            'location_points': 90,
+            'guess_date': '2023-05-01',
+            'actual_date': '2023-05-10',
+            'date_diff_days': 9,
+            'date_points': 80,
+            'round_score': 170,
+            'time_taken_seconds': 5.0,
+        }
+    ]
+
+    store.append_match(
+        match_id='m-pinpoint-loc',
+        config=BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.pinpoint),
+        player_scores={'Alice': {'location': 90, 'date': 80, 'total': 170}},
+        round_guesses=pinpoint_guesses,
+    )
+
+    pinpoint_summary = store.get_match_summary('m-pinpoint-loc')
+    assert pinpoint_summary is not None
+    assert pinpoint_summary.round_history is not None
+    assert len(pinpoint_summary.round_history) == 1
+    p_round = pinpoint_summary.round_history[0]
+    assert p_round['actual_city'] == 'Paris'
+    assert p_round['actual_country'] == 'France'
+    assert p_round['actual_latitude'] == 48.8584
+    assert p_round['actual_longitude'] == 2.2945
+
+    # 2. Album Shuffle match
+    shuffle_guesses = [
+        {
+            'match_id': 'm-shuffle-loc',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'album_shuffle',
+            'asset_id': 'tokyo-photo',
+            'actual_latitude': 35.6762,
+            'actual_longitude': 139.6503,
+            'actual_city': 'Tokyo',
+            'actual_country': 'Japan',
+            'actual_date': '2022-10-15',
+            'round_score': 100,
+            'time_taken_seconds': 12.0,
+        },
+        {
+            'match_id': 'm-shuffle-loc',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 1,
+            'game_mode': 'album_shuffle',
+            'asset_id': 'rome-photo',
+            'actual_latitude': 41.9028,
+            'actual_longitude': 12.4964,
+            'actual_city': 'Rome',
+            'actual_country': 'Italy',
+            'actual_date': '2023-04-20',
+            'round_score': 100,
+            'time_taken_seconds': 12.0,
+        },
+    ]
+
+    store.append_match(
+        match_id='m-shuffle-loc',
+        config=BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.album_shuffle),
+        player_scores={'Bob': {'location': 100, 'date': 100, 'total': 200}},
+        round_guesses=shuffle_guesses,
+    )
+
+    shuffle_summary = store.get_match_summary('m-shuffle-loc')
+    assert shuffle_summary is not None
+    assert shuffle_summary.round_history is not None
+    s_round = shuffle_summary.round_history[0]
+    assert s_round['batch_reveal'] is not None
+    assert len(s_round['batch_reveal']) == 2
+    assert s_round['batch_reveal'][0]['actual_city'] == 'Tokyo'
+    assert s_round['batch_reveal'][0]['actual_country'] == 'Japan'
+    assert s_round['batch_reveal'][1]['actual_city'] == 'Rome'
+    assert s_round['batch_reveal'][1]['actual_country'] == 'Italy'
+
+
+def test_leaderboard_schema_migration_adds_missing_columns(tmp_path: Path) -> None:
+    """Verify that opening an existing v2.4.0 database without actual_city/actual_country
+    columns migrates automatically without data loss.
+    """
+    import sqlite3
+
+    db_path = tmp_path / 'legacy_leaderboard.db'
+    conn = sqlite3.connect(db_path)
+    # Create schema without actual_city and actual_country columns
+    conn.executescript("""
+    CREATE TABLE matches (
+        match_id TEXT PRIMARY KEY,
+        challenge_id TEXT,
+        room_id TEXT,
+        room_name TEXT,
+        play_mode TEXT NOT NULL DEFAULT 'local',
+        played_at TEXT NOT NULL,
+        libraries_json TEXT,
+        game_mode TEXT NOT NULL DEFAULT 'pinpoint',
+        rounds INTEGER NOT NULL,
+        round_length TEXT NOT NULL,
+        player_count INTEGER NOT NULL,
+        location_mode INTEGER NOT NULL,
+        date_mode INTEGER NOT NULL,
+        album_names_json TEXT,
+        album_ids_json TEXT,
+        person_ids_json TEXT,
+        people_mode TEXT NOT NULL DEFAULT 'any',
+        countries_json TEXT,
+        cities_json TEXT,
+        min_date TEXT,
+        max_date TEXT,
+        include_shared INTEGER NOT NULL DEFAULT 0,
+        is_custom_filtered INTEGER NOT NULL DEFAULT 0,
+        filter_summary TEXT,
+        duration_seconds REAL
+    );
+    CREATE TABLE match_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        location_score INTEGER,
+        date_score INTEGER,
+        total_score INTEGER NOT NULL,
+        max_possible_score INTEGER NOT NULL,
+        accuracy_pct REAL NOT NULL,
+        rank INTEGER NOT NULL,
+        is_winner INTEGER NOT NULL,
+        total_time_seconds REAL,
+        FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
+    );
+    CREATE TABLE match_round_guesses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        match_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        round_index INTEGER NOT NULL,
+        photo_index INTEGER NOT NULL,
+        game_mode TEXT NOT NULL,
+        asset_id TEXT NOT NULL,
+        guess_latitude REAL,
+        guess_longitude REAL,
+        actual_latitude REAL,
+        actual_longitude REAL,
+        distance_km REAL,
+        location_points INTEGER,
+        guess_date TEXT,
+        actual_date TEXT,
+        date_diff_days INTEGER,
+        date_points INTEGER,
+        round_score INTEGER NOT NULL,
+        is_correct_location INTEGER,
+        is_correct_date_order INTEGER,
+        time_taken_seconds REAL,
+        submitted_at TEXT NOT NULL
+    );
+    """)
+    conn.close()
+
+    # Instantiate store on legacy db
+    store = LeaderboardStore(db_path)
+
+    # Verify columns were added
+    with store._db.connection() as c:
+        cursor = c.execute('PRAGMA table_info(match_round_guesses)')
+        cols = {row[1] for row in cursor.fetchall()}
+        assert 'actual_city' in cols
+        assert 'actual_country' in cols
+
+    # Verify appending a match with new columns works seamlessly
+    store.append_match(
+        match_id='m-migrated',
+        config=BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.pinpoint),
+        player_scores={'Alice': {'location': 100, 'date': 100, 'total': 200}},
+        round_guesses=[
+            {
+                'match_id': 'm-migrated',
+                'player_name': 'Alice',
+                'round_index': 0,
+                'photo_index': 0,
+                'game_mode': 'pinpoint',
+                'asset_id': 'migrated-photo',
+                'actual_city': 'Berlin',
+                'actual_country': 'Germany',
+                'round_score': 200,
+                'submitted_at': '2026-08-28T00:00:00Z',
+            }
+        ],
+    )
+
+    summary = store.get_match_summary('m-migrated')
+    assert summary is not None
+    assert summary.round_history[0]['actual_city'] == 'Berlin'
+    assert summary.round_history[0]['actual_country'] == 'Germany'
+

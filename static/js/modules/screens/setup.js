@@ -80,8 +80,8 @@ export async function startMatch(event) {
 
     const payload = {
       players,
-      round_count: Number(el.roundCount.value),
-      round_length: el.roundLength.value,
+      round_count: Number(el.roundCount?.value || 5),
+      round_length: el.roundLength?.value || "standard",
       libraries: selectedLibs,
       albums: albumIds,
       album_names: albumNames,

@@ -2,6 +2,14 @@ import { state, el } from "./state.js";
 import { t } from "./i18n.js";
 
 let audioCtx = null;
+let hasUserGesture = false;
+
+export function hasUserActivation() {
+  if (typeof navigator !== "undefined" && navigator.userActivation) {
+    return Boolean(navigator.userActivation.hasBeenActive);
+  }
+  return hasUserGesture;
+}
 
 function getInitialAudioPreference() {
   try {
@@ -20,7 +28,7 @@ function initializeAudioState() {
 
 initializeAudioState();
 
-const UNLOCK_EVENTS = ["click", "keydown", "touchend"];
+const UNLOCK_EVENTS = ["click", "keydown", "touchend", "pointerdown"];
 
 function removeUnlockListeners() {
   UNLOCK_EVENTS.forEach((evt) => {
@@ -29,6 +37,7 @@ function removeUnlockListeners() {
 }
 
 function handleUserGesture() {
+  hasUserGesture = true;
   unlockAudioContext();
   if (audioCtx && audioCtx.state === "running") {
     removeUnlockListeners();
@@ -36,10 +45,13 @@ function handleUserGesture() {
 }
 
 export function unlockAudioContext() {
+  if (!hasUserActivation()) return;
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass) {
-      audioCtx = new AudioContextClass();
+      try {
+        audioCtx = new AudioContextClass();
+      } catch (_) { }
     }
   }
   if (audioCtx && audioCtx.state === "suspended") {
@@ -59,19 +71,21 @@ UNLOCK_EVENTS.forEach((evt) => {
 });
 
 export function getAudioContext() {
-  unlockAudioContext();
+  if (hasUserActivation()) {
+    unlockAudioContext();
+  }
   return audioCtx;
 }
 
+export function shouldPlay() {
+  return Boolean(state && state.audioEnabled && hasUserActivation());
+}
+
 export function playTone(freq, type, duration, gainValue = 0.22) {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
-
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => { });
-    }
+    if (!ctx || ctx.state !== "running") return;
 
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -93,6 +107,7 @@ export function playTone(freq, type, duration, gainValue = 0.22) {
 }
 
 export function haptic(pattern = 15) {
+  if (!hasUserActivation()) return;
   if (typeof navigator !== "undefined" && "vibrate" in navigator && state && state.audioEnabled) {
     try {
       navigator.vibrate(pattern);
@@ -101,13 +116,13 @@ export function haptic(pattern = 15) {
 }
 
 export function playSubmitTone() {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   haptic(15);
   playTone(480, "sine", 0.08, 0.12);
 }
 
 export function playTick(clampedSec = 10) {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   const clamped = Math.max(1, Math.min(10, Number(clampedSec) || 10));
   const step = 10 - clamped; // 0 (at 10s) to 9 (at 1s)
 
@@ -120,10 +135,7 @@ export function playTick(clampedSec = 10) {
 
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
-    }
+    if (!ctx || ctx.state !== "running") return;
 
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -144,73 +156,72 @@ export function playTick(clampedSec = 10) {
 }
 
 export function playBuzzer() {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   haptic([120, 60, 200]);
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
-
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => { });
-    }
+    if (!ctx || ctx.state !== "running") return;
 
     // Dramatic double-pulse buzzer (BUZZ - BUZZ!)
     [0, 0.22].forEach((delay) => {
       setTimeout(() => {
-        [140, 210].forEach((freq) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
+        try {
+          if (!ctx || ctx.state !== "running") return;
+          [140, 210].forEach((freq) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
 
-          osc.type = "sawtooth";
-          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
-          gain.gain.setValueAtTime(0.22, ctx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+            gain.gain.setValueAtTime(0.22, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
 
-          osc.connect(gain);
-          gain.connect(ctx.destination);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
 
-          osc.start(ctx.currentTime);
-          osc.stop(ctx.currentTime + 0.18);
-        });
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.18);
+          });
+        } catch (_) { }
       }, delay * 1000);
     });
   } catch (_) { }
 }
 
 export function playChime() {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   haptic([25, 40, 25, 40, 50]);
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
+    if (!ctx || ctx.state !== "running") return;
     const notes = [523.25, 659.25, 783.99, 1046.5];
     notes.forEach((freq, idx) => {
       setTimeout(() => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(freq, ctx.currentTime);
-        gain.gain.setValueAtTime(0.18, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.35);
+        try {
+          if (!ctx || ctx.state !== "running") return;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(freq, ctx.currentTime);
+          gain.gain.setValueAtTime(0.18, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.35);
+        } catch (_) { }
       }, idx * 100);
     });
   } catch (_) { }
 }
 
 export function playPinDropSound() {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   haptic(12);
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => { });
-    }
+    if (!ctx || ctx.state !== "running") return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
@@ -230,17 +241,14 @@ export function playPinDropSound() {
 let lastScoreTickAudioTime = 0;
 
 export function playScoreRollupTick(progress = 0) {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
   if (now - lastScoreTickAudioTime < 35) return;
   lastScoreTickAudioTime = now;
 
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
-    if (ctx.state === "suspended") {
-      ctx.resume().catch(() => { });
-    }
+    if (!ctx || ctx.state !== "running") return;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "triangle";
@@ -259,11 +267,11 @@ export function playScoreRollupTick(progress = 0) {
 }
 
 export function playVictoryFanfare() {
-  if (!state || !state.audioEnabled) return;
+  if (!shouldPlay()) return;
   haptic([35, 70, 35, 70, 100]);
   try {
     const ctx = getAudioContext();
-    if (!ctx) return;
+    if (!ctx || ctx.state !== "running") return;
 
     const notes = [
       { freq: 349.23, delay: 0, duration: 0.18 },
@@ -274,30 +282,35 @@ export function playVictoryFanfare() {
 
     notes.forEach((n) => {
       setTimeout(() => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(n.freq, ctx.currentTime);
+        try {
+          if (!ctx || ctx.state !== "running") return;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "triangle";
+          osc.frequency.setValueAtTime(n.freq, ctx.currentTime);
 
-        gain.gain.setValueAtTime(0.20, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + n.duration);
+          gain.gain.setValueAtTime(0.20, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + n.duration);
 
-        osc.connect(gain);
-        gain.connect(ctx.destination);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
 
-        osc.start();
-        osc.stop(ctx.currentTime + n.duration);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + n.duration);
+        } catch (_) { }
       }, n.delay * 1000);
     });
   } catch (_) { }
 }
 
 export function toggleAudio() {
-  unlockAudioContext();
+  if (hasUserActivation()) {
+    unlockAudioContext();
+  }
   state.audioEnabled = !state.audioEnabled;
   localStorage.setItem("immich_quiz_audio", state.audioEnabled ? "1" : "0");
   updateAudioUi();
-  if (state.audioEnabled) {
+  if (state.audioEnabled && hasUserActivation()) {
     playTone(600, "sine", 0.08, 0.1);
   }
 }

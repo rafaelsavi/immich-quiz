@@ -1,6 +1,7 @@
 import {
   state,
   el,
+  saveActiveMatchSession,
   clearActiveMatchSession,
   loadActiveMatchSession,
   restoreActiveMatchSession,
@@ -62,6 +63,7 @@ import { handleNextRound } from "./modules/screens/reveal.js";
 import {
   showMatchSummaryByMatchId,
   showGameEndedCard,
+  renderSummaryContent,
 } from "./modules/screens/summary.js";
 
 // Re-export / configure global mode accessor
@@ -145,7 +147,9 @@ async function handleRoute(route) {
     case RouteType.GAME_SUMMARY: {
       const matchId = route.params.matchId;
       clearActiveMatchSession();
-      await showMatchSummaryByMatchId(matchId);
+      const shouldPlayFanfare = Boolean(state.justFinishedMatch && state.matchId === matchId);
+      state.justFinishedMatch = false;
+      await showMatchSummaryByMatchId(matchId, { playFanfare: shouldPlayFanfare });
       break;
     }
 
@@ -180,15 +184,23 @@ async function handleRoute(route) {
 
 /* ----------------------------------------------------------------- events */
 
-el.setupForm.addEventListener("submit", (event) => {
-  startMatch(event).catch((err) => showAlert(err.message || err));
-});
+function bindClick(element, handler) {
+  if (element) {
+    element.addEventListener("click", handler);
+  }
+}
 
-el.readyBtn.addEventListener("click", () => {
+if (el.setupForm) {
+  el.setupForm.addEventListener("submit", (event) => {
+    startMatch(event).catch((err) => showAlert(err.message || err));
+  });
+}
+
+bindClick(el.readyBtn, () => {
   if (!state.currentQuestion) return;
   state.currentScreen = "guessing";
   state.passConfirmed = true;
-  el.passOverlay.classList.add("hidden");
+  el.passOverlay?.classList.add("hidden");
   const activeMode = getActiveMode();
   activeMode.onReady(state.currentQuestion);
 
@@ -215,77 +227,57 @@ el.readyBtn.addEventListener("click", () => {
   markShortcutCooldown(20);
 });
 
-el.submitAnswer.addEventListener("click", () => {
+bindClick(el.submitAnswer, () => {
   submitAnswer(false).catch((err) => showAlert(err.message || err));
 });
 
-el.nextRound.addEventListener("click", () => {
+bindClick(el.nextRound, () => {
   handleNextRound().catch((err) => showAlert(err.message || err));
 });
 
-el.summaryLobbyBtn.addEventListener("click", () => {
+bindClick(el.newMatch, () => {
   returnToSetup();
 });
 
-el.summaryPlayAgainBtn.addEventListener("click", () => {
-  restartSameGame().catch((err) => showAlert(err.message || err));
+bindClick(el.gameEndedLobbyBtn, () => {
+  returnToSetup();
 });
 
-if (el.shareMatchBtn) {
-  el.shareMatchBtn.addEventListener("click", () => {
-    shareMatchSummary();
-  });
-}
+bindClick(el.shareSummaryBtn, () => {
+  shareMatchSummary(state.lastSummary);
+});
 
-el.langToggle.addEventListener("click", () => {
+bindClick(el.langToggleBtn, () => {
   toggleLanguage();
   refreshActiveScreenLanguage();
 });
 
-el.audioToggle.addEventListener("click", () => {
+bindClick(el.audioToggleBtn, () => {
   toggleAudio();
   updateAudioUi();
 });
 
-if (el.toggleMapFsBtn) {
-  el.toggleMapFsBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleMapFullscreen();
-  });
-}
-
-if (el.toggleQuizImageFsBtn) {
-  el.toggleQuizImageFsBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    getActiveMode()?.togglePhotoFullscreen?.();
-  });
-}
-
-el.returnSetupBtn.addEventListener("click", () => {
+bindClick(el.gameExitBtn, () => {
   handleAbandonGame("exit");
 });
 
-el.restartGameBtn.addEventListener("click", () => {
+bindClick(el.gameRestartBtn, () => {
   handleAbandonGame("restart");
 });
 
-if (el.revealExitBtn) {
-  el.revealExitBtn.addEventListener("click", () => {
-    handleAbandonGame("exit");
-  });
-}
+bindClick(el.revealRestartBtn, () => {
+  handleAbandonGame("restart");
+});
 
-if (el.refreshLeaderboard) {
-  el.refreshLeaderboard.addEventListener("click", () => {
-    loadLeaderboard().catch((err) => showAlert(err.message || err));
-  });
-}
+bindClick(el.revealExitBtn, () => {
+  handleAbandonGame("exit");
+});
 
-if (el.leaderboardHead) {
-  el.leaderboardHead.addEventListener("click", handleSortClick);
-}
+bindClick(el.refreshLeaderboard, () => {
+  loadLeaderboard().catch((err) => showAlert(err.message || err));
+});
+
+bindClick(el.leaderboardHead, handleSortClick);
 
 window.addEventListener("resize", () => {
   refitAllMaps();
@@ -392,7 +384,7 @@ function refreshActiveScreenLanguage() {
 
 async function initUiConfig() {
   try {
-    const config = await api("/api/config");
+    const config = await api("/api/ui-config");
     applyUiConfig(config);
   } catch (err) {
     console.warn("Using default UI config:", err);
@@ -453,6 +445,16 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
     }
     return true;
   });
+
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0" ||
+      window.__IMMICH_QUIZ_TEST__)
+  ) {
+    window.__state = state;
+  }
 
   // Fast background config sync
   initUiConfig().catch((err) => console.warn("UI config error:", err));

@@ -1,6 +1,6 @@
 import { state, el } from "./state.js";
 import { t, showAlert, formatDate } from "./i18n.js";
-import { playerInitial, playerColor, ACTUAL_COLOR, formatPlace } from "./formatters.js";
+import { playerInitial, playerColor, ACTUAL_COLOR, formatPlace, formatMonth } from "./formatters.js";
 import { playPinDropSound } from "./audio.js";
 
 let journeySpiderLines = {}; // pinLabel -> L.polyline connector line
@@ -608,11 +608,15 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
       r.actual_longitude !== undefined &&
       !(Math.abs(r.actual_latitude) < 1e-6 && Math.abs(r.actual_longitude) < 1e-6)
     ) {
+      const locStr = formatPlace(r);
+      const dateStr = r.actual_date
+        ? formatDate(r.actual_date, { year: "numeric", month: "short", day: "numeric" })
+        : (r.actual_year && r.actual_month ? formatMonth(r.actual_year, r.actual_month) : "");
       allPins.push({
         label: String(r.round_number),
         lat: r.actual_latitude,
         lon: r.actual_longitude,
-        popupText: `<b>${t("summary.journey_round", r.round_number)}</b><br>${r.location_string || ""}`,
+        popupText: `<b>${t("summary.journey_round", r.round_number)}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
       });
     }
   });

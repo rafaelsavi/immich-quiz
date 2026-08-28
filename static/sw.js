@@ -4,7 +4,7 @@
  * API calls and dynamic Immich media streams bypass cache.
  */
 
-const CACHE_NAME = 'immich-quiz-v2';
+const CACHE_NAME = 'immich-quiz-v2.4.1';
 
 const PRECACHE_ASSETS = [
   '/',
