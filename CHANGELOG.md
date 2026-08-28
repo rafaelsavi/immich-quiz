@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Structured Console & Container Logging Architecture**: Implemented a comprehensive logging subsystem (`src/logging/`) featuring:
+  - **Clean High-Visibility Console Formatter**: Timestamped and color-enhanced format (`YYYY-MM-DD HH:MM:SS [LEVEL] [subsystem:context] Message`) optimized for Docker container stdout (`docker logs`) and local terminal debugging.
+  - **Contextual Request & Session Tracing**: Zero-boilerplate async context propagation (`contextvars`) tracking `match_id`, `request_id`, `player_name`, and `library_name` automatically across all log statements.
+  - **Automatic Credential Redaction**: Real-time regex sanitization masking Immich API keys and bearer tokens (`api_key=******1234`).
+  - **HTTP Request Context Middleware**: Injects `X-Request-ID` tracing headers, measures request duration in milliseconds, and emits clean access logs.
+  - **Granular Subsystem Level Configuration**: Configurable via `LOG_LEVEL` (`INFO`, `DEBUG`, `WARNING`, `ERROR`) with optional per-domain overrides (`LOG_LEVEL_SCORING`, `LOG_LEVEL_SYNC`, `LOG_LEVEL_IMMICH`, `LOG_LEVEL_MATCH`, `LOG_LEVEL_API`).
+
+### Changed
+
+- **Tuned Spatial Scoring Parameters**: Updated spatial decay constants in [`src/scoring.py`](file:///d:/Rafael/Projects/immich-quiz/src/scoring.py) to `LOCATION_SPAN_RATIO = 10.0`, `LOCATION_MIN_DECAY_KM = 5.0` (for more forgiving city/neighborhood guesses), and `LOCATION_MAX_DECAY_KM = 200.0` (for tighter precision on nationwide/worldwide rounds).
+
+### Removed
+
+- **Redundant `LOCATION_MAX_SPAN_KM` Parameter**: Removed `LOCATION_MAX_SPAN_KM` and `max_span_km` parameter from spatial adaptive scoring in [`src/scoring.py`](file:///d:/Rafael/Projects/immich-quiz/src/scoring.py) and scoring simulations, as `LOCATION_MAX_DECAY_KM` already mathematically caps the decay ceiling at $\text{MAX\_DECAY} \times \text{SPAN\_RATIO}$.
+
 ## [2.2.1] - 2026-08-26
 
 ### Fixed
@@ -32,7 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart Map Initial Zoom**: Increased `SMART_MAP_MAX_INITIAL_ZOOM` to `13` (neighborhood / street zoom level) in Pinpoint mode for tighter initial framing on city and neighborhood-scale albums.
 
 ### Removed
-
 
 - **Static Decay Environment Variables**: Removed `LOCATION_SCORE_DECAY_KM` and `DATE_SCORE_DECAY_DAYS` configuration parameters from `AppSettings`, `.env.example`, and server validation in favor of automated per-match calculations.
 

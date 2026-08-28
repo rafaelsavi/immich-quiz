@@ -39,7 +39,7 @@ from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, SessionStore
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('immich_quiz.match')
 
 
 def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
@@ -307,6 +307,13 @@ class GameService:
         )
         setup.person_names = self.resolve_person_names(people=setup.people, existing_names=setup.person_names)
         state = self.store.create_match(setup)
+        logger.info(
+            '🎮 Match %s created: mode=%s, rounds=%d, players=%s',
+            state.match_id,
+            setup.game_mode.value,
+            setup.round_count,
+            list(setup.players),
+        )
 
         map_bounds: MapBounds | None = None
         try:
@@ -385,6 +392,14 @@ class GameService:
             self.immich,
             metadata_store=self.metadata_store,
         )
+        logger.info(
+            'Match %s (R%d Turn %d/%d) - Question delivered for player %r',
+            payload.match_id,
+            state.current_round_index + 1,
+            state.turn_index + 1,
+            state.total_turns,
+            state.current_player_name(),
+        )
         return engine.build_question_response(state, question_state)
 
     async def submit_answer(self, payload: AnswerRequest) -> AnswerResponse:
@@ -423,6 +438,12 @@ class GameService:
                 duration_seconds=duration_sec,
                 player_times=player_times,
                 round_guesses=round_guesses,
+            )
+            logger.info(
+                '🏁 Match %s finished in %.1fs across %d turns',
+                updated_state.match_id,
+                duration_sec,
+                updated_state.total_turns,
             )
 
         return AnswerResponse(

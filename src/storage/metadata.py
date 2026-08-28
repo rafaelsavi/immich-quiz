@@ -24,7 +24,7 @@ from src.models import (
 )
 from src.storage.db import DatabaseManager
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('immich_quiz.storage')
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS sync_state (
@@ -914,6 +914,7 @@ class MetadataStore:
                 state=r.get('state'),
                 country=r.get('country'),
             )
+        logger.debug('Fetched %d candidate assets matching criteria (limit=%d)', len(results), limit)
         return results
 
     def get_filter_options(

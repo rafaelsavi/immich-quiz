@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from calendar import monthrange
 from collections.abc import Iterable, Mapping, Sequence
@@ -11,6 +12,8 @@ from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from src.immich.client import AssetAnswer
+
+logger = logging.getLogger('immich_quiz.scoring')
 
 T = TypeVar('T', float, int, date)
 
@@ -88,20 +91,17 @@ SCORE_MAX_POINTS: int = 100
 # ---------------------------------------------------------------------------
 
 # Ratio connecting geographic bounding diagonal (span) to exponential distance decay.
-# A ratio of 8.0 means decay = span / 8.0 (12.5% of the total map width/diagonal).
-# At 12.5% map error, player earns 37 points (1/e).
-# At 6.25% map error, player earns 61 points.
-# At > 50% map error (halfway across the map), player score drops below 2 points (0 pts).
-LOCATION_SPAN_RATIO: float = 8.0
+# A ratio of 10.0 means decay = span / 10.0 (10.0% of the total map width/diagonal).
+# At 10.0% map error, player earns 37 points (1/e).
+# At 5.0% map error, player earns 61 points.
+# At > 40% map error (almost halfway across the map), player score drops below 2 points (0 pts).
+LOCATION_SPAN_RATIO: float = 10.0
 
 # Minimum floor clamp for single-city or walking-tour albums (prevents overly punishing decay).
-LOCATION_MIN_DECAY_KM: float = 2.5
+LOCATION_MIN_DECAY_KM: float = 5.0
 
 # Maximum ceiling clamp for nationwide or worldwide matches.
-LOCATION_MAX_DECAY_KM: float = 500.0
-
-# Threshold distance before a match is treated as worldwide global coverage.
-LOCATION_MAX_SPAN_KM: float = 5000.0
+LOCATION_MAX_DECAY_KM: float = 200.0
 
 # ---------------------------------------------------------------------------
 # Temporal Scoring Constants
@@ -128,7 +128,6 @@ def calculate_location_decay(
     span_ratio: float = LOCATION_SPAN_RATIO,
     min_decay_km: float = LOCATION_MIN_DECAY_KM,
     max_decay_km: float = LOCATION_MAX_DECAY_KM,
-    max_span_km: float = LOCATION_MAX_SPAN_KM,
 ) -> float:
     """Calculate dynamic geographic decay (km) adapted to the match pool's bounding box span.
 
@@ -139,23 +138,23 @@ def calculate_location_decay(
         decay_km = clamp(span_diagonal_km / span_ratio, min_decay_km, max_decay_km)
 
     The `span_ratio` controls the scale sensitivity:
-        - Ratio 8.0 sets decay to 12.5% of the pool's diagonal.
-        - Guessing within 3% of the map span yields ~79 points.
-        - Guessing within 12.5% of the map span (1 decay unit) yields 37 points.
-        - Guessing > 50% of the map span away yields < 2 points (0 pts).
+        - Ratio 10.0 sets decay to 10.0% of the pool's diagonal.
+        - Guessing within 2.5% of the map span yields ~78 points.
+        - Guessing within 10.0% of the map span (1 decay unit) yields 37 points.
+        - Guessing > 40% of the map span away yields < 2 points (0 pts).
 
     Args:
         pool: Collection or mapping of `AssetAnswer` candidate photos.
-        span_ratio: Divisor ratio of pool span distance to decay distance. Defaults to 8.0.
-        min_decay_km: Minimum allowable decay clamp in kilometers. Defaults to 2.5 km.
-        max_decay_km: Maximum allowable decay clamp in kilometers. Defaults to 500.0 km.
-        max_span_km: Maximum geographic span before pool is considered global. Defaults to 5000.0 km.
+        span_ratio: Divisor ratio of pool span distance to decay distance. Defaults to 10.0.
+        min_decay_km: Minimum allowable decay clamp in kilometers. Defaults to 5.0 km.
+        max_decay_km: Maximum allowable decay clamp in kilometers. Defaults to 200.0 km.
 
     Returns:
         Location decay in kilometers clamped to [min_decay_km, max_decay_km].
 
     """
     if not pool:
+        logger.debug('Spatial decay: Empty pool, defaulting to max decay (%.1f km).', max_decay_km)
         return max_decay_km
 
     answers = pool.values() if isinstance(pool, Mapping) else pool
@@ -168,6 +167,7 @@ def calculate_location_decay(
     ]
 
     if len(coords) < 2:
+        logger.debug('Spatial decay: Less than 2 GPS coords, defaulting to max decay (%.1f km).', max_decay_km)
         return max_decay_km
 
     lats = [c[0] for c in coords]
@@ -178,14 +178,27 @@ def calculate_location_decay(
     lat_span = max_lat - min_lat
 
     if lat_span > 60.0 or lng_span > 90.0:
+        logger.info(
+            'Spatial decay: Global span detected (lat_span=%.1f°, lng_span=%.1f°) -> defaulting to max decay (%.1f km)',
+            lat_span,
+            lng_span,
+            max_decay_km,
+        )
         return max_decay_km
 
     diagonal_km = haversine_km(min_lat, min_lng, max_lat, max_lng)
-    if diagonal_km > max_span_km:
-        return max_decay_km
-
     scaled_decay = diagonal_km / span_ratio
-    return max(min_decay_km, min(max_decay_km, round(scaled_decay, 2)))
+    decay_km = max(min_decay_km, min(max_decay_km, round(scaled_decay, 2)))
+    logger.info(
+        'Spatial decay: %d coords, diagonal span=%.1f km (ratio=%.1f) -> decay=%.1f km [bounds: %.1f-%.1f km]',
+        len(coords),
+        diagonal_km,
+        span_ratio,
+        decay_km,
+        min_decay_km,
+        max_decay_km,
+    )
+    return decay_km
 
 
 def calculate_date_decay(
@@ -220,22 +233,38 @@ def calculate_date_decay(
 
     """
     if not pool:
+        logger.debug('Temporal decay: Empty pool, defaulting to max decay (%.1f days).', max_decay_days)
         return max_decay_days
 
     answers = pool.values() if isinstance(pool, Mapping) else pool
     dates = [ans.capture_date for ans in answers if ans.capture_date is not None]
 
     if len(dates) < 2:
+        logger.debug('Temporal decay: Less than 2 dates, defaulting to max decay (%.1f days).', max_decay_days)
         return max_decay_days
 
     min_date, max_date = _percentile_bounds(dates)
     delta_days = (max_date - min_date).days
 
     if delta_days <= 0:
+        logger.debug('Temporal decay: 0 days span, defaulting to min decay (%.1f days).', min_decay_days)
         return min_decay_days
 
     scaled_decay = delta_days / span_ratio
-    return max(min_decay_days, min(max_decay_days, round(scaled_decay, 2)))
+    decay_days = max(min_decay_days, min(max_decay_days, round(scaled_decay, 2)))
+    logger.info(
+        'Temporal decay: %d dates (%s to %s), span=%d days / ~%.1f yrs (ratio=%.1f) -> decay=%.1f days [bounds: %.1f-%.1f d]',
+        len(dates),
+        min_date.isoformat(),
+        max_date.isoformat(),
+        delta_days,
+        delta_days / 365.25,
+        span_ratio,
+        decay_days,
+        min_decay_days,
+        max_decay_days,
+    )
+    return decay_days
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:

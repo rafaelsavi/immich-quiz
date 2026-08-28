@@ -43,7 +43,7 @@ def test_location_decay_single_city_clamp() -> None:
     # Paris photos ~10 km apart:
     # Eiffel Tower: 48.8584, 2.2945
     # Notre Dame: 48.8530, 2.3499
-    # Distance ~4.5 km -> 4.5 / 8.0 = 0.56 km -> Clamped to min 2.5 km
+    # Distance ~4.5 km -> 4.5 / 10.0 = 0.45 km -> Clamped to min 5.0 km
     pool = [
         _make_answer(48.8584, 2.2945, '2024-01-01T12:00:00Z'),
         _make_answer(48.8530, 2.3499, '2024-01-02T12:00:00Z'),
@@ -61,8 +61,8 @@ def test_location_decay_regional_scaling() -> None:
         _make_answer(49.4521, 11.0767, '2024-01-02T12:00:00Z'),
     ]
     decay = calculate_location_decay(pool)
-    # Span ~151.7 km / 8.0 = ~18.96 km
-    assert 15.0 < decay < 25.0
+    # Span ~151.7 km / 10.0 = ~15.17 km
+    assert 14.0 <= decay <= 16.0
 
 
 def test_location_decay_global_span_fallback() -> None:
@@ -83,7 +83,7 @@ def test_location_decay_antimeridian_crossing() -> None:
         _make_answer(-16.82, -179.95, '2024-01-02T12:00:00Z'),
     ]
     decay = calculate_location_decay(pool)
-    # The true span is ~11 km across Date Line, so decay should clamp to min 2.5 km (not fall back to 500 km)
+    # The true span is ~11 km across Date Line, so decay should clamp to min 5.0 km (not fall back to 200 km)
     assert decay == LOCATION_MIN_DECAY_KM
 
 
@@ -169,16 +169,16 @@ def test_date_decay_filters_timestamp_outlier() -> None:
 
 
 def test_scoring_rewards_city_accuracy() -> None:
-    city_decay = 2.5
-    global_decay = 500.0
+    city_decay = 5.0
+    global_decay = 200.0
 
-    # 5 km error in a city gives 14 points, while in global it gives 99 points
+    # 5 km error in a city gives 37 points, while in global it gives 98 points
     city_score_5km = location_score(5.0, decay_km=city_decay)
     global_score_5km = location_score(5.0, decay_km=global_decay)
 
-    assert city_score_5km == 14
-    assert global_score_5km == 99
+    assert city_score_5km == 37
+    assert global_score_5km == 98
 
-    # 500m (0.5 km) error in a city still gives 82 points
+    # 500m (0.5 km) error in a city still gives 90 points
     city_score_500m = location_score(0.5, decay_km=city_decay)
-    assert city_score_500m == 82
+    assert city_score_500m == 90

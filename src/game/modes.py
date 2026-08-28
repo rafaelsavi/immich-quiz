@@ -40,7 +40,7 @@ from src.storage.session import (
     SessionStore,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('immich_quiz.match')
 
 
 def split_month_delta(delta_months: int | None) -> tuple[int | None, int | None]:
@@ -222,6 +222,24 @@ class PinpointEngine(BaseGameModeEngine):
                 delta_days,
                 decay_days=state.date_decay_days,
             )
+
+        loc_desc = (
+            f'{distance:.2f}km -> {location_points}pts (decay={state.location_decay_km:.1f}km)'
+            if distance is not None
+            else 'N/A'
+        )
+        date_desc = (
+            f'{delta_days}d -> {date_points}pts (decay={state.date_decay_days:.1f}d)'
+            if delta_days is not None
+            else 'N/A'
+        )
+        logger.info(
+            'Match %s (R%d) guess evaluated: location=[%s], date=[%s]',
+            payload.match_id,
+            state.current_round_index + 1,
+            loc_desc,
+            date_desc,
+        )
 
         try:
             return store.apply_score(
@@ -405,6 +423,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             else 0
         )
 
+        correct_ranks = 0
         if state.setup.date_mode:
             if not answers:
                 date_points = 0
@@ -412,7 +431,6 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 sorted_by_date = sorted(batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
                 true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
 
-                correct_ranks = 0
                 for ans in answers:
                     if (
                         ans.photo_id in true_rank_map
@@ -424,6 +442,18 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 date_points = batch_strict_date_score(correct_ranks, total_photos=len(batch_assets))
         else:
             date_points = 0
+
+        logger.info(
+            'Match %s (R%d) Album Shuffle evaluated: pins=%d/%d correct (%d pts), date_order=%d/%d correct (%d pts)',
+            payload.match_id,
+            state.current_round_index + 1,
+            correct_pins,
+            len(batch_assets),
+            location_points,
+            correct_ranks if state.setup.date_mode else 0,
+            len(batch_assets) if state.setup.date_mode else 0,
+            date_points,
+        )
 
         try:
             return store.apply_score(

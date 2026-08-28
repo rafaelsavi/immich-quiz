@@ -18,12 +18,12 @@ Points drop off exponentially with distance ($d$) using the Haversine formula (g
 $$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{d}{\text{decay\_km}}\right)\right)\right)$$
 
 - **Pool Decay ($\text{decay\_km}$)**: Dynamically calculated based on the geographic diagonal span ($D_{\text{span}}$) of candidate photos in the match pool, using **5th–95th percentile trimming** to filter out isolated airport layovers or GPS glitches:
-  $$\text{decay\_km} = \text{clamp}\left(\frac{D_{\text{span}}}{\text{LOCATION\_SPAN\_RATIO}},\; 2.5\text{ km},\; 500.0\text{ km}\right)$$
-  *(where $\text{LOCATION\_SPAN\_RATIO} = 8.0$ sets the decay unit to $\frac{1}{8}\text{th}$ of the map diagonal)*
+  $$\text{decay\_km} = \text{clamp}\left(\frac{D_{\text{span}}}{\text{LOCATION\_SPAN\_RATIO}},\; 5.0\text{ km},\; 200.0\text{ km}\right)$$
+  *(where $\text{LOCATION\_SPAN\_RATIO} = 10.0$ sets the decay unit to $\frac{1}{10}\text{th}$ of the map diagonal)*
 - **How it feels**:
-  - **Single City / Walking Tour** ($D_{\text{span}} \le 20\text{ km}$): Decay scales down to $\approx 2.5\text{ km}$. A $500\text{m}$ error earns $82$ points, while being $10\text{ km}$ away yields nearly $0$ points.
-  - **Regional / Country Match** ($D_{\text{span}} \approx 300\text{ km}$): Decay scales to $\approx 37.5\text{ km}$.
-  - **Worldwide / Global Match** ($D_{\text{span}} > 5000\text{ km}$): Decay uses the full $500.0\text{ km}$ ceiling.
+  - **Single City / Walking Tour** ($D_{\text{span}} \le 50\text{ km}$): Decay scales down to the floor of $\approx 5.0\text{ km}$. A $500\text{m}$ error earns $90$ points, while being $10\text{ km}$ away yields $14$ points.
+  - **Regional / Country Match** ($D_{\text{span}} \approx 300\text{ km}$): Decay scales to $\approx 30.0\text{ km}$.
+  - **Worldwide / Global Match** ($D_{\text{span}} \ge 2000\text{ km}$): Decay reaches the full $200.0\text{ km}$ ceiling.
 
 ### 📅 Date Scoring
 
@@ -48,14 +48,14 @@ $$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{\Del
 
 The `span_ratio` translates the total geographic or temporal scope of an album into the decay parameter, defining what fraction of the map or timeline corresponds to specific score benchmarks:
 
-| Relative Error (% of Album Span) | Location Score (`ratio = 8.0`) | Date Score (`ratio = 6.0`) | Player Feedback |
+| Relative Error (% of Album Span) | Location Score (`ratio = 10.0`) | Date Score (`ratio = 6.0`) | Player Feedback |
 |:---|:---|:---|:---|
-| **$\le 1\%$ of album span** | **$92\text{--}100\text{ pts}$** | **$94\text{--}100\text{ pts}$** | Bullseye pinpoint accuracy |
-| **$3\%$ of album span** | **$79\text{ pts}$** | **$83\text{ pts}$** | Very close (correct neighborhood / exact season) |
-| **$6\%$ of album span** | **$62\text{ pts}$** | **$70\text{ pts}$** | Close (correct metro area / adjacent month) |
-| **$12.5\%$ ($1/\text{ratio}$)** | **$37\text{ pts}$** ($1/e$) | **$47\text{ pts}$** | General ballpark |
-| **$25\%$ of album span** | **$14\text{ pts}$** | **$22\text{ pts}$** | Significantly off |
-| **$\ge 50\%$ of album span** | **$\le 1\text{ pt}$** | **$\le 5\text{ pts}$** | Missed entirely |
+| **$\le 1\%$ of album span** | **$90\text{--}100\text{ pts}$** | **$94\text{--}100\text{ pts}$** | Bullseye pinpoint accuracy |
+| **$2.5\%$ of album span** | **$78\text{ pts}$** | **$86\text{ pts}$** | Very close (correct neighborhood / exact season) |
+| **$5\%$ of album span** | **$61\text{ pts}$** | **$74\text{ pts}$** | Close (correct metro area / adjacent month) |
+| **$10\%$ ($1/\text{ratio}$)** | **$37\text{ pts}$** ($1/e$) | **$55\text{ pts}$** | General ballpark |
+| **$20\%$ of album span** | **$14\text{ pts}$** | **$30\text{ pts}$** | Significantly off |
+| **$\ge 40\%$ of album span** | **$\le 2\text{ pts}$** | **$\le 9\text{ pts}$** | Missed entirely |
 
 ---
 

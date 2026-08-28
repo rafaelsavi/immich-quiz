@@ -13,7 +13,7 @@ from src.immich.client import ImmichClient, ImmichClientError
 from src.models import SyncMode, SyncStage, SyncStatus
 from src.storage.metadata import MetadataStore
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('immich_quiz.sync')
 
 
 def _clean_str(val: Any) -> str | None:

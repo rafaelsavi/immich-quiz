@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -17,6 +16,7 @@ from src.config import AppSettings, ConfigError, load_settings
 from src.game.service import GameService
 from src.i18n import SupportedLanguage, parse_accept_language
 from src.immich.client import ImmichClient, ImmichClientError
+from src.logging import LoggingContextMiddleware, get_logger, setup_logging
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import MetadataStore
@@ -24,7 +24,7 @@ from src.storage.session import SessionStore
 from src.storage.sync import SyncEngine
 from src.version import APP_VERSION
 
-logger = logging.getLogger(__name__)
+logger = get_logger('server')
 
 
 def _render_index_html(
@@ -52,6 +52,8 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     if settings is None:
         settings = load_settings()
 
+    setup_logging(settings)
+
     metadata_db_manager = DatabaseManager(settings.metadata_db_path)
     leaderboard_db_manager = DatabaseManager(settings.leaderboard_db_path)
     metadata_store = MetadataStore(metadata_db_manager)
@@ -73,6 +75,14 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        logger.info(
+            '🚀 Immich Quiz v%s starting up (Host: %s:%d, Data: %s, Log Level: %s)',
+            APP_VERSION,
+            settings.app_host,
+            settings.app_port,
+            settings.data_path,
+            settings.log_level,
+        )
         immich: ImmichClient = app.state.immich_client
         available: list[str] = []
         unavailable: dict[str, str] = {}
@@ -80,9 +90,10 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             try:
                 await immich.validate_access(library_name)
                 available.append(library_name)
+                logger.info('✅ Library %r validated successfully with Immich server', library_name)
             except ImmichClientError as exc:
                 unavailable[library_name] = str(exc)
-                logger.warning('Library %r is unavailable and was hidden from setup: %s', library_name, exc)
+                logger.warning('⚠️ Library %r is unavailable and was hidden from setup: %s', library_name, exc)
 
         app.state.available_libraries = available
         app.state.unavailable_libraries = unavailable
@@ -100,7 +111,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
                 await asyncio.sleep(900)
                 cleaned = app.state.session_store.cleanup_expired_matches(ttl_seconds=7200)
                 if cleaned > 0:
-                    logger.info('Cleaned up %d expired match session(s)', cleaned)
+                    logger.info('🧹 Cleaned up %d expired match session(s)', cleaned)
 
         periodic_tasks.append(asyncio.create_task(_periodic_cleanup()))
 
@@ -121,6 +132,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         try:
             yield
         finally:
+            logger.info('🛑 Immich Quiz server shutting down')
             for t in periodic_tasks:
                 t.cancel()
             close = getattr(app.state.immich_client, 'aclose', None)
@@ -139,6 +151,8 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.game_service = game_service
     app.state.available_libraries = None
     app.state.unavailable_libraries = {}
+
+    app.add_middleware(LoggingContextMiddleware)
 
     @app.middleware('http')
     async def add_security_headers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:

@@ -177,6 +177,14 @@ class AppSettings:
     auto_delta_sync_interval_hours: int = 6
     auto_full_sync_interval_hours: int = 120
 
+    # 6. Logging & Observability
+    log_level: str = 'INFO'
+    log_level_scoring: str | None = None
+    log_level_sync: str | None = None
+    log_level_immich: str | None = None
+    log_level_match: str | None = None
+    log_level_api: str | None = None
+
     def __post_init__(self) -> None:
         # Normalize and validate Immich server URL
         normalized_url = _normalize_url(self.immich_server_url, 'IMMICH_SERVER_URL')
@@ -208,6 +216,15 @@ class AppSettings:
         _validate_no_overlap(self.city_whitelist, self.city_blacklist, 'CITY_WHITELIST', 'CITY_BLACKLIST')
         _validate_no_overlap(self.people_whitelist, self.people_blacklist, 'PEOPLE_WHITELIST', 'PEOPLE_BLACKLIST')
         _validate_no_overlap(self.tag_whitelist, self.tag_blacklist, 'TAG_WHITELIST', 'TAG_BLACKLIST')
+
+        # Validate and normalize log levels
+        valid_levels = {'DEBUG', 'INFO', 'WARNING', 'WARN', 'ERROR', 'CRITICAL'}
+        norm_log_level = self.log_level.strip().upper()
+        if norm_log_level == 'WARN':
+            norm_log_level = 'WARNING'
+        if norm_log_level not in valid_levels:
+            raise ConfigError(f'LOG_LEVEL must be one of {sorted(valid_levels)}, got {self.log_level!r}')
+        object.__setattr__(self, 'log_level', norm_log_level)
 
     @property
     def metadata_db_path(self) -> Path:
@@ -292,5 +309,19 @@ def load_settings() -> AppSettings:
         kwargs['tag_whitelist'] = _parse_comma_set(val)
     if val := _get_env('TAG_BLACKLIST'):
         kwargs['tag_blacklist'] = _parse_comma_set(val)
+
+    # Logging & Observability
+    if val := _get_env('LOG_LEVEL'):
+        kwargs['log_level'] = val.strip().upper()
+    if val := _get_env('LOG_LEVEL_SCORING'):
+        kwargs['log_level_scoring'] = val.strip().upper()
+    if val := _get_env('LOG_LEVEL_SYNC'):
+        kwargs['log_level_sync'] = val.strip().upper()
+    if val := _get_env('LOG_LEVEL_IMMICH'):
+        kwargs['log_level_immich'] = val.strip().upper()
+    if val := _get_env('LOG_LEVEL_MATCH'):
+        kwargs['log_level_match'] = val.strip().upper()
+    if val := _get_env('LOG_LEVEL_API'):
+        kwargs['log_level_api'] = val.strip().upper()
 
     return AppSettings(**kwargs)
