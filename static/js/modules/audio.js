@@ -106,18 +106,41 @@ export function playSubmitTone() {
   playTone(480, "sine", 0.08, 0.12);
 }
 
-export function playTick(clampedSec = 5) {
+export function playTick(clampedSec = 10) {
   if (!state || !state.audioEnabled) return;
-  const clamped = Math.max(1, Math.min(5, Number(clampedSec) || 5));
-  const step = 5 - clamped; // 0 (at 5s) to 4 (at 1s)
+  const clamped = Math.max(1, Math.min(10, Number(clampedSec) || 10));
+  const step = 10 - clamped; // 0 (at 10s) to 9 (at 1s)
 
-  // Gentle pitch rise: 520Hz at 5s up to 720Hz at 1s
-  const freq = 520 + step * 50;
-  // Moderate volume rise: 0.15 at 5s up to 0.25 at 1s
-  const gain = 0.15 + step * 0.025;
+  // Continuous linear-musical elevation: 440 Hz (10s) rising to 880 Hz (1s)
+  const freq = 440 + step * 48.88;
+  // Continuous volume elevation: 0.08 (10s) rising to 0.22 (1s)
+  const gainVal = 0.08 + step * 0.0155;
 
-  haptic(18);
-  playTone(freq, "sine", 0.09, gain);
+  haptic(10 + Math.round(step * 1.1));
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    // Crisp percussive transient decaying into pure tone
+    osc.frequency.setValueAtTime(freq * 1.25, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq, ctx.currentTime + 0.03);
+
+    gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.06);
+  } catch (_) {}
 }
 
 export function playBuzzer() {

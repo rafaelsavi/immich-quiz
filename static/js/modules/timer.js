@@ -273,7 +273,7 @@ function updateTimerUi(remainingMs, totalSec, shouldPlayTick = true) {
 
     syncFullscreenTimers(clampedSec, ratio, isWarning, isCritical, isTickBoundary && clampedSec <= 5 && clampedSec > 0, gradient);
 
-    if (shouldPlayTick && isTickBoundary && clampedSec <= 5 && clampedSec > 0) {
+    if (shouldPlayTick && isTickBoundary && clampedSec <= 10 && clampedSec > 0) {
       playTick(clampedSec);
     }
   } else {

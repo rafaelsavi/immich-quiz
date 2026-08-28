@@ -187,9 +187,9 @@ function setupPresets() {
   if (playTickBtn) {
     playTickBtn.addEventListener("click", () => {
       unlockAudioContext();
-      playTick();
-      triggerVisualizer(620, "sine", 0.09);
-      logEvent("playTick()", "520 ➔ 720 Hz • Sine • 0.09s");
+      playTick(5);
+      triggerVisualizer(684, "sine", 0.06);
+      logEvent("playTick()", "440 ➔ 880 Hz Continuous Elevation • Sine • 0.06s • Gain 0.08 ➔ 0.22");
     });
   }
 
@@ -375,9 +375,11 @@ function playgroundCountdownLoop() {
   if (countdownLastTickedSec !== clamped) {
     const isTickBoundary = countdownLastTickedSec !== null && countdownLastTickedSec > clamped;
     countdownLastTickedSec = clamped;
-    if (isTickBoundary && clamped <= 5 && clamped > 0) {
+    if (isTickBoundary && clamped <= 10 && clamped > 0) {
       playTick(clamped);
-      triggerVisualizer(520 + (5 - clamped) * 50, "sine", 0.09);
+      const step = 10 - clamped;
+      const freq = 440 + step * 48.88;
+      triggerVisualizer(freq, "sine", 0.06);
     }
   }
 
