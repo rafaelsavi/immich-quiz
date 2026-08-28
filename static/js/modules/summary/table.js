@@ -168,7 +168,7 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
       row.appendChild(buildCell(String(player.rank)));
 
       const nameCell = playerNameCell(player.player_name);
-      const count = perfectCounts[player.player_name] || 0;
+      const count = perfectCounts[player.player_name] ?? 0;
       if (count > 0) {
         const countBadge = document.createElement("span");
         countBadge.className = "perfect-count-badge";
@@ -188,7 +188,7 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
         row.appendChild(dateCell);
       }
       const totalCell = buildCell(`${player.total_score}/${player.max_possible_score}`);
-      animateScoreRollup(totalCell, player.total_score ?? 0, player.max_possible_score || 100, `/${player.max_possible_score}`);
+      animateScoreRollup(totalCell, player.total_score ?? 0, player.max_possible_score ?? 100, `/${player.max_possible_score}`);
       row.appendChild(totalCell);
 
       const accCell = buildCell(`${player.accuracy_pct}%`);

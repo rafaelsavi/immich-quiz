@@ -66,7 +66,7 @@ export function renderAwards(summary, playerStats = {}) {
       awards.push({
         titleKey: "award.sniper",
         descKey: "award.sniper_desc",
-        descArgs: [playerStats[bestSniper]?.perfectLocationCount || 0],
+        descArgs: [playerStats[bestSniper]?.perfectLocationCount ?? 0],
         player: bestSniper,
       });
     }
@@ -79,7 +79,7 @@ export function renderAwards(summary, playerStats = {}) {
       awards.push({
         titleKey: "award.time_traveler",
         descKey: "award.time_traveler_desc",
-        descArgs: [playerStats[bestTimeTraveler]?.perfectDateCount || 0],
+        descArgs: [playerStats[bestTimeTraveler]?.perfectDateCount ?? 0],
         player: bestTimeTraveler,
       });
     }
@@ -95,7 +95,7 @@ export function renderAwards(summary, playerStats = {}) {
     awards.push({
       titleKey: "award.speed_demon",
       descKey: "award.speed_demon_desc",
-      descArgs: [playerStats[speedDemonPlayer]?.fastRoundCount || 0],
+      descArgs: [playerStats[speedDemonPlayer]?.fastRoundCount ?? 0],
       player: speedDemonPlayer,
     });
   }

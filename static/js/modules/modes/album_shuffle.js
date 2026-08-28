@@ -276,6 +276,7 @@ export const albumShuffleMode = {
   renderReveal(revealUi, revealData, skipEffects = false) {
     const pinpointReveal = document.getElementById("pinpoint-reveal-ui");
     if (pinpointReveal) pinpointReveal.classList.add("hidden");
+    if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
     let targetContainer = document.getElementById("album-shuffle-reveal-ui");
     if (!targetContainer) {

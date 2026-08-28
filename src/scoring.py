@@ -557,4 +557,3 @@ def batch_exponential_date_score(
 
     clamped_score = max(0, min(max_points, round(total_points)))
     return clamped_score, exact_matches, total_photos
-

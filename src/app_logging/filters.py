@@ -9,7 +9,9 @@ from src.app_logging.context import ctx_library_name, ctx_match_id, ctx_player_n
 
 # Regex patterns to match API keys, bearer tokens, or sensitive header strings
 _SENSITIVE_PATTERNS = [
-    re.compile(r'(?i)(api[_-]?key|token|authorization|x-api-key)\s*[:=]\s*["\']?(?:bearer\s+)?([a-zA-Z0-9_\-\.]{8,})["\']?'),
+    re.compile(
+        r'(?i)(api[_-]?key|token|authorization|x-api-key)\s*[:=]\s*["\']?(?:bearer\s+)?([a-zA-Z0-9_\-\.]{8,})["\']?'
+    ),
     re.compile(r'(?i)\b(bearer)\s+([a-zA-Z0-9_\-\.]{8,})\b'),
 ]
 

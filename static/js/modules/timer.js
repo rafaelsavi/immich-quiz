@@ -357,7 +357,7 @@ function bindVisibilityListener() {
   window.addEventListener("focus", syncOnVisibilityChange);
 }
 
-export function startTimer(roundLength, getActiveModeFn = null) {
+export function startTimer(roundLength, getActiveModeFn = null, initialRemainingSeconds = null) {
   resetTimerBar();
   state.timedOut = false;
   state.timerPaused = false;
@@ -377,14 +377,27 @@ export function startTimer(roundLength, getActiveModeFn = null) {
   else if (roundLength === "5m") total = 300;
 
   state.timerTotalSeconds = total;
-  state.timerRemainingSeconds = total;
-  state.timerLastTickedSec = total;
-  state.timerEndTimeMs = Date.now() + total * 1000;
+
+  let remaining = total;
+  if (typeof initialRemainingSeconds === "number" && !isNaN(initialRemainingSeconds)) {
+    remaining = Math.max(0, Math.min(total, initialRemainingSeconds));
+  }
+
+  state.timerRemainingSeconds = remaining;
+  state.timerLastTickedSec = Math.ceil(remaining);
+  state.timerEndTimeMs = Date.now() + remaining * 1000;
 
   if (el.timerTrack) el.timerTrack.classList.remove("is-idle");
   if (el.timerLabel) el.timerLabel.textContent = t("game.timer_time_left");
-  if (el.timerRemaining) el.timerRemaining.textContent = formatTimeDisplay(total);
+  if (el.timerRemaining) el.timerRemaining.textContent = formatTimeDisplay(remaining);
 
-  syncFullscreenTimers(total, 1, false, false);
-  startAnimationLoops();
+  const initialRatio = total > 0 ? remaining / total : 0;
+  const isCritical = remaining <= 5 && remaining > 0;
+  syncFullscreenTimers(remaining, initialRatio, remaining <= 10, isCritical);
+
+  if (remaining <= 0) {
+    handleTimeout(_getActiveModeFn ? _getActiveModeFn() : null);
+  } else {
+    startAnimationLoops();
+  }
 }

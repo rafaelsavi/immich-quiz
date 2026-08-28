@@ -1,4 +1,18 @@
-import { state, el } from "./modules/state.js";
+import {
+  state,
+  el,
+  saveActiveMatchSession,
+  clearActiveMatchSession,
+  loadActiveMatchSession,
+  restoreActiveMatchSession,
+} from "./modules/state.js";
+import {
+  navigate,
+  initRouter,
+  setNavigationGuard,
+  RouteType,
+  parseRoute,
+} from "./modules/router.js";
 import {
   t,
   translateError,
@@ -83,10 +97,10 @@ function clearRevealAnimation() {
 
 function showCard(cardEl) {
   clearRevealAnimation();
-  [el.setupCard, el.gameCard, el.summaryCard].forEach((c) => {
-    c.classList.add("hidden");
+  [el.setupCard, el.gameCard, el.summaryCard, el.gameEndedCard].forEach((c) => {
+    if (c) c.classList.add("hidden");
   });
-  cardEl.classList.remove("hidden");
+  if (cardEl) cardEl.classList.remove("hidden");
 }
 
 function resetGameUi() {
@@ -287,7 +301,8 @@ async function startMatch(event) {
     state.playerStats = {};
     state.roundHistory = [];
 
-    pushGameHistoryState();
+    saveActiveMatchSession();
+    navigate(`/game/${encodeURIComponent(state.matchId)}`, { force: true });
 
     el.leaderboardCard.classList.add("hidden");
     showCard(el.gameCard);
@@ -424,6 +439,19 @@ async function fetchAndVerifyQuestion() {
   }
 }
 
+function computeEffectiveRemainingSeconds(questionData, session) {
+  if (!questionData) return null;
+  if (
+    session &&
+    session.activeQuestionId === questionData.question_id &&
+    session.passConfirmed &&
+    session.timerEndTimeMs
+  ) {
+    return Math.max(0, (session.timerEndTimeMs - Date.now()) / 1000);
+  }
+  return null;
+}
+
 async function loadQuestion() {
   const matchId = state.matchId;
   if (!matchId) return;
@@ -466,17 +494,6 @@ async function loadQuestion() {
 
   state.currentQuestion = data;
   state.gameMode = data.game_mode || "pinpoint";
-  if (data.asset_id && !state.playedAssetIds.includes(data.asset_id)) {
-    state.playedAssetIds.push(data.asset_id);
-  }
-  if (data.batch_photos) {
-    for (const p of data.batch_photos) {
-      if (p.photo_id && !state.playedAssetIds.includes(p.photo_id)) {
-        state.playedAssetIds.push(p.photo_id);
-      }
-    }
-  }
-
   updateRoundMeta();
 
   const activeMode = getActiveMode();
@@ -486,7 +503,18 @@ async function loadQuestion() {
   window.scrollTo({ top: 0, behavior: "smooth" });
   updateSubmitState();
 
-  if (data.total_players > 1) {
+  const session = loadActiveMatchSession();
+  const remainingSeconds = computeEffectiveRemainingSeconds(data, session);
+
+  const alreadyConfirmed = Boolean(
+    session && session.activeQuestionId === data.question_id && session.passConfirmed
+  );
+
+  if (data.total_players > 1 && !alreadyConfirmed) {
+    state.currentScreen = "pass_device";
+    state.passConfirmed = false;
+    state.timerEndTimeMs = null;
+    state.timerTotalSeconds = null;
     el.overlayTitle.textContent = t(
       "game.pass_device_title",
       data.player_name,
@@ -495,10 +523,14 @@ async function loadQuestion() {
     );
     el.overlaySubtitle.textContent = t("game.pass_device_subtitle", data.player_round_number, data.total_rounds_per_player);
     el.passOverlay.classList.remove("hidden");
+    saveActiveMatchSession();
   } else {
+    state.currentScreen = "guessing";
+    state.passConfirmed = true;
     el.passOverlay.classList.add("hidden");
     activeMode.onReady(data);
-    startTimer(data.round_length, getActiveMode);
+    startTimer(data.round_length, getActiveMode, remainingSeconds);
+    saveActiveMatchSession();
   }
   markShortcutCooldown(20);
 }
@@ -549,6 +581,9 @@ async function submitAnswer(fromTimeout = false) {
     });
 
     clearTimer();
+    state.passConfirmed = false;
+    state.timerEndTimeMs = null;
+    state.timerTotalSeconds = null;
     state.matchFinished = result.match_finished;
 
     if (result.round_complete) {
@@ -574,7 +609,7 @@ async function showRoundReveal(roundNumber) {
   const existingIdx = state.roundHistory.findIndex((r) => r.round_number === reveal.round_number);
   const entry = {
     round_number: reveal.round_number,
-    media_url: state.currentQuestion ? state.currentQuestion.media_url : null,
+    media_url: reveal.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null),
     actual_latitude: reveal.actual_latitude,
     actual_longitude: reveal.actual_longitude,
     actual_year: reveal.actual_year,
@@ -592,7 +627,21 @@ async function showRoundReveal(roundNumber) {
     state.roundHistory.push(entry);
   }
 
+  if (state.currentQuestion) {
+    if (state.currentQuestion.asset_id && !state.playedAssetIds.includes(state.currentQuestion.asset_id)) {
+      state.playedAssetIds.push(state.currentQuestion.asset_id);
+    }
+    if (state.currentQuestion.batch_photos) {
+      for (const p of state.currentQuestion.batch_photos) {
+        if (p.photo_id && !state.playedAssetIds.includes(p.photo_id)) {
+          state.playedAssetIds.push(p.photo_id);
+        }
+      }
+    }
+  }
+
   state.lastReveal = reveal;
+  state.currentScreen = "reveal";
   showCard(el.gameCard);
   el.guessingUi.classList.add("hidden");
   el.revealUi.classList.remove("hidden");
@@ -606,6 +655,7 @@ async function showRoundReveal(roundNumber) {
   if (targetScrollEl) {
     targetScrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
   }
+  saveActiveMatchSession();
   markShortcutCooldown(20);
 }
 
@@ -617,8 +667,16 @@ async function handleNextRound() {
   updateSubmitState();
 
   try {
+    state.currentScreen = null;
+    state.lastReveal = null;
+    state.passConfirmed = false;
+    state.timerEndTimeMs = null;
+    state.timerTotalSeconds = null;
+    saveActiveMatchSession();
+
     if (state.matchFinished) {
-      await showMatchSummary();
+      clearActiveMatchSession();
+      navigate(`/game/${encodeURIComponent(state.matchId)}/summary`, { force: true });
       return;
     }
     showCard(el.gameCard);
@@ -641,25 +699,88 @@ function renderSummaryContent(summary) {
 }
 
 async function showMatchSummary() {
-  const lang = getLocale();
-  const summary = await api(
-    `/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`
-  );
-  state.lastSummary = summary;
-  showCard(el.summaryCard);
-  window.scrollTo({ top: 0, behavior: "smooth" });
-  playVictoryFanfare();
-
-  renderSummaryContent(summary);
-  renderJourneyMap(state.roundHistory, summary.location_mode);
-  renderPolaroidGallery(state.roundHistory);
-
-  el.leaderboardCard.classList.remove("hidden");
-  await loadLeaderboard();
+  if (!state.matchId) return;
+  await showMatchSummaryByMatchId(state.matchId);
 }
 
-function returnToSetup() {
+async function showMatchSummaryByMatchId(matchId) {
+  try {
+    const lang = getLocale();
+    const summary = await api(
+      `/api/match/${encodeURIComponent(matchId)}/summary?lang=${encodeURIComponent(lang)}`
+    );
+    state.matchId = matchId;
+    state.lastSummary = summary;
+    if (summary.round_history && (!state.roundHistory || state.roundHistory.length === 0)) {
+      state.roundHistory = summary.round_history;
+    }
+
+    showCard(el.summaryCard);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    playVictoryFanfare();
+
+    renderSummaryContent(summary);
+    renderJourneyMap(state.roundHistory, summary.location_mode);
+    renderPolaroidGallery(state.roundHistory);
+
+    el.leaderboardCard.classList.remove("hidden");
+    await loadLeaderboard();
+  } catch (err) {
+    console.warn("Failed to load match summary:", err);
+    showGameEndedCard(
+      null,
+      t("game_ended.match_not_found_msg", matchId),
+      t("game_ended.match_not_found_title"),
+      "🔍"
+    );
+  }
+}
+
+function showGameEndedCard(matchId = null, customMsg = null, customTitle = null, customIcon = null) {
+  clearRevealAnimation();
+  clearTimer();
+  clearActiveMatchSession();
+
+  showCard(el.gameEndedCard);
+  el.leaderboardCard.classList.add("hidden");
+
+  const iconEl = document.getElementById("game-ended-icon");
+  if (iconEl) {
+    iconEl.textContent = customIcon ?? "🏁";
+  }
+
+  const titleEl = document.getElementById("game-ended-title");
+  if (titleEl) {
+    titleEl.textContent = customTitle ?? t("game_ended.heading");
+  }
+
+  const msgEl = document.getElementById("game-ended-msg");
+  if (msgEl) {
+    msgEl.textContent = customMsg ?? t("game_ended.message");
+  }
+
+  if (el.gameEndedSummaryBtn) {
+    if (matchId) {
+      el.gameEndedSummaryBtn.classList.remove("hidden");
+      el.gameEndedSummaryBtn.onclick = () => {
+        navigate(`/game/${encodeURIComponent(matchId)}/summary`);
+      };
+    } else {
+      el.gameEndedSummaryBtn.classList.add("hidden");
+    }
+  }
+
+  if (el.gameEndedLobbyBtn) {
+    el.gameEndedLobbyBtn.onclick = () => {
+      navigate("/");
+    };
+  }
+}
+
+function returnToSetup({ updateUrl = true } = {}) {
+  document.documentElement.classList.remove("route-non-lobby");
   state.startingMatch = false;
+  clearActiveMatchSession();
   resetGameUi();
   showCard(el.setupCard);
   el.leaderboardCard.classList.remove("hidden");
@@ -669,17 +790,15 @@ function returnToSetup() {
     const hasWarning = warning && !warning.classList.contains("hidden");
     submitBtn.disabled = Boolean(hasWarning);
   }
+  if (updateUrl) {
+    navigate("/", { force: true });
+  }
+  ensureLobbyInitialized().catch((err) => console.warn("Lobby setup error:", err));
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function isGameActive() {
-  return Boolean(state.matchId && !state.lastSummary);
-}
-
-function pushGameHistoryState() {
-  try {
-    history.pushState({ matchActive: true, matchId: state.matchId }, "");
-  } catch (_) {}
+  return Boolean(state.matchId && !state.matchFinished && !state.lastSummary);
 }
 
 function handleBeforeUnload(event) {
@@ -690,29 +809,21 @@ function handleBeforeUnload(event) {
   }
 }
 
-function handlePopState() {
-  if (isGameActive()) {
-    const label = t("game.abandon_exit");
-    if (confirm(t("game.abandon_confirm", label))) {
-      clearTimer();
-      returnToSetup();
-    } else {
-      pushGameHistoryState();
-    }
-  } else if (state.lastSummary && el.summaryCard && !el.summaryCard.classList.contains("hidden")) {
-    returnToSetup();
+function confirmAbandonMatch(action = "exit") {
+  if (state.startingMatch) return false;
+  if (!isGameActive()) return true;
+
+  const label = action === "restart" ? t("game.abandon_restart") : t("game.abandon_exit");
+  if (!confirm(t("game.abandon_confirm", label))) {
+    return false;
   }
+  clearTimer();
+  clearActiveMatchSession();
+  return true;
 }
 
 function handleAbandonGame(action) {
-  if (state.startingMatch) {
-    return;
-  }
-  const label = action === "restart" ? t("game.abandon_restart") : t("game.abandon_exit");
-  if (!confirm(t("game.abandon_confirm", label))) {
-    return;
-  }
-  clearTimer();
+  if (!confirmAbandonMatch(action)) return;
   if (action === "restart") {
     restartSameGame().catch((err) => showAlert(err.message));
   } else {
@@ -752,7 +863,8 @@ async function restartSameGame() {
     state.playerStats = {};
     state.roundHistory = [];
 
-    pushGameHistoryState();
+    saveActiveMatchSession();
+    navigate(`/game/${encodeURIComponent(state.matchId)}`, { force: true });
     el.leaderboardCard.classList.add("hidden");
     showCard(el.gameCard);
 
@@ -764,6 +876,116 @@ async function restartSameGame() {
     showAlert(err.message || err);
   } finally {
     state.startingMatch = false;
+  }
+}
+
+async function routeToActiveGame(matchId) {
+  if (state.matchId === matchId && !state.matchFinished && isGameActive()) {
+    showCard(el.gameCard);
+    el.leaderboardCard.classList.add("hidden");
+    return;
+  }
+
+  const session = loadActiveMatchSession();
+  if (session && session.matchId === matchId && !session.matchFinished) {
+    restoreActiveMatchSession(session);
+
+    el.leaderboardCard.classList.add("hidden");
+    showCard(el.gameCard);
+
+    const activeMode = getActiveMode();
+    activeMode.mount(el.guessingUi, state.lastMatchConfig || {});
+    applyLanguage();
+
+    // 1. If user was on Round Reveal when reloading, restore it without advancing round
+    if (session.currentScreen === "reveal" && session.lastReveal) {
+      el.guessingUi.classList.add("hidden");
+      el.revealUi.classList.remove("hidden");
+      activeMode.renderReveal(el.revealUi, session.lastReveal);
+      el.nextRound.textContent = session.lastReveal.match_finished
+        ? t("reveal.see_results_btn")
+        : t("reveal.next_round_btn");
+      return;
+    }
+
+    // 2. Otherwise restore question for current active player
+    try {
+      await loadQuestion();
+    } catch (err) {
+      console.warn("Failed to resume active question:", err);
+      showGameEndedCard(
+        null,
+        t("game_ended.message"),
+        t("game_ended.heading"),
+        "🏁"
+      );
+    }
+    return;
+  }
+
+  // Check if match summary exists in permanent SQLite storage
+  try {
+    const lang = getLocale();
+    const summary = await api(
+      `/api/match/${encodeURIComponent(matchId)}/summary?lang=${encodeURIComponent(lang)}`
+    );
+    if (summary) {
+      navigate(`/game/${encodeURIComponent(matchId)}/summary`, { replace: true, force: true });
+      return;
+    }
+  } catch (_) {}
+
+  // Match does not exist in local session or backend -> 404 Match Not Found
+  showGameEndedCard(
+    null,
+    t("game_ended.match_not_found_msg", matchId),
+    t("game_ended.match_not_found_title"),
+    "🔍"
+  );
+}
+
+async function routeToGameSummary(matchId) {
+  clearActiveMatchSession();
+  await showMatchSummaryByMatchId(matchId);
+}
+
+function routeToChallenge(token) {
+  clearActiveMatchSession();
+  returnToSetup({ updateUrl: false });
+  showAlert(t("game_ended.challenge_notice"));
+  navigate("/", { replace: true, force: true });
+}
+
+function routeToUnknown(path) {
+  clearActiveMatchSession();
+  const notFoundPath = path || window.location.pathname;
+  showGameEndedCard(
+    null,
+    t("game_ended.not_found_msg", notFoundPath),
+    t("game_ended.not_found_title"),
+    "🔍"
+  );
+}
+
+function routeToLobby() {
+  clearActiveMatchSession();
+  returnToSetup({ updateUrl: false });
+}
+
+async function handleRoute(route) {
+  document.documentElement.classList.remove("route-non-lobby");
+  switch (route.type) {
+    case RouteType.GAME_ACTIVE:
+      return routeToActiveGame(route.params.matchId);
+    case RouteType.GAME_SUMMARY:
+      return routeToGameSummary(route.params.matchId);
+    case RouteType.CHALLENGE:
+      return routeToChallenge(route.params.token);
+    case RouteType.UNKNOWN:
+      return routeToUnknown(route.path);
+    case RouteType.LOBBY:
+    default:
+      return routeToLobby();
   }
 }
 
@@ -780,7 +1002,14 @@ el.readyBtn.addEventListener("click", () => {
   el.passOverlay.classList.add("hidden");
   const activeMode = getActiveMode();
   activeMode.onReady(state.currentQuestion);
-  startTimer(state.currentQuestion.round_length, getActiveMode);
+
+  const session = loadActiveMatchSession();
+  const remainingSeconds = computeEffectiveRemainingSeconds(state.currentQuestion, session);
+
+  startTimer(state.currentQuestion.round_length, getActiveMode, remainingSeconds);
+  state.currentScreen = "guessing";
+  state.passConfirmed = true;
+  saveActiveMatchSession();
   markShortcutCooldown(20);
 });
 
@@ -837,7 +1066,6 @@ window.addEventListener("resize", () => {
 });
 
 window.addEventListener("beforeunload", handleBeforeUnload);
-window.addEventListener("popstate", handlePopState);
 
 [el.roundCount, el.roundLength].forEach((control) => {
   if (control) {
@@ -1016,31 +1244,49 @@ function applyUiConfig(config) {
   applyLanguage();
 }
 
+let isLobbyInitialized = false;
+let lobbyInitPromise = null;
+
+async function ensureLobbyInitialized() {
+  if (isLobbyInitialized) return;
+  if (lobbyInitPromise) return lobbyInitPromise;
+
+  lobbyInitPromise = (async () => {
+    try {
+      initPlayerInput();
+      initWheelScrolls();
+      initModeButtons();
+      await initLibraries();
+      await loadLeaderboard();
+      isLobbyInitialized = true;
+    } catch (err) {
+      console.error("Lobby initialization failed:", err);
+    } finally {
+      lobbyInitPromise = null;
+    }
+  })();
+
+  return lobbyInitPromise;
+}
+
 (async function bootstrap() {
-  initPlayerInput();
   refreshActiveScreenLanguage();
-  initWheelScrolls();
-  initModeButtons();
   syncFullscreenButtons();
 
-  const startupErrors = [];
-  const rememberStartupError = (scope, err) => {
-    const message = err instanceof Error ? err.message : String(err);
-    startupErrors.push(`${scope}: ${message}`);
-    console.error(`Startup error (${scope})`, err);
-  };
+  setNavigationGuard((toRoute, fromRoute) => {
+    if (fromRoute.type === RouteType.GAME_ACTIVE && isGameActive()) {
+      if (toRoute.path !== fromRoute.path) {
+        return confirmAbandonMatch("exit");
+      }
+    }
+    return true;
+  });
 
-  await Promise.all([
-    initUiConfig().catch((err) => rememberStartupError("UI config", err)),
-    initLibraries().catch((err) => rememberStartupError("Library setup", err)),
-  ]);
+  // Fast background config sync
+  initUiConfig().catch((err) => console.warn("UI config error:", err));
 
-  await loadLeaderboard().catch((err) => rememberStartupError("Leaderboard", err));
-
-  if (startupErrors.length > 0) {
-    const details = startupErrors.map((err) => translateError(err)).join("\n");
-    showAlert(t("setup.startup_error", details));
-  }
+  // Initialize router immediately so non-lobby routes display instantly without flash of lobby
+  initRouter(handleRoute);
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {

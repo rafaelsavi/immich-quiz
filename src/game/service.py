@@ -123,10 +123,7 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                         diff_days = d_days
                         is_correct_date: int | None = (
                             1
-                            if (
-                                assigned_timeline_index == true_rank_map.get(ba.asset_id)
-                                or p_date == target_date
-                            )
+                            if (assigned_timeline_index == true_rank_map.get(ba.asset_id) or p_date == target_date)
                             else 0
                         )
                         dt_points: int | None = (
@@ -382,10 +379,10 @@ class GameService:
         active = self.store.active_question(payload.match_id)
         if active is not None:
             active_failed = False
-            if (
+            round_has_answers = (state.turn_index % len(state.setup.players)) > 0
+            if not round_has_answers and (
                 active.asset_id in payload.played_asset_ids
-                or active.batch_assets
-                and any(ba.asset_id in payload.played_asset_ids for ba in active.batch_assets)
+                or (active.batch_assets and any(ba.asset_id in payload.played_asset_ids for ba in active.batch_assets))
             ):
                 active_failed = True
 
@@ -514,6 +511,7 @@ class GameService:
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
+            media_url=f'/api/media/{reference.asset_id}' if reference.asset_id else None,
             actual_latitude=reference.actual_latitude,
             actual_longitude=reference.actual_longitude,
             actual_date=reference.actual_date,
@@ -531,11 +529,15 @@ class GameService:
         match_id: str,
         language: str | None = None,
     ) -> MatchSummaryResponse:
-        """Compute end-of-game summary, final rankings, and filter descriptions."""
+        """Retrieve match summary from permanent SQLite store, or active in-memory session if in progress."""
+        summary = await asyncio.to_thread(self.leaderboard_store.get_match_summary, match_id, language)
+        if summary is not None:
+            return summary
+
         try:
             state = self.store.get_match(match_id)
         except KeyError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+            raise HTTPException(status_code=404, detail=f'Unknown match_id: {match_id}') from exc
 
         max_score = max_possible_score(
             state.setup.round_count,

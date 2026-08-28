@@ -716,6 +716,7 @@ class RoundResultResponse(BaseModel):
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
+    media_url: str | None = None
     actual_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     actual_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
     actual_date: date | None = None
@@ -768,6 +769,7 @@ class MatchSummaryResponse(BaseModel):
     filter_summary: str | None = None
     filter_tooltip: str | None = None
     is_custom_filtered: bool = False
+    round_history: list[dict[str, Any]] | None = None
 
 
 # ---------------------------------------------------------------------------

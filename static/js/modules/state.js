@@ -69,6 +69,12 @@ export const state = {
   perfectCounts: {},
   /** @type {Record<string, {totalDistanceKm: number, distanceCount: number, totalDateDiffDays: number, dateCount: number, perfectLocationCount: number, perfectDateCount: number, perfectRounds: number, timedOutCount: number, fastRoundCount: number, totalDurationSec: number}>} */
   playerStats: {},
+  /** @type {"pass_device" | "guessing" | "reveal" | null} Currently active screen/overlay */
+  currentScreen: null,
+  /** @type {any} Last completed round reveal payload */
+  lastReveal: null,
+  /** @type {boolean} Whether the current player has clicked ready on pass overlay */
+  passConfirmed: false,
 };
 
 export const el = {
@@ -176,4 +182,87 @@ export const el = {
   leaderboardScopePill: document.getElementById("leaderboard-scope-pill"),
   leaderboardBody: document.querySelector("#leaderboard-table tbody"),
   leaderboardHead: document.querySelector("#leaderboard-table thead"),
+  gameEndedCard: document.getElementById("game-ended-card"),
+  gameEndedSummaryBtn: document.getElementById("game-ended-summary-btn"),
+  gameEndedLobbyBtn: document.getElementById("game-ended-lobby-btn"),
 };
+
+const SESSION_STORAGE_KEY = "immich_quiz_active_match";
+
+export function saveActiveMatchSession() {
+  if (!state.matchId || state.matchFinished) {
+    clearActiveMatchSession();
+    return;
+  }
+  try {
+    const payload = {
+      v: 1,
+      matchId: state.matchId,
+      gameMode: state.gameMode,
+      players: state.players,
+      mapBounds: state.mapBounds,
+      lastMatchConfig: state.lastMatchConfig,
+      playedAssetIds: state.playedAssetIds,
+      roundHistory: state.roundHistory,
+      perfectCounts: state.perfectCounts,
+      playerStats: state.playerStats,
+      matchFinished: state.matchFinished,
+      currentScreen: state.currentScreen ?? null,
+      lastReveal: state.lastReveal ?? null,
+      passConfirmed: Boolean(state.passConfirmed),
+      activeQuestionId: state.currentQuestion?.question_id ?? null,
+      timerEndTimeMs: typeof state.timerEndTimeMs === "number" ? state.timerEndTimeMs : null,
+      timerTotalSeconds: typeof state.timerTotalSeconds === "number" ? state.timerTotalSeconds : null,
+      savedAt: Date.now(),
+    };
+    sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch (err) {
+    console.warn("Failed to persist match session:", err);
+  }
+}
+
+export function clearActiveMatchSession() {
+  try {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  } catch (_) {}
+}
+
+export function loadActiveMatchSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.matchFinished || !parsed.matchId) {
+      clearActiveMatchSession();
+      return null;
+    }
+    return parsed;
+  } catch (_) {
+    clearActiveMatchSession();
+    return null;
+  }
+}
+
+/**
+ * Hydrate in-memory state from an active match session snapshot.
+ * @param {object} session
+ * @returns {boolean}
+ */
+export function restoreActiveMatchSession(session) {
+  if (!session || !session.matchId) return false;
+  state.matchId = session.matchId;
+  state.players = session.players ?? [];
+  state.gameMode = session.gameMode ?? "pinpoint";
+  state.mapBounds = session.mapBounds ?? null;
+  state.lastMatchConfig = session.lastMatchConfig ?? null;
+  state.playedAssetIds = session.playedAssetIds ?? [];
+  state.roundHistory = session.roundHistory ?? [];
+  state.perfectCounts = session.perfectCounts ?? {};
+  state.playerStats = session.playerStats ?? {};
+  state.currentScreen = session.currentScreen ?? null;
+  state.lastReveal = session.lastReveal ?? null;
+  state.passConfirmed = Boolean(session.passConfirmed);
+  state.matchFinished = false;
+  return true;
+}
+

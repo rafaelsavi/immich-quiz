@@ -4,7 +4,7 @@
  * API calls and dynamic Immich media streams bypass cache.
  */
 
-const CACHE_NAME = 'immich-quiz-v1';
+const CACHE_NAME = 'immich-quiz-v2';
 
 const PRECACHE_ASSETS = [
   '/',
@@ -18,7 +18,9 @@ const PRECACHE_ASSETS = [
   '/static/favicons/android-chrome-512x512.png',
   '/static/favicons/manifest.json',
   '/static/css/style.css',
-  '/static/js/app.js'
+  '/static/js/app.js',
+  '/static/js/modules/router.js',
+  '/static/js/modules/state.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -64,6 +66,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Navigation requests: fetch from network, fallback to cached App Shell on failure/offline
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/'))
+    );
+    return;
+  }
+
   // Stale-While-Revalidate strategy for static UI assets
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
@@ -81,12 +91,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
-          // If offline and requesting navigation, fallback to cached root
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-        });
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })
