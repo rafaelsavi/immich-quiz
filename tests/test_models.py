@@ -833,3 +833,13 @@ def test_supporting_dataclasses_validation() -> None:
 
     with pytest.raises(ValueError, match='longitude must be between -180.0 and 180.0'):
         AssetAnswer(latitude=0.0, longitude=185.0)
+
+
+def test_round_length_duration_seconds() -> None:
+    from src.models import RoundLength
+
+    assert RoundLength.seconds_30.seconds == 30
+    assert RoundLength.minute_1.seconds == 60
+    assert RoundLength.minute_2.seconds == 120
+    assert RoundLength.minute_5.seconds == 300
+    assert RoundLength.unlimited.seconds is None

@@ -25,6 +25,17 @@ class RoundLength(str, Enum):
     minute_5 = '5m'
     unlimited = 'unlimited'
 
+    @property
+    def seconds(self) -> int | None:
+        """Return round duration in seconds, or None if unlimited."""
+        return {
+            RoundLength.seconds_30: 30,
+            RoundLength.minute_1: 60,
+            RoundLength.minute_2: 120,
+            RoundLength.minute_5: 300,
+            RoundLength.unlimited: None,
+        }[self]
+
 
 class GameMode(str, Enum):
     """Supported gameplay mechanics ('pinpoint' single photo guess, 'album_shuffle' batch ordering)."""

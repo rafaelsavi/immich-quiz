@@ -39,12 +39,21 @@ const ROUTE_DEFINITIONS = [
 ];
 
 /**
+ * Normalize pathname by stripping trailing slashes and defaulting to root.
+ * @param {string} pathname
+ * @returns {string}
+ */
+export function normalizePath(pathname) {
+  return (pathname || "/").replace(/\/+$/, "") || "/";
+}
+
+/**
  * Match a pathname against registered route patterns.
  * @param {string} pathname
  * @returns {{ type: string, params: Record<string, string>, path: string }}
  */
 export function parseRoute(pathname) {
-  const path = pathname.replace(/\/+$/, "") || "/";
+  const path = normalizePath(pathname);
 
   for (const def of ROUTE_DEFINITIONS) {
     const match = path.match(def.pattern);
@@ -80,7 +89,7 @@ export function setNavigationGuard(guard) {
  * @param {{ replace?: boolean, state?: any, force?: boolean }} [options]
  */
 export function navigate(path, { replace = false, state = null, force = false } = {}) {
-  const targetPath = path.replace(/\/+$/, "") || "/";
+  const targetPath = normalizePath(path);
   const fromRoute = parseRoute(currentPath);
   const toRoute = parseRoute(targetPath);
 
@@ -118,10 +127,10 @@ function dispatchRoute(route) {
  */
 export function initRouter(handler) {
   currentRouteHandler = handler;
-  currentPath = window.location.pathname;
+  currentPath = normalizePath(window.location.pathname);
 
   window.addEventListener("popstate", (event) => {
-    const newPath = window.location.pathname.replace(/\/+$/, "") || "/";
+    const newPath = normalizePath(window.location.pathname);
     const fromRoute = parseRoute(currentPath);
     const toRoute = parseRoute(newPath);
 

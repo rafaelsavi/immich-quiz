@@ -149,7 +149,15 @@ def _build_round_history_from_guesses(
     guess_rows: list[dict[str, Any]],
     match_row: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Reconstruct round history and album shuffle batch reveal data from stored guess records."""
+    """Reconstruct round history and album shuffle batch reveal data from stored guess records.
+
+    Returns a list of round objects for match summary replay:
+    - Single photo mode (`pinpoint`):
+        {round_number, media_url, actual_latitude, actual_longitude, actual_year, actual_month, location_mode, game_mode}
+    - Batch photo mode (`album_shuffle`):
+        Includes above fields plus `batch_reveal`:
+        [{photo_id, true_pin_id ('A', 'B', ...), actual_latitude, actual_longitude, actual_year, actual_month}, ...]
+    """
     if not guess_rows:
         return []
 
