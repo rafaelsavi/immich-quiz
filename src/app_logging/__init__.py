@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from src.logging.context import (
+from src.app_logging.context import (
     bind_match_context,
     bind_request_context,
     clear_context,
     get_current_context,
 )
-from src.logging.middleware import LoggingContextMiddleware
-from src.logging.setup import (
+from src.app_logging.middleware import LoggingContextMiddleware
+from src.app_logging.setup import (
     LOGGER_API,
     LOGGER_IMMICH,
     LOGGER_MATCH,

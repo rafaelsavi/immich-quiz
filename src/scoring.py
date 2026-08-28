@@ -253,7 +253,8 @@ def calculate_date_decay(
     scaled_decay = delta_days / span_ratio
     decay_days = max(min_decay_days, min(max_decay_days, round(scaled_decay, 2)))
     logger.info(
-        'Temporal decay: %d dates (%s to %s), span=%d days / ~%.1f yrs (ratio=%.1f) -> decay=%.1f days [bounds: %.1f-%.1f d]',
+        'Temporal decay: %d dates (%s to %s), span=%d days / ~%.1f yrs (ratio=%.1f) '
+        '-> decay=%.1f days [bounds: %.1f-%.1f d]',
         len(dates),
         min_date.isoformat(),
         max_date.isoformat(),

@@ -42,6 +42,12 @@ immich-quiz/
 │   │   └── client.py    ImmichClient adapter. Wraps httpx AsyncClient.
 │   │                    Provides: validate_access, list_albums, list_tags, search_assets,
 │   │                    search_random_assets, list_people, get_timeline_bounds, get_asset_bytes.
+│   ├── app_logging/     Structured logging and observability subsystem.
+│   │   ├── context.py   Async contextvars tracking (match_id, request_id, player_name).
+│   │   ├── filters.py   ContextFilter record enrichment and RedactionFilter secret scrubbing.
+│   │   ├── formatter.py ConsoleLogFormatter with color badges and Docker stdout optimization.
+│   │   ├── middleware.py FastAPI ASGI middleware for X-Request-ID and access logs.
+│   │   └── setup.py     Central logging configuration and subsystem level overrides.
 │   └── storage/
 │       ├── db.py        DatabaseManager for SQLite connection lifecycle and WAL mode.
 │       ├── metadata.py  MetadataStore with indexed relational schema, query parity

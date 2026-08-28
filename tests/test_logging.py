@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from src.config import AppSettings, ConfigError
-from src.logging import (
+from src.app_logging import (
     LOGGER_MATCH,
     LOGGER_SCORING,
     LoggingContextMiddleware,
@@ -19,8 +19,8 @@ from src.logging import (
     get_current_context,
     setup_logging,
 )
-from src.logging.filters import ContextFilter, RedactionFilter, redact_sensitive_text
-from src.logging.formatter import ConsoleLogFormatter
+from src.app_logging.filters import ContextFilter, RedactionFilter, redact_sensitive_text
+from src.app_logging.formatter import ConsoleLogFormatter
 
 
 @pytest.fixture(autouse=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
-from src.logging.context import ctx_library_name, ctx_match_id, ctx_player_name, ctx_request_id
+from src.app_logging.context import ctx_library_name, ctx_match_id, ctx_player_name, ctx_request_id
 
 # Regex pattern to match API keys, bearer tokens, or sensitive header strings
 _SENSITIVE_PATTERNS = [

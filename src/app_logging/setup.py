@@ -6,8 +6,8 @@ import logging
 import sys
 from typing import TYPE_CHECKING
 
-from src.logging.filters import ContextFilter, RedactionFilter
-from src.logging.formatter import ConsoleLogFormatter
+from src.app_logging.filters import ContextFilter, RedactionFilter
+from src.app_logging.formatter import ConsoleLogFormatter
 
 if TYPE_CHECKING:
     from src.config import AppSettings
@@ -85,7 +85,7 @@ def setup_logging(settings: AppSettings | None = None) -> None:
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Convenience getter for namespaced application loggers."""
+    """Return a namespaced application logger."""
     if not name.startswith('immich_quiz.') and not name.startswith('src.'):
         return logging.getLogger(f'immich_quiz.{name}')
     return logging.getLogger(name)

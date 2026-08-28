@@ -9,8 +9,8 @@ from collections.abc import Awaitable, Callable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from src.logging.context import ctx_match_id, ctx_request_id
-from src.logging.setup import get_logger
+from src.app_logging.context import ctx_match_id, ctx_request_id
+from src.app_logging.setup import get_logger
 
 logger = get_logger('api')
 

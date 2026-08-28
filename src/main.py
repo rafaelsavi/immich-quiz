@@ -16,7 +16,7 @@ from src.config import AppSettings, ConfigError, load_settings
 from src.game.service import GameService
 from src.i18n import SupportedLanguage, parse_accept_language
 from src.immich.client import ImmichClient, ImmichClientError
-from src.logging import LoggingContextMiddleware, get_logger, setup_logging
+from src.app_logging import LoggingContextMiddleware, get_logger, setup_logging
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import MetadataStore

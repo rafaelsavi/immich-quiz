@@ -5,11 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.3.0] - 2026-08-28
 
 ### Added
 
-- **Structured Console & Container Logging Architecture**: Implemented a comprehensive logging subsystem (`src/logging/`) featuring:
+- **Structured Console & Container Logging Architecture**: Implemented a comprehensive logging subsystem (`src/app_logging/`) featuring:
   - **Clean High-Visibility Console Formatter**: Timestamped and color-enhanced format (`YYYY-MM-DD HH:MM:SS [LEVEL] [subsystem:context] Message`) optimized for Docker container stdout (`docker logs`) and local terminal debugging.
   - **Contextual Request & Session Tracing**: Zero-boilerplate async context propagation (`contextvars`) tracking `match_id`, `request_id`, `player_name`, and `library_name` automatically across all log statements.
   - **Automatic Credential Redaction**: Real-time regex sanitization masking Immich API keys and bearer tokens (`api_key=******1234`).
@@ -23,8 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Redundant `LOCATION_MAX_SPAN_KM` Parameter**: Removed `LOCATION_MAX_SPAN_KM` and `max_span_km` parameter from spatial adaptive scoring in [`src/scoring.py`](file:///d:/Rafael/Projects/immich-quiz/src/scoring.py) and scoring simulations, as `LOCATION_MAX_DECAY_KM` already mathematically caps the decay ceiling at $\text{MAX\_DECAY} \times \text{SPAN\_RATIO}$.
-
-## [2.2.1] - 2026-08-26
 
 ### Fixed
 
