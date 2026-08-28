@@ -10,6 +10,8 @@ from src.scoring import (
     DATE_MIN_DECAY_DAYS,
     LOCATION_MAX_DECAY_KM,
     LOCATION_MIN_DECAY_KM,
+    batch_exponential_date_score,
+    batch_exponential_location_score,
     calculate_date_decay,
     calculate_location_decay,
     haversine_km,
@@ -182,3 +184,63 @@ def test_scoring_rewards_city_accuracy() -> None:
     # 500m (0.5 km) error in a city still gives 90 points
     city_score_500m = location_score(0.5, decay_km=city_decay)
     assert city_score_500m == 90
+
+
+def test_album_shuffle_adaptive_location_scoring_city_vs_global() -> None:
+    # 3 photos in Rome (Colosseum, Vatican ~3.5 km apart, Villa Borghese)
+    photo_coords = {
+        'p1': (41.8902, 12.4922),  # Colosseum
+        'p2': (41.9029, 12.4534),  # Vatican (~3.5 km away)
+        'p3': (41.9138, 12.4922),  # Villa Borghese (~2.6 km away)
+    }
+    pin_coords = {
+        'pin1': (41.8902, 12.4922),
+        'pin2': (41.9029, 12.4534),
+        'pin3': (41.9138, 12.4922),
+    }
+    true_pins = {'p1': 'pin1', 'p2': 'pin2', 'p3': 'pin3'}
+
+    # Player swaps Colosseum (p1) and Vatican (p2), keeps Borghese (p3)
+    assigned = {'p1': 'pin2', 'p2': 'pin1', 'p3': 'pin3'}
+
+    # With city decay (5.0 km), swapping 3.5 km pins is noticeably penalized (~66 pts total)
+    city_score, _, _ = batch_exponential_location_score(
+        assigned, true_pins, pin_coords, photo_coords, decay_km=5.0
+    )
+    # With global decay (200.0 km), swapping 3.5 km pins is very forgiving (~99 pts total)
+    global_score, _, _ = batch_exponential_location_score(
+        assigned, true_pins, pin_coords, photo_coords, decay_km=200.0
+    )
+
+    assert 60 <= city_score <= 70
+    assert 97 <= global_score <= 100
+
+
+def test_album_shuffle_adaptive_date_scoring_vacation_vs_archive() -> None:
+    # Batch 1: 10-year family archive with 2 photos 2 days apart
+    archive_dates = {
+        'p1': _make_answer(None, None, '2014-06-01T12:00:00Z').capture_date,
+        'p2': _make_answer(None, None, '2024-07-10T12:00:00Z').capture_date,
+        'p3': _make_answer(None, None, '2024-07-12T12:00:00Z').capture_date,
+    }
+    archive_decay = calculate_date_decay(
+        [
+            _make_answer(None, None, '2014-06-01T12:00:00Z'),
+            _make_answer(None, None, '2024-07-10T12:00:00Z'),
+            _make_answer(None, None, '2024-07-12T12:00:00Z'),
+        ]
+    )
+    # Swapping 2 days apart in a 10-year archive gives full 100 points
+    minor_swap_assigned = {'p1': 0, 'p2': 2, 'p3': 1}
+    minor_score, _, _ = batch_exponential_date_score(
+        minor_swap_assigned, archive_dates, decay_days=archive_decay
+    )
+    assert minor_score == 100
+
+    # Swapping a 10-year photo gives ~33 points
+    era_swap_assigned = {'p1': 1, 'p2': 0, 'p3': 2}
+    era_score, _, _ = batch_exponential_date_score(
+        era_swap_assigned, archive_dates, decay_days=archive_decay
+    )
+    assert 33 <= era_score <= 35
+

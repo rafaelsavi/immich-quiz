@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import date
-from typing import Any, cast
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -23,8 +22,10 @@ from src.models import (
     QuestionResponse,
 )
 from src.scoring import (
-    batch_strict_date_score,
-    batch_strict_location_score,
+    batch_exponential_date_score,
+    batch_exponential_location_score,
+    calculate_date_decay,
+    calculate_location_decay,
     date_diff_days,
     date_diff_months,
     date_diff_parts,
@@ -378,8 +379,8 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 batch_pins = [
                     BatchPinItem(
                         pin_id=str(bp['pin_id']),
-                        latitude=float(cast(float | str, bp['latitude'])),
-                        longitude=float(cast(float | str, bp['longitude'])),
+                        latitude=float(bp['latitude']),
+                        longitude=float(bp['longitude']),
                     )
                     for bp in question.batch_pins
                 ]
@@ -400,59 +401,70 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         batch_pins = question_state.batch_pins or []
 
         true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in batch_pins}
-
-        correct_pins = 0
-        album_shuffle_guesses: list[dict[str, Any]] = []
-        for ans in answers:
-            album_shuffle_guesses.append(
-                {
-                    'photo_id': ans.photo_id,
-                    'assigned_pin_id': ans.assigned_pin_id,
-                    'assigned_timeline_index': ans.assigned_timeline_index,
-                }
+        pin_coords = {
+            str(bp['pin_id']): (
+                float(bp['latitude']) if bp.get('latitude') is not None else None,
+                float(bp['longitude']) if bp.get('longitude') is not None else None,
             )
-            if ans.photo_id in true_pin_map and ans.assigned_pin_id == true_pin_map[ans.photo_id]:
-                correct_pins += 1
+            for bp in batch_pins
+        }
+        photo_coords = {ba.asset_id: (ba.answer.latitude, ba.answer.longitude) for ba in batch_assets}
+        photo_dates = {ba.asset_id: ba.answer.capture_date for ba in batch_assets}
 
-        location_points = (
-            batch_strict_location_score(
-                correct_pins,
-                total_photos=len(batch_assets),
+        assigned_pins = {ans.photo_id: ans.assigned_pin_id for ans in answers}
+        assigned_timeline = {ans.photo_id: ans.assigned_timeline_index for ans in answers}
+
+        album_shuffle_guesses: list[dict[str, Any]] = [
+            {
+                'photo_id': ans.photo_id,
+                'assigned_pin_id': ans.assigned_pin_id,
+                'assigned_timeline_index': ans.assigned_timeline_index,
+            }
+            for ans in answers
+        ]
+
+        if state.setup.location_mode:
+            decay_km = calculate_location_decay(batch_assets)
+            location_points, correct_pins, _ = batch_exponential_location_score(
+                assigned_pins=assigned_pins,
+                true_pin_map=true_pin_map,
+                pin_coords=pin_coords,
+                photo_coords=photo_coords,
+                decay_km=decay_km,
             )
-            if state.setup.location_mode
-            else 0
-        )
+        else:
+            location_points = 0
+            correct_pins = 0
+            decay_km = None
 
-        correct_ranks = 0
         if state.setup.date_mode:
-            if not answers:
-                date_points = 0
-            else:
-                sorted_by_date = sorted(batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
-                true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
-
-                for ans in answers:
-                    if (
-                        ans.photo_id in true_rank_map
-                        and ans.assigned_timeline_index is not None
-                        and ans.assigned_timeline_index == true_rank_map[ans.photo_id]
-                    ):
-                        correct_ranks += 1
-
-                date_points = batch_strict_date_score(correct_ranks, total_photos=len(batch_assets))
+            decay_days = calculate_date_decay(batch_assets)
+            date_points, correct_ranks, _ = batch_exponential_date_score(
+                assigned_timeline=assigned_timeline,
+                photo_dates=photo_dates,
+                decay_days=decay_days,
+            )
         else:
             date_points = 0
+            correct_ranks = 0
+            decay_days = None
 
+        loc_desc = (
+            f'{location_points}pts ({correct_pins}/{len(batch_assets)} exact, decay={decay_km:.1f}km)'
+            if state.setup.location_mode and decay_km is not None
+            else 'N/A'
+        )
+        date_desc = (
+            f'{date_points}pts ({correct_ranks}/{len(batch_assets)} exact, decay={decay_days:.1f}d)'
+            if state.setup.date_mode and decay_days is not None
+            else 'N/A'
+        )
         logger.info(
-            'Match %s (R%d) Album Shuffle evaluated: pins=%d/%d correct (%d pts), date_order=%d/%d correct (%d pts)',
+            'Match %s (R%d) Album Shuffle evaluated: location=[%s], date=[%s]',
             payload.match_id,
             state.current_round_index + 1,
-            correct_pins,
-            len(batch_assets),
-            location_points,
-            correct_ranks if state.setup.date_mode else 0,
-            len(batch_assets) if state.setup.date_mode else 0,
-            date_points,
+            loc_desc,
+            date_desc,
         )
 
         try:
@@ -515,7 +527,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     AlbumShuffleAnswerItem(
                         photo_id=str(g['photo_id']),
                         assigned_pin_id=str(g['assigned_pin_id']) if g.get('assigned_pin_id') else None,
-                        assigned_timeline_index=int(cast(int | str, g['assigned_timeline_index']))
+                        assigned_timeline_index=int(g['assigned_timeline_index'])
                         if g.get('assigned_timeline_index') is not None
                         else None,
                     )

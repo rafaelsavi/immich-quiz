@@ -48,34 +48,41 @@ $$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{\Del
 
 The `span_ratio` translates the total geographic or temporal scope of an album into the decay parameter, defining what fraction of the map or timeline corresponds to specific score benchmarks:
 
-| Relative Error (% of Album Span) | Location Score (`ratio = 10.0`) | Date Score (`ratio = 6.0`) | Player Feedback |
-|:---|:---|:---|:---|
-| **$\le 1\%$ of album span** | **$90\text{--}100\text{ pts}$** | **$94\text{--}100\text{ pts}$** | Bullseye pinpoint accuracy |
-| **$2.5\%$ of album span** | **$78\text{ pts}$** | **$86\text{ pts}$** | Very close (correct neighborhood / exact season) |
-| **$5\%$ of album span** | **$61\text{ pts}$** | **$74\text{ pts}$** | Close (correct metro area / adjacent month) |
-| **$10\%$ ($1/\text{ratio}$)** | **$37\text{ pts}$** ($1/e$) | **$55\text{ pts}$** | General ballpark |
-| **$20\%$ of album span** | **$14\text{ pts}$** | **$30\text{ pts}$** | Significantly off |
-| **$\ge 40\%$ of album span** | **$\le 2\text{ pts}$** | **$\le 9\text{ pts}$** | Missed entirely |
+| Relative Error (% of Album Span) | Location Score (`ratio = 10.0`) | Date Score (`ratio = 6.0`)      | Player Feedback                                  |
+|:---------------------------------|:--------------------------------|:--------------------------------|:-------------------------------------------------|
+| **$\le 1\%$ of album span**      | **$90\text{--}100\text{ pts}$** | **$94\text{--}100\text{ pts}$** | Bullseye pinpoint accuracy                       |
+| **$2.5\%$ of album span**        | **$78\text{ pts}$**             | **$86\text{ pts}$**             | Very close (correct neighborhood / exact season) |
+| **$5\%$ of album span**          | **$61\text{ pts}$**             | **$74\text{ pts}$**             | Close (correct metro area / adjacent month)      |
+| **$10\%$ ($1/\text{ratio}$)**    | **$37\text{ pts}$** ($1/e$)     | **$55\text{ pts}$**             | General ballpark                                 |
+| **$20\%$ of album span**         | **$14\text{ pts}$**             | **$30\text{ pts}$**             | Significantly off                                |
+| **$\ge 40\%$ of album span**     | **$\le 2\text{ pts}$**          | **$\le 9\text{ pts}$**          | Missed entirely                                  |
 
 ---
 
 ## Album Shuffle Game
 
-In **Album Shuffle** mode, 3 photos are shown simultaneously. Points are divided equally across the batch ($N = 3$).
+In **Album Shuffle** mode, 3 photos are presented simultaneously. Each photo is allocated an equal share of the round's maximum score ($\frac{100}{N} \approx 33.33\text{ points}$ per enabled goal). Both map location matching and timeline chronological ordering use **adaptive exponential decay**:
 
-### 📍 Location Scoring
+$$\text{Round Score} = \max\left(0, \min\left(100, \text{round}\left(\frac{100}{N} \sum_{i=1}^N \exp\left(-\frac{\text{error}_i}{\text{decay}}\right)\right)\right)\right)$$
 
-- Each photo matched to its correct map pin earns a proportional share of the 100 points:
+### 📍 Location Proximity Scoring
 
-$$\text{Location Score} = \max\left(0, \text{round}\left(\frac{\text{correct\_pins}}{N} \times 100\right)\right)$$
+- **Error ($d_i$)**: Physical distance (Haversine in km) between the photo's true location and the assigned map pin's location ($0\text{ km}$ if matched to its exact pin).
+- **Batch Spatial Decay ($\text{decay\_km}$)**: Dynamically calculated from the bounding box diagonal span of the active batch's 3 pins via `calculate_location_decay(batch_assets)`, clamped to $[5.0\text{ km},\; 200.0\text{ km}]$.
+- **How it feels**:
+  - **Exact pin match** ($d = 0\text{ km}$): Earns the full $33.33\text{ pts}$ for that photo.
+  - **Local pin swap in a worldwide match** (e.g., swapping two Paris pins $3\text{ km}$ apart when the round includes Paris, Rome, and Tokyo): In a $200\text{ km}$ decay pool, $\exp(-3/200) \approx 0.985 \rightarrow 32.8\text{ pts}$ each ($\approx 99\text{ pts}$ total round score).
+  - **Distant pin swap** (e.g., placing Tokyo photo on a Paris pin, $d = 9700\text{ km}$): $\exp(-9700/200) \approx 0 \rightarrow 0\text{ pts}$ for those slots.
 
-*(e.g., 3/3 = 100 pts, 2/3 = 67 pts, 1/3 = 33 pts, 0/3 = 0 pts)*
+### 📅 Date Chronological Scoring
 
-### 📅 Date Scoring
-
-- Each photo placed in its correct chronological order on the timeline earns a proportional share of the 100 points:
-
-$$\text{Date Score} = \max\left(0, \text{round}\left(\frac{\text{correct\_ranks}}{N} \times 100\right)\right)$$
+- **Error ($\Delta D_i$)**: Time difference in days between the photo placed in slot $i$ and the true capture date of the photo belonging to that chronological slot:
+  $$\Delta D_i = |\text{capture\_date}(\text{placed photo}) - \text{capture\_date}(\text{true photo for slot } i)|$$
+- **Batch Temporal Decay ($\text{decay\_days}$)**: Dynamically calculated from the active batch's timespan via `calculate_date_decay(batch_assets)`, clamped to $[30.0\text{ days},\; 500.0\text{ days}]$.
+- **How it feels**:
+  - **Exact chronological placement** ($\Delta D = [0, 0, 0]$): Earns $100\text{ pts}$ ($33.33\text{ pts} \times 3$).
+  - **Flipping same-week photos in a 10-year album**: If you recognize that a 2014 photo is from a decade ago, but accidentally flip two 2024 photos taken 2 days apart ($\Delta D = 2\text{ days}$ in a $500\text{d}$ decay pool), you lose $< 1\text{ pt}$ ($\approx 99.8\text{ pts}$).
+  - **Confusing eras**: Placing a 2014 photo in a 2024 slot ($\Delta D = 3650\text{ days} \gg 500\text{d}$) yields $0\text{ pts}$ for those slots, while correctly sequenced photos still earn full credit.
 
 ---
 
@@ -83,14 +90,14 @@ $$\text{Date Score} = \max\left(0, \text{round}\left(\frac{\text{correct\_ranks}
 
 Here is how scores translate for common distance/time errors across different decay settings:
 
-| Error (Distance / Time) | Decay = 100 | Decay = 200 | Decay = 300 | Decay = 500 *(default)* | Decay = 750 | Decay = 1000 |
-|:---|:---|:---|:---|:---|:---|:---|
-| **1 (1 km / 1 day)**    | 99          | 100         | 100         | **100**                 | 100         | 100          |
-| **5 (5 km / 5 days)**   | 95          | 98          | 98          | **99**                  | 99          | 100          |
-| **10 (10 km / 10 days)**| 90          | 95          | 97          | **98**                  | 99          | 99           |
-| **100 (~3 months)**     | 37          | 61          | 72          | **82**                  | 88          | 90           |
-| **500 (~1.5 years)**    | 1           | 8           | 19          | **37**                  | 51          | 61           |
-| **1000 (~3 years)**     | 0           | 1           | 4           | **14**                  | 26          | 37           |
+| Error (Distance / Time)  | Decay = 100 | Decay = 200 | Decay = 300 | Decay = 500 *(default)* | Decay = 750 | Decay = 1000 |
+|:-------------------------|:------------|:------------|:------------|:------------------------|:------------|:-------------|
+| **1 (1 km / 1 day)**     | 99          | 100         | 100         | **100**                 | 100         | 100          |
+| **5 (5 km / 5 days)**    | 95          | 98          | 98          | **99**                  | 99          | 100          |
+| **10 (10 km / 10 days)** | 90          | 95          | 97          | **98**                  | 99          | 99           |
+| **100 (~3 months)**      | 37          | 61          | 72          | **82**                  | 88          | 90           |
+| **500 (~1.5 years)**     | 1           | 8           | 19          | **37**                  | 51          | 61           |
+| **1000 (~3 years)**      | 0           | 1           | 4           | **14**                  | 26          | 37           |
 
 ---
 

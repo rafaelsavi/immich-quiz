@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Album Shuffle Adaptive Exponential Scoring (Phase 2)**: Replaced strict all-or-nothing binary matching with unified batch-adaptive exponential decay scoring across both map pin matching and timeline chronological ordering:
+  - **Spatial Proximity Decay (`batch_exponential_location_score`)**: Photos matched to nearby pins in the active batch earn partial credit via exponential decay $S_i = \frac{100}{N} \exp(-d_i / \text{decay\_km})$, using Haversine distance $d_i$ and batch-adaptive decay ($5.0\text{ km} \le \text{decay\_km} \le 200.0\text{ km}$).
+  - **Temporal Chronological Decay (`batch_exponential_date_score`)**: Photos placed in timeline slots earn partial credit via exponential decay $S_i = \frac{100}{N} \exp(-\Delta D_i / \text{decay\_days})$, measuring day difference $\Delta D_i$ against the target slot's true date and batch-adaptive decay ($30.0\text{d} \le \text{decay\_days} \le 500.0\text{d}$).
+  - **Per-Photo Round Guess Persistence**: Updated `match_round_guesses` telemetry in `src/game/service.py` to record partial `location_points`, `date_points`, and `date_diff_days` per photo while preserving exact match boolean indicators (`is_correct_location`, `is_correct_date_order`) for statistics.
+
 - **Structured Console & Container Logging Architecture**: Implemented a comprehensive logging subsystem (`src/app_logging/`) featuring:
   - **Clean High-Visibility Console Formatter**: Timestamped and color-enhanced format (`YYYY-MM-DD HH:MM:SS [LEVEL] [subsystem:context] Message`) optimized for Docker container stdout (`docker logs`) and local terminal debugging.
   - **Contextual Request & Session Tracing**: Zero-boilerplate async context propagation (`contextvars`) tracking `match_id`, `request_id`, `player_name`, and `library_name` automatically across all log statements.
@@ -27,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Tuned Spatial Scoring Parameters**: Updated spatial decay constants in `src/scoring.py` to `LOCATION_SPAN_RATIO = 10.0`, `LOCATION_MIN_DECAY_KM = 5.0` (for more forgiving city/neighborhood guesses), and `LOCATION_MAX_DECAY_KM = 200.0` (for tighter precision on nationwide/worldwide rounds).
 - **Coordinated Score Rollup Audio Session**: Centralized audio ticker synchronization during score rollup animations in `static/js/modules/effects.js` so that multiplayer and multi-column animations share a single monotonic pitch-rising ticker without frequency jumping or throttle race conditions.
+- **Unified Scoring Model in `src/scoring.py`**: Replaced `batch_strict_location_score` and `batch_strict_date_score` with `batch_exponential_location_score` and `batch_exponential_date_score`. Updated `calculate_location_decay` and `calculate_date_decay` to seamlessly extract coordinates and dates from either `RoundAsset` or `AssetAnswer` collections.
 
 ### Removed
 

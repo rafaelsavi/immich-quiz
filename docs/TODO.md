@@ -13,9 +13,7 @@ This document lists planned features, design ideas, and technical debt items for
 - **Safety Against Attacks**: Cloudflare Zero Trust path-based rules, rate limiting, and capability URL security.
 - **Add support for videos**
 - **Add option to report map or date inconsistencies in round reveal**
-- **Adaptive scoring**:
-  - [x] **Phase 1 (Pool-Aware Dynamic Decay)**: Automatically calculates spatial ($\text{decay\_km}$) and temporal ($\text{decay\_days}$) decay rates from the active candidate pool bounds ($D_{\text{span}}$ and $\Delta T_{\text{days}}$) so city walks and vacation albums reward localized precision.
-  - [ ] **Phase 2 (Album Shuffle Inversions)**: Partial credit for timeline permutation ordering (Kendall Tau distance) and spatial pin proximity.
+- **Add e2e tests**
 
 ---
 

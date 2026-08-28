@@ -8,7 +8,6 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from src.config import AppSettings, ConfigError
 from src.app_logging import (
     LOGGER_MATCH,
     LOGGER_SCORING,
@@ -21,6 +20,7 @@ from src.app_logging import (
 )
 from src.app_logging.filters import ContextFilter, RedactionFilter, redact_sensitive_text
 from src.app_logging.formatter import ConsoleLogFormatter
+from src.config import AppSettings, ConfigError
 
 
 @pytest.fixture(autouse=True)

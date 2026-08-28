@@ -24,8 +24,9 @@ immich-quiz/
 │   ├── models.py        Pydantic request/response models and enums (PlayMode, GameMode,
 │   │                    PeopleMode, RoundLength, SyncStatus, etc.) for all endpoints.
 │   ├── scoring.py       Pure scoring functions: haversine_km, location_score,
-│   │                    date_diff_days, date_score, batch_strict_location_score,
-│   │                    batch_strict_date_score, accuracy_pct.
+│   │                    date_diff_days, date_score, batch_exponential_location_score,
+│   │                    batch_exponential_date_score, calculate_location_decay,
+│   │                    calculate_date_decay, accuracy_pct.
 │   ├── i18n.py          Backend localization for filter summaries and tooltips.
 │   ├── version.py       Semantic application version string (APP_VERSION).
 │   ├── game/            Modular game mode system and session orchestration.
