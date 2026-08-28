@@ -24,6 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Catch-All Handler**: Backend route `/{full_path:path}` serves `index.html` with security headers and language negotiation while strictly preserving 404s for missing `/api/*` and `/static/*` paths.
   - **Service Worker Navigation Fallback**: Updated `sw.js` (cache `immich-quiz-v2`) with navigation fallback to the app shell and precached router modules.
 
+### Changed
+
+- **Frontend Screen Controllers Modularization**:
+  - Refactored monolithic `app.js` into domain-focused screen controllers under `static/js/modules/screens/` (`setup.js`, `game.js`, `reveal.js`, `summary.js`, `common.js`).
+  - Centralized game mode strategy accessor into `static/js/modules/modes/index.js`.
+  - Streamlined `app.js` into a lightweight (~450 lines) coordinator handling router dispatch, PWA lifecycle, and global shortcuts.
+
+- **Backend Code Quality & Datetime Safety**:
+  - Added safe ISO datetime parsers (`_parse_iso_datetime`) in `src/storage/leaderboard.py` to prevent unhandled exceptions on malformed timestamps.
+  - Added typed `.seconds` property on `RoundLength` model in `src/models.py`.
+
 ### Fixed
 
 - **Pass-and-Play Timer Handover**: Fixed an issue where the round timer would tick in the background while waiting on the "Pass Device" screen or following a page reload prior to clicking "I'm ready".

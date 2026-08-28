@@ -73,7 +73,17 @@ immich-quiz/
         │   ├── multi_select.js Searchable tag-based multi-select with select-all/clear.
         │   ├── range_slider.js Dual-handle Year-Month range slider.
         │   └── player_input.js Interactive player chip input with duplicate detection & colors.
-        ├── modes/       Game mode UI controllers (pinpoint.js, album_shuffle.js, common.js).
+        ├── modes/       Game mode strategy definitions & registry:
+        │   ├── index.js     Mode registry and getActiveMode() strategy accessor.
+        │   ├── pinpoint.js  Pinpoint single-photo mode strategy.
+        │   ├── album_shuffle.js Album Shuffle multi-photo mode strategy.
+        │   └── common.js    Shared mode helpers.
+        ├── screens/     Screen lifecycle controllers:
+        │   ├── common.js    Card switching (showCard), DOM resets (resetGameUi), and navigation guards.
+        │   ├── setup.js     Match configuration, preflight checks, returnToSetup, and restart.
+        │   ├── game.js      Question fetching, media pre-verification, pass-device coordination, and answer submit.
+        │   ├── reveal.js    Round results aggregation, reveal rendering, and turn progression.
+        │   └── summary.js   Replay loading from SQLite, podium/awards display, and 404/ended cards.
         ├── summary/     Post-game summary rendering submodules:
         │   ├── podium.js    3D podium and winner banner.
         │   ├── awards.js    Client-side performance awards (Sniper, Time Traveler, Speed Demon).
@@ -87,6 +97,7 @@ immich-quiz/
         ├── i18n.js      Multi-language translation engine (EN/PT) with live switcher.
         ├── leaderboard.js Leaderboard UI rendering and filtering.
         ├── maps.js      Leaflet map wrapper, marker placement, and auto-zoom.
+        ├── router.js    Client-side History API router (normalizePath, parseRoute, setNavigationGuard).
         ├── setup_filters.js Setup filter controls, dependent cities, persistence, and live preflight.
         ├── shortcuts.js Global keyboard navigation (<kbd>Space</kbd> / <kbd>Enter</kbd>).
         ├── state.js     Centralized reactive application state store.

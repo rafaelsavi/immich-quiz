@@ -153,10 +153,12 @@ def _build_round_history_from_guesses(
 
     Returns a list of round objects for match summary replay:
     - Single photo mode (`pinpoint`):
-        {round_number, media_url, actual_latitude, actual_longitude, actual_year, actual_month, location_mode, game_mode}
+        {round_number, media_url, actual_latitude, actual_longitude,
+         actual_year, actual_month, location_mode, game_mode}
     - Batch photo mode (`album_shuffle`):
         Includes above fields plus `batch_reveal`:
-        [{photo_id, true_pin_id ('A', 'B', ...), actual_latitude, actual_longitude, actual_year, actual_month}, ...]
+        [{photo_id, true_pin_id ('A', 'B', ...), actual_latitude,
+          actual_longitude, actual_year, actual_month}, ...]
     """
     if not guess_rows:
         return []

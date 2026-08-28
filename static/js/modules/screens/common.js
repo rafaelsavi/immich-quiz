@@ -1,9 +1,8 @@
-import { state, el } from "../state.js";
+import { state, el, clearActiveMatchSession } from "../state.js";
 import { clearTimer } from "../timer.js";
 import { unregisterActiveMap } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { t } from "../i18n.js";
-import { clearActiveMatchSession } from "../state.js";
 
 export function clearRevealAnimation() {
   if (state.revealAnimationFrameId !== null) {

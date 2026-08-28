@@ -290,8 +290,10 @@ def test_preflight_warning_disables_start_button_and_guards_submission() -> None
     index_html = INDEX_HTML.read_text(encoding='utf-8')
     state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
     setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
-    setup_js = (JS_DIR / 'modules' / 'screens' / 'setup.js')
-    setup_code = setup_js.read_text(encoding='utf-8') if setup_js.exists() else (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    setup_js = JS_DIR / 'modules' / 'screens' / 'setup.js'
+    setup_code = (
+        setup_js.read_text(encoding='utf-8') if setup_js.exists() else (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    )
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
 
     # start-match-btn exists in HTML as submit button
@@ -435,7 +437,7 @@ def test_game_navigation_guards_and_history_handling() -> None:
     """Verify that browser back button (popstate) and tab-close (beforeunload) confirmation guards are registered."""
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
     router_js = (JS_DIR / 'modules' / 'router.js').read_text(encoding='utf-8')
-    common_js = (JS_DIR / 'modules' / 'screens' / 'common.js')
+    common_js = JS_DIR / 'modules' / 'screens' / 'common.js'
     common_code = common_js.read_text(encoding='utf-8') if common_js.exists() else app_js
 
     assert 'window.addEventListener("beforeunload", handleBeforeUnload)' in app_js
@@ -493,8 +495,10 @@ def test_anti_cheat_timer_persistence_and_resume() -> None:
     """Verify that timer duration remaining is persisted in session storage and passed to startTimer on reload."""
     state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
     timer_js = (JS_DIR / 'modules' / 'timer.js').read_text(encoding='utf-8')
-    game_js = (JS_DIR / 'modules' / 'screens' / 'game.js')
-    game_code = game_js.read_text(encoding='utf-8') if game_js.exists() else (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    game_js = JS_DIR / 'modules' / 'screens' / 'game.js'
+    game_code = (
+        game_js.read_text(encoding='utf-8') if game_js.exists() else (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    )
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
 
     # 1. state.js persists activeQuestionId, timerEndTimeMs, and timerTotalSeconds
@@ -544,8 +548,10 @@ def test_unknown_route_displays_404_card() -> None:
 def test_screen_and_player_position_persistence_on_reload() -> None:
     """Verify that current screen (reveal vs guessing vs pass_device) and player state are restored on reload."""
     state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
-    game_js = (JS_DIR / 'modules' / 'screens' / 'game.js')
-    game_code = game_js.read_text(encoding='utf-8') if game_js.exists() else (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    game_js = JS_DIR / 'modules' / 'screens' / 'game.js'
+    game_code = (
+        game_js.read_text(encoding='utf-8') if game_js.exists() else (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    )
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
 
     # 1. state.js tracks currentScreen, lastReveal, and passConfirmed

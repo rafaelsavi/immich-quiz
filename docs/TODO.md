@@ -17,7 +17,7 @@ This document lists planned features, design ideas, and technical debt items for
   - [x] Update PWA Service Worker (`sw.js`) navigation fallback to cache the app shell and handle offline/cached route transitions.
   - [x] Refine in-game navigation guards (intercepting browser back/forward and accidental tab closes during active rounds).
 
-- [ ] v2.4.1: **2. Automated E2E Testing (Playwright)**
+- [ ] v2.4.0: **2. Automated E2E Testing (Playwright)**
   - [ ] Setup Playwright browser test harness integrated with CI and local test runner.
   - [ ] Implement core interactive gameplay test suites:
     - Two-tap Leaflet map pin placement and distance line calculation in Pinpoint mode.
