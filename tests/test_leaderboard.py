@@ -887,3 +887,107 @@ def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
     entries_any = store.list_entries(query_any)
     assert len(entries_any) == 1
     assert entries_any[0].player_name == 'Alice'
+
+
+def test_leaderboard_round_history_persists_city_and_country(tmp_path: Path) -> None:
+    """Verify that match_round_guesses stores and retrieves actual_city and actual_country
+    for both single-photo (Pinpoint) and batch-photo (Album Shuffle) match summaries.
+    """
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1. Pinpoint match
+    pinpoint_guesses = [
+        {
+            'match_id': 'm-pinpoint-loc',
+            'player_name': 'Alice',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'pinpoint',
+            'asset_id': 'paris-photo',
+            'guess_latitude': 48.85,
+            'guess_longitude': 2.35,
+            'actual_latitude': 48.8584,
+            'actual_longitude': 2.2945,
+            'actual_city': 'Paris',
+            'actual_country': 'France',
+            'distance_km': 4.25,
+            'location_points': 90,
+            'guess_date': '2023-05-01',
+            'actual_date': '2023-05-10',
+            'date_diff_days': 9,
+            'date_points': 80,
+            'round_score': 170,
+            'time_taken_seconds': 5.0,
+        }
+    ]
+
+    store.append_match(
+        match_id='m-pinpoint-loc',
+        config=BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.pinpoint),
+        player_scores={'Alice': {'location': 90, 'date': 80, 'total': 170}},
+        round_guesses=pinpoint_guesses,
+    )
+
+    pinpoint_summary = store.get_match_summary('m-pinpoint-loc')
+    assert pinpoint_summary is not None
+    assert pinpoint_summary.round_history is not None
+    assert len(pinpoint_summary.round_history) == 1
+    p_round = pinpoint_summary.round_history[0]
+    assert p_round['actual_city'] == 'Paris'
+    assert p_round['actual_country'] == 'France'
+    assert p_round['actual_latitude'] == 48.8584
+    assert p_round['actual_longitude'] == 2.2945
+
+    # 2. Album Shuffle match
+    shuffle_guesses = [
+        {
+            'match_id': 'm-shuffle-loc',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'album_shuffle',
+            'asset_id': 'tokyo-photo',
+            'actual_latitude': 35.6762,
+            'actual_longitude': 139.6503,
+            'actual_city': 'Tokyo',
+            'actual_country': 'Japan',
+            'actual_date': '2022-10-15',
+            'round_score': 100,
+            'time_taken_seconds': 12.0,
+        },
+        {
+            'match_id': 'm-shuffle-loc',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 1,
+            'game_mode': 'album_shuffle',
+            'asset_id': 'rome-photo',
+            'actual_latitude': 41.9028,
+            'actual_longitude': 12.4964,
+            'actual_city': 'Rome',
+            'actual_country': 'Italy',
+            'actual_date': '2023-04-20',
+            'round_score': 100,
+            'time_taken_seconds': 12.0,
+        },
+    ]
+
+    store.append_match(
+        match_id='m-shuffle-loc',
+        config=BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.album_shuffle),
+        player_scores={'Bob': {'location': 100, 'date': 100, 'total': 200}},
+        round_guesses=shuffle_guesses,
+    )
+
+    shuffle_summary = store.get_match_summary('m-shuffle-loc')
+    assert shuffle_summary is not None
+    assert shuffle_summary.round_history is not None
+    s_round = shuffle_summary.round_history[0]
+    assert s_round['batch_reveal'] is not None
+    assert len(s_round['batch_reveal']) == 2
+    assert s_round['batch_reveal'][0]['actual_city'] == 'Tokyo'
+    assert s_round['batch_reveal'][0]['actual_country'] == 'Japan'
+    assert s_round['batch_reveal'][1]['actual_city'] == 'Rome'
+    assert s_round['batch_reveal'][1]['actual_country'] == 'Italy'
+

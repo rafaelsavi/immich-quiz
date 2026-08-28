@@ -65,7 +65,7 @@ export function initPlayerInput() {
     container: root,
     hiddenInput: el.players,
     countBadge: document.getElementById("player-count-badge"),
-    initialPlayers: savedPlayers || [],
+    initialPlayers: savedPlayers && savedPlayers.length > 0 ? savedPlayers : ["Player 1"],
     onChange: (players) => {
       try {
         localStorage.setItem(PLAYERS_STORAGE_KEY, JSON.stringify(players));
@@ -244,6 +244,43 @@ export function initFilterComponents() {
       e.stopPropagation();
       triggerLibrarySync(onLibrariesChanged);
     });
+  }
+
+  initModeSelector();
+}
+
+function initModeSelector() {
+  const container = document.getElementById("game-settings-container");
+  const modeButtons = document.querySelectorAll("#game-mode-selector .mode-btn");
+
+  const setMode = (modeName) => {
+    state.gameMode = modeName;
+    modeButtons.forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-mode") === modeName);
+    });
+    const activeMode = getActiveMode();
+    if (activeMode && container) {
+      activeMode.renderSettings(container);
+    }
+    triggerPreflightDebounced();
+    loadLeaderboardDebounced();
+  };
+
+  modeButtons.forEach((btn) => {
+    if (!btn.dataset.bound) {
+      btn.dataset.bound = "true";
+      btn.addEventListener("click", () => {
+        const mode = btn.getAttribute("data-mode");
+        if (mode) {
+          setMode(mode);
+        }
+      });
+    }
+  });
+
+  const activeMode = getActiveMode();
+  if (activeMode && container) {
+    activeMode.renderSettings(container);
   }
 }
 

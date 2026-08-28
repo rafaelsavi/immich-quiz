@@ -21,6 +21,7 @@ export async function showRoundReveal(roundNumber) {
     media_url: reveal.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null),
     actual_latitude: reveal.actual_latitude,
     actual_longitude: reveal.actual_longitude,
+    actual_date: reveal.actual_date,
     actual_year: reveal.actual_year,
     actual_month: reveal.actual_month,
     actual_city: reveal.actual_city,
@@ -58,7 +59,9 @@ export async function showRoundReveal(roundNumber) {
   const activeMode = getActiveMode();
   activeMode.renderReveal(el.revealUi, reveal);
 
-  el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
+  if (el.nextRound) {
+    el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
+  }
 
   const targetScrollEl = reveal.location_mode ? el.revealMapShell : el.nextRound;
   if (targetScrollEl) {
@@ -84,6 +87,7 @@ export async function handleNextRound() {
     saveActiveMatchSession();
 
     if (state.matchFinished) {
+      state.justFinishedMatch = true;
       clearActiveMatchSession();
       navigate(`/game/${encodeURIComponent(state.matchId)}/summary`, { force: true });
       return;

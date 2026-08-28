@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2026-08-28
+
+### Added
+
+- **Automated Playwright End-to-End (E2E) Test Suite**:
+  - **E2E Browser Test Harness**: Integrated session-scoped live uvicorn server harness with mock Immich server and test database seeding in `tests/e2e/conftest.py`.
+  - **Pinpoint Interactive Gameplay Tests**: Implemented comprehensive two-tap Leaflet map pin placement, distance error calculation, and round reveal map polyline/star marker validation (`tests/e2e/test_pinpoint_gameplay.py`).
+  - **Date Selection & Filtering Tests**: Added automated verification for dual-handle timeline date range slider and single-year/month date guessing with dynamic month constraints (`tests/e2e/test_date_selection.py`).
+  - **Album Shuffle Interactive Gameplay Tests**: Added photo card reordering tests with rank up/down buttons and multi-pin (A, B, C) map marker assignment and scoring validation (`tests/e2e/test_album_shuffle_gameplay.py`).
+  - **Client-Side Routing & Session Recovery Tests**: Added automated tests for deep links (`/`, `/stats`, `/unknown`), active match page reload state recovery from `sessionStorage`, and expired match fallback rendering (`tests/e2e/test_routing_and_recovery.py`).
+  - **Summary & Visual Effects Tests**: Added automated verification for score rollup animations, podium rendering, polaroid memory cards gallery, and post-game summary navigation (`tests/e2e/test_summary_and_effects.py`).
+  - **Match Lifecycle & Guard Coverage**: Added automated tests for in-game exit/abandonment confirmation dialogs, countdown timer timeout zero-crossings, and multiplayer pass-and-play overlays with podium ranking resolution (`tests/e2e/test_routing_and_recovery.py`, `tests/e2e/test_date_selection.py`, `tests/e2e/test_summary_and_effects.py`).
+  - **CI & Git Hook Integration**: Added Playwright Chromium installation step to GitHub Actions CI workflow (`.github/workflows/ci.yml`) and local pre-push git hook (`.githooks/pre-push`).
+
+- **Self-Contained Match Place Persistence**:
+  - Added `actual_city` and `actual_country` columns to `match_round_guesses` table in `src/storage/leaderboard.py`.
+  - Enriched both single-photo (Pinpoint) and multi-photo (Album Shuffle) guess records with snapshot ground truth city and country metadata at match completion.
+  - Reconstructed match history and batch reveals from SQLite `LeaderboardStore` with place names and ISO capture dates for permanent, replayable match summaries.
+
+### Changed
+
+- **Unified Polaroid & Journey Map Place Formatting**:
+  - Unified `renderPolaroidGallery()` in `static/js/modules/summary/polaroids.js` to format place labels via `formatPlace()` across all game modes, ensuring consistent display hierarchy (`City, Country` -> `Coordinates` -> `Unknown place`).
+  - Standardized single-photo pin popups in `static/js/modules/maps.js` with `formatPlace()` and localized calendar capture date formatting.
+
+### Fixed
+
+- **UI Config API Endpoint URL Alignment**: Corrected the frontend UI config request from `/api/config` to `/api/ui-config` in `static/js/app.js` to ensure clean route alignment.
+- **Audio Context & Vibration Autoplay Restrictions on Page Reload**:
+  - Added `hasUserActivation()` checks, unified `shouldPlay()` audio guard, and running AudioContext state guards in `static/js/modules/audio.js` to eliminate browser autoplay and vibration policy console warnings (`navigator.vibrate` and `AudioContext` start blocks) on fresh page loads and refreshes.
+  - Scoped `playVictoryFanfare()` to trigger only on active match transitions in `summary.js` and `reveal.js` rather than on passive page reloads or direct permalink navigation.
+- **Frontend Missing Module Imports**: Added missing `saveActiveMatchSession` (from `./modules/state.js`) and `renderSummaryContent` (from `./modules/screens/summary.js`) imports in `static/js/app.js` to resolve runtime `ReferenceError` during pass-and-play ready button interactions and dynamic language refreshes.
+- **Frontend Event Listener DOM References & Cleanup**: Fixed `el.shareSummaryBtn` event listener binding in `static/js/app.js`, eliminated duplicate state declarations, and unified safe null-checked event listeners via a `bindClick` helper.
+- **Game Mode Dynamic Settings Initialization**: Added `initModeSelector` in `static/js/modules/setup_filters.js` to initialize active game mode settings and button state bindings on startup.
+- **Album Shuffle Table DOM ID Collision**: Renamed dynamic reveal score table ID in `album_shuffle.js` to `shuffle-reveal-table` to prevent duplicate ID collisions in the DOM.
+
 ## [2.4.0] - 2026-08-28
 
 ### Added

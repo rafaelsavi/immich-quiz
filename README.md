@@ -104,14 +104,15 @@ API keys can be generated in Immich under **Account Settings > API Keys**. Follo
 
 ### Quick Start
 
-1. Install dependencies:
+1. Install dependencies and browser binaries:
 
 ```bash
 uv sync --extra dev
+uv run playwright install chromium
 ```
 
-1. Use `.env.example` to create a local `.env` file for local development.
-2. Start the app:
+2. Use `.env.example` to create a local `.env` file for local development.
+3. Start the app:
 
 ```bash
 uv run -m src.main
@@ -127,12 +128,20 @@ To enable automatic pre-push CI checks locally:
 git config core.hooksPath .githooks
 ```
 
-#### Run all tests manually
+#### Run tests manually
 
 ```bash
-uv run pytest -q
+# Run unit and integration tests
+uv run pytest tests/ -k "not e2e"
+
+# Run Playwright end-to-end browser tests
+uv run pytest tests/e2e
+
+# Run linters and type checkers
 uv run ruff check .
 uv run mypy src
+
+# Run full test suite with coverage
 uv run pytest --cov=src --cov-report=term-missing
 ```
 
@@ -143,7 +152,8 @@ If you use VS Code, pre-configured tasks and launch files are available in `.vsc
 - **Run / Debug App (`F5`)**: Use the `FastAPI: Debug App (Uvicorn)` launch profile or press **F5** to start the app with debugging and hot reload.
 - **Run Tasks (`Ctrl+Shift+B` / `Cmd+Shift+B`)**: Access project tasks via **Terminal > Run Task**:
   - `Run App`: Start the dev server (`uv run python src/main.py`).
-  - `Run Pytest`: Execute test suite (`uv run pytest`).
+  - `Run Pytest`: Execute unit and integration tests.
+  - `Run E2E Tests (Playwright)`: Execute Playwright browser test suite.
   - `Run All CI Checks`: Run Ruff, Mypy, and Pytest coverage in sequence.
 
 ### Audio Testing Playground

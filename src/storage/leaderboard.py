@@ -102,6 +102,8 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     guess_longitude    REAL,
     actual_latitude    REAL,
     actual_longitude   REAL,
+    actual_city        TEXT,
+    actual_country     TEXT,
     distance_km        REAL,
     location_points    INTEGER,
     guess_date         TEXT,                          -- 'YYYY-MM-DD'
@@ -182,8 +184,11 @@ def _build_round_history_from_guesses(
             'media_url': f'/api/media/{first_g["asset_id"]}' if first_g.get('asset_id') else None,
             'actual_latitude': first_g.get('actual_latitude'),
             'actual_longitude': first_g.get('actual_longitude'),
+            'actual_date': first_g.get('actual_date'),
             'actual_year': act_dt.year if act_dt else None,
             'actual_month': act_dt.month if act_dt else None,
+            'actual_city': first_g.get('actual_city'),
+            'actual_country': first_g.get('actual_country'),
             'location_mode': location_mode,
             'game_mode': game_mode,
         }
@@ -201,8 +206,11 @@ def _build_round_history_from_guesses(
                         'true_pin_id': chr(65 + p_idx),
                         'actual_latitude': g.get('actual_latitude'),
                         'actual_longitude': g.get('actual_longitude'),
+                        'actual_date': g.get('actual_date'),
                         'actual_year': p_dt.year if p_dt else None,
                         'actual_month': p_dt.month if p_dt else None,
+                        'actual_city': g.get('actual_city'),
+                        'actual_country': g.get('actual_country'),
                     }
             round_entry['batch_reveal'] = list(unique_photos.values())
 
@@ -365,12 +373,12 @@ class LeaderboardStore:
                         INSERT INTO match_round_guesses (
                             match_id, player_name, round_index, photo_index,
                             game_mode, asset_id, guess_latitude, guess_longitude,
-                            actual_latitude, actual_longitude, distance_km,
-                            location_points, guess_date, actual_date,
+                            actual_latitude, actual_longitude, actual_city, actual_country,
+                            distance_km, location_points, guess_date, actual_date,
                             date_diff_days, date_points, round_score,
                             is_correct_location, is_correct_date_order,
                             time_taken_seconds, submitted_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             rg.get('match_id', match_id),
@@ -383,6 +391,8 @@ class LeaderboardStore:
                             rg.get('guess_longitude'),
                             rg.get('actual_latitude'),
                             rg.get('actual_longitude'),
+                            rg.get('actual_city'),
+                            rg.get('actual_country'),
                             rg.get('distance_km'),
                             rg.get('location_points'),
                             rg.get('guess_date'),

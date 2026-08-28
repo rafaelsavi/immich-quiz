@@ -72,7 +72,7 @@ export function renderPolaroidGallery(roundHistory) {
 
       const loc = document.createElement("span");
       loc.className = "polaroid-location";
-      loc.textContent = round.location_string || t("fmt.unknown_place");
+      loc.textContent = formatPlace(round) || t("fmt.unknown_place");
 
       const date = document.createElement("span");
       date.className = "polaroid-date";

@@ -6,25 +6,14 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-- [x] v2.4.0: **1. Client-Side Routing & Match URLs**
-  - [x] Implement History API router (`pushState`, `popstate`) supporting deep links:
-    - `/` (Lobby & match setup)
-    - `/game/{match_id}` (Active match with state recovery from local/session storage - only while active, otherwise show page informing that it has ended and offer path to summary or homepage)
-    - `/game/{match_id}/summary` (Shareable match replay & podium)
-    - `/play/{token}` (Challenge entry & player lobby redirect until v3.0)
-    - `/stats` (Leaderboard & player statistics redirect to lobby)
-  - [x] Add FastAPI backend catch-all route (`/{path:path}` -> `index.html`) so direct URL navigation and page refreshes never return 404.
-  - [x] Update PWA Service Worker (`sw.js`) navigation fallback to cache the app shell and handle offline/cached route transitions.
-  - [x] Refine in-game navigation guards (intercepting browser back/forward and accidental tab closes during active rounds).
-
-- [ ] v2.4.0: **2. Automated E2E Testing (Playwright)**
-  - [ ] Setup Playwright browser test harness integrated with CI and local test runner.
-  - [ ] Implement core interactive gameplay test suites:
+- [x] v2.4.1: **2. Automated E2E Testing (Playwright)**
+  - [x] Setup Playwright browser test harness integrated with CI and local test runner.
+  - [x] Implement core interactive gameplay test suites:
     - Two-tap Leaflet map pin placement and distance line calculation in Pinpoint mode.
     - Dual-handle timeline range and single-year/month date selection.
     - Album Shuffle photo card reordering and multi-pin placement.
-  - [ ] Add route navigation and reload recovery test cases (verifying match state recovers on `/game/{match_id}` refresh).
-  - [ ] Add score rollup animation and post-game summary award rendering verification.
+  - [x] Add route navigation and reload recovery test cases (verifying match state recovers on `/game/{match_id}` refresh).
+  - [x] Add score rollup animation and post-game summary award rendering verification.
 
 - [ ] v2.5.0 **3. Report Map or Date Inconsistencies**
   - [ ] Add "Report Issue" button and modal to the round reveal screen (flag bad GPS coordinates, wrong EXIF date, or face tag).

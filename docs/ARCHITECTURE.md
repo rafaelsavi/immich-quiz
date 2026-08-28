@@ -103,6 +103,18 @@ immich-quiz/
         ├── state.js     Centralized reactive application state store.
         ├── sync.js      Library metadata sync trigger, polling, and status badges.
         └── timer.js     Silky-smooth 60 FPS countdown timer, smart time formatting (M:SS), pause/resume, audio ticks, and timeout dispatch.
+└── tests/               Test suites and quality verification harness.
+    ├── conftest.py      Pytest fixtures, mock Immich test client, and synthetic asset factories.
+    ├── e2e/             Playwright end-to-end browser automation test suites.
+    │   ├── conftest.py  Live FastAPI test server fixture and async page context manager.
+    │   ├── test_pinpoint_gameplay.py Pinpoint Leaflet pin placement, polyline, and reveal.
+    │   ├── test_date_selection.py Timeline range slider and single year/month selection.
+    │   ├── test_album_shuffle_gameplay.py Photo card reordering and multi-pin placement.
+    │   ├── test_routing_and_recovery.py Deep links, SPA routing, and reload recovery.
+    │   └── test_summary_and_effects.py Score rollup animations and post-game awards.
+    ├── test_api.py      FastAPI endpoint contracts and response validation.
+    ├── test_scoring.py  Mathematical scoring formulas and accuracy calculations.
+    └── ...              Unit & integration tests (metadata sync, diversity, models, i18n, etc.).
 ```
 
 ---

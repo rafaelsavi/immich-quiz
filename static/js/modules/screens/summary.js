@@ -21,10 +21,10 @@ export function renderSummaryContent(summary) {
 
 export async function showMatchSummary() {
   if (!state.matchId) return;
-  await showMatchSummaryByMatchId(state.matchId);
+  await showMatchSummaryByMatchId(state.matchId, { playFanfare: true });
 }
 
-export async function showMatchSummaryByMatchId(matchId) {
+export async function showMatchSummaryByMatchId(matchId, { playFanfare = false } = {}) {
   try {
     const lang = getLocale();
     const summary = await api(
@@ -38,7 +38,9 @@ export async function showMatchSummaryByMatchId(matchId) {
 
     showCard(el.summaryCard);
     window.scrollTo({ top: 0, behavior: "smooth" });
-    playVictoryFanfare();
+    if (playFanfare) {
+      playVictoryFanfare();
+    }
 
     renderSummaryContent(summary);
     renderJourneyMap(state.roundHistory, summary.location_mode);

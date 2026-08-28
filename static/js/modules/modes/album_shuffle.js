@@ -345,7 +345,8 @@ export const albumShuffleMode = {
     const tableScroll = document.createElement("div");
     tableScroll.className = "table-scroll";
     const scoreTable = document.createElement("table");
-    scoreTable.id = "reveal-table";
+    scoreTable.id = "shuffle-reveal-table";
+    scoreTable.className = "reveal-table shuffle-reveal-table";
     const thead = document.createElement("thead");
     const tbody = document.createElement("tbody");
     scoreTable.append(thead, tbody);

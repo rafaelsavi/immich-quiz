@@ -4,7 +4,13 @@
     {
       "label": "Install Dev Dependencies",
       "type": "shell",
-      "command": "uv sync --extra dev",
+      "command": "uv sync --extra dev && uv run playwright install chromium",
+      "problemMatcher": []
+    },
+    {
+      "label": "Install Playwright Browsers",
+      "type": "shell",
+      "command": "uv run playwright install chromium",
       "problemMatcher": []
     },
     {
@@ -31,6 +37,17 @@
         "kind": "test",
         "isDefault": true
       }
+    },
+    {
+      "label": "Run E2E Tests (Playwright)",
+      "type": "shell",
+      "command": "uv",
+      "args": [
+        "run",
+        "pytest",
+        "tests/e2e"
+      ],
+      "problemMatcher": "$gcc"
     },
     {
       "label": "Run Pytest with Coverage",

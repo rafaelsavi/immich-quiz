@@ -5,28 +5,35 @@ echo "=========================================="
 echo "Running Pre-Push Quality Checks (CI parity)"
 echo "=========================================="
 
-echo "[1/4] Syncing dependencies..."
+echo "[1/5] Syncing dependencies..."
 uv sync --extra dev
 if [ $? -ne 0 ]; then
     echo "❌ uv sync failed. Push aborted."
     exit 1
 fi
 
-echo "[2/4] Running Ruff Linter..."
+echo "[2/5] Ensuring Playwright browser binaries..."
+uv run playwright install chromium
+if [ $? -ne 0 ]; then
+    echo "❌ Playwright browser installation failed. Push aborted."
+    exit 1
+fi
+
+echo "[3/5] Running Ruff Linter..."
 uv run ruff check .
 if [ $? -ne 0 ]; then
     echo "❌ Ruff check failed. Push aborted."
     exit 1
 fi
 
-echo "[3/4] Running Mypy Type Checker..."
+echo "[4/5] Running Mypy Type Checker..."
 uv run mypy src
 if [ $? -ne 0 ]; then
     echo "❌ Mypy type check failed. Push aborted."
     exit 1
 fi
 
-echo "[4/4] Running Pytest with Coverage..."
+echo "[5/5] Running Pytest with Coverage..."
 uv run pytest --cov=src --cov-report=term-missing
 if [ $? -ne 0 ]; then
     echo "❌ Pytest failed. Push aborted."
