@@ -141,7 +141,7 @@ export function playBuzzer() {
           osc.type = "sawtooth";
           osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
-          gain.gain.setValueAtTime(0.35, ctx.currentTime);
+          gain.gain.setValueAtTime(0.22, ctx.currentTime);
           gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
 
           osc.connect(gain);

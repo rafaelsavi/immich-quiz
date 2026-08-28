@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Automatic Credential Redaction**: Real-time regex sanitization masking Immich API keys and bearer tokens (`api_key=******1234`).
   - **HTTP Request Context Middleware**: Injects `X-Request-ID` tracing headers, measures request duration in milliseconds, and emits clean access logs.
   - **Granular Subsystem Level Configuration**: Configurable via `LOG_LEVEL` (`INFO`, `DEBUG`, `WARNING`, `ERROR`) with optional per-domain overrides (`LOG_LEVEL_SCORING`, `LOG_LEVEL_SYNC`, `LOG_LEVEL_IMMICH`, `LOG_LEVEL_MATCH`, `LOG_LEVEL_API`).
+- **Silky-Smooth 60 FPS Countdown Timer**: Upgraded round countdown timer subsystem with:
+  - **Fluid `requestAnimationFrame` Animation**: Continuous sub-second progress bar drain eliminating 1-second stepped jumps.
+  - **Smart Time Formatting**: Clean `M:SS` format for durations $\ge 60\text{s}$ (`2:00`, `1:15`) and `Xs` for sub-minute timers (`45s`, `5s`).
+  - **Continuous Uniform Color Spectrum & Micro-Interactions**: Smooth frame-by-frame RGB/gradient interpolation from Teal (100%) through Amber (50%) to Crimson (0%) without abrupt percentage jumps, dynamic leading-edge glow, SVG stopwatch iconography, and bouncy `@keyframes timerTickPop` micro-animations during final 5-second countdown.
+  - **Timer Pause & Resume State**: Added `pauseTimer()` and `resumeTimer()` lifecycle controls with dedicated `.is-paused` visual treatments.
+  - **Dedicated Component Stylesheet**: Modularized timer CSS into `static/css/components/timer.css` for consistent styling across main guessing UI, fullscreen overlays, and audio testing playground.
 
 ### Changed
 
