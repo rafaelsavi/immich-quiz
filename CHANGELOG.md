@@ -9,41 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Album Shuffle Adaptive Exponential Scoring (Phase 2)**: Replaced strict all-or-nothing binary matching with unified batch-adaptive exponential decay scoring across both map pin matching and timeline chronological ordering:
-  - **Spatial Proximity Decay (`batch_exponential_location_score`)**: Photos matched to nearby pins in the active batch earn partial credit via exponential decay $S_i = \frac{100}{N} \exp(-d_i / \text{decay\_km})$, using Haversine distance $d_i$ and batch-adaptive decay ($5.0\text{ km} \le \text{decay\_km} \le 200.0\text{ km}$).
-  - **Temporal Chronological Decay (`batch_exponential_date_score`)**: Photos placed in timeline slots earn partial credit via exponential decay $S_i = \frac{100}{N} \exp(-\Delta D_i / \text{decay\_days})$, measuring day difference $\Delta D_i$ against the target slot's true date and batch-adaptive decay ($30.0\text{d} \le \text{decay\_days} \le 500.0\text{d}$).
-  - **Per-Photo Round Guess Persistence**: Updated `match_round_guesses` telemetry in `src/game/service.py` to record partial `location_points`, `date_points`, and `date_diff_days` per photo while preserving exact match boolean indicators (`is_correct_location`, `is_correct_date_order`) for statistics.
+- **Album Shuffle Partial Credit Scoring**:
+  - **Nearby Map Pin Credit**: Swapping two close pins (like two landmarks in the same city during a worldwide match) now earns high partial points based on actual distance instead of giving zero points.
+  - **Close Timeline Date Credit**: Flipping photos taken only a few days apart in a multi-year album now gives nearly full score instead of punishing minor ordering errors.
+  - **Batch-Adaptive Scaling**: Scoring sensitivity automatically adjusts to the geographic span and date range of each photo batch.
+  - **Per-Photo Round Telemetry**: Detailed match history now records individual photo distance errors, day differences, and points earned.
 
-- **Structured Console & Container Logging Architecture**: Implemented a comprehensive logging subsystem (`src/app_logging/`) featuring:
-  - **Clean High-Visibility Console Formatter**: Timestamped and color-enhanced format (`YYYY-MM-DD HH:MM:SS [LEVEL] [subsystem:context] Message`) optimized for Docker container stdout (`docker logs`) and local terminal debugging.
-  - **Contextual Request & Session Tracing**: Zero-boilerplate async context propagation (`contextvars`) tracking `match_id`, `request_id`, `player_name`, and `library_name` automatically across all log statements.
-  - **Automatic Credential Redaction**: Real-time regex sanitization masking Immich API keys and bearer tokens (`api_key=******1234`).
-  - **HTTP Request Context Middleware**: Injects `X-Request-ID` tracing headers, measures request duration in milliseconds, and emits clean access logs.
-  - **Granular Subsystem Level Configuration**: Configurable via `LOG_LEVEL` (`INFO`, `DEBUG`, `WARNING`, `ERROR`) with optional per-domain overrides (`LOG_LEVEL_SCORING`, `LOG_LEVEL_SYNC`, `LOG_LEVEL_IMMICH`, `LOG_LEVEL_MATCH`, `LOG_LEVEL_API`).
-- **Silky-Smooth 60 FPS Countdown Timer**: Upgraded round countdown timer subsystem with:
-  - **Fluid `requestAnimationFrame` Animation**: Continuous sub-second progress bar drain eliminating 1-second stepped jumps.
-  - **Smart Time Formatting**: Clean `M:SS` format for durations $\ge 60\text{s}$ (`2:00`, `1:15`) and `Xs` for sub-minute timers (`45s`, `5s`).
-  - **Continuous Uniform Color Spectrum & Micro-Interactions**: Smooth frame-by-frame RGB/gradient interpolation from Teal (100%) through Amber (50%) to Crimson (0%) without abrupt percentage jumps, dynamic leading-edge glow, SVG stopwatch iconography, and bouncy `@keyframes timerTickPop` micro-animations during final 5-second countdown.
-  - **10-Second Continuous Frequency Elevation Audio**: Replaced monotone electronic beeps with a unified, continuous frequency-elevating tick curve from 440 Hz (at 10s) smoothly rising to 880 Hz (at 1s) with escalating volume (0.08 $\rightarrow$ 0.22) and tactile haptics.
-  - **Timer Pause & Resume State**: Added `pauseTimer()` and `resumeTimer()` lifecycle controls with dedicated `.is-paused` visual treatments.
-  - **Dedicated Component Stylesheet**: Modularized timer CSS into `static/css/components/timer.css` for consistent styling across main guessing UI, fullscreen overlays, and audio testing playground.
+- **Structured Console & Container Logging**:
+  - **Clean Formatted Logs**: Added color-coded, timestamped console logs (`YYYY-MM-DD HH:MM:SS [LEVEL] [subsystem] Message`) optimized for Docker (`docker logs`) and local terminal debugging.
+  - **Match & Request Tracing**: Automatically tracks `match_id`, `player_name`, `library_name`, and `request_id` across all log messages.
+  - **Automatic Credential Masking**: Automatically redacts Immich API keys and Bearer tokens in log output.
+  - **HTTP Request Duration Logging**: Measures and logs API endpoint response times with clean status summaries.
+  - **Customizable Log Levels**: Set overall level with `LOG_LEVEL` or configure individual subsystems (`LOG_LEVEL_SCORING`, `LOG_LEVEL_SYNC`, `LOG_LEVEL_IMMICH`, etc.).
+
+- **Smooth 60 FPS Countdown Timer & Dynamic Audio**:
+  - **Fluid Progress Bar**: Timer drains continuously at 60 FPS using `requestAnimationFrame`, eliminating 1-second stepped jumps.
+  - **Dynamic Color Transitions**: Smoothly transitions from Teal (100%) to Amber (50%) to Crimson (0%) with pulsating warning animations in the final 5 seconds.
+  - **Rising Pitch Audio Ticker**: Replaced monotone beeps with a frequency-rising audio ticker (440 Hz up to 880 Hz) during the last 10 seconds, paired with device vibration.
+  - **Smart Time Display**: Shows `M:SS` (e.g. `1:15`) for long timers and `Xs` (e.g. `45s`) for sub-minute rounds.
 
 ### Changed
 
-- **Tuned Spatial Scoring Parameters**: Updated spatial decay constants in `src/scoring.py` to `LOCATION_SPAN_RATIO = 10.0`, `LOCATION_MIN_DECAY_KM = 5.0` (for more forgiving city/neighborhood guesses), and `LOCATION_MAX_DECAY_KM = 200.0` (for tighter precision on nationwide/worldwide rounds).
-- **Coordinated Score Rollup Audio Session**: Centralized audio ticker synchronization during score rollup animations in `static/js/modules/effects.js` so that multiplayer and multi-column animations share a single monotonic pitch-rising ticker without frequency jumping or throttle race conditions.
-- **Unified Scoring Model in `src/scoring.py`**: Replaced `batch_strict_location_score` and `batch_strict_date_score` with `batch_exponential_location_score` and `batch_exponential_date_score`. Updated `calculate_location_decay` and `calculate_date_decay` to seamlessly extract coordinates and dates from either `RoundAsset` or `AssetAnswer` collections.
+- **Tuned Location Scoring Sensitivity**: Adjusted distance scaling to make city/neighborhood rounds more forgiving (5 km base) while keeping nationwide and worldwide rounds appropriately challenging (200 km maximum decay).
+- **Synchronized Score Rollup Sounds**: Centralized audio ticker playback during score rollup animations so multiplayer reveals play one smooth rising tone.
+- **Unified Scoring Engine**: Replaced rigid matching code with shared adaptive decay functions across all game modes.
 
 ### Removed
 
-- **Redundant `LOCATION_MAX_SPAN_KM` Parameter**: Removed `LOCATION_MAX_SPAN_KM` and `max_span_km` parameter from spatial adaptive scoring in `src/scoring.py` and scoring simulations, as `LOCATION_MAX_DECAY_KM` already mathematically caps the decay ceiling at $\text{MAX\_DECAY} \times \text{SPAN\_RATIO}$.
+- **Unused `LOCATION_MAX_SPAN_KM` Config**: Removed redundant maximum span setting, as the maximum decay setting already sets the scoring ceiling.
 
 ### Fixed
 
-- **Match Start Concurrency & Image Reload on Slow Networks**: Prevented duplicate match creations and repeated image loads when clicking the "Start Match" button multiple times under high latency by introducing a `startingMatch` state guard, immediately disabling the submit button on submission, and verifying match state freshness before rendering round questions.
-- **Score Rollup Duration & Denominator Inconsistencies**:
-  - Fixed cumulative round multiplier dilution in Pinpoint (`static/js/modules/modes/pinpoint.js`) and Album Shuffle (`static/js/modules/modes/album_shuffle.js`) round reveal tables by benchmarking total score rollup against single-round max points (`maxRoundPoints`), keeping rollup speeds consistent across all rounds.
-  - Fixed single-goal score denominator mismatch on the final match summary table (`static/js/modules/summary/table.js`), ensuring 100% location and date scores roll up for the full 1.8s duration in sync with the total score.
+- **Start Match Double-Clicking**: Prevented duplicate match creation and duplicate photo loading when clicking "Start Match" multiple times on slow connections.
+- **Score Rollup Animation Timing**:
+  - Fixed speed inconsistencies on round reveal tables so score counting rolls up smoothly across all rounds regardless of total points.
+  - Fixed summary table score animation duration for single-mode games (location-only or date-only).
 
 ## [2.2.0] - 2026-08-25
 
