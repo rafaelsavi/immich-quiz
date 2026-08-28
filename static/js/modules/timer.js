@@ -357,6 +357,23 @@ function bindVisibilityListener() {
   window.addEventListener("focus", syncOnVisibilityChange);
 }
 
+const ROUND_LENGTH_SECONDS_MAP = {
+  "30s": 30,
+  "1m": 60,
+  "2m": 120,
+  "5m": 300,
+};
+
+/**
+ * Parse round length duration string to total seconds, or null if unlimited.
+ * @param {string} roundLength
+ * @returns {number|null}
+ */
+export function parseRoundDurationSeconds(roundLength) {
+  if (roundLength === "unlimited") return null;
+  return ROUND_LENGTH_SECONDS_MAP[roundLength] ?? 60;
+}
+
 export function startTimer(roundLength, getActiveModeFn = null, initialRemainingSeconds = null) {
   resetTimerBar();
   state.timedOut = false;
@@ -365,16 +382,11 @@ export function startTimer(roundLength, getActiveModeFn = null, initialRemaining
   _getActiveModeFn = getActiveModeFn;
   bindVisibilityListener();
 
-  if (roundLength === "unlimited") {
+  const total = parseRoundDurationSeconds(roundLength);
+  if (total === null) {
     if (el.timerLabel) el.timerLabel.textContent = t("game.timer_unlimited");
     return;
   }
-
-  let total = 60;
-  if (roundLength === "30s") total = 30;
-  else if (roundLength === "1m") total = 60;
-  else if (roundLength === "2m") total = 120;
-  else if (roundLength === "5m") total = 300;
 
   state.timerTotalSeconds = total;
 

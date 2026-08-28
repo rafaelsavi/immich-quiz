@@ -218,6 +218,14 @@ def _parse_iso_date(val: str | None) -> date | None:
     return None
 
 
+def _parse_iso_datetime(val: str | None) -> datetime:
+    """Parse ISO datetime string to Python datetime object or fallback to UTC now."""
+    if val:
+        with contextlib.suppress(Exception):
+            return datetime.fromisoformat(val)
+    return datetime.now(timezone.utc)
+
+
 class LeaderboardStore:
     """Manages persistent match history, player leaderboards, and detailed round guesses in SQLite."""
 
@@ -620,15 +628,15 @@ class LeaderboardStore:
                 people_mode=PeopleMode(row['people_mode']) if row['people_mode'] else PeopleMode.ANY,
                 countries=_parse_json_list(row['countries_json']),
                 cities=_parse_json_list(row['cities_json']),
-                min_date=date.fromisoformat(row['min_date']) if row['min_date'] else None,
-                max_date=date.fromisoformat(row['max_date']) if row['max_date'] else None,
+                min_date=_parse_iso_date(row.get('min_date')),
+                max_date=_parse_iso_date(row.get('max_date')),
                 include_shared=bool(row['include_shared']),
             )
 
             entries.append(
                 LeaderboardEntry(
                     match_id=row['match_id'],
-                    played_at=datetime.fromisoformat(row['played_at']),
+                    played_at=_parse_iso_datetime(row.get('played_at')),
                     player_name=row['player_name'],
                     total_score=row['total_score'],
                     max_possible_score=row['max_possible_score'],

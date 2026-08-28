@@ -1,7 +1,6 @@
 import {
   state,
   el,
-  saveActiveMatchSession,
   clearActiveMatchSession,
   loadActiveMatchSession,
   restoreActiveMatchSession,
@@ -24,860 +23,51 @@ import {
   getLocale,
   normalizeLanguage,
 } from "./modules/i18n.js";
-import {
-  playSubmitTone,
-  playVictoryFanfare,
-  toggleAudio,
-  updateAudioUi,
-} from "./modules/audio.js";
+import { toggleAudio, updateAudioUi } from "./modules/audio.js";
 import { api } from "./modules/api.js";
-import { formatPlace, renderRoundMeta } from "./modules/formatters.js";
 import {
-  updateSubmitState,
-  renderJourneyMap,
   toggleMapFullscreen,
   syncFullscreenButtons,
   updateMapLayerControls,
   refitAllMaps,
-  unregisterActiveMap,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
-import { pinpointMode } from "./modules/modes/pinpoint.js";
-import { albumShuffleMode, getShuffleMaps } from "./modules/modes/album_shuffle.js";
 import { renderSyncStatus, getLastSyncStatus } from "./modules/sync.js";
-import { clearTimer, resetTimerBar, startTimer } from "./modules/timer.js";
+import { clearTimer, startTimer } from "./modules/timer.js";
 import { bindGlobalShortcuts, markShortcutCooldown } from "./modules/shortcuts.js";
-import { renderPodium } from "./modules/summary/podium.js";
-import { renderAwards } from "./modules/summary/awards.js";
-import { renderSummaryTable } from "./modules/summary/table.js";
-import { renderPolaroidGallery } from "./modules/summary/polaroids.js";
 import { shareMatchSummary } from "./modules/summary/share.js";
 import {
-  playerInput,
-  libraryMultiSelect,
-  albumMultiSelect,
-  countryMultiSelect,
-  cityMultiSelect,
-  peopleMultiSelect,
-  dateRangeSlider,
-  getSelectedPeopleMode,
-  triggerPreflightDebounced,
   initPlayerInput,
   initLibraries,
   initWheelScrolls,
   refreshFilterComponentsLanguage,
   setGetActiveModeFn,
-  getLastPreflightData,
-  showPreflightWarning,
 } from "./modules/setup_filters.js";
+import { getActiveMode } from "./modules/modes/index.js";
+import {
+  showCard,
+  resetGameUi,
+  isGameActive,
+  handleBeforeUnload,
+} from "./modules/screens/common.js";
+import {
+  startMatch,
+  returnToSetup,
+  restartSameGame,
+  handleAbandonGame,
+  setEnsureLobbyInitializedFn,
+} from "./modules/screens/setup.js";
+import { loadQuestion, submitAnswer } from "./modules/screens/game.js";
+import { handleNextRound } from "./modules/screens/reveal.js";
+import {
+  showMatchSummaryByMatchId,
+  showGameEndedCard,
+} from "./modules/screens/summary.js";
 
-const GAME_MODES = {
-  pinpoint: pinpointMode,
-  album_shuffle: albumShuffleMode,
-};
-
-function getActiveMode() {
-  return GAME_MODES[state.gameMode] || pinpointMode;
-}
-
+// Re-export / configure global mode accessor
 setGetActiveModeFn(getActiveMode);
 
-/* ------------------------------------------------------------- game cycle */
-
-function clearRevealAnimation() {
-  if (state.revealAnimationFrameId !== null) {
-    cancelAnimationFrame(state.revealAnimationFrameId);
-    state.revealAnimationFrameId = null;
-  }
-  if (state.revealAnimationTimeoutId !== null) {
-    clearTimeout(state.revealAnimationTimeoutId);
-    state.revealAnimationTimeoutId = null;
-  }
-}
-
-function showCard(cardEl) {
-  clearRevealAnimation();
-  [el.setupCard, el.gameCard, el.summaryCard, el.gameEndedCard].forEach((c) => {
-    if (c) c.classList.add("hidden");
-  });
-  if (cardEl) cardEl.classList.remove("hidden");
-}
-
-function resetGameUi() {
-  clearRevealAnimation();
-  clearTimer();
-
-  state.matchId = null;
-  state.currentQuestion = null;
-  state.lastReveal = null;
-  state.lastSummary = null;
-  state.guessedLatLng = null;
-  state.mapBounds = null;
-  state.playedAssetIds = [];
-  state.roundHistory = [];
-  state.perfectCounts = {};
-  state.playerStats = {};
-  state.matchFinished = false;
-  state.timedOut = false;
-  state.submitting = false;
-
-  try {
-    getActiveMode().unmount();
-  } catch (_) { }
-
-  if (el.roundMeta) el.roundMeta.replaceChildren();
-  if (el.passOverlay) el.passOverlay.classList.add("hidden");
-  if (el.guessingUi) el.guessingUi.classList.add("hidden");
-  if (el.revealUi) el.revealUi.classList.add("hidden");
-  if (el.timeoutNotice) {
-    el.timeoutNotice.classList.add("hidden");
-    el.timeoutNotice.textContent = "";
-  }
-
-  if (el.quizImage) {
-    el.quizImage.classList.add("hidden");
-    el.quizImage.removeAttribute("src");
-    el.quizImage.onerror = null;
-  }
-  if (el.quizImageFullscreen) {
-    el.quizImageFullscreen.classList.add("hidden");
-  }
-  if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
-  if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
-
-  if (el.revealActual) el.revealActual.replaceChildren();
-  if (el.revealLegend) el.revealLegend.replaceChildren();
-  if (el.revealTableHead) el.revealTableHead.replaceChildren();
-  if (el.revealTableBody) el.revealTableBody.replaceChildren();
-  if (el.revealMapShell) el.revealMapShell.classList.add("hidden");
-  if (el.revealMapHead) el.revealMapHead.classList.add("hidden");
-
-  if (state.revealLayers && Array.isArray(state.revealLayers)) {
-    state.revealLayers.forEach((l) => {
-      try {
-        if (state.revealMap) state.revealMap.removeLayer(l);
-      } catch (_) { }
-    });
-    state.revealLayers = [];
-  }
-  if (state.revealMap) {
-    try {
-      unregisterActiveMap(state.revealMap);
-      state.revealMap.remove();
-    } catch (_) { }
-    state.revealMap = null;
-  }
-
-  if (state.journeyLayers && Array.isArray(state.journeyLayers)) {
-    state.journeyLayers.forEach((l) => {
-      try {
-        if (state.journeyMap) state.journeyMap.removeLayer(l);
-      } catch (_) { }
-    });
-    state.journeyLayers = [];
-  }
-  if (state.journeyMap) {
-    try {
-      unregisterActiveMap(state.journeyMap);
-      state.journeyMap.remove();
-    } catch (_) { }
-    state.journeyMap = null;
-  }
-  if (el.journeyMapShell) el.journeyMapShell.classList.add("hidden");
-  if (el.journeyMapHead) el.journeyMapHead.classList.add("hidden");
-
-  if (el.summaryWinner) el.summaryWinner.replaceChildren();
-  if (el.summaryMeta) el.summaryMeta.textContent = "";
-  if (el.summaryTableHead) el.summaryTableHead.replaceChildren();
-  if (el.summaryTableBody) el.summaryTableBody.replaceChildren();
-  if (el.polaroidGallery) el.polaroidGallery.replaceChildren();
-  if (el.summaryCard) {
-    const existingAwards = el.summaryCard.querySelector(".awards-row");
-    if (existingAwards) existingAwards.remove();
-  }
-}
-
-async function startMatch(event) {
-  event.preventDefault();
-
-  if (state.startingMatch) {
-    return;
-  }
-
-  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
-  if (submitBtn && submitBtn.disabled) {
-    return;
-  }
-
-  const warningEl = document.getElementById("preflight-warning");
-  if (warningEl && !warningEl.classList.contains("hidden")) {
-    return;
-  }
-
-  const lastPreflight = getLastPreflightData();
-  if (lastPreflight && !lastPreflight.ok) {
-    return;
-  }
-
-  const players = playerInput
-    ? playerInput.getPlayers()
-    : el.players.value
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
-
-  if (players.length === 0) {
-    if (playerInput) {
-      playerInput.showEmptyError();
-    } else {
-      showAlert(t("setup.players_empty_error"));
-    }
-    return;
-  }
-
-  state.startingMatch = true;
-  if (submitBtn) {
-    submitBtn.disabled = true;
-  }
-
-  try {
-    resetGameUi();
-
-    const activeMode = getActiveMode();
-    const modePayload = activeMode.getModePayload();
-
-    const albumIds = albumMultiSelect ? albumMultiSelect.getSelectedIds() : [];
-    const albumNames = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((i) => i.name) : [];
-    const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
-    const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
-
-    const payload = {
-      players,
-      round_count: Number(el.roundCount.value),
-      round_length: el.roundLength.value,
-      libraries: selectedLibs,
-      albums: albumIds,
-      album_names: albumNames,
-      people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
-      person_names: peopleMultiSelect
-        ? peopleMultiSelect.getSelectedItems().map((p) => p.name)
-        : [],
-      people_mode: getSelectedPeopleMode(),
-      countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
-      cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
-      min_date: minDate,
-      max_date: maxDate,
-      include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
-      ...modePayload,
-    };
-
-    const preflight = await api("/api/game/preflight", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    if (!preflight.ok) {
-      showPreflightWarning(
-        t("setup.not_enough_media", preflight.eligible_count, preflight.required)
-      );
-      return;
-    }
-
-    state.lastMatchConfig = payload;
-
-    getActiveMode().unmount();
-
-    const response = await api("/api/game/setup", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    state.matchId = response.match_id;
-    state.players = response.players;
-    state.mapBounds = response.map_bounds || null;
-    state.playedAssetIds = [];
-    state.matchFinished = false;
-    state.perfectCounts = {};
-    state.playerStats = {};
-    state.roundHistory = [];
-
-    saveActiveMatchSession();
-    navigate(`/game/${encodeURIComponent(state.matchId)}`, { force: true });
-
-    el.leaderboardCard.classList.add("hidden");
-    showCard(el.gameCard);
-
-    activeMode.mount(el.guessingUi, payload);
-    applyLanguage();
-
-    await loadQuestion();
-  } catch (err) {
-    showAlert(err.message || err);
-  } finally {
-    state.startingMatch = false;
-    if (submitBtn) {
-      const warning = document.getElementById("preflight-warning");
-      const hasWarning = warning && !warning.classList.contains("hidden");
-      submitBtn.disabled = Boolean(hasWarning);
-    }
-  }
-}
-
-function updateRoundMeta() {
-  const roundMeta = el.roundMeta;
-  if (!roundMeta || !state.currentQuestion) return;
-  const data = state.currentQuestion;
-  renderRoundMeta(roundMeta, {
-    roundNum: data.player_round_number,
-    totalRounds: data.total_rounds_per_player,
-    playerNum: data.player_number,
-    totalPlayers: data.total_players,
-    playerName: data.player_name,
-    isReveal: false,
-    showHelp: state.gameMode === "album_shuffle",
-    onHelpClick: () => {
-      const activeMode = getActiveMode();
-      activeMode.openHelp?.(state.currentQuestion);
-    },
-  });
-}
-
-function checkMediaLoadable(url) {
-  return new Promise((resolve) => {
-    if (!url) return resolve(true);
-    const img = new Image();
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        img.onload = null;
-        img.onerror = null;
-        resolve(false);
-      }
-    }, 10000);
-    img.onload = () => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve(true);
-      }
-    };
-    img.onerror = () => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve(false);
-      }
-    };
-    img.src = url;
-  });
-}
-
-async function fetchAndVerifyQuestion() {
-  const currentMatchId = state.matchId;
-  while (true) {
-    if (state.matchId !== currentMatchId) {
-      return null;
-    }
-    let data;
-    try {
-      data = await api("/api/question", {
-        method: "POST",
-        body: JSON.stringify({
-          match_id: state.matchId,
-          played_asset_ids: state.playedAssetIds,
-        }),
-      });
-    } catch (err) {
-      if (
-        err.message &&
-        (err.message.includes("No eligible assets") || err.message.includes("404"))
-      ) {
-        return null;
-      }
-      throw err;
-    }
-
-    if (state.matchId !== currentMatchId) {
-      return null;
-    }
-
-    const photosToTest = [];
-    if (data.batch_photos && data.batch_photos.length > 0) {
-      for (const p of data.batch_photos) {
-        photosToTest.push({ id: p.photo_id, url: p.media_url });
-      }
-    } else if (data.media_url) {
-      photosToTest.push({ id: data.asset_id, url: data.media_url });
-    }
-
-    const results = await Promise.all(
-      photosToTest.map(async (photo) => ({
-        id: photo.id,
-        ok: await checkMediaLoadable(photo.url),
-      }))
-    );
-
-    if (state.matchId !== currentMatchId) {
-      return null;
-    }
-
-    const failed = results.filter((r) => !r.ok);
-    if (failed.length === 0) {
-      return data;
-    }
-
-    console.warn(
-      `[Media Verification] Failed to load ${failed.length} ${failed.length === 1 ? "photo" : "photos"} [${failed.map((f) => f.id).join(", ")}]. Requesting replacement photo from server...`
-    );
-
-    for (const f of failed) {
-      if (f.id && !state.playedAssetIds.includes(f.id)) {
-        state.playedAssetIds.push(f.id);
-      }
-    }
-  }
-}
-
-function computeEffectiveRemainingSeconds(questionData, session) {
-  if (!questionData) return null;
-  if (
-    session &&
-    session.activeQuestionId === questionData.question_id &&
-    session.passConfirmed &&
-    session.timerEndTimeMs
-  ) {
-    return Math.max(0, (session.timerEndTimeMs - Date.now()) / 1000);
-  }
-  return null;
-}
-
-async function loadQuestion() {
-  const matchId = state.matchId;
-  if (!matchId) return;
-
-  resetTimerBar();
-  state.guessedLatLng = null;
-  state.timedOut = false;
-  state.currentQuestion = null;
-
-  if (el.revealUi) el.revealUi.classList.add("hidden");
-  if (el.guessingUi) el.guessingUi.classList.remove("hidden");
-  if (el.roundMeta) el.roundMeta.replaceChildren();
-
-  if (el.quizImage) {
-    el.quizImage.classList.add("hidden");
-    el.quizImage.removeAttribute("src");
-    el.quizImage.onerror = null;
-  }
-  if (el.quizImageFullscreen) {
-    el.quizImageFullscreen.classList.add("hidden");
-  }
-  if (el.mediaPlaceholder) el.mediaPlaceholder.classList.remove("hidden");
-
-  el.submitAnswer.textContent = t("game.submit_btn");
-  getActiveMode()?.setDisabled?.(false);
-  updateSubmitState();
-
-  const data = await fetchAndVerifyQuestion();
-
-  if (state.matchId !== matchId) {
-    return;
-  }
-
-  if (!data) {
-    state.timedOut = true;
-    showAlert("No eligible photos available. Round accepted.");
-    await submitAnswer(true);
-    return;
-  }
-
-  state.currentQuestion = data;
-  state.gameMode = data.game_mode || "pinpoint";
-  updateRoundMeta();
-
-  const activeMode = getActiveMode();
-  activeMode.renderQuestion(data);
-  el.guessingUi.classList.remove("hidden");
-  el.revealUi.classList.add("hidden");
-  window.scrollTo({ top: 0, behavior: "smooth" });
-  updateSubmitState();
-
-  const session = loadActiveMatchSession();
-  const remainingSeconds = computeEffectiveRemainingSeconds(data, session);
-
-  const alreadyConfirmed = Boolean(
-    session && session.activeQuestionId === data.question_id && session.passConfirmed
-  );
-
-  if (data.total_players > 1 && !alreadyConfirmed) {
-    state.currentScreen = "pass_device";
-    state.passConfirmed = false;
-    state.timerEndTimeMs = null;
-    state.timerTotalSeconds = null;
-    el.overlayTitle.textContent = t(
-      "game.pass_device_title",
-      data.player_name,
-      data.player_number,
-      data.total_players
-    );
-    el.overlaySubtitle.textContent = t("game.pass_device_subtitle", data.player_round_number, data.total_rounds_per_player);
-    el.passOverlay.classList.remove("hidden");
-    saveActiveMatchSession();
-  } else {
-    state.currentScreen = "guessing";
-    state.passConfirmed = true;
-    el.passOverlay.classList.add("hidden");
-    activeMode.onReady(data);
-    startTimer(data.round_length, getActiveMode, remainingSeconds);
-    saveActiveMatchSession();
-  }
-  markShortcutCooldown(20);
-}
-
-async function submitAnswer(fromTimeout = false) {
-  if (!state.currentQuestion || state.submitting) {
-    return;
-  }
-  state.submitting = true;
-  updateSubmitState();
-  playSubmitTone();
-
-  try {
-    const question = state.currentQuestion;
-    const playerName = question ? question.player_name : null;
-    const totalSec = state.timerTotalSeconds || 0;
-    const remainingSec = state.timerRemainingSeconds || 0;
-    const elapsedSec = fromTimeout ? totalSec : Math.max(0, totalSec - remainingSec);
-
-    if (playerName && totalSec > 0) {
-      if (!state.playerStats[playerName]) {
-        state.playerStats[playerName] = {
-          totalDistanceKm: 0,
-          distanceCount: 0,
-          totalDateDiffDays: 0,
-          dateCount: 0,
-          perfectLocationCount: 0,
-          perfectDateCount: 0,
-          perfectRounds: 0,
-          timedOutCount: 0,
-          fastRoundCount: 0,
-          totalDurationSec: 0,
-        };
-      }
-      state.playerStats[playerName].totalDurationSec = (state.playerStats[playerName].totalDurationSec || 0) + elapsedSec;
-      if (!fromTimeout && elapsedSec <= totalSec / 2) {
-        state.playerStats[playerName].fastRoundCount = (state.playerStats[playerName].fastRoundCount || 0) + 1;
-      }
-    }
-
-    const activeMode = getActiveMode();
-    const payload = activeMode.buildAnswerPayload(question, fromTimeout);
-    payload.time_taken_seconds = elapsedSec;
-
-    const result = await api("/api/answer", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-
-    clearTimer();
-    state.passConfirmed = false;
-    state.timerEndTimeMs = null;
-    state.timerTotalSeconds = null;
-    state.matchFinished = result.match_finished;
-
-    if (result.round_complete) {
-      await showRoundReveal(result.round_number);
-      return;
-    }
-
-    await loadQuestion();
-  } finally {
-    state.submitting = false;
-    updateSubmitState();
-  }
-}
-
-/* ----------------------------------------------------------------- reveal */
-
-async function showRoundReveal(roundNumber) {
-  const reveal = await api("/api/round/result", {
-    method: "POST",
-    body: JSON.stringify({ match_id: state.matchId, round_number: roundNumber }),
-  });
-
-  const existingIdx = state.roundHistory.findIndex((r) => r.round_number === reveal.round_number);
-  const entry = {
-    round_number: reveal.round_number,
-    media_url: reveal.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null),
-    actual_latitude: reveal.actual_latitude,
-    actual_longitude: reveal.actual_longitude,
-    actual_year: reveal.actual_year,
-    actual_month: reveal.actual_month,
-    actual_city: reveal.actual_city,
-    actual_country: reveal.actual_country,
-    location_string: formatPlace(reveal),
-    results: reveal.results,
-    batch_reveal: reveal.batch_reveal || null,
-    location_mode: reveal.location_mode,
-  };
-  if (existingIdx >= 0) {
-    state.roundHistory[existingIdx] = entry;
-  } else {
-    state.roundHistory.push(entry);
-  }
-
-  if (state.currentQuestion) {
-    if (state.currentQuestion.asset_id && !state.playedAssetIds.includes(state.currentQuestion.asset_id)) {
-      state.playedAssetIds.push(state.currentQuestion.asset_id);
-    }
-    if (state.currentQuestion.batch_photos) {
-      for (const p of state.currentQuestion.batch_photos) {
-        if (p.photo_id && !state.playedAssetIds.includes(p.photo_id)) {
-          state.playedAssetIds.push(p.photo_id);
-        }
-      }
-    }
-  }
-
-  state.lastReveal = reveal;
-  state.currentScreen = "reveal";
-  showCard(el.gameCard);
-  el.guessingUi.classList.add("hidden");
-  el.revealUi.classList.remove("hidden");
-
-  const activeMode = getActiveMode();
-  activeMode.renderReveal(el.revealUi, reveal);
-
-  el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
-
-  const targetScrollEl = reveal.location_mode ? el.revealMapShell : el.nextRound;
-  if (targetScrollEl) {
-    targetScrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-  saveActiveMatchSession();
-  markShortcutCooldown(20);
-}
-
-async function handleNextRound() {
-  if (state.submitting) {
-    return;
-  }
-  state.submitting = true;
-  updateSubmitState();
-
-  try {
-    state.currentScreen = null;
-    state.lastReveal = null;
-    state.passConfirmed = false;
-    state.timerEndTimeMs = null;
-    state.timerTotalSeconds = null;
-    saveActiveMatchSession();
-
-    if (state.matchFinished) {
-      clearActiveMatchSession();
-      navigate(`/game/${encodeURIComponent(state.matchId)}/summary`, { force: true });
-      return;
-    }
-    showCard(el.gameCard);
-    if (el.revealUi) el.revealUi.classList.add("hidden");
-    if (el.guessingUi) el.guessingUi.classList.remove("hidden");
-    await loadQuestion();
-  } finally {
-    state.submitting = false;
-    updateSubmitState();
-  }
-}
-
-/* ------------------------------------------------------- match conclusion */
-
-function renderSummaryContent(summary) {
-  if (!summary) return;
-  renderPodium(summary);
-  renderAwards(summary, state.playerStats);
-  renderSummaryTable(summary, state.perfectCounts);
-}
-
-async function showMatchSummary() {
-  if (!state.matchId) return;
-  await showMatchSummaryByMatchId(state.matchId);
-}
-
-async function showMatchSummaryByMatchId(matchId) {
-  try {
-    const lang = getLocale();
-    const summary = await api(
-      `/api/match/${encodeURIComponent(matchId)}/summary?lang=${encodeURIComponent(lang)}`
-    );
-    state.matchId = matchId;
-    state.lastSummary = summary;
-    if (summary.round_history && (!state.roundHistory || state.roundHistory.length === 0)) {
-      state.roundHistory = summary.round_history;
-    }
-
-    showCard(el.summaryCard);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-    playVictoryFanfare();
-
-    renderSummaryContent(summary);
-    renderJourneyMap(state.roundHistory, summary.location_mode);
-    renderPolaroidGallery(state.roundHistory);
-
-    el.leaderboardCard.classList.remove("hidden");
-    await loadLeaderboard();
-  } catch (err) {
-    console.warn("Failed to load match summary:", err);
-    showGameEndedCard(
-      null,
-      t("game_ended.match_not_found_msg", matchId),
-      t("game_ended.match_not_found_title"),
-      "🔍"
-    );
-  }
-}
-
-function showGameEndedCard(matchId = null, customMsg = null, customTitle = null, customIcon = null) {
-  clearRevealAnimation();
-  clearTimer();
-  clearActiveMatchSession();
-
-  showCard(el.gameEndedCard);
-  el.leaderboardCard.classList.add("hidden");
-
-  const iconEl = document.getElementById("game-ended-icon");
-  if (iconEl) {
-    iconEl.textContent = customIcon ?? "🏁";
-  }
-
-  const titleEl = document.getElementById("game-ended-title");
-  if (titleEl) {
-    titleEl.textContent = customTitle ?? t("game_ended.heading");
-  }
-
-  const msgEl = document.getElementById("game-ended-msg");
-  if (msgEl) {
-    msgEl.textContent = customMsg ?? t("game_ended.message");
-  }
-
-  if (el.gameEndedSummaryBtn) {
-    if (matchId) {
-      el.gameEndedSummaryBtn.classList.remove("hidden");
-      el.gameEndedSummaryBtn.onclick = () => {
-        navigate(`/game/${encodeURIComponent(matchId)}/summary`);
-      };
-    } else {
-      el.gameEndedSummaryBtn.classList.add("hidden");
-    }
-  }
-
-  if (el.gameEndedLobbyBtn) {
-    el.gameEndedLobbyBtn.onclick = () => {
-      navigate("/");
-    };
-  }
-}
-
-function returnToSetup({ updateUrl = true } = {}) {
-  document.documentElement.classList.remove("route-non-lobby");
-  state.startingMatch = false;
-  clearActiveMatchSession();
-  resetGameUi();
-  showCard(el.setupCard);
-  el.leaderboardCard.classList.remove("hidden");
-  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
-  if (submitBtn) {
-    const warning = document.getElementById("preflight-warning");
-    const hasWarning = warning && !warning.classList.contains("hidden");
-    submitBtn.disabled = Boolean(hasWarning);
-  }
-  if (updateUrl) {
-    navigate("/", { force: true });
-  }
-  ensureLobbyInitialized().catch((err) => console.warn("Lobby setup error:", err));
-  window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-function isGameActive() {
-  return Boolean(state.matchId && !state.matchFinished && !state.lastSummary);
-}
-
-function handleBeforeUnload(event) {
-  if (isGameActive()) {
-    event.preventDefault();
-    event.returnValue = "";
-    return "";
-  }
-}
-
-function confirmAbandonMatch(action = "exit") {
-  if (state.startingMatch) return false;
-  if (!isGameActive()) return true;
-
-  const label = action === "restart" ? t("game.abandon_restart") : t("game.abandon_exit");
-  if (!confirm(t("game.abandon_confirm", label))) {
-    return false;
-  }
-  clearTimer();
-  clearActiveMatchSession();
-  return true;
-}
-
-function handleAbandonGame(action) {
-  if (!confirmAbandonMatch(action)) return;
-  if (action === "restart") {
-    restartSameGame().catch((err) => showAlert(err.message));
-  } else {
-    returnToSetup();
-  }
-}
-
-async function restartSameGame() {
-  if (state.startingMatch) {
-    return;
-  }
-
-  const config = state.lastMatchConfig;
-  if (!config) {
-    returnToSetup();
-    return;
-  }
-
-  state.startingMatch = true;
-
-  try {
-    resetGameUi();
-
-    const activeMode = getActiveMode();
-
-    const response = await api("/api/game/setup", {
-      method: "POST",
-      body: JSON.stringify(config),
-    });
-
-    state.matchId = response.match_id;
-    state.players = response.players;
-    state.mapBounds = response.map_bounds || null;
-    state.playedAssetIds = [];
-    state.matchFinished = false;
-    state.perfectCounts = {};
-    state.playerStats = {};
-    state.roundHistory = [];
-
-    saveActiveMatchSession();
-    navigate(`/game/${encodeURIComponent(state.matchId)}`, { force: true });
-    el.leaderboardCard.classList.add("hidden");
-    showCard(el.gameCard);
-
-    activeMode.mount(el.guessingUi, config);
-    applyLanguage();
-
-    await loadQuestion();
-  } catch (err) {
-    showAlert(err.message || err);
-  } finally {
-    state.startingMatch = false;
-  }
-}
+/* ----------------------------------------------------------------- router */
 
 async function routeToActiveGame(matchId) {
   if (state.matchId === matchId && !state.matchFinished && isGameActive()) {
@@ -944,125 +134,162 @@ async function routeToActiveGame(matchId) {
   );
 }
 
-async function routeToGameSummary(matchId) {
-  clearActiveMatchSession();
-  await showMatchSummaryByMatchId(matchId);
-}
-
-function routeToChallenge(token) {
-  clearActiveMatchSession();
-  returnToSetup({ updateUrl: false });
-  showAlert(t("game_ended.challenge_notice"));
-  navigate("/", { replace: true, force: true });
-}
-
-function routeToUnknown(path) {
-  clearActiveMatchSession();
-  const notFoundPath = path || window.location.pathname;
-  showGameEndedCard(
-    null,
-    t("game_ended.not_found_msg", notFoundPath),
-    t("game_ended.not_found_title"),
-    "🔍"
-  );
-}
-
-function routeToLobby() {
-  clearActiveMatchSession();
-  returnToSetup({ updateUrl: false });
-}
-
 async function handleRoute(route) {
   document.documentElement.classList.remove("route-non-lobby");
   switch (route.type) {
-    case RouteType.GAME_ACTIVE:
-      return routeToActiveGame(route.params.matchId);
-    case RouteType.GAME_SUMMARY:
-      return routeToGameSummary(route.params.matchId);
-    case RouteType.CHALLENGE:
-      return routeToChallenge(route.params.token);
-    case RouteType.UNKNOWN:
-      return routeToUnknown(route.path);
+    case RouteType.GAME_ACTIVE: {
+      await routeToActiveGame(route.params.matchId);
+      break;
+    }
+
+    case RouteType.GAME_SUMMARY: {
+      const matchId = route.params.matchId;
+      clearActiveMatchSession();
+      await showMatchSummaryByMatchId(matchId);
+      break;
+    }
+
+    case RouteType.CHALLENGE: {
+      clearActiveMatchSession();
+      returnToSetup({ updateUrl: false });
+      showAlert(t("game_ended.challenge_notice"));
+      navigate("/", { replace: true, force: true });
+      break;
+    }
+
+    case RouteType.UNKNOWN: {
+      clearActiveMatchSession();
+      const notFoundPath = route.path || window.location.pathname;
+      showGameEndedCard(
+        null,
+        t("game_ended.not_found_msg", notFoundPath),
+        t("game_ended.not_found_title"),
+        "🔍"
+      );
+      break;
+    }
+
     case RouteType.LOBBY:
-    default:
-      return routeToLobby();
+    default: {
+      clearActiveMatchSession();
+      returnToSetup({ updateUrl: false });
+      break;
+    }
   }
 }
 
 /* ----------------------------------------------------------------- events */
 
 el.setupForm.addEventListener("submit", (event) => {
-  startMatch(event).catch((err) => showAlert(err.message));
+  startMatch(event).catch((err) => showAlert(err.message || err));
 });
 
 el.readyBtn.addEventListener("click", () => {
-  if (!state.currentQuestion) {
-    return;
-  }
+  if (!state.currentQuestion) return;
+  state.currentScreen = "guessing";
+  state.passConfirmed = true;
   el.passOverlay.classList.add("hidden");
   const activeMode = getActiveMode();
   activeMode.onReady(state.currentQuestion);
 
+  let remainingSeconds =
+    typeof state.currentQuestion.remaining_seconds === "number"
+      ? state.currentQuestion.remaining_seconds
+      : null;
   const session = loadActiveMatchSession();
-  const remainingSeconds = computeEffectiveRemainingSeconds(state.currentQuestion, session);
+  if (
+    session &&
+    session.activeQuestionId === state.currentQuestion.question_id &&
+    session.timerEndTimeMs
+  ) {
+    const clientRemaining = Math.max(0, (session.timerEndTimeMs - Date.now()) / 1000);
+    if (remainingSeconds !== null) {
+      remainingSeconds = Math.min(remainingSeconds, clientRemaining);
+    } else {
+      remainingSeconds = clientRemaining;
+    }
+  }
 
   startTimer(state.currentQuestion.round_length, getActiveMode, remainingSeconds);
-  state.currentScreen = "guessing";
-  state.passConfirmed = true;
   saveActiveMatchSession();
   markShortcutCooldown(20);
 });
 
 el.submitAnswer.addEventListener("click", () => {
-  submitAnswer(state.timedOut).catch((err) => showAlert(err.message));
+  submitAnswer(false).catch((err) => showAlert(err.message || err));
 });
 
-window.handleNextRoundClick = () => handleNextRound().catch((err) => showAlert(err.message));
-
-el.nextRound.addEventListener("click", window.handleNextRoundClick);
-
-el.newMatch.addEventListener("click", returnToSetup);
-
-if (el.shareSummaryBtn) {
-  el.shareSummaryBtn.addEventListener("click", () => {
-    shareMatchSummary(state.lastSummary).catch((err) => showAlert(err.message));
-  });
-}
-
-el.gameRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
-el.gameExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
-el.revealRestartBtn.addEventListener("click", () => handleAbandonGame("restart"));
-el.revealExitBtn.addEventListener("click", () => handleAbandonGame("exit"));
-
-if (el.revealMapFullscreen) {
-  if (window.L && L.DomEvent) {
-    L.DomEvent.disableClickPropagation(el.revealMapFullscreen);
-    L.DomEvent.disableScrollPropagation(el.revealMapFullscreen);
-  }
-  el.revealMapFullscreen.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleMapFullscreen(el.revealMapShell);
-  });
-}
-if (el.journeyMapFullscreen) {
-  if (window.L && L.DomEvent) {
-    L.DomEvent.disableClickPropagation(el.journeyMapFullscreen);
-    L.DomEvent.disableScrollPropagation(el.journeyMapFullscreen);
-  }
-  el.journeyMapFullscreen.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleMapFullscreen(el.journeyMapShell);
-  });
-}
-
-document.addEventListener("fullscreenchange", () => {
-  syncFullscreenButtons();
-  refitAllMaps();
-  setTimeout(() => refitAllMaps(), 120);
+el.nextRound.addEventListener("click", () => {
+  handleNextRound().catch((err) => showAlert(err.message || err));
 });
+
+el.summaryLobbyBtn.addEventListener("click", () => {
+  returnToSetup();
+});
+
+el.summaryPlayAgainBtn.addEventListener("click", () => {
+  restartSameGame().catch((err) => showAlert(err.message || err));
+});
+
+if (el.shareMatchBtn) {
+  el.shareMatchBtn.addEventListener("click", () => {
+    shareMatchSummary();
+  });
+}
+
+el.langToggle.addEventListener("click", () => {
+  toggleLanguage();
+  refreshActiveScreenLanguage();
+});
+
+el.audioToggle.addEventListener("click", () => {
+  toggleAudio();
+  updateAudioUi();
+});
+
+if (el.toggleMapFsBtn) {
+  el.toggleMapFsBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleMapFullscreen();
+  });
+}
+
+if (el.toggleQuizImageFsBtn) {
+  el.toggleQuizImageFsBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    getActiveMode()?.togglePhotoFullscreen?.();
+  });
+}
+
+el.returnSetupBtn.addEventListener("click", () => {
+  handleAbandonGame("exit");
+});
+
+el.restartGameBtn.addEventListener("click", () => {
+  handleAbandonGame("restart");
+});
+
+if (el.revealExitBtn) {
+  el.revealExitBtn.addEventListener("click", () => {
+    handleAbandonGame("exit");
+  });
+}
+
+if (el.refreshLeaderboard) {
+  el.refreshLeaderboard.addEventListener("click", () => {
+    loadLeaderboard().catch((err) => showAlert(err.message || err));
+  });
+}
+
+if (el.leaderboardHead) {
+  el.leaderboardHead.addEventListener("click", handleSortClick);
+}
 
 window.addEventListener("resize", () => {
   refitAllMaps();
+  syncFullscreenButtons();
 });
 
 window.addEventListener("beforeunload", handleBeforeUnload);
@@ -1070,177 +297,115 @@ window.addEventListener("beforeunload", handleBeforeUnload);
 [el.roundCount, el.roundLength].forEach((control) => {
   if (control) {
     control.addEventListener("change", () => {
-      loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
-      if (control === el.roundCount) {
-        triggerPreflightDebounced();
-      }
+      loadLeaderboard().catch((err) => console.warn("Leaderboard refresh error:", err));
     });
   }
 });
 
-const settingsContainer = document.getElementById("game-settings-container");
-if (settingsContainer) {
-  settingsContainer.addEventListener("change", () => {
-    loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
-    triggerPreflightDebounced();
-  });
-}
-
-el.refreshLeaderboard.addEventListener("click", () => {
-  loadLeaderboard().catch((err) => showAlert(err.message));
+bindGlobalShortcuts({
+  onSubmitAnswer: () => {
+    submitAnswer(false).catch((err) => showAlert(err.message || err));
+  },
+  onNextRound: () => {
+    handleNextRound().catch((err) => showAlert(err.message || err));
+  },
+  onPlayerReady: () => {
+    if (!el.passOverlay.classList.contains("hidden")) {
+      el.readyBtn.click();
+    }
+  },
+  onToggleFullscreen: () => {
+    if (state.currentScreen === "reveal") {
+      toggleMapFullscreen();
+    } else if (state.currentScreen === "guessing") {
+      const mode = getActiveMode();
+      if (state.gameMode === "album_shuffle" && mode.isShuffleMapFullscreenActive?.()) {
+        mode.toggleShuffleMapFullscreen?.();
+      } else {
+        toggleMapFullscreen();
+      }
+    }
+  },
+  onTogglePhotoFullscreen: () => {
+    const activeMode = getActiveMode();
+    activeMode?.togglePhotoFullscreen?.();
+  },
+  onToggleAudio: () => {
+    toggleAudio();
+    updateAudioUi();
+  },
+  onToggleLanguage: () => {
+    toggleLanguage();
+    refreshActiveScreenLanguage();
+  },
+  onReturnToLobby: () => {
+    if (isGameActive()) {
+      handleAbandonGame("exit");
+    } else if (!el.summaryCard.classList.contains("hidden")) {
+      returnToSetup();
+    }
+  },
+  onRestartMatch: () => {
+    if (isGameActive()) {
+      handleAbandonGame("restart");
+    } else if (!el.summaryCard.classList.contains("hidden")) {
+      restartSameGame().catch((err) => showAlert(err.message || err));
+    }
+  },
+  onToggleMapLayer: (layerType) => {
+    updateMapLayerControls(layerType);
+  },
+  onSelectPhotoSlot: (slotIndex) => {
+    if (state.currentScreen === "guessing" && state.gameMode === "album_shuffle") {
+      const mode = getActiveMode();
+      mode.selectPhotoBySlotIndex?.(slotIndex);
+    }
+  },
+  onAssignPin: (pinLetter) => {
+    if (state.currentScreen === "guessing" && state.gameMode === "album_shuffle") {
+      const mode = getActiveMode();
+      mode.assignPinToSelectedPhoto?.(pinLetter);
+    }
+  },
+  onAssignTimeline: (rankIndex) => {
+    if (state.currentScreen === "guessing" && state.gameMode === "album_shuffle") {
+      const mode = getActiveMode();
+      mode.assignTimelineRankToSelectedPhoto?.(rankIndex);
+    }
+  },
 });
-
-el.leaderboardHead.addEventListener("click", handleSortClick);
 
 function refreshActiveScreenLanguage() {
-  updateLanguageUi();
-  updateAudioUi();
   applyLanguage();
-  syncFullscreenButtons();
-  updateMapLayerControls(getShuffleMaps());
+  updateLanguageUi();
   refreshFilterComponentsLanguage();
-
-  const syncStatus = getLastSyncStatus();
-  if (syncStatus) {
-    renderSyncStatus(syncStatus);
+  if (state.lastSummary && !el.summaryCard.classList.contains("hidden")) {
+    const lang = getLocale();
+    api(`/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`)
+      .then((summary) => {
+        state.lastSummary = summary;
+        renderSummaryContent(summary);
+      })
+      .catch((err) => console.warn("Failed to refresh summary language:", err));
   }
-
-  if (!el.setupCard.classList.contains("hidden")) {
-    const settingsCont = document.getElementById("game-settings-container");
-    if (settingsCont) {
-      const mode = getActiveMode();
-      mode.renderSettings(settingsCont);
-      applyLanguage();
-    }
-  }
-
-  if (state.currentQuestion && el.guessingUi && !el.guessingUi.classList.contains("hidden")) {
-    updateRoundMeta();
-  }
-
-  if (state.currentQuestion) {
-    const activeMode = getActiveMode();
-    activeMode.refreshHelpModal?.(state.currentQuestion);
-  }
-
-  if (!el.passOverlay.classList.contains("hidden") && state.currentQuestion) {
-    const data = state.currentQuestion;
-    if (el.overlayTitle) {
-      el.overlayTitle.textContent = t(
-        "game.pass_device_title",
-        data.player_name,
-        data.player_number,
-        data.total_players
-      );
-    }
-    if (el.overlaySubtitle) {
-      el.overlaySubtitle.textContent = t(
-        "game.pass_device_subtitle",
-        data.player_round_number,
-        data.total_rounds_per_player
-      );
-    }
-    if (el.readyBtn) {
-      el.readyBtn.textContent = t("game.ready_btn");
-    }
-  }
-
-  if (!el.guessingUi.classList.contains("hidden") && state.currentQuestion) {
-    if (state.timedOut) {
-      el.timerLabel.textContent = t("game.timer_time_up_label");
-      el.timeoutNotice.textContent = t("game.timer_time_up_notice");
-      el.submitAnswer.textContent = t("game.continue_btn");
-    } else {
-      if (state.currentQuestion.round_length === "unlimited") {
-        el.timerLabel.textContent = t("game.timer_unlimited");
-      } else if (!el.timerTrack.classList.contains("is-idle")) {
-        el.timerLabel.textContent = t("game.timer_time_left");
-      }
-      el.submitAnswer.textContent = t("game.submit_btn");
-    }
-  }
-
-  if (!el.revealUi.classList.contains("hidden") && state.lastReveal) {
-    const activeMode = getActiveMode();
-    activeMode.refreshRevealText(el.revealUi, state.lastReveal);
-    el.nextRound.textContent = state.lastReveal.match_finished
-      ? t("reveal.see_results_btn")
-      : t("reveal.next_round_btn");
-  }
-
-  if (!el.summaryCard.classList.contains("hidden") && state.lastSummary) {
-    renderSummaryContent(state.lastSummary);
-  }
-
-  loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
-}
-
-document.addEventListener("click", (e) => {
-  const langBtn = e.target.closest("#lang-toggle-btn");
-  if (langBtn) {
-    e.preventDefault();
-    toggleLanguage(() => {
-      refreshActiveScreenLanguage();
-    });
-  }
-});
-
-if (el.audioToggleBtn) {
-  el.audioToggleBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    toggleAudio();
-  });
-}
-updateLanguageUi();
-updateAudioUi();
-
-bindGlobalShortcuts();
-
-function initModeButtons() {
-  const selector = document.getElementById("game-mode-selector");
-  const settingsCont = document.getElementById("game-settings-container");
-  if (!selector) return;
-  const buttons = selector.querySelectorAll(".mode-btn");
-
-  function updateModeUI(modeName) {
-    state.gameMode = modeName || "pinpoint";
-    buttons.forEach((b) => b.classList.toggle("active", b.dataset.mode === state.gameMode));
-    if (settingsCont) {
-      const mode = getActiveMode();
-      mode.renderSettings(settingsCont);
-      applyLanguage();
-    }
-    loadLeaderboard().catch((err) => console.warn("Leaderboard refresh failed:", err));
-    triggerPreflightDebounced();
-  }
-
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      updateModeUI(btn.dataset.mode || "pinpoint");
-    });
-  });
-
-  updateModeUI("pinpoint");
 }
 
 async function initUiConfig() {
-  const data = await api("/api/ui-config");
-  applyUiConfig(data);
+  try {
+    const config = await api("/api/config");
+    applyUiConfig(config);
+  } catch (err) {
+    console.warn("Using default UI config:", err);
+  }
 }
 
 function applyUiConfig(config) {
-  const savedLang = getInitialLanguagePreference();
-  if (savedLang) {
-    state.language = savedLang;
-  } else if (config.language) {
-    const normalized = normalizeLanguage(config.language);
-    if (normalized) state.language = normalized;
+  if (!config) return;
+  if (config.language && !localStorage.getItem("immich_quiz_lang")) {
+    const lang = normalizeLanguage(config.language);
+    localStorage.setItem("immich_quiz_lang", lang);
+    updateLanguageUi();
   }
-  if (config.score_max_points) {
-    state.scoreMaxPoints = Number(config.score_max_points);
-  }
-  updateLanguageUi();
-  updateAudioUi();
   applyLanguage();
 }
 
@@ -1255,7 +420,6 @@ async function ensureLobbyInitialized() {
     try {
       initPlayerInput();
       initWheelScrolls();
-      initModeButtons();
       await initLibraries();
       await loadLeaderboard();
       isLobbyInitialized = true;
@@ -1269,6 +433,8 @@ async function ensureLobbyInitialized() {
   return lobbyInitPromise;
 }
 
+setEnsureLobbyInitializedFn(ensureLobbyInitialized);
+
 (async function bootstrap() {
   refreshActiveScreenLanguage();
   syncFullscreenButtons();
@@ -1276,7 +442,13 @@ async function ensureLobbyInitialized() {
   setNavigationGuard((toRoute, fromRoute) => {
     if (fromRoute.type === RouteType.GAME_ACTIVE && isGameActive()) {
       if (toRoute.path !== fromRoute.path) {
-        return confirmAbandonMatch("exit");
+        const label = t("game.abandon_exit");
+        if (confirm(t("game.abandon_confirm", label))) {
+          clearTimer();
+          clearActiveMatchSession();
+          return true;
+        }
+        return false;
       }
     }
     return true;
@@ -1288,42 +460,29 @@ async function ensureLobbyInitialized() {
   // Initialize router immediately so non-lobby routes display instantly without flash of lobby
   initRouter(handleRoute);
 
+  const initialRoute = parseRoute(window.location.pathname);
+  if (initialRoute.type === RouteType.LOBBY) {
+    ensureLobbyInitialized().catch((err) => console.warn("Lobby startup error:", err));
+  }
+
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("[PWA] ServiceWorker registration failed:", err);
-      });
-    });
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => {
+        reg.addEventListener("updatefound", () => {
+          const installing = reg.installing;
+          if (installing) {
+            installing.addEventListener("statechange", () => {
+              if (
+                installing.state === "installed" &&
+                navigator.serviceWorker.controller
+              ) {
+                console.info("New service worker version available.");
+              }
+            });
+          }
+        });
+      })
+      .catch((err) => console.warn("Service worker registration failed:", err));
   }
-
-  // Handle PWA 1-click install prompt
-  let deferredInstallPrompt = null;
-  const pwaInstallBtn = document.getElementById("pwa-install-btn");
-
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    if (pwaInstallBtn) {
-      pwaInstallBtn.classList.remove("hidden");
-    }
-  });
-
-  if (pwaInstallBtn) {
-    pwaInstallBtn.addEventListener("click", async () => {
-      if (!deferredInstallPrompt) return;
-      deferredInstallPrompt.prompt();
-      const { outcome } = await deferredInstallPrompt.userChoice;
-      deferredInstallPrompt = null;
-      if (outcome === "accepted") {
-        pwaInstallBtn.classList.add("hidden");
-      }
-    });
-  }
-
-  window.addEventListener("appinstalled", () => {
-    deferredInstallPrompt = null;
-    if (pwaInstallBtn) {
-      pwaInstallBtn.classList.add("hidden");
-    }
-  });
 })();
