@@ -55,11 +55,10 @@ class LoggingContextMiddleware(BaseHTTPMiddleware):
             if not is_static or response.status_code >= 400:
                 status_emoji = '🟢' if response.status_code < 400 else ('🟡' if response.status_code < 500 else '🔴')
                 logger.info(
-                    '%s %s %s -> %d %s (%.1fms)',
+                    '%s %s %s -> %d (%.1fms)',
                     status_emoji,
                     request.method,
                     path,
-                    response.status_code,
                     response.status_code,
                     duration_ms,
                 )

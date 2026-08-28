@@ -7,9 +7,10 @@ import re
 
 from src.app_logging.context import ctx_library_name, ctx_match_id, ctx_player_name, ctx_request_id
 
-# Regex pattern to match API keys, bearer tokens, or sensitive header strings
+# Regex patterns to match API keys, bearer tokens, or sensitive header strings
 _SENSITIVE_PATTERNS = [
-    re.compile(r'(?i)(api[_-]?key|token|authorization|x-api-key)\s*[:=]\s*["\']?([a-zA-Z0-9_\-\.]{8,})["\']?'),
+    re.compile(r'(?i)(api[_-]?key|token|authorization|x-api-key)\s*[:=]\s*["\']?(?:bearer\s+)?([a-zA-Z0-9_\-\.]{8,})["\']?'),
+    re.compile(r'(?i)\b(bearer)\s+([a-zA-Z0-9_\-\.]{8,})\b'),
 ]
 
 
@@ -22,6 +23,8 @@ def redact_sensitive_text(text: str) -> str:
             key_name = match.group(1)
             secret = match.group(2)
             masked = '******' if len(secret) <= 6 else f'******{secret[-4:]}'
+            if key_name.lower() == 'bearer':
+                return f'{key_name} {masked}'
             return f'{key_name}={masked}'
 
         result = pattern.sub(_repl, result)

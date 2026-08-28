@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import importlib.metadata
-import logging
 from pathlib import Path
 
 import tomllib
 
-logger = logging.getLogger(__name__)
+from src.app_logging import get_logger
+
+logger = get_logger('version')
 
 
 def get_app_version(ignore_rc: bool = False) -> str:

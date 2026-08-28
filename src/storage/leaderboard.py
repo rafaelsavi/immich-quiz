@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import logging
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from src.app_logging import LOGGER_STORAGE, get_logger
 from src.models import (
     BaseGameConfig,
     GameMode,
@@ -22,7 +22,7 @@ from src.models import (
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.db import DatabaseManager
 
-logger = logging.getLogger('immich_quiz.storage')
+logger = get_logger(LOGGER_STORAGE)
 
 LEADERBOARD_SCHEMA_SQL = """
 -- 1. Challenges (Match Seeds for Async & Live Multiplayer)

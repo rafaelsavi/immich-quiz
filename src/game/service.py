@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import math
 import time
 from datetime import date, datetime, timezone
@@ -11,6 +10,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from src.app_logging import LOGGER_MATCH, get_logger
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, load_asset_pool
@@ -47,7 +47,7 @@ from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, SessionStore
 
-logger = logging.getLogger('immich_quiz.match')
+logger = get_logger(LOGGER_MATCH)
 
 
 def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:

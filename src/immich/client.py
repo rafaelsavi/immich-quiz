@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -11,9 +10,10 @@ from typing import Any
 
 import httpx
 
+from src.app_logging import LOGGER_IMMICH, get_logger
 from src.models import PeopleMode
 
-logger = logging.getLogger('immich_quiz.immich')
+logger = get_logger(LOGGER_IMMICH)
 
 
 class ImmichClientError(RuntimeError):

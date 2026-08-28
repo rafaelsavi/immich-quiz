@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from src.app_logging import (
     LOGGER_MATCH,
     LOGGER_SCORING,
+    LOGGER_STORAGE,
     LoggingContextMiddleware,
     bind_match_context,
     bind_request_context,
@@ -42,6 +43,18 @@ def test_redact_sensitive_text() -> None:
     assert 'my_secret_token_1234' not in redacted
     assert 'api_key=******7890' in redacted
     assert 'token=******1234' in redacted
+
+
+def test_redact_bearer_and_authorization_headers() -> None:
+    auth_header = 'Authorization: Bearer my_super_secret_bearer_token_123456'
+    redacted_auth = redact_sensitive_text(auth_header)
+    assert 'my_super_secret_bearer_token_123456' not in redacted_auth
+    assert 'Authorization=******3456' in redacted_auth
+
+    standalone_bearer = 'Bearer my_super_secret_standalone_token_987654'
+    redacted_bearer = redact_sensitive_text(standalone_bearer)
+    assert 'my_super_secret_standalone_token_987654' not in redacted_bearer
+    assert 'Bearer ******7654' in redacted_bearer
 
 
 def test_redaction_filter_in_log_record() -> None:
@@ -169,6 +182,7 @@ def test_setup_logging_and_overrides() -> None:
         log_level='WARNING',
         log_level_scoring='DEBUG',
         log_level_match='INFO',
+        log_level_storage='ERROR',
     )
     setup_logging(settings)
 
@@ -181,6 +195,13 @@ def test_setup_logging_and_overrides() -> None:
     match_logger = logging.getLogger(LOGGER_MATCH)
     assert match_logger.level == logging.INFO
 
+    storage_logger = logging.getLogger(LOGGER_STORAGE)
+    assert storage_logger.level == logging.ERROR
+
+    # Quiet third-party loggers
+    assert logging.getLogger('httpx').level == logging.WARNING
+    assert logging.getLogger('httpcore').level == logging.WARNING
+
 
 def test_invalid_log_level_raises() -> None:
     with pytest.raises(ConfigError, match='LOG_LEVEL'):
@@ -188,6 +209,13 @@ def test_invalid_log_level_raises() -> None:
             immich_server_url='http://localhost:2283',
             immich_libraries={'Default': 'dummy_key'},
             log_level='INVALID_LEVEL',
+        )
+
+    with pytest.raises(ConfigError, match='LOG_LEVEL_SCORING'):
+        AppSettings(
+            immich_server_url='http://localhost:2283',
+            immich_libraries={'Default': 'dummy_key'},
+            log_level_scoring='NOT_A_LEVEL',
         )
 
 

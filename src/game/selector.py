@@ -14,18 +14,18 @@ This module provides the core asset selection engine for the quiz game, includin
 
 from __future__ import annotations
 
-import logging
 import random
 from datetime import date
 from typing import Any
 
+from src.app_logging import LOGGER_MATCH, get_logger
 from src.immich.client import AssetAnswer, ImmichClient
 from src.models import MapBounds
 from src.scoring import calculate_date_decay, calculate_location_decay, haversine_km
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, RoundAsset
 
-logger = logging.getLogger('immich_quiz.match')
+logger = get_logger(LOGGER_MATCH)
 
 # Hardcoded Smart Map Zoom internal safeguards:
 # Maximum geographic diagonal distance (in kilometers) before the match is considered global.

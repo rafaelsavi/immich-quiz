@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
 from fastapi import HTTPException
 
+from src.app_logging import LOGGER_MATCH, get_logger
 from src.config import AppSettings
 from src.game.selector import select_batch_round_assets, select_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
@@ -41,7 +41,7 @@ from src.storage.session import (
     SessionStore,
 )
 
-logger = logging.getLogger('immich_quiz.match')
+logger = get_logger(LOGGER_MATCH)
 
 
 def split_month_delta(delta_months: int | None) -> tuple[int | None, int | None]:

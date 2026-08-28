@@ -68,11 +68,12 @@ class ConsoleLogFormatter(logging.Formatter):
 
         if self.use_colors:
             color = _COLORS.get(levelname, '')
+            context_part = f'{_CONTEXT_COLOR}{context_tag}{_RESET}' if context_tag else ''
             formatted = (
                 f'{_TIME_COLOR}{record_time}{_RESET} '
                 f'{color}[{level_padded}]{_RESET} '
                 f'{_SUBSYSTEM_COLOR}[{subsystem}{_RESET}'
-                f'{_CONTEXT_COLOR}{context_tag}{_RESET}'
+                f'{context_part}'
                 f'{_SUBSYSTEM_COLOR}]{_RESET} '
                 f'{message}{exc_text}'
             )

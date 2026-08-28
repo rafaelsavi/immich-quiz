@@ -25,7 +25,10 @@ def _parse_level(level_name: str | None, default: int = logging.INFO) -> int:
     """Safely convert a string log level (e.g. 'DEBUG', 'INFO') to logging int constant."""
     if not level_name:
         return default
-    val = getattr(logging, level_name.strip().upper(), None)
+    cleaned = level_name.strip().upper()
+    if hasattr(logging, 'getLevelNamesMapping'):
+        return logging.getLevelNamesMapping().get(cleaned, default)
+    val = getattr(logging, cleaned, None)
     if isinstance(val, int):
         return val
     return default
@@ -68,6 +71,7 @@ def setup_logging(settings: AppSettings | None = None) -> None:
         LOGGER_IMMICH: getattr(settings, 'log_level_immich', None),
         LOGGER_MATCH: getattr(settings, 'log_level_match', None),
         LOGGER_API: getattr(settings, 'log_level_api', None),
+        LOGGER_STORAGE: getattr(settings, 'log_level_storage', None),
     }
 
     for logger_name, override_val in subsystem_overrides.items():
@@ -80,6 +84,8 @@ def setup_logging(settings: AppSettings | None = None) -> None:
     # Tune third-party noisier loggers
     logging.getLogger('urllib3').setLevel(logging.WARNING)
     logging.getLogger('asyncio').setLevel(logging.WARNING)
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    logging.getLogger('httpcore').setLevel(logging.WARNING)
     logging.getLogger('uvicorn.error').handlers = []
     logging.getLogger('uvicorn.access').handlers = []
 

@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from src.app_logging import LOGGER_SYNC, get_logger
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import SyncMode, SyncStage, SyncStatus
 from src.storage.metadata import MetadataStore
 
-logger = logging.getLogger('immich_quiz.sync')
+logger = get_logger(LOGGER_SYNC)
 
 
 def _clean_str(val: Any) -> str | None:

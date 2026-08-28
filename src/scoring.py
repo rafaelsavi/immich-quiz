@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import math
 from calendar import monthrange
 from collections.abc import Iterable, Mapping, Sequence
@@ -10,10 +9,12 @@ from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, TypeVar
 
+from src.app_logging import LOGGER_SCORING, get_logger
+
 if TYPE_CHECKING:
     from src.immich.client import AssetAnswer
 
-logger = logging.getLogger('immich_quiz.scoring')
+logger = get_logger(LOGGER_SCORING)
 
 T = TypeVar('T', float, int, date)
 
@@ -466,6 +467,7 @@ def batch_exponential_location_score(
     if total_photos <= 0:
         return 0, 0, 0
 
+    effective_decay_km = max(0.001, decay_km)
     points_per_photo = max_points / total_photos
     total_points = 0.0
     exact_matches = 0
@@ -492,7 +494,7 @@ def batch_exponential_location_score(
         else:
             distance_km = haversine_km(p_lat, p_lng, assigned_coord[0], assigned_coord[1])
 
-        photo_score = points_per_photo * math.exp(-distance_km / decay_km)
+        photo_score = points_per_photo * math.exp(-distance_km / effective_decay_km)
         total_points += photo_score
 
     clamped_score = max(0, min(max_points, round(total_points)))
@@ -527,6 +529,8 @@ def batch_exponential_date_score(
     if total_photos <= 0:
         return 0, 0, 0
 
+    effective_decay_days = max(0.001, decay_days)
+
     # Sort photos chronologically to determine target date for each timeline slot 0..N-1
     sorted_photo_ids = sorted(photo_dates.keys(), key=lambda pid: photo_dates[pid] or date.min)
     slot_target_dates = [photo_dates[pid] or date.min for pid in sorted_photo_ids]
@@ -548,7 +552,7 @@ def batch_exponential_date_score(
             exact_matches += 1
 
         diff_days = abs((p_date - target_date).days)
-        photo_score = points_per_photo * math.exp(-diff_days / decay_days)
+        photo_score = points_per_photo * math.exp(-diff_days / effective_decay_days)
         total_points += photo_score
 
     clamped_score = max(0, min(max_points, round(total_points)))
