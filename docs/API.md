@@ -18,7 +18,7 @@ Response:
 ```json
 {
   "status": "ok",
-  "version": "2.3.0"
+  "version": "2.4.0"
 }
 ```
 
@@ -412,7 +412,7 @@ Response Example:
 
 ### GET /api/match/{match_id}/summary?lang={en|pt}
 
-Returns final match summary, player rankings, accuracy percentages, filter metadata, and winner list. Supports optional `lang` query parameter (`en` or `pt`) for localized filter summary and tooltip text.
+Returns final match summary, player rankings, accuracy percentages, filter metadata, winner list, and full `round_history` replay records from SQLite storage. Supports optional `lang` query parameter (`en` or `pt`) for localized filter summary and tooltip text.
 
 Response:
 
@@ -437,6 +437,19 @@ Response:
       "accuracy_pct": 96.0,
       "rank": 1,
       "is_winner": true
+    }
+  ],
+  "round_history": [
+    {
+      "round_number": 1,
+      "media_url": "/api/media/asset-uuid-1",
+      "actual_latitude": 48.8584,
+      "actual_longitude": 2.2945,
+      "actual_year": 2023,
+      "actual_month": 7,
+      "location_mode": true,
+      "game_mode": "pinpoint",
+      "batch_reveal": null
     }
   ],
   "filter_summary": "Paris • Summer Vacation 2024",

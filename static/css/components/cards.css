@@ -15,6 +15,12 @@
   display: none !important;
 }
 
+/* Prevent Flash of Incorrect Content (FOIC) on direct non-lobby deep link loads */
+html.route-non-lobby #setup-card,
+html.route-non-lobby #leaderboard-card {
+  display: none !important;
+}
+
 #quiz-image {
   width: 100%;
   max-height: var(--quiz-image-max-height);
@@ -192,6 +198,55 @@
   font-size: 2rem;
   font-weight: 700;
   cursor: pointer;
+}
+
+/* Match Ended Card */
+.ended-card-content {
+  text-align: center;
+  padding: 2.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ended-card-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+  animation: pulse-ended 2s infinite ease-in-out;
+}
+
+@keyframes pulse-ended {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.ended-card-content h2 {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.ended-card-msg {
+  color: #64708f;
+  font-size: 1rem;
+  max-width: 420px;
+  margin: 0 auto 2rem auto;
+  line-height: 1.5;
+}
+
+.ended-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  max-width: 440px;
+}
+
+.ended-actions button {
+  flex: 1 1 180px;
 }
 
 @media (max-width: 480px) {

@@ -27,6 +27,14 @@
   <!-- Web App Manifest -->
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/static/css/style.css?v=8" />
+  <script>
+    (function () {
+      var p = window.location.pathname.replace(/\/+$/, "") || "/";
+      if (p !== "/") {
+        document.documentElement.classList.add("route-non-lobby");
+      }
+    })();
+  </script>
 </head>
 
 <body>
@@ -431,6 +439,18 @@
       <div class="summary-actions">
         <button id="new-match" class="btn-primary" data-i18n="summary.new_match_btn">Start New Match</button>
         <button id="share-summary-btn" class="btn-secondary" data-i18n="summary.share_btn">Share Match</button>
+      </div>
+    </section>
+
+    <section id="game-ended-card" class="card hidden">
+      <div class="ended-card-content">
+        <div id="game-ended-icon" class="ended-card-icon">🏁</div>
+        <h2 id="game-ended-title">Match Ended</h2>
+        <p id="game-ended-msg" class="ended-card-msg">This match session is no longer active.</p>
+        <div class="ended-actions">
+          <button type="button" id="game-ended-summary-btn" class="btn-primary" data-i18n="game_ended.view_summary_btn">View Match Summary</button>
+          <button type="button" id="game-ended-lobby-btn" class="btn-secondary" data-i18n="game_ended.return_lobby_btn">Return to Lobby</button>
+        </div>
       </div>
     </section>
 

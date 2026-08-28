@@ -203,9 +203,10 @@ async def media(
     store: SessionStore = Depends(get_session_store),
     immich: ImmichClient = Depends(get_immich_client),
     metadata_store: MetadataStore = Depends(get_metadata_store),
+    leaderboard_store: LeaderboardStore = Depends(get_leaderboard_store),
 ) -> Response:
-    if not store.is_asset_registered(asset_id):
-        raise HTTPException(status_code=404, detail='Unknown asset for any active match')
+    if not store.is_asset_registered(asset_id) and not leaderboard_store.is_asset_recorded(asset_id):
+        raise HTTPException(status_code=404, detail='Unknown asset for any match')
 
     target_library = metadata_store.get_asset_library(asset_id)
     if not target_library:

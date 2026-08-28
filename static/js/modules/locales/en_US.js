@@ -319,5 +319,15 @@ export default {
   "tooltip.dates_range": "Dates: {0} – {1}",
   "tooltip.dates_from": "Dates: from {0}",
   "tooltip.dates_until": "Dates: until {0}",
-  "tooltip.shared": "Shared Photos: Included"
+  "tooltip.shared": "Shared Photos: Included",
+  "game_ended.heading": "Match Ended",
+  "game_ended.message": "This match session is no longer active.",
+  "game_ended.view_summary_btn": "View Match Summary",
+  "game_ended.return_lobby_btn": "Return to Lobby",
+  "game_ended.not_found": "Match summary could not be found.",
+  "game_ended.match_not_found_title": "Match Not Found",
+  "game_ended.match_not_found_msg": "Match \"{0}\" could not be found or has expired.",
+  "game_ended.not_found_title": "Page Not Found",
+  "game_ended.not_found_msg": "The page \"{0}\" does not exist or has moved.",
+  "game_ended.challenge_notice": "Multiplayer challenges are coming soon in v3.0! You can start a match in the lobby."
 };

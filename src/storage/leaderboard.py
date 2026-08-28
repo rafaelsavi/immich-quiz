@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -15,9 +16,12 @@ from src.models import (
     LeaderboardEntry,
     LeaderboardQuery,
     MatchConfig,
+    MatchSummaryPlayer,
+    MatchSummaryResponse,
     PeopleMode,
     PlayMode,
     RoundLength,
+    SupportedLanguage,
 )
 from src.scoring import accuracy_pct, max_possible_score
 from src.storage.db import DatabaseManager
@@ -139,6 +143,89 @@ def _canonicalize_filter_list(items: list[str] | None) -> str | None:
 def _parse_json_list(val: str | None) -> list[str]:
     """Parse JSON array string to Python list of strings."""
     return json.loads(val) if val else []
+
+
+def _build_round_history_from_guesses(
+    guess_rows: list[dict[str, Any]],
+    match_row: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Reconstruct round history and album shuffle batch reveal data from stored guess records.
+
+    Returns a list of round objects for match summary replay:
+    - Single photo mode (`pinpoint`):
+        {round_number, media_url, actual_latitude, actual_longitude,
+         actual_year, actual_month, location_mode, game_mode}
+    - Batch photo mode (`album_shuffle`):
+        Includes above fields plus `batch_reveal`:
+        [{photo_id, true_pin_id ('A', 'B', ...), actual_latitude,
+          actual_longitude, actual_year, actual_month}, ...]
+    """
+    if not guess_rows:
+        return []
+
+    rounds_by_idx: dict[int, list[dict[str, Any]]] = {}
+    for gr in guess_rows:
+        r_idx = int(gr['round_index'])
+        rounds_by_idx.setdefault(r_idx, []).append(gr)
+
+    round_history: list[dict[str, Any]] = []
+    game_mode = match_row['game_mode']
+    location_mode = bool(match_row['location_mode'])
+
+    for r_idx in sorted(rounds_by_idx.keys()):
+        r_guesses = rounds_by_idx[r_idx]
+        first_g = r_guesses[0]
+
+        act_dt = _parse_iso_date(first_g.get('actual_date'))
+        round_entry: dict[str, Any] = {
+            'round_number': r_idx + 1,
+            'media_url': f'/api/media/{first_g["asset_id"]}' if first_g.get('asset_id') else None,
+            'actual_latitude': first_g.get('actual_latitude'),
+            'actual_longitude': first_g.get('actual_longitude'),
+            'actual_year': act_dt.year if act_dt else None,
+            'actual_month': act_dt.month if act_dt else None,
+            'location_mode': location_mode,
+            'game_mode': game_mode,
+        }
+
+        if game_mode == 'album_shuffle':
+            unique_photos: dict[str, dict[str, Any]] = {}
+            for g in r_guesses:
+                p_id = g['asset_id']
+                if p_id not in unique_photos:
+                    p_dt = _parse_iso_date(g.get('actual_date'))
+                    p_idx_raw = g.get('photo_index')
+                    p_idx = int(p_idx_raw) if p_idx_raw is not None else 0
+                    unique_photos[p_id] = {
+                        'photo_id': p_id,
+                        'true_pin_id': chr(65 + p_idx),
+                        'actual_latitude': g.get('actual_latitude'),
+                        'actual_longitude': g.get('actual_longitude'),
+                        'actual_year': p_dt.year if p_dt else None,
+                        'actual_month': p_dt.month if p_dt else None,
+                    }
+            round_entry['batch_reveal'] = list(unique_photos.values())
+
+        round_history.append(round_entry)
+
+    return round_history
+
+
+def _parse_iso_date(val: str | None) -> date | None:
+    """Parse ISO date string to Python date object or return None."""
+    if not val:
+        return None
+    with contextlib.suppress(Exception):
+        return date.fromisoformat(val)
+    return None
+
+
+def _parse_iso_datetime(val: str | None) -> datetime:
+    """Parse ISO datetime string to Python datetime object or fallback to UTC now."""
+    if val:
+        with contextlib.suppress(Exception):
+            return datetime.fromisoformat(val)
+    return datetime.now(timezone.utc)
 
 
 class LeaderboardStore:
@@ -543,15 +630,15 @@ class LeaderboardStore:
                 people_mode=PeopleMode(row['people_mode']) if row['people_mode'] else PeopleMode.ANY,
                 countries=_parse_json_list(row['countries_json']),
                 cities=_parse_json_list(row['cities_json']),
-                min_date=date.fromisoformat(row['min_date']) if row['min_date'] else None,
-                max_date=date.fromisoformat(row['max_date']) if row['max_date'] else None,
+                min_date=_parse_iso_date(row.get('min_date')),
+                max_date=_parse_iso_date(row.get('max_date')),
                 include_shared=bool(row['include_shared']),
             )
 
             entries.append(
                 LeaderboardEntry(
                     match_id=row['match_id'],
-                    played_at=datetime.fromisoformat(row['played_at']),
+                    played_at=_parse_iso_datetime(row.get('played_at')),
                     player_name=row['player_name'],
                     total_score=row['total_score'],
                     max_possible_score=row['max_possible_score'],
@@ -576,3 +663,78 @@ class LeaderboardStore:
             )
 
         return entries
+
+    def is_asset_recorded(self, asset_id: str) -> bool:
+        """Check if an asset was used in any recorded match."""
+        row = self._db.fetch_one(
+            'SELECT 1 FROM match_round_guesses WHERE asset_id = ? LIMIT 1',
+            (asset_id,),
+        )
+        return row is not None
+
+    def get_match_summary(self, match_id: str, language: str | None = None) -> MatchSummaryResponse | None:
+        """Retrieve full match replay data and podium summary from SQLite."""
+        match_row = self._db.fetch_one('SELECT * FROM matches WHERE match_id = ?', (match_id,))
+        if not match_row:
+            return None
+
+        entry_rows = self._db.fetch_all(
+            'SELECT * FROM match_entries WHERE match_id = ? ORDER BY rank ASC, player_name ASC',
+            (match_id,),
+        )
+        winners = [r['player_name'] for r in entry_rows if r['is_winner']]
+
+        players = [
+            MatchSummaryPlayer(
+                player_name=r['player_name'],
+                location_score=r['location_score'],
+                date_score=r['date_score'],
+                total_score=r['total_score'],
+                max_possible_score=r['max_possible_score'],
+                accuracy_pct=r['accuracy_pct'],
+                rank=r['rank'],
+                is_winner=bool(r['is_winner']),
+            )
+            for r in entry_rows
+        ]
+
+        guess_rows = self._db.fetch_all(
+            'SELECT * FROM match_round_guesses WHERE match_id = ? '
+            'ORDER BY round_index ASC, photo_index ASC, player_name ASC',
+            (match_id,),
+        )
+        round_history = _build_round_history_from_guesses(guess_rows, match_row)
+
+        filter_tooltip = None
+        if match_row['is_custom_filtered']:
+            lang_enum = SupportedLanguage.from_str(language) if language else SupportedLanguage.EN
+            setup_obj = GameSetupRequest(
+                round_count=int(match_row['rounds']),
+                players=[p.player_name for p in players] if players else ['Player 1'],
+                game_mode=GameMode(match_row['game_mode']),
+                libraries=_parse_json_list(match_row['libraries_json']),
+                album_names=_parse_json_list(match_row['album_names_json']),
+                countries=_parse_json_list(match_row['countries_json']),
+                cities=_parse_json_list(match_row['cities_json']),
+                min_date=_parse_iso_date(match_row.get('min_date')),
+                max_date=_parse_iso_date(match_row.get('max_date')),
+                include_shared=bool(match_row['include_shared']),
+            )
+            filter_tooltip = setup_obj.format_filter_tooltip(language=lang_enum)
+
+        return MatchSummaryResponse(
+            match_id=match_row['match_id'],
+            rounds_played=int(match_row['rounds']),
+            location_mode=bool(match_row['location_mode']),
+            date_mode=bool(match_row['date_mode']),
+            game_mode=GameMode(match_row['game_mode']),
+            libraries=_parse_json_list(match_row['libraries_json']),
+            album_names=_parse_json_list(match_row['album_names_json']),
+            finished=True,
+            winners=winners,
+            players=players,
+            filter_summary=match_row['filter_summary'],
+            filter_tooltip=filter_tooltip,
+            is_custom_filtered=bool(match_row['is_custom_filtered']),
+            round_history=round_history if round_history else None,
+        )

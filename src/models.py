@@ -25,6 +25,17 @@ class RoundLength(str, Enum):
     minute_5 = '5m'
     unlimited = 'unlimited'
 
+    @property
+    def seconds(self) -> int | None:
+        """Return round duration in seconds, or None if unlimited."""
+        return {
+            RoundLength.seconds_30: 30,
+            RoundLength.minute_1: 60,
+            RoundLength.minute_2: 120,
+            RoundLength.minute_5: 300,
+            RoundLength.unlimited: None,
+        }[self]
+
 
 class GameMode(str, Enum):
     """Supported gameplay mechanics ('pinpoint' single photo guess, 'album_shuffle' batch ordering)."""
@@ -716,6 +727,7 @@ class RoundResultResponse(BaseModel):
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
+    media_url: str | None = None
     actual_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     actual_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
     actual_date: date | None = None
@@ -768,6 +780,7 @@ class MatchSummaryResponse(BaseModel):
     filter_summary: str | None = None
     filter_tooltip: str | None = None
     is_custom_filtered: bool = False
+    round_history: list[dict[str, Any]] | None = None
 
 
 # ---------------------------------------------------------------------------

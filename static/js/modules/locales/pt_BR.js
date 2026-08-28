@@ -319,5 +319,15 @@ export default {
   "tooltip.dates_range": "Datas: {0} – {1}",
   "tooltip.dates_from": "Datas: a partir de {0}",
   "tooltip.dates_until": "Datas: até {0}",
-  "tooltip.shared": "Fotos Compartilhadas: Incluídas"
+  "tooltip.shared": "Fotos Compartilhadas: Incluídas",
+  "game_ended.heading": "Partida Finalizada",
+  "game_ended.message": "Esta sessão de jogo não está mais ativa.",
+  "game_ended.view_summary_btn": "Ver Resumo da Partida",
+  "game_ended.return_lobby_btn": "Voltar ao Lobby",
+  "game_ended.not_found": "Resumo da partida não foi encontrado.",
+  "game_ended.match_not_found_title": "Partida Não Encontrada",
+  "game_ended.match_not_found_msg": "A partida \"{0}\" não foi encontrada ou expirou.",
+  "game_ended.not_found_title": "Página Não Encontrada",
+  "game_ended.not_found_msg": "A página \"{0}\" não existe ou foi movida.",
+  "game_ended.challenge_notice": "O modo de desafios multijogador chegará em breve na v3.0! Você pode iniciar uma partida no lobby."
 };

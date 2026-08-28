@@ -726,7 +726,13 @@ export const pinpointMode = {
     if (shuffleReveal) shuffleReveal.classList.add("hidden");
 
     if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
-    if (el.quizImage) el.quizImage.classList.remove("hidden");
+    if (el.quizImage) {
+      const mediaUrl = revealData?.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null);
+      if (mediaUrl) {
+        el.quizImage.src = mediaUrl;
+      }
+      el.quizImage.classList.remove("hidden");
+    }
     if (el.quizImageFullscreen) el.quizImageFullscreen.classList.remove("hidden");
     if (el.mediaPlaceholder) el.mediaPlaceholder.classList.add("hidden");
     renderRevealSummary(revealData);

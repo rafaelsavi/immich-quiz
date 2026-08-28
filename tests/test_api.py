@@ -1416,3 +1416,224 @@ def test_summary_accept_language_negotiation(client: TestClient) -> None:
     resp = client.get(f'/api/match/{match_id}/summary', headers={'Accept-Language': 'pt-BR,pt;q=0.9'})
     assert resp.status_code == 200
     assert resp.headers['content-language'] == 'pt-BR'
+
+
+def test_spa_catch_all_routes_return_html(client: TestClient) -> None:
+    for path in (
+        '/',
+        '/game/abc-123',
+        '/game/abc-123/summary',
+        '/play/challenge-tok-123',
+        '/stats',
+    ):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert 'text/html' in response.headers['content-type']
+        assert '<main class="app-shell">' in response.text
+
+
+def test_spa_catch_all_preserves_api_and_static_404s(client: TestClient) -> None:
+    for path in ('/api/nonexistent_route', '/static/nonexistent_file.css'):
+        response = client.get(path)
+        assert response.status_code == 404
+
+
+def test_match_summary_persists_after_memory_session_pruned(tmp_path: Path) -> None:
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'asset-{index}',
+                latitude=-27.5969 + index * 0.05,
+                longitude=-48.5495 + index * 0.05,
+                captured=f'2024-01-{index + 1:02d}T10:00:00Z',
+            )
+            for index in range(10)
+        ]
+    )
+    client = build_client(tmp_path, immich)
+    match_id = start_match(client, players=['Alice'], round_count=5)
+    asset_map = {a['id']: a for a in immich.assets}
+
+    for _ in range(5):
+        question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+        asset = asset_map[question['asset_id']]
+        client.post(
+            '/api/answer',
+            json={
+                'match_id': match_id,
+                'question_id': question['question_id'],
+                'guessed_latitude': asset['exifInfo']['latitude'],
+                'guessed_longitude': asset['exifInfo']['longitude'],
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
+        )
+
+    # Prune in-memory SessionStore completely
+    session_store = client.app.state.session_store
+    session_store._matches.clear()
+
+    # Summary must still succeed from SQLite
+    summary_resp = client.get(f'/api/match/{match_id}/summary')
+    assert summary_resp.status_code == 200
+    data = summary_resp.json()
+    assert data['match_id'] == match_id
+    assert len(data['players']) == 1
+    assert data['players'][0]['player_name'] == 'Alice'
+    assert data['finished'] is True
+
+
+def test_multiplayer_same_round_same_asset_and_reload_persistence(tmp_path: Path) -> None:
+    """Verify that all players in the same round get the identical asset, and reload never swaps image."""
+    immich = FakeImmichClient([make_asset(f'asset-{i}') for i in range(10)])
+    client = build_client(tmp_path, immich)
+    match_id = start_match(client, players=['Alice', 'Bob'], round_count=5)
+
+    # 1. Alice gets Round 1 question
+    q_alice_1 = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    assert q_alice_1['player_name'] == 'Alice'
+    assert q_alice_1['player_number'] == 1
+    assert q_alice_1['player_round_number'] == 1
+    asset_id_round_1 = q_alice_1['asset_id']
+
+    # 2. Alice reloads page mid-turn -> must receive exact same question & asset
+    q_alice_reload = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    assert q_alice_reload['question_id'] == q_alice_1['question_id']
+    assert q_alice_reload['player_name'] == 'Alice'
+    assert q_alice_reload['asset_id'] == asset_id_round_1
+
+    # 3. Alice submits turn
+    ans_alice = client.post(
+        '/api/answer',
+        json={
+            'match_id': match_id,
+            'question_id': q_alice_1['question_id'],
+            'guessed_latitude': 0.0,
+            'guessed_longitude': 0.0,
+            'guessed_year': 2024,
+            'guessed_month': 1,
+        },
+    ).json()
+    assert ans_alice['round_complete'] is False
+    assert ans_alice['player_name'] == 'Alice'
+
+    # 4. Bob gets Round 1 question -> MUST receive the exact same asset_id as Alice!
+    q_bob_1 = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': [asset_id_round_1]}).json()
+    assert q_bob_1['player_name'] == 'Bob'
+    assert q_bob_1['player_number'] == 2
+    assert q_bob_1['player_round_number'] == 1
+    assert q_bob_1['asset_id'] == asset_id_round_1
+
+    # 5. Bob reloads page mid-turn -> must receive exact same question & asset
+    q_bob_reload = client.post(
+        '/api/question', json={'match_id': match_id, 'played_asset_ids': [asset_id_round_1]}
+    ).json()
+    assert q_bob_reload['question_id'] == q_bob_1['question_id']
+    assert q_bob_reload['player_name'] == 'Bob'
+    assert q_bob_reload['asset_id'] == asset_id_round_1
+
+    # 6. Bob submits turn -> Round completes
+    ans_bob = client.post(
+        '/api/answer',
+        json={
+            'match_id': match_id,
+            'question_id': q_bob_1['question_id'],
+            'guessed_latitude': 0.0,
+            'guessed_longitude': 0.0,
+            'guessed_year': 2024,
+            'guessed_month': 1,
+        },
+    ).json()
+    assert ans_bob['round_complete'] is True
+    assert ans_bob['round_number'] == 1
+
+    # 7. Fetch round result -> must include media_url for renderReveal on reload
+    round_res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
+    assert round_res['media_url'] == f'/api/media/{asset_id_round_1}'
+
+
+def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) -> None:
+    """Verify Album Shuffle preserves identical batch assets across players and on reload."""
+    immich = FakeImmichClient(
+        [
+            make_asset(
+                f'photo-{i}',
+                latitude=-27.5 + i * 0.05,
+                longitude=-48.5 + i * 0.05,
+                captured=f'2024-01-0{i + 1}T10:00:00Z',
+            )
+            for i in range(10)
+        ]
+    )
+    client = build_client(tmp_path, immich)
+    payload = setup_payload(
+        players=['Alice', 'Bob'],
+        game_mode='album_shuffle',
+        round_count=5,
+        location_mode=True,
+        date_mode=True,
+    )
+    res = client.post('/api/game/setup', json=payload)
+    assert res.status_code == 200
+    match_id = res.json()['match_id']
+
+    # 1. Alice gets Round 1 question in Album Shuffle
+    q_alice = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    assert q_alice['player_name'] == 'Alice'
+    assert q_alice['game_mode'] == 'album_shuffle'
+    assert len(q_alice['batch_photos']) == 3
+    alice_photo_ids = [p['photo_id'] for p in q_alice['batch_photos']]
+    alice_pins = q_alice['batch_pins']
+
+    # 2. Alice reloads -> gets exact same 3 photos and pins
+    q_alice_reload = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    assert q_alice_reload['question_id'] == q_alice['question_id']
+    assert [p['photo_id'] for p in q_alice_reload['batch_photos']] == alice_photo_ids
+
+    # 3. Alice submits answer
+    ans_alice = client.post(
+        '/api/answer',
+        json={
+            'match_id': match_id,
+            'question_id': q_alice['question_id'],
+            'album_shuffle_answers': [
+                {'photo_id': alice_photo_ids[0], 'assigned_pin_id': 'A', 'assigned_timeline_index': 0},
+                {'photo_id': alice_photo_ids[1], 'assigned_pin_id': 'B', 'assigned_timeline_index': 1},
+                {'photo_id': alice_photo_ids[2], 'assigned_pin_id': 'C', 'assigned_timeline_index': 2},
+            ],
+        },
+    ).json()
+    assert ans_alice['round_complete'] is False
+
+    # 4. Bob gets Round 1 question -> MUST receive identical 3 photos and pins
+    q_bob = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    assert q_bob['player_name'] == 'Bob'
+    assert [p['photo_id'] for p in q_bob['batch_photos']] == alice_photo_ids
+    assert q_bob['batch_pins'] == alice_pins
+
+    # 5. Bob reloads -> gets exact same 3 photos and pins
+    q_bob_reload = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
+    assert q_bob_reload['question_id'] == q_bob['question_id']
+    assert [p['photo_id'] for p in q_bob_reload['batch_photos']] == alice_photo_ids
+
+    # 6. Bob submits answer -> Round completes
+    ans_bob = client.post(
+        '/api/answer',
+        json={
+            'match_id': match_id,
+            'question_id': q_bob['question_id'],
+            'album_shuffle_answers': [
+                {'photo_id': alice_photo_ids[0], 'assigned_pin_id': 'A', 'assigned_timeline_index': 0},
+                {'photo_id': alice_photo_ids[1], 'assigned_pin_id': 'B', 'assigned_timeline_index': 1},
+                {'photo_id': alice_photo_ids[2], 'assigned_pin_id': 'C', 'assigned_timeline_index': 2},
+            ],
+        },
+    ).json()
+    assert ans_bob['round_complete'] is True
+
+    # 7. Fetch round result -> batch_reveal must contain all 3 photos with metadata
+    round_res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
+    assert round_res['game_mode'] == 'album_shuffle'
+    assert len(round_res['batch_reveal']) == 3
+    reveal_pids = [br['photo_id'] for br in round_res['batch_reveal']]
+    assert set(reveal_pids) == set(alice_photo_ids)

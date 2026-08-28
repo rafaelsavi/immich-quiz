@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -167,8 +167,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     static_path = Path(__file__).parent.parent / 'static'
     app.mount('/static', StaticFiles(directory=static_path), name='static')
 
-    @app.get('/')
-    async def index(request: Request) -> HTMLResponse:
+    def _serve_spa(request: Request) -> HTMLResponse:
         accept_lang = request.headers.get('accept-language')
         resolved_lang = parse_accept_language(accept_lang, default=settings.language)
         lang_code = resolved_lang.value if hasattr(resolved_lang, 'value') else str(resolved_lang)
@@ -176,6 +175,10 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             _render_index_html(static_path, settings, lang=resolved_lang),
             headers={'Content-Language': lang_code},
         )
+
+    @app.get('/')
+    async def index(request: Request) -> HTMLResponse:
+        return _serve_spa(request)
 
     @app.get('/audio-playground')
     async def audio_playground() -> FileResponse:
@@ -199,6 +202,13 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         )
 
     app.include_router(router)
+
+    @app.get('/{full_path:path}')
+    async def spa_catch_all(request: Request, full_path: str) -> HTMLResponse:
+        if full_path.startswith(('api/', 'static/')):
+            raise HTTPException(status_code=404, detail='Not Found')
+        return _serve_spa(request)
+
     return app
 
 
@@ -209,7 +219,8 @@ except ConfigError as exc:
     config_error = str(exc)
 
     @app.get('/')
-    async def config_error_index() -> PlainTextResponse:
+    @app.get('/{full_path:path}')
+    async def config_error_index(full_path: str = '') -> PlainTextResponse:
         return PlainTextResponse(
             f'Configuration error: {config_error}. Set environment variables or a .env file before starting.',
             status_code=500,

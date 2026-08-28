@@ -201,9 +201,9 @@ def test_bilingual_i18n_keys_present() -> None:
 
 
 def test_start_match_includes_date_range_slider_payload() -> None:
+    setup_js = STATIC_DIR / 'js' / 'modules' / 'screens' / 'setup.js'
     app_js = STATIC_DIR / 'js' / 'app.js'
-    assert app_js.exists(), f'{app_js} does not exist'
-    content = app_js.read_text(encoding='utf-8')
+    content = setup_js.read_text(encoding='utf-8') if setup_js.exists() else app_js.read_text(encoding='utf-8')
 
     # Verify startMatch extracts minDate and maxDate from dateRangeSlider before constructing payload
     assert 'const { minDate, maxDate } = dateRangeSlider' in content

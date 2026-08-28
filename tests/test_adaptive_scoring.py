@@ -204,13 +204,9 @@ def test_album_shuffle_adaptive_location_scoring_city_vs_global() -> None:
     assigned = {'p1': 'pin2', 'p2': 'pin1', 'p3': 'pin3'}
 
     # With city decay (5.0 km), swapping 3.5 km pins is noticeably penalized (~66 pts total)
-    city_score, _, _ = batch_exponential_location_score(
-        assigned, true_pins, pin_coords, photo_coords, decay_km=5.0
-    )
+    city_score, _, _ = batch_exponential_location_score(assigned, true_pins, pin_coords, photo_coords, decay_km=5.0)
     # With global decay (200.0 km), swapping 3.5 km pins is very forgiving (~99 pts total)
-    global_score, _, _ = batch_exponential_location_score(
-        assigned, true_pins, pin_coords, photo_coords, decay_km=200.0
-    )
+    global_score, _, _ = batch_exponential_location_score(assigned, true_pins, pin_coords, photo_coords, decay_km=200.0)
 
     assert 60 <= city_score <= 70
     assert 97 <= global_score <= 100
@@ -232,15 +228,10 @@ def test_album_shuffle_adaptive_date_scoring_vacation_vs_archive() -> None:
     )
     # Swapping 2 days apart in a 10-year archive gives full 100 points
     minor_swap_assigned = {'p1': 0, 'p2': 2, 'p3': 1}
-    minor_score, _, _ = batch_exponential_date_score(
-        minor_swap_assigned, archive_dates, decay_days=archive_decay
-    )
+    minor_score, _, _ = batch_exponential_date_score(minor_swap_assigned, archive_dates, decay_days=archive_decay)
     assert minor_score == 100
 
     # Swapping a 10-year photo gives ~33 points
     era_swap_assigned = {'p1': 1, 'p2': 0, 'p3': 2}
-    era_score, _, _ = batch_exponential_date_score(
-        era_swap_assigned, archive_dates, decay_days=archive_decay
-    )
+    era_score, _, _ = batch_exponential_date_score(era_swap_assigned, archive_dates, decay_days=archive_decay)
     assert 33 <= era_score <= 35
-

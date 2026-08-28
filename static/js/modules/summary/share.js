@@ -41,9 +41,15 @@ export async function shareMatchSummary(summary) {
     text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;
   });
 
+  const shareUrl = summary.match_id
+    ? `${window.location.origin}/game/${encodeURIComponent(summary.match_id)}/summary`
+    : window.location.href;
+
+  text += `\n🔗 ${shareUrl}`;
+
   try {
-    if (navigator.share && navigator.canShare && navigator.canShare({ text })) {
-      await navigator.share({ title: t("summary.share_title"), text });
+    if (navigator.share && navigator.canShare && navigator.canShare({ text, url: shareUrl })) {
+      await navigator.share({ title: t("summary.share_title"), text, url: shareUrl });
     } else {
       await navigator.clipboard.writeText(text);
       showShareToast(t("summary.share_copied"));

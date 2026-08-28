@@ -243,9 +243,7 @@ def test_batch_exponential_scoring_handles_zero_decay_gracefully() -> None:
     assigned = {'p1': 'pin1', 'p2': 'pin1'}
     pin_coords = {'pin1': (48.8566, 2.3522), 'pin2': (41.9028, 12.4964)}
     photo_coords = {'p1': (48.8566, 2.3522), 'p2': (41.9028, 12.4964)}
-    score, exact, total = batch_exponential_location_score(
-        assigned, true_pins, pin_coords, photo_coords, decay_km=0.0
-    )
+    score, exact, total = batch_exponential_location_score(assigned, true_pins, pin_coords, photo_coords, decay_km=0.0)
     assert score == 50
     assert exact == 1
     assert total == 2
@@ -255,4 +253,3 @@ def test_batch_exponential_scoring_handles_zero_decay_gracefully() -> None:
     assert dt_score == 50
     assert dt_exact == 1
     assert dt_total == 2
-
