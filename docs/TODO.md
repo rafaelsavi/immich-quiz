@@ -6,15 +6,6 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-- [x] v2.4.1: **2. Automated E2E Testing (Playwright)**
-  - [x] Setup Playwright browser test harness integrated with CI and local test runner.
-  - [x] Implement core interactive gameplay test suites:
-    - Two-tap Leaflet map pin placement and distance line calculation in Pinpoint mode.
-    - Dual-handle timeline range and single-year/month date selection.
-    - Album Shuffle photo card reordering and multi-pin placement.
-  - [x] Add route navigation and reload recovery test cases (verifying match state recovers on `/game/{match_id}` refresh).
-  - [x] Add score rollup animation and post-game summary award rendering verification.
-
 - [ ] v2.5.0 **3. Report Map or Date Inconsistencies**
   - [ ] Add "Report Issue" button and modal to the round reveal screen (flag bad GPS coordinates, wrong EXIF date, or face tag).
   - [ ] Store flagged asset records in SQLite (`flagged_assets` table) tracking `asset_id`, `issue_type`, `reported_at`, and optional notes.
@@ -38,7 +29,9 @@ This document lists planned features, design ideas, and technical debt items for
   - [ ] Implement periodic background cleanup task in FastAPI lifespan to auto-prune expired challenges.
   - [ ] Specified in [`docs/next-milestones/online-multiplayer`](next-milestones/online-multiplayer/00_OVERVIEW.md).
 
-- [ ] v3.1.0 **6. Player Statistics & Match Replays**
+- [ ] v3.1.0 **6. Improve Share Functionality & Social Scorecards**
+
+- [ ] v3.2.0 **7. Player Statistics & Match Replays**
   - [ ] Build dedicated player profile & stats dashboard querying relational data in `data/leaderboard.db`.
   - [ ] Visual accuracy analytics:
     - Distance error distribution histograms (<5 km, 5–50 km, 50–500 km, >500 km).
@@ -46,20 +39,20 @@ This document lists planned features, design ideas, and technical debt items for
     - Best score streaks, average response time, and most-played libraries.
   - [ ] Interactive match replay view allowing players to step through past games round-by-round with maps and polaroid cards.
 
-- [ ] v3.2.0 **7. Add Support for Videos**
+- [ ] v3.3.0 **8. Add Support for Videos**
   - [ ] Integrate Immich video streaming adapter using transcoded preview streams (`/api/asset/video/playback/{id}` or `encoded-video`) instead of raw 4K originals.
   - [ ] Implement in-game video player UI with autoplay, seamless loop, mute/unmute toggle, and poster image fallback.
   - [ ] Update metadata sync and preflight filter to index video duration and ensure video GPS/date metadata validity.
   - [ ] Add setup filter "Media Type" toggle (*Photos Only*, *Videos Only*, *Photos & Videos*).
 
-- [ ] v4.0.0 **8. Multiplayer Live Lounge (Real-Time Synchronous)**
+- [ ] v4.0.0 **9. Multiplayer Live Lounge (Real-Time Synchronous)**
   - [ ] Implement backend room coordinator and WebSocket manager (`src/room/manager.py`, `src/room/websocket.py`) supporting room codes, lobby state broadcasts, and host controls.
   - [ ] Implement WebSocket event pipeline (`LOBBY_UPDATE`, `ROUND_START`, `TIME_TICK`, `LOCK_IN`, `ROUND_REVEAL`, `GAME_OVER`).
   - [ ] Build frontend Live Lounge lobby UI (`static/js/modules/room.js`) with room codes, live player list, and ready-up buttons.
   - [ ] Synchronize live gameplay (`static/js/modules/live_gameplay.js`): player lock-in indicators, server-synced countdown timers, and simultaneous reveal auto-advance.
   - [ ] Add reconnection resilience handling brief network drops and mobile screen locks via session tokens.
 
-- [ ] v4.1.0 **9. Improve Audio Effects & Soundtrack**
+- [ ] v4.1.0 **10. Improve Audio Effects & Soundtrack**
   - [ ] Expand runtime Web Audio synthesized procedural background music with game state mood transitions (setup -> tense round -> victory fanfare).
   - [ ] Add transitional sound cues (whoosh screen transitions, high-score chimes, round buzzer variations).
   - [ ] Add volume sliders and audio mute/unmute toggles in settings.
