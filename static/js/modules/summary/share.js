@@ -24,16 +24,18 @@ export async function shareMatchSummary(summary) {
 
   let text = `🏆 Immich Quiz - ${winnerText}\n`;
   const filterInfo =
-    summary.filter_summary && summary.filter_summary !== "Full Library"
-      ? ` • ${summary.filter_summary}`
+    summary.is_custom_filtered && summary.filter_summary
+      ? summary.filter_summary
       : summary.album_names && summary.album_names.length > 0
-        ? ` • ${formatList(summary.album_names)}`
-        : "";
-  const libLabel =
+        ? formatList(summary.album_names)
+        : t("leaderboard.scope_all");
+
+  const libPrefix =
     summary.libraries && summary.libraries.length > 0
-      ? formatList(summary.libraries)
-      : t("leaderboard.scope_all");
-  text += `📍 ${libLabel}${filterInfo} | ${t("summary.meta_rounds", summary.rounds_played)}\n\n`;
+      ? `${formatList(summary.libraries)} • `
+      : "";
+
+  text += `📍 ${libPrefix}${filterInfo} | ${t("summary.meta_rounds", summary.rounds_played)}\n\n`;
   text += `${t("summary.scores_header")}\n`;
   (summary.players || []).forEach((p) => {
     text += `${p.rank}. ${p.player_name}: ${p.total_score}/${p.max_possible_score} (${p.accuracy_pct}%)\n`;

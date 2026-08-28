@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-28
+
+### Added
+
+- **Album Shuffle Partial Credit Scoring**:
+  - **Nearby Map Pin Credit**: Swapping two close pins (like two landmarks in the same city during a worldwide match) now earns high partial points based on actual distance instead of giving zero points.
+  - **Close Timeline Date Credit**: Flipping photos taken only a few days apart in a multi-year album now gives nearly full score instead of punishing minor ordering errors.
+  - **Batch-Adaptive Scaling**: Scoring sensitivity automatically adjusts to the geographic span and date range of each photo batch.
+  - **Per-Photo Round Telemetry**: Detailed match history now records individual photo distance errors, day differences, and points earned.
+
+- **Structured Console & Container Logging**:
+  - **Clean Formatted Logs**: Added color-coded, timestamped console logs (`YYYY-MM-DD HH:MM:SS [LEVEL] [subsystem] Message`) optimized for Docker (`docker logs`) and local terminal debugging.
+  - **Match & Request Tracing**: Automatically tracks `match_id`, `player_name`, `library_name`, and `request_id` across all log messages.
+  - **Automatic Credential Masking**: Automatically redacts Immich API keys and Bearer tokens in log output.
+  - **HTTP Request Duration Logging**: Measures and logs API endpoint response times with clean status summaries.
+  - **Customizable Log Levels**: Set overall level with `LOG_LEVEL` or configure individual subsystems (`LOG_LEVEL_SCORING`, `LOG_LEVEL_SYNC`, `LOG_LEVEL_IMMICH`, etc.).
+
+- **Smooth 60 FPS Countdown Timer & Dynamic Audio**:
+  - **Fluid Progress Bar**: Timer drains continuously at 60 FPS using `requestAnimationFrame`, eliminating 1-second stepped jumps.
+  - **Dynamic Color Transitions**: Smoothly transitions from Teal (100%) to Amber (50%) to Crimson (0%) with pulsating warning animations in the final 5 seconds.
+  - **Rising Pitch Audio Ticker**: Replaced monotone beeps with a frequency-rising audio ticker (440 Hz up to 880 Hz) during the last 10 seconds, paired with device vibration.
+  - **Smart Time Display**: Shows `M:SS` (e.g. `1:15`) for long timers and `Xs` (e.g. `45s`) for sub-minute rounds.
+
+### Changed
+
+- **Tuned Location Scoring Sensitivity**: Adjusted distance scaling to make city/neighborhood rounds more forgiving (5 km base) while keeping nationwide and worldwide rounds appropriately challenging (200 km maximum decay).
+- **Synchronized Score Rollup Sounds**: Centralized audio ticker playback during score rollup animations so multiplayer reveals play one smooth rising tone.
+- **Unified Scoring Engine**: Replaced rigid matching code with shared adaptive decay functions across all game modes.
+
+### Removed
+
+- **Unused `LOCATION_MAX_SPAN_KM` Config**: Removed redundant maximum span setting, as the maximum decay setting already sets the scoring ceiling.
+
+### Fixed
+
+- **Start Match Double-Clicking**: Prevented duplicate match creation and duplicate photo loading when clicking "Start Match" multiple times on slow connections.
+- **Score Rollup Animation Timing**:
+  - Fixed speed inconsistencies on round reveal tables so score counting rolls up smoothly across all rounds regardless of total points.
+  - Fixed summary table score animation duration for single-mode games (location-only or date-only).
+
 ## [2.2.0] - 2026-08-25
 
 ### Added
@@ -26,7 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Smart Map Initial Zoom**: Increased `SMART_MAP_MAX_INITIAL_ZOOM` to `13` (neighborhood / street zoom level) in Pinpoint mode for tighter initial framing on city and neighborhood-scale albums.
 
 ### Removed
-
 
 - **Static Decay Environment Variables**: Removed `LOCATION_SCORE_DECAY_KM` and `DATE_SCORE_DECAY_DAYS` configuration parameters from `AppSettings`, `.env.example`, and server validation in favor of automated per-match calculations.
 

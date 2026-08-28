@@ -3,6 +3,10 @@
 All endpoints are served under `/api`. Schema violations return `422`; domain
 errors return `400`, `404` or `409` with an actionable `detail` message.
 
+### Request & Correlation Tracing
+
+All HTTP requests accept an optional `X-Request-ID` header. If omitted, the server automatically generates a unique 12-character request ID. The `X-Request-ID` is echoed in all HTTP response headers and bound to all structured backend logs emitted during request processing for distributed tracing.
+
 ## System & Config
 
 ### GET /api/health
@@ -14,7 +18,7 @@ Response:
 ```json
 {
   "status": "ok",
-  "version": "2.0.0"
+  "version": "2.3.0"
 }
 ```
 

@@ -80,8 +80,7 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `AUTO_FULL_SYNC_INTERVAL_HOURS`  | No       | `120`         | Interval in hours for periodic full metadata sync & pruning (`0` disables)            |
 | `APP_HOST`                       | No       | `127.0.0.1`   | Set to `0.0.0.0` in Docker so the port is reachable from the host                     |
 | `APP_PORT`                       | No       | `8010`        | Port the app listens on                                                               |
-| `LOCATION_SCORE_DECAY_KM`        | No       | `500`         | Location decay constant in km for `exp(-distance/decay)`                              |
-| `DATE_SCORE_DECAY_DAYS`          | No       | `500`         | Date decay constant in days for `exp(-delta_days/decay)`                              |
+| `LOG_LEVEL`                      | No       | `INFO`        | Global logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`)                        |
 | `LANGUAGE`                       | No       | `EN`          | UI language (`EN` for English, `PT` for Brazilian Portuguese)                         |
 
 ### Immich API Key Permissions

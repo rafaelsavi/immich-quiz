@@ -61,8 +61,11 @@ let visualPulse = 0;
 let visualFreq = 440;
 let visualType = "sine";
 let countdownTimerId = null;
+let countdownRafId = null;
+let countdownEndTimeMs = null;
 let countdownTotalSeconds = 10;
 let countdownRemainingSeconds = 10;
+let countdownLastTickedSec = null;
 
 function logEvent(fnName, details) {
   if (!logBody) return;
@@ -184,9 +187,9 @@ function setupPresets() {
   if (playTickBtn) {
     playTickBtn.addEventListener("click", () => {
       unlockAudioContext();
-      playTick();
-      triggerVisualizer(620, "sine", 0.09);
-      logEvent("playTick()", "520 ➔ 720 Hz • Sine • 0.09s");
+      playTick(5);
+      triggerVisualizer(684, "sine", 0.06);
+      logEvent("playTick()", "440 ➔ 880 Hz Continuous Elevation • Sine • 0.06s • Gain 0.08 ➔ 0.22");
     });
   }
 
@@ -292,19 +295,48 @@ function setupSynth() {
 }
 
 // Simulator Actions
-function updateCountdownUi() {
+function formatPlaygroundTime(seconds) {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s`;
+  const mins = Math.floor(s / 60);
+  const remSecs = s % 60;
+  return `${mins}:${remSecs < 10 ? "0" : ""}${remSecs}`;
+}
+
+function getPlaygroundGradient(ratio) {
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const interpolate = (a, b, f) => Math.round(a + (b - a) * f);
+  const rgb = (c1, c2, f) => `rgb(${interpolate(c1[0], c2[0], f)}, ${interpolate(c1[1], c2[1], f)}, ${interpolate(c1[2], c2[2], f)})`;
+  let col1, col2;
+  if (clamped >= 0.5) {
+    const f = (1.0 - clamped) / 0.5;
+    col1 = rgb([15, 124, 127], [217, 119, 6], f);
+    col2 = rgb([75, 179, 182], [245, 158, 11], f);
+  } else {
+    const f = (0.5 - clamped) / 0.5;
+    col1 = rgb([217, 119, 6], [220, 38, 38], f);
+    col2 = rgb([245, 158, 11], [239, 68, 68], f);
+  }
+  return `linear-gradient(90deg, ${col1}, ${col2})`;
+}
+
+function updateCountdownUi(remainingMs = null) {
   if (!countdownDisplay || !countdownStatus || !countdownFill) return;
 
-  const remaining = Math.max(countdownRemainingSeconds, 0);
-  countdownDisplay.textContent = `${remaining}s`;
-  const ratio = countdownTotalSeconds > 0 ? remaining / countdownTotalSeconds : 1;
-  countdownFill.style.width = `${Math.max(0, ratio * 100)}%`;
-  countdownFill.classList.toggle("is-warning", remaining > 0 && remaining <= 5);
-  countdownFill.classList.toggle("is-critical", remaining <= 0);
+  const totalMs = countdownTotalSeconds * 1000;
+  const currentMs = remainingMs !== null ? remainingMs : countdownRemainingSeconds * 1000;
+  const ratio = totalMs > 0 ? Math.max(0, Math.min(1, currentMs / totalMs)) : 0;
+  const clamped = Math.max(0, Math.ceil(currentMs / 1000));
 
-  if (remaining <= 0) {
+  countdownDisplay.textContent = formatPlaygroundTime(clamped);
+  countdownFill.style.width = `${Math.max(0, ratio * 100)}%`;
+  countdownFill.style.background = getPlaygroundGradient(ratio);
+  countdownFill.classList.toggle("is-warning", clamped > 0 && clamped <= 5);
+  countdownFill.classList.toggle("is-critical", clamped <= 0);
+
+  if (clamped <= 0 && currentMs <= 0) {
     countdownStatus.textContent = "Time is up";
-  } else if (countdownTimerId) {
+  } else if (countdownRafId || countdownTimerId) {
     countdownStatus.textContent = "Running";
   } else {
     countdownStatus.textContent = "Idle";
@@ -312,10 +344,16 @@ function updateCountdownUi() {
 }
 
 function stopCountdownTimer() {
+  if (countdownRafId) {
+    cancelAnimationFrame(countdownRafId);
+    countdownRafId = null;
+  }
   if (countdownTimerId) {
     clearInterval(countdownTimerId);
     countdownTimerId = null;
   }
+  countdownEndTimeMs = null;
+  countdownLastTickedSec = null;
 }
 
 function resetCountdownTimer() {
@@ -323,7 +361,36 @@ function resetCountdownTimer() {
   const parsed = parseInt(countdownSecondsInput?.value || "10", 10);
   countdownTotalSeconds = Number.isFinite(parsed) ? Math.max(1, Math.min(60, parsed)) : 10;
   countdownRemainingSeconds = countdownTotalSeconds;
+  countdownLastTickedSec = countdownTotalSeconds;
   updateCountdownUi();
+}
+
+function playgroundCountdownLoop() {
+  if (!countdownEndTimeMs) return;
+  const remainingMs = Math.max(0, countdownEndTimeMs - Date.now());
+  const clamped = Math.max(0, Math.ceil(remainingMs / 1000));
+
+  updateCountdownUi(remainingMs);
+
+  if (countdownLastTickedSec !== clamped) {
+    const isTickBoundary = countdownLastTickedSec !== null && countdownLastTickedSec > clamped;
+    countdownLastTickedSec = clamped;
+    if (isTickBoundary && clamped <= 10 && clamped > 0) {
+      playTick(clamped);
+      const step = 10 - clamped;
+      const freq = 440 + step * 48.88;
+      triggerVisualizer(freq, "sine", 0.06);
+    }
+  }
+
+  if (remainingMs > 0) {
+    countdownRafId = requestAnimationFrame(playgroundCountdownLoop);
+  } else {
+    stopCountdownTimer();
+    playBuzzer();
+    triggerVisualizer(220, "sawtooth", 0.4);
+    logEvent("Countdown Demo", "Timer reached zero");
+  }
 }
 
 function setupCountdownTimer() {
@@ -333,21 +400,9 @@ function setupCountdownTimer() {
       stopCountdownTimer();
       resetCountdownTimer();
       countdownStatus.textContent = "Running";
-      countdownTimerId = setInterval(() => {
-        countdownRemainingSeconds -= 1;
-        const clamped = Math.max(countdownRemainingSeconds, 0);
-        updateCountdownUi();
-
-        if (clamped > 0) {
-          playTick(clamped);
-          triggerVisualizer(520 + (5 - clamped) * 50, "sine", 0.09);
-        } else {
-          stopCountdownTimer();
-          playBuzzer();
-          triggerVisualizer(220, "sawtooth", 0.4);
-          logEvent("Countdown Demo", "Timer reached zero");
-        }
-      }, 1000);
+      countdownEndTimeMs = Date.now() + countdownTotalSeconds * 1000;
+      countdownLastTickedSec = countdownTotalSeconds;
+      countdownRafId = requestAnimationFrame(playgroundCountdownLoop);
       logEvent("Countdown Demo", `Started ${countdownTotalSeconds}s countdown`);
     });
   }

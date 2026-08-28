@@ -7,12 +7,25 @@ from calendar import monthrange
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, Protocol, TypeAlias, TypeVar
+
+from src.app_logging import LOGGER_SCORING, get_logger
 
 if TYPE_CHECKING:
     from src.immich.client import AssetAnswer
 
+logger = get_logger(LOGGER_SCORING)
+
 T = TypeVar('T', float, int, date)
+
+
+class HasAnswer(Protocol):
+    """Protocol for container objects (e.g. RoundAsset) wrapping an AssetAnswer."""
+
+    answer: AssetAnswer
+
+
+PoolItem: TypeAlias = 'AssetAnswer | HasAnswer | Any'
 
 
 def _percentile_bounds(
@@ -88,20 +101,17 @@ SCORE_MAX_POINTS: int = 100
 # ---------------------------------------------------------------------------
 
 # Ratio connecting geographic bounding diagonal (span) to exponential distance decay.
-# A ratio of 8.0 means decay = span / 8.0 (12.5% of the total map width/diagonal).
-# At 12.5% map error, player earns 37 points (1/e).
-# At 6.25% map error, player earns 61 points.
-# At > 50% map error (halfway across the map), player score drops below 2 points (0 pts).
-LOCATION_SPAN_RATIO: float = 8.0
+# A ratio of 10.0 means decay = span / 10.0 (10.0% of the total map width/diagonal).
+# At 10.0% map error, player earns 37 points (1/e).
+# At 5.0% map error, player earns 61 points.
+# At > 40% map error (almost halfway across the map), player score drops below 2 points (0 pts).
+LOCATION_SPAN_RATIO: float = 10.0
 
 # Minimum floor clamp for single-city or walking-tour albums (prevents overly punishing decay).
-LOCATION_MIN_DECAY_KM: float = 2.5
+LOCATION_MIN_DECAY_KM: float = 5.0
 
 # Maximum ceiling clamp for nationwide or worldwide matches.
-LOCATION_MAX_DECAY_KM: float = 500.0
-
-# Threshold distance before a match is treated as worldwide global coverage.
-LOCATION_MAX_SPAN_KM: float = 5000.0
+LOCATION_MAX_DECAY_KM: float = 200.0
 
 # ---------------------------------------------------------------------------
 # Temporal Scoring Constants
@@ -122,13 +132,16 @@ DATE_MIN_DECAY_DAYS: float = 30.0
 DATE_MAX_DECAY_DAYS: float = 500.0
 
 
+def _extract_answer(item: PoolItem) -> Any:
+    return getattr(item, 'answer', item)
+
+
 def calculate_location_decay(
-    pool: Sequence[AssetAnswer] | Mapping[str, AssetAnswer] | Iterable[AssetAnswer] | None,
+    pool: Sequence[PoolItem] | Mapping[str, PoolItem] | Iterable[PoolItem] | None,
     *,
     span_ratio: float = LOCATION_SPAN_RATIO,
     min_decay_km: float = LOCATION_MIN_DECAY_KM,
     max_decay_km: float = LOCATION_MAX_DECAY_KM,
-    max_span_km: float = LOCATION_MAX_SPAN_KM,
 ) -> float:
     """Calculate dynamic geographic decay (km) adapted to the match pool's bounding box span.
 
@@ -139,35 +152,37 @@ def calculate_location_decay(
         decay_km = clamp(span_diagonal_km / span_ratio, min_decay_km, max_decay_km)
 
     The `span_ratio` controls the scale sensitivity:
-        - Ratio 8.0 sets decay to 12.5% of the pool's diagonal.
-        - Guessing within 3% of the map span yields ~79 points.
-        - Guessing within 12.5% of the map span (1 decay unit) yields 37 points.
-        - Guessing > 50% of the map span away yields < 2 points (0 pts).
+        - Ratio 10.0 sets decay to 10.0% of the pool's diagonal.
+        - Guessing within 2.5% of the map span yields ~78 points.
+        - Guessing within 10.0% of the map span (1 decay unit) yields 37 points.
+        - Guessing > 40% of the map span away yields < 2 points (0 pts).
 
     Args:
         pool: Collection or mapping of `AssetAnswer` candidate photos.
-        span_ratio: Divisor ratio of pool span distance to decay distance. Defaults to 8.0.
-        min_decay_km: Minimum allowable decay clamp in kilometers. Defaults to 2.5 km.
-        max_decay_km: Maximum allowable decay clamp in kilometers. Defaults to 500.0 km.
-        max_span_km: Maximum geographic span before pool is considered global. Defaults to 5000.0 km.
+        span_ratio: Divisor ratio of pool span distance to decay distance. Defaults to 10.0.
+        min_decay_km: Minimum allowable decay clamp in kilometers. Defaults to 5.0 km.
+        max_decay_km: Maximum allowable decay clamp in kilometers. Defaults to 200.0 km.
 
     Returns:
         Location decay in kilometers clamped to [min_decay_km, max_decay_km].
 
     """
     if not pool:
+        logger.debug('Spatial decay: Empty pool, defaulting to max decay (%.1f km).', max_decay_km)
         return max_decay_km
 
-    answers = pool.values() if isinstance(pool, Mapping) else pool
+    raw_items = pool.values() if isinstance(pool, Mapping) else pool
+    answers = [_extract_answer(item) for item in raw_items]
     coords = [
         (ans.latitude, ans.longitude)
         for ans in answers
-        if ans.latitude is not None
-        and ans.longitude is not None
+        if getattr(ans, 'latitude', None) is not None
+        and getattr(ans, 'longitude', None) is not None
         and not (abs(ans.latitude) < 1e-6 and abs(ans.longitude) < 1e-6)
     ]
 
     if len(coords) < 2:
+        logger.debug('Spatial decay: Less than 2 GPS coords, defaulting to max decay (%.1f km).', max_decay_km)
         return max_decay_km
 
     lats = [c[0] for c in coords]
@@ -178,18 +193,31 @@ def calculate_location_decay(
     lat_span = max_lat - min_lat
 
     if lat_span > 60.0 or lng_span > 90.0:
+        logger.info(
+            'Spatial decay: Global span detected (lat_span=%.1f°, lng_span=%.1f°) -> defaulting to max decay (%.1f km)',
+            lat_span,
+            lng_span,
+            max_decay_km,
+        )
         return max_decay_km
 
     diagonal_km = haversine_km(min_lat, min_lng, max_lat, max_lng)
-    if diagonal_km > max_span_km:
-        return max_decay_km
-
     scaled_decay = diagonal_km / span_ratio
-    return max(min_decay_km, min(max_decay_km, round(scaled_decay, 2)))
+    decay_km = max(min_decay_km, min(max_decay_km, round(scaled_decay, 2)))
+    logger.info(
+        'Spatial decay: %d coords, diagonal span=%.1f km (ratio=%.1f) -> decay=%.1f km [bounds: %.1f-%.1f km]',
+        len(coords),
+        diagonal_km,
+        span_ratio,
+        decay_km,
+        min_decay_km,
+        max_decay_km,
+    )
+    return decay_km
 
 
 def calculate_date_decay(
-    pool: Sequence[AssetAnswer] | Mapping[str, AssetAnswer] | Iterable[AssetAnswer] | None,
+    pool: Sequence[PoolItem] | Mapping[str, PoolItem] | Iterable[PoolItem] | None,
     *,
     span_ratio: float = DATE_SPAN_RATIO,
     min_decay_days: float = DATE_MIN_DECAY_DAYS,
@@ -220,22 +248,40 @@ def calculate_date_decay(
 
     """
     if not pool:
+        logger.debug('Temporal decay: Empty pool, defaulting to max decay (%.1f days).', max_decay_days)
         return max_decay_days
 
-    answers = pool.values() if isinstance(pool, Mapping) else pool
-    dates = [ans.capture_date for ans in answers if ans.capture_date is not None]
+    raw_items = pool.values() if isinstance(pool, Mapping) else pool
+    answers = [_extract_answer(item) for item in raw_items]
+    dates = [ans.capture_date for ans in answers if getattr(ans, 'capture_date', None) is not None]
 
     if len(dates) < 2:
+        logger.debug('Temporal decay: Less than 2 dates, defaulting to max decay (%.1f days).', max_decay_days)
         return max_decay_days
 
     min_date, max_date = _percentile_bounds(dates)
     delta_days = (max_date - min_date).days
 
     if delta_days <= 0:
+        logger.debug('Temporal decay: 0 days span, defaulting to min decay (%.1f days).', min_decay_days)
         return min_decay_days
 
     scaled_decay = delta_days / span_ratio
-    return max(min_decay_days, min(max_decay_days, round(scaled_decay, 2)))
+    decay_days = max(min_decay_days, min(max_decay_days, round(scaled_decay, 2)))
+    logger.info(
+        'Temporal decay: %d dates (%s to %s), span=%d days / ~%.1f yrs (ratio=%.1f) '
+        '-> decay=%.1f days [bounds: %.1f-%.1f d]',
+        len(dates),
+        min_date.isoformat(),
+        max_date.isoformat(),
+        delta_days,
+        delta_days / 365.25,
+        span_ratio,
+        decay_days,
+        min_decay_days,
+        max_decay_days,
+    )
+    return decay_days
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -390,15 +436,125 @@ def accuracy_pct(total_score: int, max_score: int) -> float:
     return float(value.quantize(Decimal('0.1'), rounding=ROUND_HALF_UP))
 
 
-def batch_strict_location_score(correct_matches: int, total_photos: int, max_points: int = SCORE_MAX_POINTS) -> int:
-    """Strict location score: each correctly paired photo earns max_points / total_photos."""
+def batch_exponential_location_score(
+    assigned_pins: Mapping[str, str | None],
+    true_pin_map: Mapping[str, str],
+    pin_coords: Mapping[str, tuple[float | None, float | None]],
+    photo_coords: Mapping[str, tuple[float | None, float | None]],
+    *,
+    decay_km: float = LOCATION_MAX_DECAY_KM,
+    max_points: int = SCORE_MAX_POINTS,
+) -> tuple[int, int, int]:
+    """Calculate Album Shuffle location score using batch-adaptive exponential distance decay.
+
+    For each photo in the batch, computes the Haversine distance between the photo's true location
+    and the assigned pin's location. Points are allocated equally (max_points / N per photo) and
+    scaled exponentially: pts_i = (max_points / N) * exp(-distance_km / decay_km).
+
+    Args:
+        assigned_pins: Mapping of photo_id -> assigned pin_id (or None if unassigned).
+        true_pin_map: Mapping of photo_id -> true pin_id.
+        pin_coords: Mapping of pin_id -> (latitude, longitude).
+        photo_coords: Mapping of photo_id -> (latitude, longitude).
+        decay_km: Spatial decay in kilometers (from pool or batch bounds).
+        max_points: Maximum score points achievable for the batch (default 100).
+
+    Returns:
+        tuple[int, int, int]: (total_score, exact_match_count, total_photos)
+
+    """
+    total_photos = len(photo_coords)
     if total_photos <= 0:
-        return 0
-    return max(0, round((correct_matches / total_photos) * max_points))
+        return 0, 0, 0
+
+    effective_decay_km = max(0.001, decay_km)
+    points_per_photo = max_points / total_photos
+    total_points = 0.0
+    exact_matches = 0
+
+    for photo_id, (p_lat, p_lng) in photo_coords.items():
+        assigned_pin_id = assigned_pins.get(photo_id)
+        true_pin_id = true_pin_map.get(photo_id)
+
+        if assigned_pin_id is not None and true_pin_id is not None and assigned_pin_id == true_pin_id:
+            exact_matches += 1
+
+        if assigned_pin_id is None:
+            continue
+
+        assigned_coord = pin_coords.get(assigned_pin_id)
+        if assigned_coord is None or assigned_coord[0] is None or assigned_coord[1] is None:
+            continue
+
+        if p_lat is None or p_lng is None:
+            continue
+
+        if assigned_pin_id == true_pin_id:
+            distance_km = 0.0
+        else:
+            distance_km = haversine_km(p_lat, p_lng, assigned_coord[0], assigned_coord[1])
+
+        photo_score = points_per_photo * math.exp(-distance_km / effective_decay_km)
+        total_points += photo_score
+
+    clamped_score = max(0, min(max_points, round(total_points)))
+    return clamped_score, exact_matches, total_photos
 
 
-def batch_strict_date_score(correct_matches: int, total_photos: int, max_points: int = SCORE_MAX_POINTS) -> int:
-    """Strict date score: each correctly sequence-placed photo earns max_points / total_photos."""
+def batch_exponential_date_score(
+    assigned_timeline: Mapping[str, int | None],
+    photo_dates: Mapping[str, date | None],
+    *,
+    decay_days: float = DATE_MAX_DECAY_DAYS,
+    max_points: int = SCORE_MAX_POINTS,
+) -> tuple[int, int, int]:
+    """Calculate Album Shuffle date score using batch-adaptive exponential temporal decay.
+
+    Ranks the batch's photos chronologically to determine the true target date for each timeline slot.
+    For each photo placed in slot s, calculates the day error Delta D = |actual_date - slot_target_date|.
+    Points are allocated equally (max_points / N per photo) and scaled exponentially:
+    pts_i = (max_points / N) * exp(-Delta D / decay_days).
+
+    Args:
+        assigned_timeline: Mapping of photo_id -> assigned timeline index (0 to N-1, or None).
+        photo_dates: Mapping of photo_id -> capture_date.
+        decay_days: Temporal decay in days (from pool or batch bounds).
+        max_points: Maximum score points achievable for the batch (default 100).
+
+    Returns:
+        tuple[int, int, int]: (total_score, exact_match_count, total_photos)
+
+    """
+    total_photos = len(photo_dates)
     if total_photos <= 0:
-        return 0
-    return max(0, round((correct_matches / total_photos) * max_points))
+        return 0, 0, 0
+
+    effective_decay_days = max(0.001, decay_days)
+
+    # Sort photos chronologically to determine target date for each timeline slot 0..N-1
+    sorted_photo_ids = sorted(photo_dates.keys(), key=lambda pid: photo_dates[pid] or date.min)
+    slot_target_dates = [photo_dates[pid] or date.min for pid in sorted_photo_ids]
+    true_rank_map = {pid: idx for idx, pid in enumerate(sorted_photo_ids)}
+
+    points_per_photo = max_points / total_photos
+    total_points = 0.0
+    exact_matches = 0
+
+    for photo_id, actual_date in photo_dates.items():
+        assigned_slot = assigned_timeline.get(photo_id)
+        if assigned_slot is None or assigned_slot < 0 or assigned_slot >= total_photos:
+            continue
+
+        p_date = actual_date or date.min
+        target_date = slot_target_dates[assigned_slot]
+
+        if assigned_slot == true_rank_map.get(photo_id) or p_date == target_date:
+            exact_matches += 1
+
+        diff_days = abs((p_date - target_date).days)
+        photo_score = points_per_photo * math.exp(-diff_days / effective_decay_days)
+        total_points += photo_score
+
+    clamped_score = max(0, min(max_points, round(total_points)))
+    return clamped_score, exact_matches, total_photos
+

@@ -8,7 +8,7 @@ export function markShortcutCooldown(durationMs = DEFAULT_COOLDOWN_MS) {
 }
 
 export function activeActionButton() {
-  if (state.submitting || Date.now() < cooldownUntil) {
+  if (state.submitting || state.startingMatch || Date.now() < cooldownUntil) {
     return null;
   }
   if (el.passOverlay && !el.passOverlay.classList.contains("hidden")) {

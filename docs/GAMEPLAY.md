@@ -12,7 +12,7 @@ Customize your match on the setup screen:
 
 - **Players**: Add players using the interactive tag input. Type a name and press **Enter** or **,** (comma), or paste comma-separated lists. Each player gets a distinctive avatar color.
 - **Rounds**: Choose the number of rounds per player: **5**, **10**, or **20** rounds.
-- **Round Length**: Set a turn timer: **30s**, **1 min**, **2 min**, **5 min**, or **Unlimited**.
+- **Round Length**: Set a turn timer: **30s**, **1 min**, **2 min**, **5 min**, or **Unlimited**. Timers feature silky-smooth 60 FPS drains, adaptive `M:SS` formatting (e.g. `2:00` → `1:15` → `59s` → `5s`), uniform color spectrum transitions (teal → amber → crimson), and continuous frequency-elevating audio ticks (440 Hz at 10s smoothly rising to 880 Hz at 1s).
 
 ### 2. Library & Photo Filters (Optional)
 

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import logging
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from src.app_logging import LOGGER_STORAGE, get_logger
+
+logger = get_logger(LOGGER_STORAGE)
 
 
 class DatabaseManager:

@@ -13,6 +13,7 @@
 @import "./components/filters.css";
 @import "./components/range_slider.css";
 @import "./components/player_input.css";
+@import "./components/timer.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";

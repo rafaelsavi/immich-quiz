@@ -406,39 +406,45 @@ export function getActiveFilterSummary() {
   if (albumMultiSelect) {
     const albums = albumMultiSelect.getSelectedItems();
     if (albums.length > 0 && albums.length <= maxItems) parts.push(albums.map((a) => a.name).join(", "));
-    else if (albums.length > maxItems) parts.push(`${albums.length} albums`);
+    else if (albums.length > maxItems) parts.push(t("filters.albums_count", albums.length));
   }
   if (countryMultiSelect) {
     const countries = countryMultiSelect.getSelectedItems();
     if (countries.length > 0 && countries.length <= maxItems) parts.push(countries.map((c) => c.name).join(", "));
-    else if (countries.length > maxItems) parts.push(`${countries.length} countries`);
+    else if (countries.length > maxItems) parts.push(t("filters.countries_count", countries.length));
   }
   if (cityMultiSelect) {
     const cities = cityMultiSelect.getSelectedItems();
     if (cities.length > 0 && cities.length <= maxItems) parts.push(cities.map((c) => c.name).join(", "));
-    else if (cities.length > maxItems) parts.push(`${cities.length} cities`);
+    else if (cities.length > maxItems) parts.push(t("filters.cities_count", cities.length));
   }
   if (peopleMultiSelect) {
     const people = peopleMultiSelect.getSelectedItems();
     if (people.length > 0 && people.length <= maxItems) parts.push(people.map((p) => p.name).join(", "));
-    else if (people.length > maxItems) parts.push(`${people.length} people`);
+    else if (people.length > maxItems) parts.push(t("filters.people_count", people.length));
   }
   if (dateRangeSlider) {
     const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
     if (minDate && maxDate) {
-      const y1 = minDate.substring(0, 4);
-      const y2 = maxDate.substring(0, 4);
-      parts.push(y1 === y2 ? y1 : `${y1}–${y2}`);
+      const y1 = minDate.substring(0, 7).replace("-", "/");
+      const y2 = maxDate.substring(0, 7).replace("-", "/");
+      parts.push(t("filters.date_range", y1, y2));
     } else if (minDate) {
-      parts.push(`from ${minDate.substring(0, 4)}`);
+      const y1 = minDate.substring(0, 7).replace("-", "/");
+      parts.push(t("filters.date_from", y1));
     } else if (maxDate) {
-      parts.push(`until ${maxDate.substring(0, 4)}`);
+      const y2 = maxDate.substring(0, 7).replace("-", "/");
+      parts.push(t("filters.date_until", y2));
     }
   }
   if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) {
-    parts.push("Shared");
+    parts.push(t("filters.shared"));
   }
-  return parts.length > 0 ? parts.join(" • ") : t("leaderboard.scope_all");
+  const fullLibraryLabel =
+    t("filters.full_library") !== "filters.full_library"
+      ? t("filters.full_library")
+      : t("leaderboard.scope_all");
+  return parts.length > 0 ? parts.join(" • ") : fullLibraryLabel;
 }
 
 export function showPreflightWarning(message) {

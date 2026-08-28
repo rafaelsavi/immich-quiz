@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import contextlib
-import logging
 from dataclasses import dataclass, replace
 from datetime import date, datetime
 from typing import Any
 
+from src.app_logging import LOGGER_STORAGE, get_logger
 from src.config import AppSettings
 from src.immich.client import AssetAnswer
 from src.models import (
@@ -24,7 +24,7 @@ from src.models import (
 )
 from src.storage.db import DatabaseManager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(LOGGER_STORAGE)
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS sync_state (
@@ -914,6 +914,7 @@ class MetadataStore:
                 state=r.get('state'),
                 country=r.get('country'),
             )
+        logger.debug('Fetched %d candidate assets matching criteria (limit=%d)', len(results), limit)
         return results
 
     def get_filter_options(

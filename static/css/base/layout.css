@@ -31,10 +31,18 @@
   gap: 1rem;
 }
 
+.header-main {
+  min-width: 0;
+  flex: 1;
+}
+
 .header-main h1 {
   margin: 0;
   font-family: "Fraunces", serif;
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(1.6rem, 5vw, 3rem);
+  line-height: 1.15;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .header-main p {
@@ -143,5 +151,23 @@
 
   .round-guess-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    gap: 0.5rem;
+  }
+
+  .header-main h1 {
+    font-size: 1.45rem;
+  }
+
+  .header-main p {
+    font-size: 0.85rem;
+  }
+
+  .header-controls {
+    gap: 0.35rem;
   }
 }

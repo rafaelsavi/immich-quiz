@@ -20,6 +20,21 @@ function initializeAudioState() {
 
 initializeAudioState();
 
+const UNLOCK_EVENTS = ["click", "keydown", "touchend"];
+
+function removeUnlockListeners() {
+  UNLOCK_EVENTS.forEach((evt) => {
+    document.removeEventListener(evt, handleUserGesture, { capture: true });
+  });
+}
+
+function handleUserGesture() {
+  unlockAudioContext();
+  if (audioCtx && audioCtx.state === "running") {
+    removeUnlockListeners();
+  }
+}
+
 export function unlockAudioContext() {
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -28,15 +43,20 @@ export function unlockAudioContext() {
     }
   }
   if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume().catch(() => { });
+    audioCtx
+      .resume()
+      .then(() => {
+        if (audioCtx && audioCtx.state === "running") {
+          removeUnlockListeners();
+        }
+      })
+      .catch(() => { });
   }
 }
 
-document.addEventListener("pointerdown", unlockAudioContext, { capture: true });
-document.addEventListener("mousedown", unlockAudioContext, { capture: true });
-document.addEventListener("touchstart", unlockAudioContext, { capture: true });
-document.addEventListener("keydown", unlockAudioContext, { capture: true });
-document.addEventListener("click", unlockAudioContext, { capture: true });
+UNLOCK_EVENTS.forEach((evt) => {
+  document.addEventListener(evt, handleUserGesture, { capture: true });
+});
 
 export function getAudioContext() {
   unlockAudioContext();
@@ -86,18 +106,41 @@ export function playSubmitTone() {
   playTone(480, "sine", 0.08, 0.12);
 }
 
-export function playTick(clampedSec = 5) {
+export function playTick(clampedSec = 10) {
   if (!state || !state.audioEnabled) return;
-  const clamped = Math.max(1, Math.min(5, Number(clampedSec) || 5));
-  const step = 5 - clamped; // 0 (at 5s) to 4 (at 1s)
+  const clamped = Math.max(1, Math.min(10, Number(clampedSec) || 10));
+  const step = 10 - clamped; // 0 (at 10s) to 9 (at 1s)
 
-  // Gentle pitch rise: 520Hz at 5s up to 720Hz at 1s
-  const freq = 520 + step * 50;
-  // Moderate volume rise: 0.15 at 5s up to 0.25 at 1s
-  const gain = 0.15 + step * 0.025;
+  // Continuous linear-musical elevation: 440 Hz (10s) rising to 880 Hz (1s)
+  const freq = 440 + step * 48.88;
+  // Continuous volume elevation: 0.08 (10s) rising to 0.22 (1s)
+  const gainVal = 0.08 + step * 0.0155;
 
-  haptic(18);
-  playTone(freq, "sine", 0.09, gain);
+  haptic(10 + Math.round(step * 1.1));
+
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    // Crisp percussive transient decaying into pure tone
+    osc.frequency.setValueAtTime(freq * 1.25, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq, ctx.currentTime + 0.03);
+
+    gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.06);
+  } catch (_) {}
 }
 
 export function playBuzzer() {
@@ -121,7 +164,7 @@ export function playBuzzer() {
           osc.type = "sawtooth";
           osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
-          gain.gain.setValueAtTime(0.35, ctx.currentTime);
+          gain.gain.setValueAtTime(0.22, ctx.currentTime);
           gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
 
           osc.connect(gain);

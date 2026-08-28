@@ -5,8 +5,8 @@ import pytest
 from src.scoring import (
     SCORE_MAX_POINTS,
     accuracy_pct,
-    batch_strict_date_score,
-    batch_strict_location_score,
+    batch_exponential_date_score,
+    batch_exponential_location_score,
     date_diff_days,
     date_diff_months,
     date_diff_parts,
@@ -112,15 +112,147 @@ def test_accuracy_uses_half_up_rounding() -> None:
     assert accuracy_pct(1, 16) == 6.3
 
 
-def test_batch_strict_location_score() -> None:
-    assert batch_strict_location_score(5, 5) == 100
-    assert batch_strict_location_score(5, 5, max_points=100) == 100
-    assert batch_strict_location_score(0, 5, max_points=100) == 0
-    assert batch_strict_location_score(3, 5, max_points=100) == 60
+def test_batch_exponential_location_score_empty() -> None:
+    assert batch_exponential_location_score({}, {}, {}, {}) == (0, 0, 0)
 
 
-def test_batch_strict_date_score() -> None:
-    assert batch_strict_date_score(3, 3) == 100
-    assert batch_strict_date_score(3, 3, max_points=100) == 100
-    assert batch_strict_date_score(0, 3, max_points=100) == 0
-    assert batch_strict_date_score(1, 3, max_points=100) == 33
+def test_batch_exponential_location_score_all_correct() -> None:
+    true_pins = {'p1': 'pin1', 'p2': 'pin2', 'p3': 'pin3'}
+    assigned = {'p1': 'pin1', 'p2': 'pin2', 'p3': 'pin3'}
+    pin_coords = {
+        'pin1': (48.8566, 2.3522),  # Paris
+        'pin2': (41.9028, 12.4964),  # Rome
+        'pin3': (35.6762, 139.6503),  # Tokyo
+    }
+    photo_coords = {
+        'p1': (48.8566, 2.3522),
+        'p2': (41.9028, 12.4964),
+        'p3': (35.6762, 139.6503),
+    }
+    score, exact, total = batch_exponential_location_score(
+        assigned, true_pins, pin_coords, photo_coords, decay_km=200.0
+    )
+    assert score == 100
+    assert exact == 3
+    assert total == 3
+
+
+def test_batch_exponential_location_score_partial_near_miss() -> None:
+    # Paris vs Versailles (~17 km) in a worldwide 200 km decay pool
+    true_pins = {'p1': 'pin_paris', 'p2': 'pin_versailles', 'p3': 'pin_tokyo'}
+    # Player swaps Paris and Versailles, gets Tokyo right
+    assigned = {'p1': 'pin_versailles', 'p2': 'pin_paris', 'p3': 'pin_tokyo'}
+    pin_coords = {
+        'pin_paris': (48.8566, 2.3522),
+        'pin_versailles': (48.8049, 2.1204),
+        'pin_tokyo': (35.6762, 139.6503),
+    }
+    photo_coords = {
+        'p1': (48.8566, 2.3522),
+        'p2': (48.8049, 2.1204),
+        'p3': (35.6762, 139.6503),
+    }
+    score, exact, total = batch_exponential_location_score(
+        assigned, true_pins, pin_coords, photo_coords, decay_km=200.0
+    )
+    # Tokyo = 33.33 pts, Paris & Versailles each ~33.33 * exp(-17.3/200) ~= 30.56 pts -> total ~= 94 pts
+    assert 93 <= score <= 96
+    assert exact == 1
+    assert total == 3
+
+
+def test_batch_exponential_location_score_unassigned() -> None:
+    true_pins = {'p1': 'pin1', 'p2': 'pin2'}
+    assigned = {'p1': 'pin1', 'p2': None}
+    pin_coords = {'pin1': (48.8566, 2.3522), 'pin2': (41.9028, 12.4964)}
+    photo_coords = {'p1': (48.8566, 2.3522), 'p2': (41.9028, 12.4964)}
+    score, exact, total = batch_exponential_location_score(
+        assigned, true_pins, pin_coords, photo_coords, decay_km=200.0
+    )
+    assert score == 50
+    assert exact == 1
+    assert total == 2
+
+
+def test_batch_exponential_date_score_empty() -> None:
+    assert batch_exponential_date_score({}, {}) == (0, 0, 0)
+
+
+def test_batch_exponential_date_score_all_correct() -> None:
+    dates = {
+        'p1': date(2020, 1, 1),
+        'p2': date(2022, 6, 1),
+        'p3': date(2024, 12, 1),
+    }
+    assigned = {'p1': 0, 'p2': 1, 'p3': 2}
+    score, exact, total = batch_exponential_date_score(assigned, dates, decay_days=500.0)
+    assert score == 100
+    assert exact == 3
+    assert total == 3
+
+
+def test_batch_exponential_date_score_minor_swap_in_long_span() -> None:
+    # 10-year span with 2 photos 2 days apart
+    dates = {
+        'p1': date(2014, 6, 1),
+        'p2': date(2024, 7, 10),
+        'p3': date(2024, 7, 12),
+    }
+    # Player swaps p2 and p3 (2 days diff)
+    assigned = {'p1': 0, 'p2': 2, 'p3': 1}
+    score, exact, total = batch_exponential_date_score(assigned, dates, decay_days=500.0)
+    # p1 is exact (33.33 pts), p2 and p3 differ by 2 days in 500d decay:
+    # 33.33 * exp(-2/500) = 33.20 pts -> total = 100
+    assert score == 100
+    assert exact == 1
+    assert total == 3
+
+
+def test_batch_exponential_date_score_distant_swap() -> None:
+    dates = {
+        'p1': date(2014, 6, 1),
+        'p2': date(2024, 7, 10),
+        'p3': date(2024, 7, 12),
+    }
+    # Player puts 2014 in slot 1 (swapping p1 and p2)
+    assigned = {'p1': 1, 'p2': 0, 'p3': 2}
+    score, exact, total = batch_exponential_date_score(assigned, dates, decay_days=500.0)
+    # Only p3 in slot 2 is exact (33 pts), slots 0 and 1 are 10 years off (~0 pts)
+    assert 33 <= score <= 35
+    assert exact == 1
+    assert total == 3
+
+
+def test_batch_exponential_date_score_same_day_photos() -> None:
+    dates = {
+        'p1': date(2024, 8, 10),
+        'p2': date(2024, 8, 10),
+        'p3': date(2024, 8, 10),
+    }
+    # Any permutation is 100% since all share the same date
+    assigned = {'p1': 2, 'p2': 0, 'p3': 1}
+    score, exact, total = batch_exponential_date_score(assigned, dates, decay_days=30.0)
+    assert score == 100
+    assert exact == 3
+    assert total == 3
+
+
+def test_batch_exponential_scoring_handles_zero_decay_gracefully() -> None:
+    # Verify zero decay does not cause ZeroDivisionError
+    true_pins = {'p1': 'pin1', 'p2': 'pin2'}
+    assigned = {'p1': 'pin1', 'p2': 'pin1'}
+    pin_coords = {'pin1': (48.8566, 2.3522), 'pin2': (41.9028, 12.4964)}
+    photo_coords = {'p1': (48.8566, 2.3522), 'p2': (41.9028, 12.4964)}
+    score, exact, total = batch_exponential_location_score(
+        assigned, true_pins, pin_coords, photo_coords, decay_km=0.0
+    )
+    assert score == 50
+    assert exact == 1
+    assert total == 2
+
+    dates = {'p1': date(2020, 1, 1), 'p2': date(2024, 1, 1)}
+    dt_score, dt_exact, dt_total = batch_exponential_date_score({'p1': 0, 'p2': 0}, dates, decay_days=0.0)
+    assert dt_score == 50
+    assert dt_exact == 1
+    assert dt_total == 2
+

@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-import logging
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from src.app_logging import get_logger
+
+logger = get_logger('i18n')
 
 
 class SupportedLanguage(str, Enum):

@@ -26,7 +26,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="/static/favicons/apple-touch-icon.png" />
   <!-- Web App Manifest -->
   <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="stylesheet" href="/static/css/style.css?v=7" />
+  <link rel="stylesheet" href="/static/css/style.css?v=8" />
 </head>
 
 <body>
@@ -263,7 +263,13 @@
         </button>
         <div class="fullscreen-timer" id="fs-timer-image">
           <div class="fs-timer-head">
-            <span class="fs-timer-label"></span>
+            <span class="timer-title-wrap">
+              <svg class="timer-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span class="fs-timer-label"></span>
+            </span>
             <span class="fs-timer-remaining"></span>
           </div>
           <div class="fs-timer-track">
@@ -293,7 +299,13 @@
                 </button>
                 <div class="fullscreen-timer" id="fs-timer-guess-map">
                   <div class="fs-timer-head">
-                    <span class="fs-timer-label"></span>
+                    <span class="timer-title-wrap">
+                      <svg class="timer-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                      </svg>
+                      <span class="fs-timer-label"></span>
+                    </span>
                     <span class="fs-timer-remaining"></span>
                   </div>
                   <div class="fs-timer-track">
@@ -324,7 +336,13 @@
 
         <div class="timer-row">
           <div class="timer-head">
-            <span id="timer-label"></span>
+            <span class="timer-title-wrap">
+              <svg class="timer-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              <span id="timer-label"></span>
+            </span>
             <span id="timer-remaining"></span>
           </div>
           <div id="timer-track" class="timer-track">

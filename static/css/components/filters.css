@@ -60,7 +60,13 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
+  min-width: 0;
+}
+
+.accordion-title {
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .accordion-icon {
@@ -323,5 +329,48 @@
 
 .sync-library-btn.needs-sync:hover {
   background: rgba(15, 124, 127, 0.15);
+}
+
+@media (max-width: 560px) {
+  .filters-accordion-header {
+    padding: 0.5rem 0.6rem;
+    gap: 0.35rem;
+  }
+
+  .accordion-toggle-btn {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .accordion-title {
+    font-size: 0.88rem;
+  }
+
+  .filters-summary-badge {
+    font-size: 0.74rem;
+    padding: 0.1rem 0.4rem;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .accordion-meta-wrap {
+    align-self: center;
+    gap: 0.35rem;
+  }
+
+  .filters-accordion-content {
+    padding: 0.25rem 0.6rem 0.75rem 0.6rem;
+  }
+
+  .filters-sub-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-footer-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 }
 

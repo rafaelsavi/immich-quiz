@@ -77,37 +77,30 @@ export function renderSummaryMeta(summary) {
     );
   }
 
-  // 4. Library Chip
-  const libraryLabel =
-    summary.libraries && summary.libraries.length > 0
-      ? summary.libraries.join(", ")
-      : "Immich";
-  chips.push(
-    createMetaChip(
-      ICONS.library,
-      t("summary.meta_library", libraryLabel),
-      "meta-library",
-      `${t("setup.library_label")}: ${libraryLabel}`
-    )
-  );
+  // 4. Library Chip (only shown when specific libraries are selected)
+  if (summary.libraries && summary.libraries.length > 0) {
+    const libraryLabel = summary.libraries.join(", ");
+    chips.push(
+      createMetaChip(
+        ICONS.library,
+        t("summary.meta_library", libraryLabel),
+        "meta-library",
+        `${t("setup.library_label")}: ${libraryLabel}`
+      )
+    );
+  }
 
   // 5. Filters / Scope Chip
   const hasCustomFilters = Boolean(
     summary.is_custom_filtered ||
-      (summary.filter_summary &&
-        summary.filter_summary !== "Full Library" &&
-        summary.filter_summary !== t("leaderboard.scope_all")) ||
       (summary.album_names && summary.album_names.length > 0)
   );
 
   const filterText =
-    summary.filter_summary &&
-    summary.filter_summary !== "Full Library" &&
-    summary.filter_summary !== t("leaderboard.scope_all")
-      ? summary.filter_summary
-      : summary.album_names && summary.album_names.length > 0
-        ? summary.album_names.join(", ")
-        : null;
+    summary.filter_summary ||
+    (summary.album_names && summary.album_names.length > 0
+      ? summary.album_names.join(", ")
+      : null);
 
   const tooltipText =
     summary.filter_tooltip ||
@@ -164,6 +157,11 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
 
   if (el.summaryTableBody) {
     el.summaryTableBody.replaceChildren();
+    const activeGoalCount = (summary.location_mode ? 1 : 0) + (summary.date_mode ? 1 : 0);
+    const maxGoalScore = activeGoalCount > 0
+      ? Math.round((summary.max_possible_score || ((summary.rounds_played || 1) * 100 * activeGoalCount)) / activeGoalCount)
+      : (summary.max_possible_score || 100);
+
     (summary.players || []).forEach((player) => {
       const row = document.createElement("tr");
 
@@ -181,12 +179,12 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
 
       if (summary.location_mode) {
         const locCell = buildCell(String(player.location_score ?? 0));
-        animateScoreRollup(locCell, player.location_score ?? 0, summary.max_possible_score || 100);
+        animateScoreRollup(locCell, player.location_score ?? 0, maxGoalScore);
         row.appendChild(locCell);
       }
       if (summary.date_mode) {
         const dateCell = buildCell(String(player.date_score ?? 0));
-        animateScoreRollup(dateCell, player.date_score ?? 0, summary.max_possible_score || 100);
+        animateScoreRollup(dateCell, player.date_score ?? 0, maxGoalScore);
         row.appendChild(dateCell);
       }
       const totalCell = buildCell(`${player.total_score}/${player.max_possible_score}`);

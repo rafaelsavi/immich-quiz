@@ -79,7 +79,7 @@ The interactive testing playground (`static/audio-playground.html`) provides fiv
 
 ### 7. Countdown timer simulator
 
-- A dedicated countdown demo now mirrors the in-game timer cadence with a visible countdown bar, per-second tick cues, and a final buzzer when the timer expires.
+- A dedicated countdown demo mirrors the in-game timer cadence with a fluid 60 FPS countdown bar, continuous uniform color transitions, a single continuous linear frequency elevation tick sequence (440 Hz at 10s rising to 880 Hz at 1s), and a final buzzer when the timer expires.
 
 ---
 

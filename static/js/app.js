@@ -186,6 +186,10 @@ function resetGameUi() {
 async function startMatch(event) {
   event.preventDefault();
 
+  if (state.startingMatch) {
+    return;
+  }
+
   const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
   if (submitBtn && submitBtn.disabled) {
     return;
@@ -200,8 +204,6 @@ async function startMatch(event) {
   if (lastPreflight && !lastPreflight.ok) {
     return;
   }
-
-  resetGameUi();
 
   const players = playerInput
     ? playerInput.getPlayers()
@@ -219,35 +221,42 @@ async function startMatch(event) {
     return;
   }
 
-  const activeMode = getActiveMode();
-  const modePayload = activeMode.getModePayload();
-
-  const albumIds = albumMultiSelect ? albumMultiSelect.getSelectedIds() : [];
-  const albumNames = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((i) => i.name) : [];
-  const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
-  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
-
-  const payload = {
-    players,
-    round_count: Number(el.roundCount.value),
-    round_length: el.roundLength.value,
-    libraries: selectedLibs,
-    albums: albumIds,
-    album_names: albumNames,
-    people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
-    person_names: peopleMultiSelect
-      ? peopleMultiSelect.getSelectedItems().map((p) => p.name)
-      : [],
-    people_mode: getSelectedPeopleMode(),
-    countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
-    cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
-    min_date: minDate,
-    max_date: maxDate,
-    include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
-    ...modePayload,
-  };
+  state.startingMatch = true;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+  }
 
   try {
+    resetGameUi();
+
+    const activeMode = getActiveMode();
+    const modePayload = activeMode.getModePayload();
+
+    const albumIds = albumMultiSelect ? albumMultiSelect.getSelectedIds() : [];
+    const albumNames = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((i) => i.name) : [];
+    const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
+    const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
+
+    const payload = {
+      players,
+      round_count: Number(el.roundCount.value),
+      round_length: el.roundLength.value,
+      libraries: selectedLibs,
+      albums: albumIds,
+      album_names: albumNames,
+      people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
+      person_names: peopleMultiSelect
+        ? peopleMultiSelect.getSelectedItems().map((p) => p.name)
+        : [],
+      people_mode: getSelectedPeopleMode(),
+      countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
+      cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
+      min_date: minDate,
+      max_date: maxDate,
+      include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
+      ...modePayload,
+    };
+
     const preflight = await api("/api/game/preflight", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -259,38 +268,44 @@ async function startMatch(event) {
       );
       return;
     }
+
+    state.lastMatchConfig = payload;
+
+    getActiveMode().unmount();
+
+    const response = await api("/api/game/setup", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    state.matchId = response.match_id;
+    state.players = response.players;
+    state.mapBounds = response.map_bounds || null;
+    state.playedAssetIds = [];
+    state.matchFinished = false;
+    state.perfectCounts = {};
+    state.playerStats = {};
+    state.roundHistory = [];
+
+    pushGameHistoryState();
+
+    el.leaderboardCard.classList.add("hidden");
+    showCard(el.gameCard);
+
+    activeMode.mount(el.guessingUi, payload);
+    applyLanguage();
+
+    await loadQuestion();
   } catch (err) {
     showAlert(err.message || err);
-    return;
+  } finally {
+    state.startingMatch = false;
+    if (submitBtn) {
+      const warning = document.getElementById("preflight-warning");
+      const hasWarning = warning && !warning.classList.contains("hidden");
+      submitBtn.disabled = Boolean(hasWarning);
+    }
   }
-
-  state.lastMatchConfig = payload;
-
-  getActiveMode().unmount();
-
-  const response = await api("/api/game/setup", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-
-  state.matchId = response.match_id;
-  state.players = response.players;
-  state.mapBounds = response.map_bounds || null;
-  state.playedAssetIds = [];
-  state.matchFinished = false;
-  state.perfectCounts = {};
-  state.playerStats = {};
-  state.roundHistory = [];
-
-  pushGameHistoryState();
-
-  el.leaderboardCard.classList.add("hidden");
-  showCard(el.gameCard);
-
-  activeMode.mount(el.guessingUi, payload);
-  applyLanguage();
-
-  await loadQuestion();
 }
 
 function updateRoundMeta() {
@@ -316,14 +331,39 @@ function checkMediaLoadable(url) {
   return new Promise((resolve) => {
     if (!url) return resolve(true);
     const img = new Image();
-    img.onload = () => resolve(true);
-    img.onerror = () => resolve(false);
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        img.onload = null;
+        img.onerror = null;
+        resolve(false);
+      }
+    }, 10000);
+    img.onload = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(true);
+      }
+    };
+    img.onerror = () => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(false);
+      }
+    };
     img.src = url;
   });
 }
 
 async function fetchAndVerifyQuestion() {
+  const currentMatchId = state.matchId;
   while (true) {
+    if (state.matchId !== currentMatchId) {
+      return null;
+    }
     let data;
     try {
       data = await api("/api/question", {
@@ -343,6 +383,10 @@ async function fetchAndVerifyQuestion() {
       throw err;
     }
 
+    if (state.matchId !== currentMatchId) {
+      return null;
+    }
+
     const photosToTest = [];
     if (data.batch_photos && data.batch_photos.length > 0) {
       for (const p of data.batch_photos) {
@@ -358,6 +402,10 @@ async function fetchAndVerifyQuestion() {
         ok: await checkMediaLoadable(photo.url),
       }))
     );
+
+    if (state.matchId !== currentMatchId) {
+      return null;
+    }
 
     const failed = results.filter((r) => !r.ok);
     if (failed.length === 0) {
@@ -377,6 +425,9 @@ async function fetchAndVerifyQuestion() {
 }
 
 async function loadQuestion() {
+  const matchId = state.matchId;
+  if (!matchId) return;
+
   resetTimerBar();
   state.guessedLatLng = null;
   state.timedOut = false;
@@ -401,6 +452,10 @@ async function loadQuestion() {
   updateSubmitState();
 
   const data = await fetchAndVerifyQuestion();
+
+  if (state.matchId !== matchId) {
+    return;
+  }
 
   if (!data) {
     state.timedOut = true;
@@ -604,9 +659,16 @@ async function showMatchSummary() {
 }
 
 function returnToSetup() {
+  state.startingMatch = false;
   resetGameUi();
   showCard(el.setupCard);
   el.leaderboardCard.classList.remove("hidden");
+  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
+  if (submitBtn) {
+    const warning = document.getElementById("preflight-warning");
+    const hasWarning = warning && !warning.classList.contains("hidden");
+    submitBtn.disabled = Boolean(hasWarning);
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -643,6 +705,9 @@ function handlePopState() {
 }
 
 function handleAbandonGame(action) {
+  if (state.startingMatch) {
+    return;
+  }
   const label = action === "restart" ? t("game.abandon_restart") : t("game.abandon_exit");
   if (!confirm(t("game.abandon_confirm", label))) {
     return;
@@ -656,32 +721,50 @@ function handleAbandonGame(action) {
 }
 
 async function restartSameGame() {
+  if (state.startingMatch) {
+    return;
+  }
+
   const config = state.lastMatchConfig;
   if (!config) {
     returnToSetup();
     return;
   }
 
-  resetGameUi();
+  state.startingMatch = true;
 
-  const activeMode = getActiveMode();
+  try {
+    resetGameUi();
 
-  const response = await api("/api/game/setup", {
-    method: "POST",
-    body: JSON.stringify(config),
-  });
+    const activeMode = getActiveMode();
 
-  state.matchId = response.match_id;
-  state.players = response.players;
-  state.mapBounds = response.map_bounds || null;
-  pushGameHistoryState();
-  el.leaderboardCard.classList.add("hidden");
-  showCard(el.gameCard);
+    const response = await api("/api/game/setup", {
+      method: "POST",
+      body: JSON.stringify(config),
+    });
 
-  activeMode.mount(el.guessingUi, config);
-  applyLanguage();
+    state.matchId = response.match_id;
+    state.players = response.players;
+    state.mapBounds = response.map_bounds || null;
+    state.playedAssetIds = [];
+    state.matchFinished = false;
+    state.perfectCounts = {};
+    state.playerStats = {};
+    state.roundHistory = [];
 
-  await loadQuestion();
+    pushGameHistoryState();
+    el.leaderboardCard.classList.add("hidden");
+    showCard(el.gameCard);
+
+    activeMode.mount(el.guessingUi, config);
+    applyLanguage();
+
+    await loadQuestion();
+  } catch (err) {
+    showAlert(err.message || err);
+  } finally {
+    state.startingMatch = false;
+  }
 }
 
 /* ----------------------------------------------------------------- events */

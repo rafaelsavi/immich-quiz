@@ -18,11 +18,14 @@ import random
 from datetime import date
 from typing import Any
 
+from src.app_logging import LOGGER_MATCH, get_logger
 from src.immich.client import AssetAnswer, ImmichClient
 from src.models import MapBounds
 from src.scoring import calculate_date_decay, calculate_location_decay, haversine_km
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, RoundAsset
+
+logger = get_logger(LOGGER_MATCH)
 
 # Hardcoded Smart Map Zoom internal safeguards:
 # Maximum geographic diagonal distance (in kilometers) before the match is considered global.
@@ -115,6 +118,13 @@ def load_asset_pool(
     state.asset_pool = metadata_store.fetch_candidate_assets(criteria, limit=250)
     state.location_decay_km = calculate_location_decay(state.asset_pool)
     state.date_decay_days = calculate_date_decay(state.asset_pool)
+    logger.info(
+        'Match %s candidate pool loaded: %d assets -> location_decay=%.1f km, date_decay=%.1f days',
+        state.match_id,
+        len(state.asset_pool),
+        state.location_decay_km,
+        state.date_decay_days,
+    )
 
 
 def is_asset_valid_for_batch(

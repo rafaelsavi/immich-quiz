@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -11,10 +10,10 @@ from typing import Any
 
 import httpx
 
+from src.app_logging import LOGGER_IMMICH, get_logger
 from src.models import PeopleMode
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = get_logger(LOGGER_IMMICH)
 
 
 class ImmichClientError(RuntimeError):
@@ -569,15 +568,28 @@ class ImmichClient:
         accept: str = 'application/json',
     ) -> httpx.Response:
         """Send raw HTTP request with API key authentication headers."""
+        import time
+
         url = f'{self._server_url}{path}'
         headers = {
             'x-api-key': api_key,
             'Accept': accept,
         }
+        start = time.perf_counter()
         try:
             res = await self._http.request(method, url, headers=headers, json=json)
         except httpx.RequestError as exc:
+            duration_ms = (time.perf_counter() - start) * 1000.0
+            logger.error('Immich request %s %s failed (%.1fms): %s', method, path, duration_ms, exc)
             raise ImmichClientError(f'Network error connecting to Immich: {exc}') from exc
+
+        duration_ms = (time.perf_counter() - start) * 1000.0
+        if duration_ms > 1000.0:
+            logger.warning(
+                'Slow Immich API response: %s %s took %.1fms (status=%d)', method, path, duration_ms, res.status_code
+            )
+        else:
+            logger.debug('Immich API response: %s %s -> %d (%.1fms)', method, path, res.status_code, duration_ms)
 
         if res.status_code in {401, 403}:
             raise ImmichClientError(f'Authentication failed for library ({res.status_code})')

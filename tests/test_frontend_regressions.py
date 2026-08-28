@@ -177,17 +177,7 @@ def test_js_files_have_valid_syntax() -> None:
     import shutil
     import subprocess
 
-    node_bin = shutil.which('node')
-    if not node_bin:
-        for candidate in [
-            r'C:\Program Files\nodejs\node.exe',
-            r'C:\Program Files (x86)\nodejs\node.exe',
-            r'C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe',
-            r'C:\Program Files\Adobe\Adobe Creative Cloud Experience\libs\node.exe',
-        ]:
-            if Path(candidate).is_file():
-                node_bin = candidate
-                break
+    node_bin = shutil.which('node') or shutil.which('nodejs')
     if not node_bin:
         return
 
@@ -317,6 +307,8 @@ def test_preflight_warning_disables_start_button_and_guards_submission() -> None
     # startMatch must guard against starting if button is disabled or preflight warning is visible
     assert 'async function startMatch' in app_js
     assert 'submitBtn.disabled' in app_js, 'startMatch must check submitBtn.disabled'
+    assert 'state.startingMatch' in app_js, 'startMatch must check state.startingMatch'
+    assert 'startingMatch' in state_js, 'startingMatch must be initialized in state.js'
 
 
 def test_pinpoint_quiz_image_fullscreen_button_handling() -> None:
@@ -446,3 +438,27 @@ def test_game_navigation_guards_and_history_handling() -> None:
     assert 'function isGameActive()' in app_js
     assert 'function pushGameHistoryState()' in app_js
     assert 'pushGameHistoryState()' in app_js
+
+
+def test_score_rollup_timing_and_audio_coordination() -> None:
+    """Verify that score rollup duration benchmarks, single-goal summary bounds, and audio coordination are in place."""
+    effects_js = (JS_DIR / 'modules' / 'effects.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    table_js = (JS_DIR / 'modules' / 'summary' / 'table.js').read_text(encoding='utf-8')
+
+    # 1. effects.js must implement centralized active rollup session management
+    assert 'let activeRollupSession = null;' in effects_js
+    assert 'function registerRollupAnimation' in effects_js
+    assert 'function unregisterRollupAnimation' in effects_js
+    assert 'function triggerRollupAudioTick' in effects_js
+
+    # 2. pinpoint.js and album_shuffle.js must not dilute total score rollup duration by multiplying round_number
+    assert 'maxScore: maxRoundPoints * (reveal.round_number || 1)' not in pinpoint_js
+    assert 'maxScore: maxRoundPoints * (revealData.round_number || 1)' not in album_shuffle_js
+
+    # 3. table.js must compute maxGoalScore for single-goal location/date animations
+    assert 'maxGoalScore' in table_js
+    assert 'animateScoreRollup(locCell, player.location_score ?? 0, maxGoalScore);' in table_js
+    assert 'animateScoreRollup(dateCell, player.date_score ?? 0, maxGoalScore);' in table_js
+

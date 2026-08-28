@@ -24,8 +24,9 @@ immich-quiz/
 │   ├── models.py        Pydantic request/response models and enums (PlayMode, GameMode,
 │   │                    PeopleMode, RoundLength, SyncStatus, etc.) for all endpoints.
 │   ├── scoring.py       Pure scoring functions: haversine_km, location_score,
-│   │                    date_diff_days, date_score, batch_strict_location_score,
-│   │                    batch_strict_date_score, accuracy_pct.
+│   │                    date_diff_days, date_score, batch_exponential_location_score,
+│   │                    batch_exponential_date_score, calculate_location_decay,
+│   │                    calculate_date_decay, accuracy_pct.
 │   ├── i18n.py          Backend localization for filter summaries and tooltips.
 │   ├── version.py       Semantic application version string (APP_VERSION).
 │   ├── game/            Modular game mode system and session orchestration.
@@ -42,6 +43,12 @@ immich-quiz/
 │   │   └── client.py    ImmichClient adapter. Wraps httpx AsyncClient.
 │   │                    Provides: validate_access, list_albums, list_tags, search_assets,
 │   │                    search_random_assets, list_people, get_timeline_bounds, get_asset_bytes.
+│   ├── app_logging/     Structured logging and observability subsystem.
+│   │   ├── context.py   Async contextvars tracking (match_id, request_id, player_name).
+│   │   ├── filters.py   ContextFilter record enrichment and RedactionFilter secret scrubbing.
+│   │   ├── formatter.py ConsoleLogFormatter with color badges and Docker stdout optimization.
+│   │   ├── middleware.py FastAPI ASGI middleware for X-Request-ID and access logs.
+│   │   └── setup.py     Central logging configuration and subsystem level overrides.
 │   └── storage/
 │       ├── db.py        DatabaseManager for SQLite connection lifecycle and WAL mode.
 │       ├── metadata.py  MetadataStore with indexed relational schema, query parity
@@ -57,7 +64,7 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css, multi_select.css, player_input.css, range_slider.css, filters.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css, multi_select.css, player_input.css, range_slider.css, filters.css, timer.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
@@ -84,7 +91,7 @@ immich-quiz/
         ├── shortcuts.js Global keyboard navigation (<kbd>Space</kbd> / <kbd>Enter</kbd>).
         ├── state.js     Centralized reactive application state store.
         ├── sync.js      Library metadata sync trigger, polling, and status badges.
-        └── timer.js     Countdown timer, warning pulses, audio ticks, and timeout dispatch.
+        └── timer.js     Silky-smooth 60 FPS countdown timer, smart time formatting (M:SS), pause/resume, audio ticks, and timeout dispatch.
 ```
 
 ---

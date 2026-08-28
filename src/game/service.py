@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+import math
 import time
 from datetime import date, datetime, timezone
 from typing import Any
 
 from fastapi import HTTPException
 
+from src.app_logging import LOGGER_MATCH, get_logger
 from src.config import AppSettings
 from src.game.modes import GameModeRegistry, default_game_mode_registry
 from src.game.selector import calculate_match_bounds, load_asset_pool
@@ -34,12 +35,19 @@ from src.models import (
     RoundResultResponse,
     SyncStatus,
 )
-from src.scoring import SCORE_MAX_POINTS, accuracy_pct, haversine_km, max_possible_score
+from src.scoring import (
+    SCORE_MAX_POINTS,
+    accuracy_pct,
+    calculate_date_decay,
+    calculate_location_decay,
+    haversine_km,
+    max_possible_score,
+)
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.session import MatchState, SessionStore
 
-logger = logging.getLogger(__name__)
+logger = get_logger(LOGGER_MATCH)
 
 
 def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
@@ -58,8 +66,12 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
             true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in (q.batch_pins or [])}
             sorted_by_date = sorted(q.batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
             true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
+            slot_target_dates = [a.answer.capture_date or date.min for a in sorted_by_date]
             total_photos = len(q.batch_assets)
-            per_photo_max = (SCORE_MAX_POINTS // total_photos) if total_photos > 0 else 0
+            per_photo_pts = (SCORE_MAX_POINTS / total_photos) if total_photos > 0 else 0.0
+
+            decay_km = calculate_location_decay(q.batch_assets) if state.setup.location_mode else None
+            decay_days = calculate_date_decay(q.batch_assets) if state.setup.date_mode else None
 
             for idx, ba in enumerate(q.batch_assets):
                 guessed_item = guess_map.get(ba.asset_id, {})
@@ -85,28 +97,46 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     and ba.answer.latitude is not None
                     and ba.answer.longitude is not None
                 ):
-                    dist_km = haversine_km(ba.answer.latitude, ba.answer.longitude, guess_lat, guess_lng)
+                    if assigned_pin_id and assigned_pin_id == true_pin_map.get(ba.asset_id):
+                        dist_km = 0.0
+                    else:
+                        dist_km = haversine_km(ba.answer.latitude, ba.answer.longitude, guess_lat, guess_lng)
 
                 if state.setup.location_mode:
                     is_correct_loc: int | None = (
                         1 if (ba.asset_id in true_pin_map and assigned_pin_id == true_pin_map[ba.asset_id]) else 0
                     )
-                    loc_points: int | None = per_photo_max if is_correct_loc == 1 else 0
+                    if dist_km is not None and decay_km is not None and decay_km > 0:
+                        loc_points: int | None = round(per_photo_pts * math.exp(-dist_km / decay_km))
+                    else:
+                        loc_points = 0
                 else:
                     is_correct_loc = None
                     loc_points = None
 
+                diff_days: int | None = None
                 if state.setup.date_mode:
-                    is_correct_date: int | None = (
-                        1
-                        if (
-                            ba.asset_id in true_rank_map
-                            and assigned_timeline_index is not None
-                            and assigned_timeline_index == true_rank_map[ba.asset_id]
+                    p_date = ba.answer.capture_date or date.min
+                    if assigned_timeline_index is not None and 0 <= assigned_timeline_index < total_photos:
+                        target_date = slot_target_dates[assigned_timeline_index]
+                        d_days = abs((p_date - target_date).days)
+                        diff_days = d_days
+                        is_correct_date: int | None = (
+                            1
+                            if (
+                                assigned_timeline_index == true_rank_map.get(ba.asset_id)
+                                or p_date == target_date
+                            )
+                            else 0
                         )
-                        else 0
-                    )
-                    dt_points: int | None = per_photo_max if is_correct_date == 1 else 0
+                        dt_points: int | None = (
+                            round(per_photo_pts * math.exp(-d_days / decay_days))
+                            if (decay_days is not None and decay_days > 0)
+                            else 0
+                        )
+                    else:
+                        is_correct_date = 0
+                        dt_points = 0
                 else:
                     is_correct_date = None
                     dt_points = None
@@ -129,7 +159,7 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                         'location_points': loc_points,
                         'guess_date': None,
                         'actual_date': ba.answer.capture_date.isoformat() if ba.answer.capture_date else None,
-                        'date_diff_days': None,
+                        'date_diff_days': diff_days,
                         'date_points': dt_points,
                         'round_score': photo_score,
                         'is_correct_location': is_correct_loc,
@@ -307,6 +337,13 @@ class GameService:
         )
         setup.person_names = self.resolve_person_names(people=setup.people, existing_names=setup.person_names)
         state = self.store.create_match(setup)
+        logger.info(
+            '🎮 Match %s created: mode=%s, rounds=%d, players=%s',
+            state.match_id,
+            setup.game_mode.value,
+            setup.round_count,
+            list(setup.players),
+        )
 
         map_bounds: MapBounds | None = None
         try:
@@ -385,6 +422,14 @@ class GameService:
             self.immich,
             metadata_store=self.metadata_store,
         )
+        logger.info(
+            'Match %s (R%d Turn %d/%d) - Question delivered for player %r',
+            payload.match_id,
+            state.current_round_index + 1,
+            state.turn_index + 1,
+            state.total_turns,
+            state.current_player_name(),
+        )
         return engine.build_question_response(state, question_state)
 
     async def submit_answer(self, payload: AnswerRequest) -> AnswerResponse:
@@ -423,6 +468,12 @@ class GameService:
                 duration_seconds=duration_sec,
                 player_times=player_times,
                 round_guesses=round_guesses,
+            )
+            logger.info(
+                '🏁 Match %s finished in %.1fs across %d turns',
+                updated_state.match_id,
+                duration_sec,
+                updated_state.total_turns,
             )
 
         return AnswerResponse(
