@@ -11,6 +11,9 @@ from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     AnswerRequest,
     AnswerResponse,
+    FlagAssetRequest,
+    FlagAssetResponse,
+    FlaggedAssetItem,
     GameSetupRequest,
     GameSetupResponse,
     LeaderboardEntry,
@@ -98,10 +101,12 @@ async def health() -> dict[str, str]:
 @router.get('/ui-config')
 async def ui_config(request: Request) -> dict[str, object]:
     settings = request.app.state.settings
+    immich_web_url = settings.immich_server_url.removesuffix('/api')
     return {
         'language': settings.language,
         'score_max_points': SCORE_MAX_POINTS,
         'version': APP_VERSION,
+        'immich_web_url': immich_web_url,
     }
 
 
@@ -253,3 +258,65 @@ async def match_summary(
     lang_code = res_lang.value if hasattr(res_lang, 'value') else str(res_lang)
     response.headers['Content-Language'] = lang_code
     return await game_service.get_match_summary(match_id, language=lang_code)
+
+
+@router.post('/assets/flag', response_model=FlagAssetResponse)
+async def flag_asset(
+    payload: FlagAssetRequest,
+    request: Request,
+    metadata_store: MetadataStore = Depends(get_metadata_store),
+) -> FlagAssetResponse:
+    res = await asyncio.to_thread(
+        metadata_store.flag_asset,
+        payload.asset_id,
+        flag_coordinates=payload.flag_coordinates,
+        flag_date=payload.flag_date,
+        other=payload.other,
+        reported_by=payload.reported_by,
+    )
+    immich_web_url = request.app.state.settings.immich_server_url.removesuffix('/api')
+    immich_url = f'{immich_web_url}/photos/{payload.asset_id}'
+    return FlagAssetResponse(
+        success=True,
+        asset_id=res['asset_id'],
+        flag_coordinates=res['flag_coordinates'],
+        flag_date=res['flag_date'],
+        other=res['other'],
+        reported_by=res['reported_by'],
+        reported_at=res['reported_at'],
+        immich_url=immich_url,
+    )
+
+
+@router.get('/assets/flagged', response_model=list[FlaggedAssetItem])
+async def list_flagged_assets(
+    request: Request,
+    limit: int = Query(default=100, ge=1, le=1000),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
+) -> list[FlaggedAssetItem]:
+    immich_web_url = request.app.state.settings.immich_server_url.removesuffix('/api')
+    records = await asyncio.to_thread(metadata_store.list_flagged_assets, limit)
+    return [
+        FlaggedAssetItem(
+            id=r['id'],
+            asset_id=r['asset_id'],
+            flag_coordinates=r['flag_coordinates'],
+            flag_date=r['flag_date'],
+            other=r['other'],
+            reported_by=r['reported_by'],
+            reported_at=r['reported_at'],
+            immich_url=f'{immich_web_url}/photos/{r["asset_id"]}',
+        )
+        for r in records
+    ]
+
+
+@router.delete('/assets/flagged/{asset_id}')
+async def unflag_asset(
+    asset_id: str,
+    metadata_store: MetadataStore = Depends(get_metadata_store),
+) -> dict[str, object]:
+    removed = await asyncio.to_thread(metadata_store.unflag_asset, asset_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail='Flagged asset not found')
+    return {'success': True, 'asset_id': asset_id}

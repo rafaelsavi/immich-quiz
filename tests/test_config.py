@@ -35,6 +35,8 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch) -> None:
         'PEOPLE_BLACKLIST',
         'TAG_WHITELIST',
         'TAG_BLACKLIST',
+        'EXCLUDE_FLAGGED_ASSETS',
+        'EXCLUDE_FLAGGED_PHOTOS',
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -416,3 +418,31 @@ def test_app_settings_dataclass_port_validation() -> None:
             immich_libraries={'a': 'b'},
             app_port=0,
         )
+
+
+def test_exclude_flagged_assets_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    settings = load_settings()
+    assert settings.exclude_flagged_assets is True
+
+
+@pytest.mark.parametrize(
+    'raw, expected',
+    [
+        ('false', False),
+        ('0', False),
+        ('no', False),
+        ('off', False),
+        ('true', True),
+        ('1', True),
+        ('yes', True),
+        ('on', True),
+    ],
+)
+def test_exclude_flagged_assets_parsing(monkeypatch: pytest.MonkeyPatch, raw: str, expected: bool) -> None:
+    monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
+    monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')
+    monkeypatch.setenv('EXCLUDE_FLAGGED_ASSETS', raw)
+    settings = load_settings()
+    assert settings.exclude_flagged_assets is expected

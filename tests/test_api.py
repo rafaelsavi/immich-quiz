@@ -85,6 +85,8 @@ def test_ui_config_exposes_layout_parameters(client: TestClient) -> None:
     body = response.json()
     assert body['language'] == 'EN'
     assert body['score_max_points'] == 100
+    assert 'immich_web_url' in body
+    assert body['immich_web_url'] == 'https://placeholder.example.com'
 
 
 def test_answer_response_hides_the_solution(client: TestClient) -> None:
@@ -1637,3 +1639,58 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
     assert len(round_res['batch_reveal']) == 3
     reveal_pids = [br['photo_id'] for br in round_res['batch_reveal']]
     assert set(reveal_pids) == set(alice_photo_ids)
+
+
+def test_flag_asset_endpoints(client: TestClient) -> None:
+    # 1. Post valid flag request with player name
+    post_res = client.post(
+        '/api/assets/flag',
+        json={
+            'asset_id': 'asset-xyz',
+            'flag_coordinates': True,
+            'flag_date': False,
+            'other': 'GPS pinned in ocean',
+            'reported_by': 'Alice',
+        },
+    )
+    assert post_res.status_code == 200
+    body = post_res.json()
+    assert body['success'] is True
+    assert body['asset_id'] == 'asset-xyz'
+    assert body['flag_coordinates'] is True
+    assert body['flag_date'] is False
+    assert body['other'] == 'GPS pinned in ocean'
+    assert body['reported_by'] == 'Alice'
+    assert body['immich_url'] == 'https://placeholder.example.com/photos/asset-xyz'
+    assert body['reported_at'] is not None
+
+    # 2. List flagged assets
+    list_res = client.get('/api/assets/flagged')
+    assert list_res.status_code == 200
+    flagged = list_res.json()
+    assert len(flagged) >= 1
+    item = next(f for f in flagged if f['asset_id'] == 'asset-xyz')
+    assert item['flag_coordinates'] is True
+    assert item['reported_by'] == 'Alice'
+    assert item['immich_url'] == 'https://placeholder.example.com/photos/asset-xyz'
+
+    # 3. Invalid flag request (no issues specified)
+    bad_res = client.post(
+        '/api/assets/flag',
+        json={
+            'asset_id': 'asset-bad',
+            'flag_coordinates': False,
+            'flag_date': False,
+            'other': '',
+        },
+    )
+    assert bad_res.status_code == 422
+
+    # 4. Delete flagged asset
+    del_res = client.delete('/api/assets/flagged/asset-xyz')
+    assert del_res.status_code == 200
+    assert del_res.json()['success'] is True
+
+    # 5. Delete non-existent asset -> 404
+    del_404 = client.delete('/api/assets/flagged/asset-xyz')
+    assert del_404.status_code == 404

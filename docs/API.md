@@ -32,7 +32,8 @@ Response:
 {
   "language": "EN",
   "score_max_points": 100,
-  "version": "2.0.0"
+  "immich_web_url": "https://immich.example.com",
+  "version": "2.5.0"
 }
 ```
 
@@ -372,6 +373,7 @@ Response Example:
 ```json
 {
   "round_number": 1,
+  "asset_id": "asset-uuid-101",
   "total_rounds": 10,
   "location_mode": true,
   "date_mode": true,
@@ -409,6 +411,63 @@ Response Example:
   "score_max_points": 100
 }
 ```
+
+---
+
+## Photo Issue Reporting
+
+### POST /api/assets/flag
+
+Flags an asset with coordinates, date, or other inconsistencies. When flagged, the asset is omitted from future match candidate pools (when `EXCLUDE_FLAGGED_ASSETS=true`).
+
+Request:
+
+```json
+{
+  "asset_id": "asset-uuid-101",
+  "flag_coordinates": true,
+  "flag_date": false,
+  "other": "GPS location is off by 15km"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "asset_id": "asset-uuid-101",
+  "flag_coordinates": true,
+  "flag_date": false,
+  "other": "GPS location is off by 15km",
+  "reported_at": "2026-08-29T18:00:00Z",
+  "immich_url": "https://immich.example.com/photos/asset-uuid-101"
+}
+```
+
+### GET /api/assets/flagged?limit={limit}
+
+Returns a list of all flagged assets with report timestamps and direct Immich Web URLs:
+
+Response:
+
+```json
+[
+  {
+    "id": 1,
+    "asset_id": "asset-uuid-101",
+    "flag_coordinates": true,
+    "flag_date": false,
+    "other": "GPS location is off by 15km",
+    "reported_at": "2026-08-29T18:00:00Z",
+    "immich_url": "https://immich.example.com/photos/asset-uuid-101"
+  }
+]
+```
+
+### DELETE /api/assets/flagged/{asset_id}
+
+Removes an asset from the flagged list, unblocking it for future matches. Returns `200` with `{"success": true}` or `404` if not found.
 
 ### GET /api/match/{match_id}/summary?lang={en|pt}
 
@@ -529,6 +588,79 @@ Response:
     }
   }
 ]
+```
+
+---
+
+## Flagged Asset Management
+
+### POST /api/assets/flag
+
+Reports an inconsistency (GPS/location, date/timestamp, or general issue) on an asset. Flagged assets are automatically excluded from future candidate selection when `EXCLUDE_FLAGGED_ASSETS=true`.
+
+Request:
+
+```json
+{
+  "asset_id": "asset-uuid-101",
+  "flag_coordinates": true,
+  "flag_date": false,
+  "other": "Location pinned in wrong town",
+  "reported_by": "Alice"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "asset_id": "asset-uuid-101",
+  "flag_coordinates": true,
+  "flag_date": false,
+  "other": "Location pinned in wrong town",
+  "reported_by": "Alice",
+  "reported_at": "2026-08-29T18:00:00Z",
+  "immich_url": "https://immich.example.com/photos/asset-uuid-101"
+}
+```
+
+### GET /api/assets/flagged
+
+Lists reported asset issues for administrative inspection.
+
+Query Parameters:
+
+* `limit`: Maximum number of records to return (1–1000, default `100`).
+
+Response:
+
+```json
+[
+  {
+    "id": 1,
+    "asset_id": "asset-uuid-101",
+    "flag_coordinates": true,
+    "flag_date": false,
+    "other": "Location pinned in wrong town",
+    "reported_by": "Alice",
+    "reported_at": "2026-08-29T18:00:00Z",
+    "immich_url": "https://immich.example.com/photos/asset-uuid-101"
+  }
+]
+```
+
+### DELETE /api/assets/flagged/{asset_id}
+
+Removes an asset from the flagged table, restoring its eligibility in matches.
+
+Response:
+
+```json
+{
+  "success": true,
+  "asset_id": "asset-uuid-101"
+}
 ```
 
 ---

@@ -603,11 +603,12 @@
 }
 
 .shuffle-card-meta {
-  flex: 1 1 170px;
-  min-width: 0;
+  width: 100%;
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   order: 1;
 }
 
@@ -625,6 +626,11 @@
   .shuffle-card-meta {
     order: 1;
     width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
   }
 
   .player-guess-row {

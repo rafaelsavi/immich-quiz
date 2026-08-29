@@ -1834,3 +1834,122 @@ def test_optimized_ownership_and_safeguards_query(meta_store: MetadataStore) -> 
 
     candidates = meta_store.fetch_candidate_assets(criteria)
     assert list(candidates.keys()) == ['a-ok']
+
+
+def test_flagged_assets_crud(meta_store: MetadataStore) -> None:
+    # Initially no flagged assets
+    assert meta_store.get_flagged_asset_ids() == set()
+    assert not meta_store.is_asset_flagged('asset-1')
+    assert meta_store.list_flagged_assets() == []
+
+    # Flag asset with coordinates and date issue and player name
+    res = meta_store.flag_asset(
+        'asset-1',
+        flag_coordinates=True,
+        flag_date=True,
+        other='Wrong pin location in ocean',
+        reported_by='Alice',
+    )
+    assert res['asset_id'] == 'asset-1'
+    assert res['flag_coordinates'] is True
+    assert res['flag_date'] is True
+    assert res['other'] == 'Wrong pin location in ocean'
+    assert res['reported_by'] == 'Alice'
+    assert res['reported_at'] is not None
+
+    assert meta_store.is_asset_flagged('asset-1')
+    assert meta_store.get_flagged_asset_ids() == {'asset-1'}
+
+    # Flag another asset without player
+    meta_store.flag_asset('asset-2', flag_coordinates=False, flag_date=True, other=None)
+    assert meta_store.get_flagged_asset_ids() == {'asset-1', 'asset-2'}
+
+    listed = meta_store.list_flagged_assets()
+    assert len(listed) == 2
+    ids = {r['asset_id'] for r in listed}
+    assert ids == {'asset-1', 'asset-2'}
+    record1 = next(r for r in listed if r['asset_id'] == 'asset-1')
+    assert record1['reported_by'] == 'Alice'
+    record2 = next(r for r in listed if r['asset_id'] == 'asset-2')
+    assert record2['reported_by'] is None
+
+    # Upsert existing asset flag
+    meta_store.flag_asset(
+        'asset-1',
+        flag_coordinates=True,
+        flag_date=False,
+        other='Updated description',
+        reported_by='Bob',
+    )
+    record = next(r for r in meta_store.list_flagged_assets() if r['asset_id'] == 'asset-1')
+    assert record['flag_coordinates'] is True
+    assert record['flag_date'] is False
+    assert record['other'] == 'Updated description'
+    assert record['reported_by'] == 'Bob'
+
+    # Unflag asset
+    assert meta_store.unflag_asset('asset-1') is True
+    assert not meta_store.is_asset_flagged('asset-1')
+    assert meta_store.get_flagged_asset_ids() == {'asset-2'}
+
+    # Unflag non-existent
+    assert meta_store.unflag_asset('non-existent') is False
+
+
+def test_exclude_flagged_assets_filtering(meta_store: MetadataStore) -> None:
+    assets = [
+        {
+            'id': 'asset-clean-1',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 48.8566,
+            'longitude': 2.3522,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2022-05-15T10:00:00',
+        },
+        {
+            'id': 'asset-flagged-bad-gps',
+            'is_shared': 0,
+            'is_partner': 0,
+            'file_type': 'IMAGE',
+            'latitude': 48.8566,
+            'longitude': 2.3522,
+            'country': 'France',
+            'city': 'Paris',
+            'capture_datetime': '2022-05-15T10:00:00',
+        },
+    ]
+    meta_store.upsert_assets_batch('family', assets, [], [])
+
+    # Flag the bad photo
+    meta_store.flag_asset('asset-flagged-bad-gps', flag_coordinates=True, other='Inaccurate GPS')
+
+    # Query with exclude_flagged=True (default)
+    criteria_excluded = AssetFilterCriteria(
+        library_names=('family',),
+        location_mode=True,
+        date_mode=True,
+        exclude_flagged=True,
+    )
+    counts_exc = meta_store.get_asset_counts(criteria_excluded)
+    assert counts_exc['eligible_count'] == 1
+    assert counts_exc['total_count'] == 1
+    assert meta_store.count_eligible_assets(criteria_excluded) == 1
+    candidates_exc = meta_store.fetch_candidate_assets(criteria_excluded)
+    assert list(candidates_exc.keys()) == ['asset-clean-1']
+
+    # Query with exclude_flagged=False
+    criteria_included = AssetFilterCriteria(
+        library_names=('family',),
+        location_mode=True,
+        date_mode=True,
+        exclude_flagged=False,
+    )
+    counts_inc = meta_store.get_asset_counts(criteria_included)
+    assert counts_inc['eligible_count'] == 2
+    assert counts_inc['total_count'] == 2
+    assert meta_store.count_eligible_assets(criteria_included) == 2
+    candidates_inc = meta_store.fetch_candidate_assets(criteria_included)
+    assert set(candidates_inc.keys()) == {'asset-clean-1', 'asset-flagged-bad-gps'}

@@ -515,6 +515,7 @@ class GameService:
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
+            asset_id=reference.asset_id,
             media_url=f'/api/media/{reference.asset_id}' if reference.asset_id else None,
             actual_latitude=reference.actual_latitude,
             actual_longitude=reference.actual_longitude,

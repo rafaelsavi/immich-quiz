@@ -124,4 +124,3 @@ async def test_multiplayer_podium_and_winner_resolution(page: Page) -> None:
 
     # First row is rank 1
     await expect(rows.nth(0)).to_contain_text('1')
-

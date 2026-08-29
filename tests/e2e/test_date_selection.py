@@ -131,4 +131,3 @@ async def test_countdown_timer_tick_and_timeout_zero_crossing(page: Page) -> Non
 
     # Next Round button is ready
     await expect(page.locator('#next-round')).to_be_visible()
-

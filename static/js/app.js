@@ -60,6 +60,7 @@ import {
 } from "./modules/screens/setup.js";
 import { loadQuestion, submitAnswer } from "./modules/screens/game.js";
 import { handleNextRound } from "./modules/screens/reveal.js";
+import { initReportModal, openReportModal } from "./modules/components/report_modal.js";
 import {
   showMatchSummaryByMatchId,
   showGameEndedCard,
@@ -273,6 +274,15 @@ bindClick(el.revealExitBtn, () => {
   handleAbandonGame("exit");
 });
 
+bindClick(el.revealReportBtn, () => {
+  const currentAssetId = state.lastReveal?.asset_id || state.currentQuestion?.asset_id;
+  const previewUrl = state.lastReveal?.media_url || state.currentQuestion?.media_url;
+  const playerName = state.currentQuestion?.player_name || (state.players && state.players[0]) || null;
+  if (currentAssetId) {
+    openReportModal(currentAssetId, previewUrl, playerName);
+  }
+});
+
 bindClick(el.refreshLeaderboard, () => {
   loadLeaderboard().catch((err) => showAlert(err.message || err));
 });
@@ -393,6 +403,9 @@ async function initUiConfig() {
 
 function applyUiConfig(config) {
   if (!config) return;
+  if (config.immich_web_url) {
+    state.immichWebUrl = config.immich_web_url;
+  }
   if (config.language && !localStorage.getItem("immich_quiz_lang")) {
     const lang = normalizeLanguage(config.language);
     localStorage.setItem("immich_quiz_lang", lang);
@@ -428,6 +441,7 @@ async function ensureLobbyInitialized() {
 setEnsureLobbyInitializedFn(ensureLobbyInitialized);
 
 (async function bootstrap() {
+  initReportModal();
   refreshActiveScreenLanguage();
   syncFullscreenButtons();
 

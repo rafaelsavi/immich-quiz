@@ -18,6 +18,7 @@ export async function showRoundReveal(roundNumber) {
   const existingIdx = state.roundHistory.findIndex((r) => r.round_number === reveal.round_number);
   const entry = {
     round_number: reveal.round_number,
+    asset_id: reveal.asset_id || (state.currentQuestion ? state.currentQuestion.asset_id : null),
     media_url: reveal.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null),
     actual_latitude: reveal.actual_latitude,
     actual_longitude: reveal.actual_longitude,

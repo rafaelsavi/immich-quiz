@@ -72,7 +72,8 @@ immich-quiz/
         ├── components/  Reusable UI components:
         │   ├── multi_select.js Searchable tag-based multi-select with select-all/clear.
         │   ├── range_slider.js Dual-handle Year-Month range slider.
-        │   └── player_input.js Interactive player chip input with duplicate detection & colors.
+        │   ├── player_input.js Interactive player chip input with duplicate detection & colors.
+        │   └── report_modal.js Photo issue reporting dialog with 3-field validation & Immich Web link.
         ├── modes/       Game mode strategy definitions & registry:
         │   ├── index.js     Mode registry and getActiveMode() strategy accessor.
         │   ├── pinpoint.js  Pinpoint single-photo mode strategy.
@@ -110,6 +111,7 @@ immich-quiz/
     │   ├── test_pinpoint_gameplay.py Pinpoint Leaflet pin placement, polyline, and reveal.
     │   ├── test_date_selection.py Timeline range slider and single year/month selection.
     │   ├── test_album_shuffle_gameplay.py Photo card reordering and multi-pin placement.
+    │   ├── test_report_issue.py Report Issue modal dialog, form validation, and submission.
     │   ├── test_routing_and_recovery.py Deep links, SPA routing, and reload recovery.
     │   └── test_summary_and_effects.py Score rollup animations and post-game awards.
     ├── test_api.py      FastAPI endpoint contracts and response validation.

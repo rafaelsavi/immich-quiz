@@ -843,3 +843,78 @@ def test_round_length_duration_seconds() -> None:
     assert RoundLength.minute_2.seconds == 120
     assert RoundLength.minute_5.seconds == 300
     assert RoundLength.unlimited.seconds is None
+
+
+def test_flag_asset_models_validation() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import FlagAssetRequest, FlagAssetResponse, FlaggedAssetItem
+
+    # Valid: only coordinates
+    req_coords = FlagAssetRequest(asset_id='a1', flag_coordinates=True)
+    assert req_coords.flag_coordinates is True
+    assert req_coords.flag_date is False
+    assert req_coords.other is None
+    assert req_coords.reported_by is None
+
+    # Valid: only date
+    req_date = FlagAssetRequest(asset_id='a2', flag_date=True, reported_by=' Alice ')
+    assert req_date.flag_date is True
+    assert req_date.reported_by == 'Alice'
+
+    # Valid: only other
+    req_other = FlagAssetRequest(asset_id='a3', other='Face tag incorrect', reported_by='Bob')
+    assert req_other.other == 'Face tag incorrect'
+    assert req_other.reported_by == 'Bob'
+
+    # Valid: all fields
+    req_all = FlagAssetRequest(
+        asset_id='a4',
+        flag_coordinates=True,
+        flag_date=True,
+        other='Both wrong',
+        reported_by='Charlie',
+    )
+    assert req_all.flag_coordinates is True
+    assert req_all.flag_date is True
+    assert req_all.other == 'Both wrong'
+    assert req_all.reported_by == 'Charlie'
+
+    # Invalid: no fields active
+    with pytest.raises(ValidationError, match='At least one issue'):
+        FlagAssetRequest(asset_id='a5', flag_coordinates=False, flag_date=False, other=None)
+
+    # Invalid: empty string other
+    with pytest.raises(ValidationError, match='At least one issue'):
+        FlagAssetRequest(asset_id='a6', flag_coordinates=False, flag_date=False, other='   ')
+
+    # FlagAssetResponse serialization
+    resp = FlagAssetResponse(
+        success=True,
+        asset_id='a1',
+        flag_coordinates=True,
+        flag_date=False,
+        other=None,
+        reported_by='Alice',
+        reported_at='2026-08-29T18:00:00Z',
+        immich_url='https://immich.test/photos/a1',
+    )
+    assert resp.success is True
+    assert resp.reported_by == 'Alice'
+    assert resp.immich_url == 'https://immich.test/photos/a1'
+
+    # FlaggedAssetItem serialization
+    item = FlaggedAssetItem(
+        id=1,
+        asset_id='a1',
+        flag_coordinates=True,
+        flag_date=False,
+        other=None,
+        reported_by='Alice',
+        reported_at='2026-08-29T18:00:00Z',
+        immich_url='https://immich.test/photos/a1',
+    )
+    assert item.id == 1
+    assert item.asset_id == 'a1'
+    assert item.reported_by == 'Alice'

@@ -219,6 +219,3 @@ async def test_in_game_navigation_guard_and_abandon_dialog(page: Page) -> None:
     # Returned to setup lobby
     await expect(page).to_have_url(re.compile(r'/$'))
     await expect(page.locator('#setup-card')).to_be_visible()
-
-
-
