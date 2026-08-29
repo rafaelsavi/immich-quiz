@@ -1642,7 +1642,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
 
 
 def test_flag_asset_endpoints(client: TestClient) -> None:
-    # 1. Post valid flag request
+    # 1. Post valid flag request with player name
     post_res = client.post(
         '/api/assets/flag',
         json={
@@ -1650,6 +1650,7 @@ def test_flag_asset_endpoints(client: TestClient) -> None:
             'flag_coordinates': True,
             'flag_date': False,
             'other': 'GPS pinned in ocean',
+            'reported_by': 'Alice',
         },
     )
     assert post_res.status_code == 200
@@ -1659,6 +1660,7 @@ def test_flag_asset_endpoints(client: TestClient) -> None:
     assert body['flag_coordinates'] is True
     assert body['flag_date'] is False
     assert body['other'] == 'GPS pinned in ocean'
+    assert body['reported_by'] == 'Alice'
     assert body['immich_url'] == 'https://placeholder.example.com/photos/asset-xyz'
     assert body['reported_at'] is not None
 
@@ -1669,6 +1671,7 @@ def test_flag_asset_endpoints(client: TestClient) -> None:
     assert len(flagged) >= 1
     item = next(f for f in flagged if f['asset_id'] == 'asset-xyz')
     assert item['flag_coordinates'] is True
+    assert item['reported_by'] == 'Alice'
     assert item['immich_url'] == 'https://placeholder.example.com/photos/asset-xyz'
 
     # 3. Invalid flag request (no issues specified)

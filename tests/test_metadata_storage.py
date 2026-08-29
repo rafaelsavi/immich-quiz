@@ -1842,23 +1842,25 @@ def test_flagged_assets_crud(meta_store: MetadataStore) -> None:
     assert not meta_store.is_asset_flagged('asset-1')
     assert meta_store.list_flagged_assets() == []
 
-    # Flag asset with coordinates and date issue
+    # Flag asset with coordinates and date issue and player name
     res = meta_store.flag_asset(
         'asset-1',
         flag_coordinates=True,
         flag_date=True,
         other='Wrong pin location in ocean',
+        reported_by='Alice',
     )
     assert res['asset_id'] == 'asset-1'
     assert res['flag_coordinates'] is True
     assert res['flag_date'] is True
     assert res['other'] == 'Wrong pin location in ocean'
+    assert res['reported_by'] == 'Alice'
     assert res['reported_at'] is not None
 
     assert meta_store.is_asset_flagged('asset-1')
     assert meta_store.get_flagged_asset_ids() == {'asset-1'}
 
-    # Flag another asset
+    # Flag another asset without player
     meta_store.flag_asset('asset-2', flag_coordinates=False, flag_date=True, other=None)
     assert meta_store.get_flagged_asset_ids() == {'asset-1', 'asset-2'}
 
@@ -1866,13 +1868,24 @@ def test_flagged_assets_crud(meta_store: MetadataStore) -> None:
     assert len(listed) == 2
     ids = {r['asset_id'] for r in listed}
     assert ids == {'asset-1', 'asset-2'}
+    record1 = next(r for r in listed if r['asset_id'] == 'asset-1')
+    assert record1['reported_by'] == 'Alice'
+    record2 = next(r for r in listed if r['asset_id'] == 'asset-2')
+    assert record2['reported_by'] is None
 
     # Upsert existing asset flag
-    meta_store.flag_asset('asset-1', flag_coordinates=True, flag_date=False, other='Updated description')
+    meta_store.flag_asset(
+        'asset-1',
+        flag_coordinates=True,
+        flag_date=False,
+        other='Updated description',
+        reported_by='Bob',
+    )
     record = next(r for r in meta_store.list_flagged_assets() if r['asset_id'] == 'asset-1')
     assert record['flag_coordinates'] is True
     assert record['flag_date'] is False
     assert record['other'] == 'Updated description'
+    assert record['reported_by'] == 'Bob'
 
     # Unflag asset
     assert meta_store.unflag_asset('asset-1') is True

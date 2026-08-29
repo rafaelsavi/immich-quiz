@@ -664,7 +664,8 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
     reportPhotoBtn.innerHTML = `<span aria-hidden="true">🚩</span>`;
     reportPhotoBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      openReportModal(item.photo_id, imgUrl);
+      const playerName = state.currentQuestion?.player_name || (state.players && state.players[0]) || null;
+      openReportModal(item.photo_id, imgUrl, playerName);
     });
     meta.appendChild(reportPhotoBtn);
 

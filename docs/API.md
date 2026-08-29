@@ -592,6 +592,79 @@ Response:
 
 ---
 
+## Flagged Asset Management
+
+### POST /api/assets/flag
+
+Reports an inconsistency (GPS/location, date/timestamp, or general issue) on an asset. Flagged assets are automatically excluded from future candidate selection when `EXCLUDE_FLAGGED_ASSETS=true`.
+
+Request:
+
+```json
+{
+  "asset_id": "asset-uuid-101",
+  "flag_coordinates": true,
+  "flag_date": false,
+  "other": "Location pinned in wrong town",
+  "reported_by": "Alice"
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "asset_id": "asset-uuid-101",
+  "flag_coordinates": true,
+  "flag_date": false,
+  "other": "Location pinned in wrong town",
+  "reported_by": "Alice",
+  "reported_at": "2026-08-29T18:00:00Z",
+  "immich_url": "https://immich.example.com/photos/asset-uuid-101"
+}
+```
+
+### GET /api/assets/flagged
+
+Lists reported asset issues for administrative inspection.
+
+Query Parameters:
+
+* `limit`: Maximum number of records to return (1–1000, default `100`).
+
+Response:
+
+```json
+[
+  {
+    "id": 1,
+    "asset_id": "asset-uuid-101",
+    "flag_coordinates": true,
+    "flag_date": false,
+    "other": "Location pinned in wrong town",
+    "reported_by": "Alice",
+    "reported_at": "2026-08-29T18:00:00Z",
+    "immich_url": "https://immich.example.com/photos/asset-uuid-101"
+  }
+]
+```
+
+### DELETE /api/assets/flagged/{asset_id}
+
+Removes an asset from the flagged table, restoring its eligibility in matches.
+
+Response:
+
+```json
+{
+  "success": true,
+  "asset_id": "asset-uuid-101"
+}
+```
+
+---
+
 ## Anti-Cheat Rules
 
 Question payloads never include answer fields:

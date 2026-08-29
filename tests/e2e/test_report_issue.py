@@ -70,8 +70,16 @@ async def test_report_issue_modal_flow(page: Page) -> None:
     other_input = page.locator('#report-flag-other')
     await other_input.fill('Photo location is off by 10km')
 
-    # 7. Submit report
-    await submit_report_btn.click()
+    # 7. Submit report and verify payload has reported_by
+    async with page.expect_request(lambda r: r.url.endswith('/api/assets/flag') and r.method == 'POST') as req_info:
+        await submit_report_btn.click()
+
+    req = await req_info.value
+    post_data = req.post_data_json
+    assert post_data is not None
+    assert post_data['flag_coordinates'] is True
+    assert post_data['other'] == 'Photo location is off by 10km'
+    assert post_data.get('reported_by') == 'Player 1'
 
     # Modal should close
     await expect(modal).to_be_hidden()

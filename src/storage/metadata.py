@@ -130,6 +130,7 @@ CREATE TABLE IF NOT EXISTS flagged_assets (
     flag_coordinates INTEGER NOT NULL DEFAULT 0,
     flag_date INTEGER NOT NULL DEFAULT 0,
     other TEXT,
+    reported_by TEXT,
     reported_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_flagged_assets_asset ON flagged_assets(asset_id);
@@ -220,6 +221,11 @@ class MetadataStore:
     def init_schema(self) -> None:
         """Initialize metadata database schema tables and indices."""
         self._db.execute_script(SCHEMA_SQL)
+        table_info = self._db.fetch_all('PRAGMA table_info(flagged_assets)')
+        columns = {r['name'] for r in table_info}
+        if 'reported_by' not in columns:
+            with self._db.connection() as conn:
+                conn.execute('ALTER TABLE flagged_assets ADD COLUMN reported_by TEXT')
 
     def has_synced_assets(self, libraries: list[str] | tuple[str, ...] | None = None) -> bool:
         """Check if any photo assets are indexed for the given libraries (or across all if None)."""
@@ -1342,6 +1348,7 @@ class MetadataStore:
         flag_coordinates: bool = False,
         flag_date: bool = False,
         other: str | None = None,
+        reported_by: str | None = None,
         reported_at: str | None = None,
     ) -> dict[str, Any]:
         """Record or update an issue report for an asset."""
@@ -1349,12 +1356,13 @@ class MetadataStore:
         with self._db.connection() as conn:
             conn.execute(
                 """
-                INSERT INTO flagged_assets (asset_id, flag_coordinates, flag_date, other, reported_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO flagged_assets (asset_id, flag_coordinates, flag_date, other, reported_by, reported_at)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(asset_id) DO UPDATE SET
                     flag_coordinates = excluded.flag_coordinates,
                     flag_date = excluded.flag_date,
                     other = excluded.other,
+                    reported_by = excluded.reported_by,
                     reported_at = excluded.reported_at
                 """,
                 (
@@ -1362,6 +1370,7 @@ class MetadataStore:
                     1 if flag_coordinates else 0,
                     1 if flag_date else 0,
                     other,
+                    reported_by,
                     ts,
                 ),
             )
@@ -1370,6 +1379,7 @@ class MetadataStore:
             'flag_coordinates': flag_coordinates,
             'flag_date': flag_date,
             'other': other,
+            'reported_by': reported_by,
             'reported_at': ts,
         }
 
@@ -1393,7 +1403,7 @@ class MetadataStore:
         """List flagged asset records."""
         rows = self._db.fetch_all(
             """
-            SELECT id, asset_id, flag_coordinates, flag_date, other, reported_at
+            SELECT id, asset_id, flag_coordinates, flag_date, other, reported_by, reported_at
             FROM flagged_assets
             ORDER BY reported_at DESC, id DESC
             LIMIT ?
@@ -1407,6 +1417,7 @@ class MetadataStore:
                 'flag_coordinates': bool(r['flag_coordinates']),
                 'flag_date': bool(r['flag_date']),
                 'other': str(r['other']) if r.get('other') is not None else None,
+                'reported_by': str(r['reported_by']) if r.get('reported_by') is not None else None,
                 'reported_at': str(r['reported_at']),
             }
             for r in rows

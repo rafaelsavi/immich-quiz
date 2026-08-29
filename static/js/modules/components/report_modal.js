@@ -9,6 +9,7 @@ import { t } from "../i18n.js";
 import { showShareToast } from "../summary/share.js";
 
 let _currentAssetId = null;
+let _currentPlayerName = null;
 let _modalEl = null;
 let _flagCoordsEl = null;
 let _flagDateEl = null;
@@ -65,12 +66,17 @@ function validateFormState() {
   _submitBtn.disabled = !isValid;
 }
 
-export function openReportModal(assetId, previewUrl = null) {
+export function openReportModal(assetId, previewUrl = null, playerName = null) {
   if (!assetId) {
     console.warn("openReportModal called without assetId");
     return;
   }
   _currentAssetId = assetId;
+  _currentPlayerName =
+    playerName ||
+    state.currentQuestion?.player_name ||
+    (state.players && state.players[0]) ||
+    null;
 
   if (!_modalEl) {
     initReportModal();
@@ -109,6 +115,7 @@ export function closeReportModal() {
   _modalEl.classList.add("hidden");
   _modalEl.setAttribute("aria-hidden", "true");
   _currentAssetId = null;
+  _currentPlayerName = null;
 }
 
 async function handleReportSubmit(e) {
@@ -133,6 +140,7 @@ async function handleReportSubmit(e) {
       flag_coordinates: flagCoords,
       flag_date: flagDate,
       other: otherText,
+      reported_by: _currentPlayerName,
     };
 
     await api("/api/assets/flag", {

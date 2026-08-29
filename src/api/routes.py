@@ -272,6 +272,7 @@ async def flag_asset(
         flag_coordinates=payload.flag_coordinates,
         flag_date=payload.flag_date,
         other=payload.other,
+        reported_by=payload.reported_by,
     )
     immich_web_url = request.app.state.settings.immich_server_url.removesuffix('/api')
     immich_url = f'{immich_web_url}/photos/{payload.asset_id}'
@@ -281,6 +282,7 @@ async def flag_asset(
         flag_coordinates=res['flag_coordinates'],
         flag_date=res['flag_date'],
         other=res['other'],
+        reported_by=res['reported_by'],
         reported_at=res['reported_at'],
         immich_url=immich_url,
     )
@@ -301,6 +303,7 @@ async def list_flagged_assets(
             flag_coordinates=r['flag_coordinates'],
             flag_date=r['flag_date'],
             other=r['other'],
+            reported_by=r['reported_by'],
             reported_at=r['reported_at'],
             immich_url=f"{immich_web_url}/photos/{r['asset_id']}",
         )

@@ -277,8 +277,9 @@ bindClick(el.revealExitBtn, () => {
 bindClick(el.revealReportBtn, () => {
   const currentAssetId = state.lastReveal?.asset_id || state.currentQuestion?.asset_id;
   const previewUrl = state.lastReveal?.media_url || state.currentQuestion?.media_url;
+  const playerName = state.currentQuestion?.player_name || (state.players && state.players[0]) || null;
   if (currentAssetId) {
-    openReportModal(currentAssetId, previewUrl);
+    openReportModal(currentAssetId, previewUrl, playerName);
   }
 });
 

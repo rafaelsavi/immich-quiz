@@ -834,6 +834,7 @@ class FlagAssetRequest(BaseModel):
     flag_coordinates: bool = False
     flag_date: bool = False
     other: str | None = Field(default=None, max_length=500)
+    reported_by: str | None = Field(default=None, max_length=100)
 
     @model_validator(mode='after')
     def validate_at_least_one_issue(self) -> FlagAssetRequest:
@@ -842,6 +843,8 @@ class FlagAssetRequest(BaseModel):
             raise ValueError('At least one issue (coordinates, date, or other description) must be specified.')
         if self.other is not None:
             self.other = self.other.strip() or None
+        if self.reported_by is not None:
+            self.reported_by = self.reported_by.strip() or None
         return self
 
 
@@ -855,6 +858,7 @@ class FlagAssetResponse(BaseModel):
     flag_coordinates: bool
     flag_date: bool
     other: str | None = None
+    reported_by: str | None = None
     reported_at: str
     immich_url: str
 
@@ -869,5 +873,6 @@ class FlaggedAssetItem(BaseModel):
     flag_coordinates: bool
     flag_date: bool
     other: str | None = None
+    reported_by: str | None = None
     reported_at: str
     immich_url: str
