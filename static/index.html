@@ -367,7 +367,13 @@
 
       <div id="reveal-ui" class="hidden">
         <div id="pinpoint-reveal-ui">
-          <div id="reveal-actual" class="reveal-actual"></div>
+          <div class="reveal-actual-row">
+            <div id="reveal-actual" class="reveal-actual"></div>
+            <button type="button" id="reveal-report-btn" class="btn-report-discrete" title="Report issue with photo" data-i18n-title="report.modal_title" aria-label="Report issue with photo">
+              <span aria-hidden="true">🚩</span>
+              <span class="report-discrete-text" data-i18n="report.btn_label">Report Issue</span>
+            </button>
+          </div>
           <div id="reveal-legend" class="reveal-legend"></div>
           <div class="field-head" id="reveal-map-head">
             <label data-i18n="reveal.map_label">Round Map</label>
@@ -479,6 +485,47 @@
       </div>
     </section>
 
+    <div id="report-issue-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="report-modal-title" aria-hidden="true">
+      <div class="modal-card report-modal-card">
+        <div class="modal-header">
+          <h3 id="report-modal-title" data-i18n="report.modal_title">Report Photo Issue</h3>
+          <button type="button" id="report-modal-close-btn" class="modal-close-btn" aria-label="Close" title="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="report-preview-row">
+            <img id="report-modal-thumb" class="report-thumb" src="" alt="Photo preview" />
+            <div class="report-preview-meta">
+              <a id="report-immich-link" class="btn-immich-link" href="#" target="_blank" rel="noopener noreferrer">
+                <span data-i18n="report.open_immich_btn">Open in Immich Web</span>
+                <span class="ext-icon" aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </div>
+
+          <div class="report-fields">
+            <label class="report-checkbox-label" for="report-flag-coordinates">
+              <input type="checkbox" id="report-flag-coordinates" />
+              <span class="report-checkbox-text" data-i18n="report.flag_coordinates">Inaccurate GPS / Map Location</span>
+            </label>
+
+            <label class="report-checkbox-label" for="report-flag-date">
+              <input type="checkbox" id="report-flag-date" />
+              <span class="report-checkbox-text" data-i18n="report.flag_date">Wrong Date / EXIF Timestamp</span>
+            </label>
+
+            <div class="form-group report-other-group">
+              <label for="report-flag-other" class="report-other-label" data-i18n="report.other_label">Other (optional notes or description)</label>
+              <textarea id="report-flag-other" class="report-textarea" rows="3" maxlength="500" placeholder="Describe any other issue with this photo..." data-i18n-placeholder="report.other_placeholder"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="report-cancel-btn" class="btn-secondary" data-i18n="report.cancel_btn">Cancel</button>
+          <button type="button" id="report-submit-btn" class="btn-primary" data-i18n="report.submit_btn" disabled>Submit Report</button>
+        </div>
+      </div>
+    </div>
+
     <footer class="app-footer">
       {{APP_VERSION_BADGE}}
     </footer>
@@ -486,7 +533,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
-  <script type="module" src="/static/js/app.js?v=2.4.1"></script>
+  <script type="module" src="/static/js/app.js?v=2.5.0"></script>
 </body>
 
 </html>

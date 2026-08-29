@@ -6,11 +6,11 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-- [ ] v2.5.0 **3. Report Map or Date Inconsistencies**
-  - [ ] Add "Report Issue" button and modal to the round reveal screen (flag bad GPS coordinates, wrong EXIF date, or face tag).
-  - [ ] Store flagged asset records in SQLite (`flagged_assets` table) tracking `asset_id`, `issue_type`, `reported_at`, and optional notes.
-  - [ ] Add "Exclude Flagged Photos" toggle in match setup filters to dynamically omit reported assets from candidate pools.
-  - [ ] Include direct Immich Web link (`https://<immich-url>/photos/{asset_id}`) in report modal/admin view for quick metadata fixing at the source.
+- [x] v2.5.0 **3. Report Map or Date Inconsistencies**
+  - [x] Add "Report Issue" button and modal to the round reveal screen (flag bad GPS coordinates, wrong EXIF date, or face tag).
+  - [x] Store flagged asset records in SQLite (`flagged_assets` table) tracking `asset_id`, `flag_coordinates`, `flag_date`, `other`, `reported_at`.
+  - [x] Add Layer 1 Server Safeguard (`EXCLUDE_FLAGGED_ASSETS=true`) in `.env` / `AppSettings` to dynamically omit reported assets from candidate pools.
+  - [x] Include direct Immich Web link (`https://<immich-url>/photos/{asset_id}`) in report modal for quick metadata fixing at the source.
 
 - [ ] v2.6.0 **4. Safety Against Attacks & Media Anti-Cheat**
   - [ ] Implement server-side EXIF/GPS tag stripping on proxied image endpoints (`/media/{asset_id}`) to prevent DevTools inspection cheating in multiplayer.

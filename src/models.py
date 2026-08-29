@@ -727,6 +727,7 @@ class RoundResultResponse(BaseModel):
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
+    asset_id: str | None = None
     media_url: str | None = None
     actual_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
     actual_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
@@ -817,3 +818,56 @@ class LeaderboardEntry(BaseModel):
     room_id: str | None = None
     room_name: str | None = None
     awards: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Asset Issue Reporting
+# ---------------------------------------------------------------------------
+
+
+class FlagAssetRequest(BaseModel):
+    """Payload to flag an asset with inaccurate metadata."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    asset_id: str = Field(min_length=1)
+    flag_coordinates: bool = False
+    flag_date: bool = False
+    other: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode='after')
+    def validate_at_least_one_issue(self) -> FlagAssetRequest:
+        has_other = bool(self.other and self.other.strip())
+        if not (self.flag_coordinates or self.flag_date or has_other):
+            raise ValueError('At least one issue (coordinates, date, or other description) must be specified.')
+        if self.other is not None:
+            self.other = self.other.strip() or None
+        return self
+
+
+class FlagAssetResponse(BaseModel):
+    """Response confirming flagged asset persistence."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    success: bool
+    asset_id: str
+    flag_coordinates: bool
+    flag_date: bool
+    other: str | None = None
+    reported_at: str
+    immich_url: str
+
+
+class FlaggedAssetItem(BaseModel):
+    """Flagged asset record for inspection and administrative management."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    id: int
+    asset_id: str
+    flag_coordinates: bool
+    flag_date: bool
+    other: str | None = None
+    reported_at: str
+    immich_url: str

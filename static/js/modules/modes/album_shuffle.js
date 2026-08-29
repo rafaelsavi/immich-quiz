@@ -5,6 +5,7 @@ import { renderGuessingModeSettings } from "./common.js";
 import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
 import { animateScoreRollup, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
 import { playChime } from "../audio.js";
+import { openReportModal } from "../components/report_modal.js";
 
 let shuffleMap = null;
 let revealShuffleMap = null;
@@ -655,6 +656,17 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
     dateTag.className = "shuffle-card-date-tag";
     dateTag.textContent = `📅 ${dateStr}`;
     meta.appendChild(dateTag);
+
+    const reportPhotoBtn = document.createElement("button");
+    reportPhotoBtn.type = "button";
+    reportPhotoBtn.className = "btn-report-photo-mini";
+    reportPhotoBtn.title = t("report.btn_label");
+    reportPhotoBtn.innerHTML = `<span aria-hidden="true">🚩</span>`;
+    reportPhotoBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openReportModal(item.photo_id, imgUrl);
+    });
+    meta.appendChild(reportPhotoBtn);
 
     top.append(meta, thumbWrap);
     card.appendChild(top);

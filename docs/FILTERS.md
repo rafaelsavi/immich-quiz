@@ -74,6 +74,7 @@ flowchart LR
 | **Cities** | `CITY_WHITELIST` / `CITY_BLACKLIST` prune options & baseline pool. | Player selects specific cities from multi-select dropdown. |
 | **People** | `PEOPLE_WHITELIST` / `PEOPLE_BLACKLIST` exclude unauthorized individuals. | Player selects specific people and matching mode (`ANY` vs `ALL`). |
 | **Tags** | `TAG_WHITELIST` (requires tag) / `TAG_BLACKLIST` (excludes tagged photos). | Applied at server level across all game queries. |
+| **Flagged Assets** | `EXCLUDE_FLAGGED_ASSETS=true` (default: `True`) automatically omits photos reported with GPS, date, or other inconsistencies. | Pruned at server level to maintain game integrity without user interference. |
 | **Ownership** | N/A | `include_shared` checkbox (`#include-shared-checkbox`) includes/excludes shared & partner assets. |
 
 ### 2.2 Compilation Bridge (`AssetFilterCriteria`)

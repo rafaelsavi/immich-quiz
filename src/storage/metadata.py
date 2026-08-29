@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 from src.app_logging import LOGGER_STORAGE, get_logger
@@ -123,6 +123,17 @@ CREATE TABLE IF NOT EXISTS asset_tags (
 );
 CREATE INDEX IF NOT EXISTS idx_asset_tags_tag ON asset_tags(library_name, tag_id);
 CREATE INDEX IF NOT EXISTS idx_asset_tags_asset_lib ON asset_tags(asset_id, library_name);
+
+CREATE TABLE IF NOT EXISTS flagged_assets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset_id TEXT NOT NULL,
+    flag_coordinates INTEGER NOT NULL DEFAULT 0,
+    flag_date INTEGER NOT NULL DEFAULT 0,
+    other TEXT,
+    reported_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_flagged_assets_asset ON flagged_assets(asset_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_flagged_assets_asset_unique ON flagged_assets(asset_id);
 """
 
 
@@ -149,6 +160,7 @@ class AssetFilterCriteria:
     people_blacklist: frozenset[str] = frozenset()
     tag_whitelist: frozenset[str] = frozenset()
     tag_blacklist: frozenset[str] = frozenset()
+    exclude_flagged: bool = True
 
     def __post_init__(self) -> None:
         if self.min_date is not None and self.max_date is not None and self.min_date > self.max_date:
@@ -194,6 +206,7 @@ class AssetFilterCriteria:
             people_blacklist=settings.people_blacklist if settings else frozenset(),
             tag_whitelist=settings.tag_whitelist if settings else frozenset(),
             tag_blacklist=settings.tag_blacklist if settings else frozenset(),
+            exclude_flagged=settings.exclude_flagged_assets if settings is not None else True,
         )
 
 
@@ -761,6 +774,14 @@ class MetadataStore:
             params.extend(t.lower() for t in criteria.tag_whitelist)
             params.extend(t.lower() for t in criteria.tag_whitelist)
 
+        # 12. Flagged assets exclusion safeguard
+        if criteria.exclude_flagged:
+            clauses.append(
+                'NOT EXISTS ('
+                'SELECT 1 FROM flagged_assets fa WHERE fa.asset_id = a.id'
+                ')'
+            )
+
         # -------------------------------------------------------------------
         # LAYER 2: User Match Setup Rules (Applied on top)
         # -------------------------------------------------------------------
@@ -1313,3 +1334,80 @@ class MetadataStore:
                     continue
             tags.append({'id': t_id, 'name': t_name})
         return tags
+
+    def flag_asset(
+        self,
+        asset_id: str,
+        *,
+        flag_coordinates: bool = False,
+        flag_date: bool = False,
+        other: str | None = None,
+        reported_at: str | None = None,
+    ) -> dict[str, Any]:
+        """Record or update an issue report for an asset."""
+        ts = reported_at or datetime.now(timezone.utc).isoformat()
+        with self._db.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO flagged_assets (asset_id, flag_coordinates, flag_date, other, reported_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(asset_id) DO UPDATE SET
+                    flag_coordinates = excluded.flag_coordinates,
+                    flag_date = excluded.flag_date,
+                    other = excluded.other,
+                    reported_at = excluded.reported_at
+                """,
+                (
+                    asset_id,
+                    1 if flag_coordinates else 0,
+                    1 if flag_date else 0,
+                    other,
+                    ts,
+                ),
+            )
+        return {
+            'asset_id': asset_id,
+            'flag_coordinates': flag_coordinates,
+            'flag_date': flag_date,
+            'other': other,
+            'reported_at': ts,
+        }
+
+    def unflag_asset(self, asset_id: str) -> bool:
+        """Remove an asset from flagged records."""
+        with self._db.connection() as conn:
+            cursor = conn.execute('DELETE FROM flagged_assets WHERE asset_id = ?', (asset_id,))
+            return cursor.rowcount > 0
+
+    def is_asset_flagged(self, asset_id: str) -> bool:
+        """Check if an asset is currently flagged."""
+        val = self._db.fetch_val('SELECT 1 FROM flagged_assets WHERE asset_id = ? LIMIT 1', (asset_id,))
+        return bool(val)
+
+    def get_flagged_asset_ids(self) -> set[str]:
+        """Fetch set of all currently flagged asset IDs."""
+        rows = self._db.fetch_all('SELECT asset_id FROM flagged_assets')
+        return {str(r['asset_id']) for r in rows if r.get('asset_id')}
+
+    def list_flagged_assets(self, limit: int = 100) -> list[dict[str, Any]]:
+        """List flagged asset records."""
+        rows = self._db.fetch_all(
+            """
+            SELECT id, asset_id, flag_coordinates, flag_date, other, reported_at
+            FROM flagged_assets
+            ORDER BY reported_at DESC, id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        )
+        return [
+            {
+                'id': int(r['id']),
+                'asset_id': str(r['asset_id']),
+                'flag_coordinates': bool(r['flag_coordinates']),
+                'flag_date': bool(r['flag_date']),
+                'other': str(r['other']) if r.get('other') is not None else None,
+                'reported_at': str(r['reported_at']),
+            }
+            for r in rows
+        ]

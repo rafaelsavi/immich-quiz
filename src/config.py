@@ -170,6 +170,7 @@ class AppSettings:
     people_blacklist: frozenset[str] = frozenset()
     tag_whitelist: frozenset[str] = frozenset()
     tag_blacklist: frozenset[str] = frozenset()
+    exclude_flagged_assets: bool = True
 
     # 5. Storage Paths & Sync Scheduling
     data_path: Path = Path('data')
@@ -328,6 +329,8 @@ def load_settings() -> AppSettings:
         kwargs['tag_whitelist'] = _parse_comma_set(val)
     if val := _get_env('TAG_BLACKLIST'):
         kwargs['tag_blacklist'] = _parse_comma_set(val)
+    if val := _get_env('EXCLUDE_FLAGGED_ASSETS', 'EXCLUDE_FLAGGED_PHOTOS'):
+        kwargs['exclude_flagged_assets'] = _parse_bool(val, 'EXCLUDE_FLAGGED_ASSETS')
 
     # Logging & Observability
     if val := _get_env('LOG_LEVEL'):
