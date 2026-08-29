@@ -1105,4 +1105,3 @@ def test_leaderboard_schema_migration_adds_missing_columns(tmp_path: Path) -> No
     assert summary is not None
     assert summary.round_history[0]['actual_city'] == 'Berlin'
     assert summary.round_history[0]['actual_country'] == 'Germany'
-

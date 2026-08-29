@@ -427,16 +427,19 @@ def test_exclude_flagged_assets_default(monkeypatch: pytest.MonkeyPatch) -> None
     assert settings.exclude_flagged_assets is True
 
 
-@pytest.mark.parametrize('raw, expected', [
-    ('false', False),
-    ('0', False),
-    ('no', False),
-    ('off', False),
-    ('true', True),
-    ('1', True),
-    ('yes', True),
-    ('on', True),
-])
+@pytest.mark.parametrize(
+    'raw, expected',
+    [
+        ('false', False),
+        ('0', False),
+        ('no', False),
+        ('off', False),
+        ('true', True),
+        ('1', True),
+        ('yes', True),
+        ('on', True),
+    ],
+)
 def test_exclude_flagged_assets_parsing(monkeypatch: pytest.MonkeyPatch, raw: str, expected: bool) -> None:
     monkeypatch.setenv('IMMICH_SERVER_URL', 'https://example.test/api')
     monkeypatch.setenv('IMMICH_LIBRARIES', '{"family": "token"}')

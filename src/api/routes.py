@@ -305,7 +305,7 @@ async def list_flagged_assets(
             other=r['other'],
             reported_by=r['reported_by'],
             reported_at=r['reported_at'],
-            immich_url=f"{immich_web_url}/photos/{r['asset_id']}",
+            immich_url=f'{immich_web_url}/photos/{r["asset_id"]}',
         )
         for r in records
     ]

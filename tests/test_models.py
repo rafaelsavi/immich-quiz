@@ -848,6 +848,7 @@ def test_round_length_duration_seconds() -> None:
 def test_flag_asset_models_validation() -> None:
     import pytest
     from pydantic import ValidationError
+
     from src.models import FlagAssetRequest, FlagAssetResponse, FlaggedAssetItem
 
     # Valid: only coordinates

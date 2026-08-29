@@ -782,11 +782,7 @@ class MetadataStore:
 
         # 12. Flagged assets exclusion safeguard
         if criteria.exclude_flagged:
-            clauses.append(
-                'NOT EXISTS ('
-                'SELECT 1 FROM flagged_assets fa WHERE fa.asset_id = a.id'
-                ')'
-            )
+            clauses.append('NOT EXISTS (SELECT 1 FROM flagged_assets fa WHERE fa.asset_id = a.id)')
 
         # -------------------------------------------------------------------
         # LAYER 2: User Match Setup Rules (Applied on top)
