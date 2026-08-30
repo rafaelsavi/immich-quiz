@@ -1,11 +1,13 @@
 import { el } from "../state.js";
 import { t } from "../i18n.js";
 
-export function renderAwards(summary, playerStats = {}) {
-  if (!el.summaryCard || !el.summaryWinner) return;
+export function renderAwards(summary, playerStats = {}, targetContainer = null, insertAfterEl = null) {
+  const container = targetContainer || el.summaryCard;
+  const referenceEl = insertAfterEl || (targetContainer ? targetContainer.querySelector(".summary-winner, .podium") || targetContainer.firstElementChild : el.summaryWinner);
+  if (!container || !referenceEl) return;
 
   // Remove any existing awards row
-  const existingAwards = el.summaryCard.querySelector(".awards-row");
+  const existingAwards = container.querySelector(".awards-row");
   if (existingAwards) existingAwards.remove();
 
   const awards = [];
@@ -125,6 +127,7 @@ export function renderAwards(summary, playerStats = {}) {
     row.appendChild(card);
   });
 
-  // Insert awards between summaryWinner and the table
-  el.summaryWinner.after(row);
+  // Insert awards after reference element
+  referenceEl.after(row);
 }
+

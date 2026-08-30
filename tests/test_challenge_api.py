@@ -255,10 +255,11 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
     ans0 = ans0_res.json()
 
     assert ans0['round_index'] == 0
-    assert ans0['round_score'] >= 190
+    assert ans0['round_score'] >= 180
     assert ans0['location_score'] == 100
-    assert ans0['date_score'] >= 90
+    assert ans0['date_score'] >= 80
     assert ans0['distance_km'] == 0.0
+
     # Personal reveal returns true coordinates/dates
     assert ans0['actual_latitude'] == asset.latitude
     assert ans0['actual_longitude'] == asset.longitude

@@ -26,8 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `GET /api/challenge/{capability_token}/leaderboard` for Fog-of-War filtered standings and opponent guesses.
   - Added `get_asset_answer(asset_id)` to `MetadataStore` in `src/storage/metadata.py` to query ground truth coordinates and capture timestamps for scoring.
   - Updated media proxy route in `src/api/routes.py` to authorize photo access for assets in active challenges via `ChallengeStore.is_asset_in_active_challenge`.
-  - Wired `ChallengeStore`, `ChallengeService`, and `challenge_router` into application lifecycle in `src/main.py`.
-  - Added automated test suite in `tests/test_challenge_api.py` covering all challenge endpoints, security constraints, scoring mechanics, and Fog of War visibility.
+- **Challenge Mode Frontend Experience & Social Intermission (Stage 1 Phase 3)**:
+  - Created `challenge.js` frontend controller module in `static/js/modules/challenge.js` managing full async/hybrid multiplayer lifecycle:
+    - Landing and player entry screen with capability URL validation and local session resume detection (`localStorage`).
+    - Round-by-round **Personal Reveal** after each answer, showing player's score, animated map distance line, and location details immediately before intermission.
+    - **Social Intermission Screen with 3-second polling** and animated Leaflet friend pin drops, live pulse indicator, and standings sidebar.
+    - **"Invite Friends" screen** after final round with 1-click URL copy, live finisher counter, and auto-transition to Grand Reveal at $\ge 2$ finishers.
+    - **Grand Reveal Summary Screen** featuring victory fanfare, confetti, podium, performance awards (🎯 Sniper, ⏳ Time Traveler, ⚡ Speed Demon), full standings table, and interactive round breakdown carousel with multi-pin scatter map and date guess comparison.
+    - Support for both **Pinpoint** and **Album Shuffle** game modes.
+  - Added dedicated modular styling in `static/css/components/challenge.css` with responsive mobile layout and dark glassmorphic cards.
+  - Integrated `RouteType.CHALLENGE` deep link handler (`/play/{token}`) in `static/js/app.js` and `static/js/modules/router.js`.
+  - Added comprehensive bilingual localization strings for challenge mode in `static/js/modules/locales/en_US.js` and `pt_BR.js`.
+
 
 ## [2.5.0] - 2026-08-29
 

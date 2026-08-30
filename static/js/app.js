@@ -66,8 +66,10 @@ import {
   showGameEndedCard,
   renderSummaryContent,
 } from "./modules/screens/summary.js";
+import { challenge } from "./modules/challenge.js";
 
 // Re-export / configure global mode accessor
+
 setGetActiveModeFn(getActiveMode);
 
 /* ----------------------------------------------------------------- router */
@@ -156,11 +158,10 @@ async function handleRoute(route) {
 
     case RouteType.CHALLENGE: {
       clearActiveMatchSession();
-      returnToSetup({ updateUrl: false });
-      showAlert(t("game_ended.challenge_notice"));
-      navigate("/", { replace: true, force: true });
+      await challenge.init(route.params.token);
       break;
     }
+
 
     case RouteType.UNKNOWN: {
       clearActiveMatchSession();

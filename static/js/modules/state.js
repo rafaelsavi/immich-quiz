@@ -86,6 +86,7 @@ export const el = {
   setupCard: document.getElementById("setup-card"),
   gameCard: document.getElementById("game-card"),
   summaryCard: document.getElementById("summary-card"),
+  challengeCard: document.getElementById("challenge-card"),
   leaderboardCard: document.getElementById("leaderboard-card"),
   guessingUi: document.getElementById("guessing-ui"),
   revealUi: document.getElementById("reveal-ui"),

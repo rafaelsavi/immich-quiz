@@ -1,8 +1,9 @@
 import { el } from "../state.js";
 import { t } from "../i18n.js";
 
-export function renderPodium(summary) {
-  if (!el.summaryWinner) return;
+export function renderPodium(summary, targetEl = null) {
+  const winnerEl = targetEl || el.summaryWinner;
+  if (!winnerEl) return;
 
   const isMultiplayer = summary.players && summary.players.length > 1;
 
@@ -13,10 +14,11 @@ export function renderPodium(summary) {
         ? t("summary.winner", summary.winners[0])
         : "";
 
-  el.summaryWinner.replaceChildren();
+  winnerEl.replaceChildren();
   const title = document.createElement("div");
   title.textContent = titleText;
-  el.summaryWinner.appendChild(title);
+  winnerEl.appendChild(title);
+
 
   // Do not render podium steps in single-player mode
   if (!isMultiplayer) {
@@ -54,5 +56,6 @@ export function renderPodium(summary) {
     podium.appendChild(step);
   });
 
-  el.summaryWinner.appendChild(podium);
+  winnerEl.appendChild(podium);
 }
+

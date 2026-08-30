@@ -17,11 +17,12 @@ export function clearRevealAnimation() {
 
 export function showCard(cardEl) {
   clearRevealAnimation();
-  [el.setupCard, el.gameCard, el.summaryCard, el.gameEndedCard].forEach((c) => {
+  [el.setupCard, el.gameCard, el.summaryCard, el.gameEndedCard, el.challengeCard].forEach((c) => {
     if (c) c.classList.add("hidden");
   });
   if (cardEl) cardEl.classList.remove("hidden");
 }
+
 
 export function resetGameUi() {
   clearRevealAnimation();
