@@ -239,7 +239,13 @@
           </div>
         </div>
 
-        <button type="submit" id="start-match-btn" class="btn-primary" data-i18n="setup.start_btn">Start Match</button>
+        <div class="setup-actions-group">
+          <button type="submit" id="start-match-btn" class="btn-primary" data-i18n="setup.start_btn">Start Match</button>
+          <button type="button" id="open-challenge-creator-btn" class="btn-secondary btn-challenge-creator">
+            <span class="btn-icon" aria-hidden="true">🌐</span>
+            <span data-i18n="admin.create_challenge_label">Create Challenge Link</span>
+          </button>
+        </div>
       </form>
     </section>
 
@@ -525,6 +531,162 @@
         <div class="modal-footer">
           <button type="button" id="report-cancel-btn" class="btn-secondary" data-i18n="report.cancel_btn">Cancel</button>
           <button type="button" id="report-submit-btn" class="btn-primary" data-i18n="report.submit_btn" disabled>Submit Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Challenge Creator & Management Modal -->
+    <div id="challenge-creator-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="challenge-modal-title" aria-hidden="true">
+      <div class="modal-card challenge-creator-card">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <span class="modal-title-icon" aria-hidden="true">🌐</span>
+            <h3 id="challenge-modal-title" data-i18n="admin.modal_title">Multiplayer Challenge Links</h3>
+          </div>
+          <button type="button" id="challenge-modal-close-btn" class="modal-close-btn" aria-label="Close" title="Close">&times;</button>
+        </div>
+
+        <div class="modal-tabs">
+          <button type="button" id="tab-create-challenge" class="modal-tab-btn active" data-tab="create">
+            <span data-i18n="admin.tab_create">Create Link</span>
+          </button>
+          <button type="button" id="tab-manage-challenges" class="modal-tab-btn" data-tab="manage">
+            <span data-i18n="admin.tab_manage">Active Challenges</span>
+            <span id="active-challenges-badge" class="tab-count-badge hidden">0</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Create Challenge Pane -->
+        <div id="pane-create-challenge" class="modal-body modal-pane">
+          <div id="challenge-form-view">
+            <div class="form-group">
+              <label for="challenge-title-input" data-i18n="admin.title_label">Challenge Title (Optional)</label>
+              <input type="text" id="challenge-title-input" class="text-input" placeholder="Auto-generated from filters..." data-i18n-placeholder="admin.title_placeholder" maxlength="100" />
+            </div>
+
+            <div class="form-group">
+              <label for="challenge-creator-name-input" data-i18n="admin.creator_name_label">Host / Creator Name</label>
+              <input type="text" id="challenge-creator-name-input" class="text-input" placeholder="Your name" data-i18n-placeholder="admin.creator_name_placeholder" maxlength="50" required />
+            </div>
+
+            <div class="form-group">
+              <label data-i18n="admin.game_mode_label">Game Mode</label>
+              <div class="challenge-mode-options" id="challenge-mode-options">
+                <button type="button" class="challenge-mode-btn active" data-mode="pinpoint" id="challenge-mode-pinpoint-btn">
+                  <div class="mode-btn-header">
+                    <span class="mode-emoji">📍</span>
+                    <strong data-i18n="mode.pinpoint">Pinpoint</strong>
+                  </div>
+                  <p class="mode-btn-desc" data-i18n="admin.pinpoint_desc">1 photo per round. Guess location and date.</p>
+                </button>
+                <button type="button" class="challenge-mode-btn" data-mode="album_shuffle" id="challenge-mode-shuffle-btn">
+                  <div class="mode-btn-header">
+                    <span class="mode-emoji">🔀</span>
+                    <strong data-i18n="mode.album_shuffle">Album Shuffle</strong>
+                  </div>
+                  <p class="mode-btn-desc" data-i18n="admin.shuffle_desc">3 photos per round. Match pins & order timeline.</p>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid-3 challenge-grid-3">
+              <div class="form-group">
+                <label for="challenge-round-count" data-i18n="setup.rounds_label">Rounds</label>
+                <select id="challenge-round-count" class="select-input">
+                  <option value="3">3</option>
+                  <option value="5" selected>5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="challenge-round-length" data-i18n="setup.round_length_label">Round Length</label>
+                <select id="challenge-round-length" class="select-input">
+                  <option value="30s" data-i18n="setup.round_30s">30s</option>
+                  <option value="1m" selected data-i18n="setup.round_1m">1 min</option>
+                  <option value="2m" data-i18n="setup.round_2m">2 min</option>
+                  <option value="5m" data-i18n="setup.round_5m">5 min</option>
+                  <option value="unlimited" data-i18n="setup.round_unlimited">Unlimited</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="challenge-expiration" data-i18n="admin.expiration_label">Expiration</label>
+                <select id="challenge-expiration" class="select-input">
+                  <option value="1h" data-i18n="admin.exp_1h">1 Hour</option>
+                  <option value="6h" data-i18n="admin.exp_6h">6 Hours</option>
+                  <option value="24h" selected data-i18n="admin.exp_24h">24 Hours (Default)</option>
+                  <option value="48h" data-i18n="admin.exp_48h">48 Hours</option>
+                  <option value="7d" data-i18n="admin.exp_7d">7 Days</option>
+                  <option value="never" data-i18n="admin.exp_never">Never (Persistent)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Active Filters Summary Readout -->
+            <div class="challenge-filter-scope-box">
+              <div class="scope-box-header">
+                <span class="scope-icon">🎯</span>
+                <span class="scope-title" data-i18n="admin.active_filters_heading">Active Photo Scope</span>
+              </div>
+              <p id="challenge-filters-summary-text" class="scope-summary-text">All media (Entire library)</p>
+              <div id="challenge-preflight-status" class="challenge-preflight-status">
+                <span class="preflight-spinner"></span>
+                <span class="preflight-text" data-i18n="admin.checking_photos">Checking photo pool...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Share Result View (shown after creation) -->
+          <div id="challenge-share-box" class="challenge-share-box hidden">
+            <div class="share-success-icon">🎉</div>
+            <h4 id="challenge-created-title" class="share-created-title">Challenge Ready to Share!</h4>
+            <p class="share-instructions" data-i18n="admin.share_instruction">Send this link to friends on Discord, WhatsApp, or group chat:</p>
+            
+            <div class="share-url-container">
+              <input type="text" id="challenge-created-url" class="share-url-input" readonly value="" />
+              <button type="button" id="challenge-copy-link-btn" class="btn-primary btn-copy-link">
+                <span class="btn-icon">📋</span>
+                <span class="copy-btn-text" data-i18n="challenge.copy_link">Copy Link</span>
+              </button>
+            </div>
+
+            <div class="share-meta-row">
+              <span id="challenge-created-exp-badge" class="share-meta-badge">⏳ Expires in 24h</span>
+              <span id="challenge-created-mode-badge" class="share-meta-badge">📍 5 Rounds Pinpoint</span>
+            </div>
+
+            <div class="share-actions-row">
+              <button type="button" id="challenge-create-another-btn" class="btn-secondary" data-i18n="admin.create_another_btn">Create Another</button>
+              <button type="button" id="challenge-open-link-btn" class="btn-primary" data-i18n="admin.play_now_btn">Play Now</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="pane-create-footer" class="modal-footer">
+          <button type="button" id="challenge-cancel-btn" class="btn-secondary" data-i18n="report.cancel_btn">Cancel</button>
+          <button type="button" id="challenge-generate-btn" class="btn-primary" data-i18n="admin.generate_btn">
+            <span class="btn-icon">✨</span>
+            <span data-i18n="admin.generate_label">Generate Challenge Link</span>
+          </button>
+        </div>
+
+        <!-- Tab 2: Manage Challenges Pane -->
+        <div id="pane-manage-challenges" class="modal-body modal-pane hidden">
+          <div class="manage-header-row">
+            <span class="manage-title" data-i18n="admin.active_challenges_title">Your Active Challenges</span>
+            <button type="button" id="refresh-active-challenges-btn" class="btn-secondary btn-mini" title="Refresh list">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+              </svg>
+              <span data-i18n="leaderboard.refresh_btn">Refresh</span>
+            </button>
+          </div>
+          <div id="active-challenges-list" class="active-challenges-list">
+            <!-- Populated dynamically by admin.js -->
+            <div class="challenges-loading" data-i18n="admin.loading_challenges">Loading challenges...</div>
+          </div>
         </div>
       </div>
     </div>

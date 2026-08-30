@@ -12,8 +12,11 @@ from src.models import (
     ChallengeAnswerResponse,
     ChallengeCreateRequest,
     ChallengeCreateResponse,
+    ChallengeDeactivateResponse,
     ChallengeDetailResponse,
     ChallengeLeaderboardResponse,
+    ChallengeListItem,
+    ChallengeListResponse,
     ChallengeQuestionResponse,
     ChallengeStartRequest,
     ChallengeStartResponse,
@@ -73,6 +76,70 @@ async def create_challenge(
         game_mode=GameMode(record.get('game_mode', 'pinpoint')),
         expires_at=record.get('expires_at'),
     )
+
+
+@challenge_router.get('/list', response_model=ChallengeListResponse)
+async def list_challenges(
+    request: Request,
+    limit: int = 50,
+    include_inactive: bool = True,
+    challenge_store: ChallengeStore = Depends(get_challenge_store),
+    leaderboard_store: LeaderboardStore = Depends(get_leaderboard_store),
+) -> ChallengeListResponse:
+    """List created challenges with metadata and participant counts for host management."""
+    base_url = str(request.base_url).rstrip('/')
+    records = await asyncio.to_thread(
+        challenge_store.list_challenges,
+        limit=limit,
+        include_inactive=include_inactive,
+    )
+
+    items: list[ChallengeListItem] = []
+    for rec in records:
+        config = rec.get('config', {})
+        game_mode = GameMode(config.get('game_mode', 'pinpoint'))
+        if game_mode == GameMode.album_shuffle:
+            rounds = len(config.get('round_batches', []))
+        else:
+            rounds = len(rec.get('asset_ids', []))
+
+        total_participants = leaderboard_store.get_challenge_participant_count(rec['challenge_id'])
+        play_url = f"{base_url}/play/{rec['capability_token']}"
+
+        items.append(
+            ChallengeListItem(
+                challenge_id=rec['challenge_id'],
+                capability_token=rec['capability_token'],
+                play_url=play_url,
+                title=rec.get('title'),
+                creator_name=rec['creator_name'],
+                game_mode=game_mode,
+                rounds=rounds,
+                round_length=RoundLength(config.get('round_length', '1m')),
+                created_at=rec['created_at'],
+                expires_at=rec.get('expires_at'),
+                is_active=rec['is_active'],
+                total_participants=total_participants,
+                filter_summary=config.get('filter_summary'),
+            )
+        )
+
+    return ChallengeListResponse(challenges=items)
+
+
+@challenge_router.post('/{challenge_id}/deactivate', response_model=ChallengeDeactivateResponse)
+async def deactivate_challenge(
+    challenge_id: str,
+    challenge_store: ChallengeStore = Depends(get_challenge_store),
+) -> ChallengeDeactivateResponse:
+    """Deactivate a challenge by its ID (host revocation)."""
+    success = await asyncio.to_thread(challenge_store.deactivate_challenge, challenge_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Challenge {challenge_id} not found or already inactive.',
+        )
+    return ChallengeDeactivateResponse(success=True, challenge_id=challenge_id)
 
 
 @challenge_router.get('/{capability_token}', response_model=ChallengeDetailResponse)

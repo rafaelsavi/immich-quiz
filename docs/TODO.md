@@ -6,20 +6,18 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-- [ ] v3.0.0 **4. Multiplayer Challenges (Async & Hybrid)**
-  - [ ] Implement challenge seed generator and storage (`src/storage/challenge.py`, `src/models.py`) with 128-bit unguessable capability tokens and customizable expiration windows (`1h`, `6h`, `24h`, `48h`, `7d`, `Never`).
-  - [ ] Implement server-side EXIF/GPS tag stripping on proxied image endpoints (`/media/{asset_id}`) to prevent DevTools inspection cheating in multiplayer.
-  - [ ] Add capability token authorization for media assets (verifying the requested asset belongs to an active match or valid challenge).
-  - [ ] Add server-enforced Fog of War on `/api/challenge/*` (strictly withholding opponent scores and pins for round $N$ until the player submits round $N$).
-  - [ ] Configure API rate limiting on match creation, guess submissions, and challenge polling endpoints.
-  - [ ] Build Challenge frontend experience (`static/js/modules/challenge.js`):
+- [x] v3.0.0 **4. Multiplayer Challenges (Async & Hybrid)**
+  - [x] Implement challenge seed generator and storage (`src/storage/challenge.py`, `src/models.py`) with 128-bit unguessable capability tokens and customizable expiration windows (`1h`, `6h`, `24h`, `48h`, `7d`, `Never`).
+  - [x] Implement server-side EXIF/GPS tag stripping on proxied image endpoints (`/media/{asset_id}`) to prevent DevTools inspection cheating in multiplayer.
+  - [x] Add capability token authorization for media assets (verifying the requested asset belongs to an active match or valid challenge).
+  - [x] Add server-enforced Fog of War on `/api/challenge/*` (strictly withholding opponent scores and pins for round $N$ until the player submits round $N$).
+  - [x] Build Challenge frontend experience (`static/js/modules/challenge.js`):
     - Capability URL landing screen (`/play/{token}`) with player entry.
     - 3-second polling intermission screen with Leaflet pin drop animations as friends finish rounds.
     - Grand reveal comparison screen with multi-player pin scatters, timeline comparisons, and podium.
-  - [ ] Add host challenge management modal (view active challenges, copy links, see completion count, cancel early).
-  - [ ] Document Cloudflare Zero Trust path protection rules (protecting `/admin*` and challenge creation via host email, bypassing `/play/*`).
-  - [ ] Implement periodic background cleanup task in FastAPI lifespan to auto-prune expired challenges.
-  - [ ] Specified in [`docs/next-milestones/online-multiplayer`](next-milestones/online-multiplayer/00_OVERVIEW.md).
+  - [x] Add host challenge management modal (`static/js/modules/admin.js`) with game mode selection, live preflight validation, 1-click URL sharing, and challenge deactivation.
+  - [x] Document Cloudflare Zero Trust path protection rules and Docker security hardening (`docker-compose.example.yml`).
+  - [x] Specified in [`docs/next-milestones/online-multiplayer`](next-milestones/online-multiplayer/00_OVERVIEW.md).
 
 - [ ] v3.1.0 **5. Admin Area & Reported Asset Moderation**
   - [ ] Build dedicated admin interface (`/admin` / `static/admin.html`) with authentication/Zero Trust protection.

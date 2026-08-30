@@ -257,3 +257,30 @@ class ChallengeStore:
                 (challenge_id,),
             )
             return cursor.rowcount > 0
+
+    def list_challenges(
+        self,
+        limit: int = 100,
+        include_inactive: bool = True,
+    ) -> list[dict[str, Any]]:
+        """List challenges ordered by creation time descending."""
+        where_clause = '' if include_inactive else 'WHERE is_active = 1'
+        rows = self._db.fetch_all(
+            f'SELECT * FROM challenges {where_clause} ORDER BY created_at DESC LIMIT ?',
+            (limit,),
+        )
+        results = []
+        for row in rows:
+            results.append({
+                'challenge_id': row['challenge_id'],
+                'capability_token': row['capability_token'],
+                'title': row['title'],
+                'creator_name': row['creator_name'],
+                'libraries': json.loads(row['libraries_json']) if row['libraries_json'] else [],
+                'config': json.loads(row['config_json']),
+                'asset_ids': json.loads(row['asset_ids_json']),
+                'created_at': row['created_at'],
+                'expires_at': row['expires_at'],
+                'is_active': bool(row['is_active']),
+            })
+        return results

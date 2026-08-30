@@ -354,8 +354,8 @@ class BaseGameConfig(GameFilterConfig, GameRulesConfig):
     def validate_game_config(self) -> BaseGameConfig:
         if self.min_date and self.max_date and self.min_date > self.max_date:
             raise ValueError('min_date cannot be greater than max_date')
-        if self.round_count not in {5, 10, 20}:
-            raise ValueError('round_count must be one of: 5, 10, 20')
+        if self.round_count not in {3, 5, 10, 20}:
+            raise ValueError('round_count must be one of: 3, 5, 10, 20')
         if not (self.location_mode or self.date_mode):
             raise ValueError('At least one mode must be enabled')
         return self
@@ -1096,4 +1096,41 @@ class ChallengeLeaderboardResponse(BaseModel):
     is_game_over: bool
     leaderboard: list[ChallengeLeaderboardEntry]
     round_guesses: list[ChallengeRoundGuessData]
+
+
+class ChallengeListItem(BaseModel):
+    """Summary of a created challenge for host management."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    challenge_id: str
+    capability_token: str
+    play_url: str
+    title: str | None = None
+    creator_name: str
+    game_mode: GameMode
+    rounds: int
+    round_length: RoundLength
+    created_at: datetime
+    expires_at: datetime | None = None
+    is_active: bool
+    total_participants: int = Field(default=0, ge=0)
+    filter_summary: str | None = None
+
+
+class ChallengeListResponse(BaseModel):
+    """Response containing list of created challenges."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    challenges: list[ChallengeListItem]
+
+
+class ChallengeDeactivateResponse(BaseModel):
+    """Response returned when a challenge is deactivated."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    success: bool
+    challenge_id: str
 

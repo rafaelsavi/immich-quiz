@@ -36,7 +36,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Support for both **Pinpoint** and **Album Shuffle** game modes.
   - Added dedicated modular styling in `static/css/components/challenge.css` with responsive mobile layout and dark glassmorphic cards.
   - Integrated `RouteType.CHALLENGE` deep link handler (`/play/{token}`) in `static/js/app.js` and `static/js/modules/router.js`.
-  - Added comprehensive bilingual localization strings for challenge mode in `static/js/modules/locales/en_US.js` and `pt_BR.js`.
+- **Challenge Mode Admin Creator UI & Security Hardening (Stage 1 Phase 4)**:
+  - Built `admin.js` frontend module in `static/js/modules/admin.js` providing the Challenge Creator & Management modal:
+    - Host creation controls with game mode selection (📍 Pinpoint vs 🔀 Album Shuffle), customizable expiration windows (`1h`, `6h`, `24h`, `48h`, `7d`, `never`), round counts (`3`, `5`, `10`, `20`), and round lengths (`30s`, `1m`, `2m`, `5m`, `unlimited`).
+    - Live preflight check validation (`POST /api/game/preflight`) calculating candidate asset count against requirements in real time.
+    - One-click "Copy Link" capability URL sharing with clipboard toast notifications.
+    - "Active Challenges" management tab for viewing active links, participant counts, creation/expiration dates, and revoking challenges via instant deactivation.
+  - Added backend challenge management routes in `src/api/challenge_routes.py`:
+    - `GET /api/challenge/list` for listing created challenges with participant totals.
+    - `POST /api/challenge/{challenge_id}/deactivate` for admin revocation of active challenge seeds.
+  - Hardened Docker Compose deployment (`docker-compose.example.yml`) with non-root user execution (`user: "1000:1000"`), isolated bridge network (`quiz-net`), and security best practice guidelines.
+  - Added bilingual localization for all `admin.*` keys across English (`en_US.js`) and Brazilian Portuguese (`pt_BR.js`).
 
 
 ## [2.5.0] - 2026-08-29

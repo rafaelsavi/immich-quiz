@@ -554,3 +554,63 @@ def test_challenge_expired_and_deactivated_returns_404(tmp_path: Path) -> None:
         == 404
     )
     assert client.get(f'/api/challenge/{token}/leaderboard').status_code == 404
+
+
+def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
+    immich = FakeImmichClient(_create_mock_assets(25))
+    client = build_client(tmp_path, immich)
+
+    # 1. Create two challenges (one pinpoint, one shuffle)
+    c1 = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Host1', 'title': 'First Challenge', 'game_mode': 'pinpoint', 'round_count': 5},
+    ).json()
+
+    c2 = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Host2', 'title': 'Shuffle Match', 'game_mode': 'album_shuffle', 'round_count': 3},
+    ).json()
+
+    # 2. Add player to c1 to test participant count
+    client.post(f"/api/challenge/{c1['capability_token']}/start", json={'player_name': 'PlayerA'})
+
+    # 3. Call GET /api/challenge/list
+    list_res = client.get('/api/challenge/list')
+    assert list_res.status_code == 200
+    data = list_res.json()
+    assert 'challenges' in data
+    challenges = data['challenges']
+    assert len(challenges) >= 2
+
+    # Check first item (c2 was created last so appears first)
+    c2_item = next(c for c in challenges if c['challenge_id'] == c2['challenge_id'])
+    assert c2_item['title'] == 'Shuffle Match'
+    assert c2_item['game_mode'] == 'album_shuffle'
+    assert c2_item['rounds'] == 3
+    assert c2_item['is_active'] is True
+    assert c2_item['total_participants'] == 0
+
+    c1_item = next(c for c in challenges if c['challenge_id'] == c1['challenge_id'])
+    assert c1_item['title'] == 'First Challenge'
+    assert c1_item['game_mode'] == 'pinpoint'
+    assert c1_item['rounds'] == 5
+    assert c1_item['total_participants'] == 1
+
+    # 4. Deactivate c1
+    deact_res = client.post(f"/api/challenge/{c1['challenge_id']}/deactivate")
+    assert deact_res.status_code == 200
+    assert deact_res.json()['success'] is True
+    assert deact_res.json()['challenge_id'] == c1['challenge_id']
+
+    # 5. Verify c1 is now inactive in list
+    list_res2 = client.get('/api/challenge/list')
+    challenges2 = list_res2.json()['challenges']
+    c1_updated = next(c for c in challenges2 if c['challenge_id'] == c1['challenge_id'])
+    assert c1_updated['is_active'] is False
+
+    # 6. Verify accessing c1 returns 404
+    assert client.get(f"/api/challenge/{c1['capability_token']}").status_code == 404
+
+    # 7. Deactivating non-existent challenge returns 404
+    bad_res = client.post('/api/challenge/non_existent_id/deactivate')
+    assert bad_res.status_code == 404

@@ -61,6 +61,7 @@ import {
 import { loadQuestion, submitAnswer } from "./modules/screens/game.js";
 import { handleNextRound } from "./modules/screens/reveal.js";
 import { initReportModal, openReportModal } from "./modules/components/report_modal.js";
+import { initAdminModal, openAdminModal } from "./modules/admin.js";
 import {
   showMatchSummaryByMatchId,
   showGameEndedCard,
@@ -443,6 +444,7 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
 
 (async function bootstrap() {
   initReportModal();
+  initAdminModal();
   refreshActiveScreenLanguage();
   syncFullscreenButtons();
 
