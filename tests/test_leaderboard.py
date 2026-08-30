@@ -22,6 +22,7 @@ def test_leaderboard_schema_initialization(tmp_path: Path) -> None:
     tables = db.fetch_all("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
     table_names = [t['name'] for t in tables]
     assert 'challenges' in table_names
+    assert 'challenge_sessions' in table_names
     assert 'matches' in table_names
     assert 'match_entries' in table_names
     assert 'match_round_guesses' in table_names

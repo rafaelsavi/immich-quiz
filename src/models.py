@@ -876,3 +876,224 @@ class FlaggedAssetItem(BaseModel):
     reported_by: str | None = None
     reported_at: str
     immich_url: str
+
+
+# ---------------------------------------------------------------------------
+# Challenge & Async Multiplayer Models
+# ---------------------------------------------------------------------------
+
+
+class ChallengeExpirationOption(str, Enum):
+    """Supported expiration presets for challenge links."""
+
+    ONE_HOUR = '1h'
+    SIX_HOURS = '6h'
+    TWENTY_FOUR_HOURS = '24h'
+    FORTY_EIGHT_HOURS = '48h'
+    SEVEN_DAYS = '7d'
+    NEVER = 'never'
+
+
+class ChallengeCreateRequest(BaseGameConfig):
+    """Payload for creating a deterministic challenge seed."""
+
+    creator_name: str = Field(min_length=1, max_length=50)
+    title: str | None = Field(default=None, max_length=100)
+    expires_in_hours: int | None = Field(default=24, ge=1, le=8760)  # None = Never
+
+
+class ChallengeCreateResponse(BaseModel):
+    """Response payload returned when a challenge is created."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    challenge_id: str
+    capability_token: str
+    play_url: str
+    title: str | None = None
+    creator_name: str
+    libraries: list[str] = Field(default_factory=list)
+    rounds: int
+    game_mode: GameMode = GameMode.pinpoint
+    expires_at: datetime | None = None
+
+
+class ChallengeDetailResponse(BaseModel):
+    """Public challenge landing page data (metadata, round count, filters)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    challenge_id: str
+    capability_token: str
+    title: str | None = None
+    creator_name: str
+    libraries: list[str] = Field(default_factory=list)
+    rounds: int
+    round_length: RoundLength
+    location_mode: bool
+    date_mode: bool
+    game_mode: GameMode
+    filter_summary: str | None = None
+    filter_tooltip: str | None = None
+    map_bounds: MapBounds | None = None
+    created_at: datetime
+    expires_at: datetime | None = None
+    total_participants: int = Field(default=0, ge=0)
+
+
+class ChallengeStartRequest(BaseModel):
+    """Player entry payload to start or resume a challenge attempt."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1, max_length=50)
+
+
+class ChallengeStartResponse(BaseModel):
+    """Player session initialization response."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    session_token: str
+    match_id: str
+    player_name: str
+    total_rounds: int
+    current_round: int
+    is_resumed: bool = False  # True if player is resuming an incomplete attempt
+
+
+class ChallengeQuestionResponse(BaseModel):
+    """Round question payload without answer coordinates/dates (server-enforced)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    round_index: int
+    total_rounds: int
+    asset_id: str
+    media_url: str
+    game_mode: GameMode
+    location_mode: bool
+    date_mode: bool
+    round_length: RoundLength
+    map_bounds: MapBounds | None = None
+    # Album Shuffle batch data (None for Pinpoint mode)
+    batch_photos: list[BatchPhotoItem] | None = None
+    batch_pins: list[BatchPinItem] | None = None
+
+
+class ChallengeAnswerRequest(BaseModel):
+    """Player guess submission for a challenge round.
+
+    Uses guessed_year/guessed_month (not a date string) to match AnswerRequest convention.
+    Supports both Pinpoint (lat/lng + year/month) and Album Shuffle (batch assignments).
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    round_index: int = Field(ge=0)
+    guessed_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
+    guessed_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+    guessed_year: int | None = Field(default=None, ge=1826, le=2200)
+    guessed_month: int | None = Field(default=None, ge=1, le=12)
+    album_shuffle_answers: list[AlbumShuffleAnswerItem] | None = None
+    time_taken_seconds: float = Field(ge=0.0)
+    timed_out: bool = False
+
+    @model_validator(mode='after')
+    def validate_answer_pairs(self) -> ChallengeAnswerRequest:
+        if self.album_shuffle_answers is None:
+            if (self.guessed_year is None) != (self.guessed_month is None):
+                raise ValueError('guessed_year and guessed_month must be provided together')
+            if (self.guessed_latitude is None) != (self.guessed_longitude is None):
+                raise ValueError('guessed_latitude and guessed_longitude must be provided together')
+        return self
+
+
+class ChallengeAnswerResponse(BaseModel):
+    """Round reveal data returned after submitting an answer (personal reveal)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    round_index: int
+    round_score: int
+    location_score: int | None = None
+    date_score: int | None = None
+    distance_km: float | None = None
+    date_diff_days: int | None = None
+    date_diff_months: int | None = None
+    actual_latitude: float | None = None
+    actual_longitude: float | None = None
+    actual_date: date | None = None
+    actual_year: int | None = None
+    actual_month: int | None = None
+    actual_city: str | None = None
+    actual_country: str | None = None
+    game_mode: GameMode
+    # Album Shuffle batch reveal (None for Pinpoint)
+    batch_reveal: list[BatchRevealItem] | None = None
+    is_game_over: bool
+    total_score: int  # Running total across all completed rounds
+    total_time_seconds: float
+
+
+class ChallengeRoundGuessData(BaseModel):
+    """Per-player round guess data returned in leaderboard (Fog of War filtered)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str
+    round_index: int
+    game_mode: GameMode
+    guessed_latitude: float | None = None
+    guessed_longitude: float | None = None
+    actual_latitude: float | None = None
+    actual_longitude: float | None = None
+    actual_city: str | None = None
+    actual_country: str | None = None
+    distance_km: float | None = None
+    location_points: int | None = None
+    guessed_year: int | None = None
+    guessed_month: int | None = None
+    actual_date: date | None = None
+    date_diff_days: int | None = None
+    date_points: int | None = None
+    round_score: int
+    time_taken_seconds: float
+    # Album Shuffle batch data
+    is_correct_location: bool | None = None
+    is_correct_date_order: bool | None = None
+
+
+class ChallengeLeaderboardEntry(BaseModel):
+    """Standings entry for a player in a challenge."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str
+    location_score: int | None = None
+    date_score: int | None = None
+    total_score: int
+    max_possible_score: int
+    accuracy_pct: float
+    rank: int
+    is_winner: bool
+    total_time_seconds: float
+    completed_rounds: int
+    is_finished: bool = False  # True if player has completed all rounds
+    awards: list[str] = Field(default_factory=list)
+
+
+class ChallengeLeaderboardResponse(BaseModel):
+    """Challenge leaderboard and Fog of War filtered round guesses."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    challenge_id: str
+    title: str | None = None
+    game_mode: GameMode
+    up_to_round: int
+    total_rounds: int
+    is_game_over: bool
+    leaderboard: list[ChallengeLeaderboardEntry]
+    round_guesses: list[ChallengeRoundGuessData]
+

@@ -11,6 +11,8 @@ from typing import Any
 from src.app_logging import LOGGER_STORAGE, get_logger
 from src.models import (
     BaseGameConfig,
+    ChallengeLeaderboardEntry,
+    ChallengeRoundGuessData,
     GameMode,
     GameSetupRequest,
     LeaderboardEntry,
@@ -117,6 +119,25 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     submitted_at       TEXT NOT NULL,
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
+
+-- 5. Challenge Player Sessions (Persistent across server restarts)
+CREATE TABLE IF NOT EXISTS challenge_sessions (
+    session_token      TEXT PRIMARY KEY,
+    match_id           TEXT NOT NULL,
+    challenge_id       TEXT NOT NULL,
+    player_name        TEXT NOT NULL,
+    current_round      INTEGER NOT NULL DEFAULT 0,
+    location_score     INTEGER NOT NULL DEFAULT 0,
+    date_score         INTEGER NOT NULL DEFAULT 0,
+    total_score        INTEGER NOT NULL DEFAULT 0,
+    total_time_seconds REAL NOT NULL DEFAULT 0.0,
+    started_at         TEXT NOT NULL,
+    completed_at       TEXT,                          -- ISO8601 UTC when all rounds finished
+    FOREIGN KEY(challenge_id) REFERENCES challenges(challenge_id) ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_challenge_sessions_unique_player
+    ON challenge_sessions(challenge_id, player_name);
 
 -- Indices for rapid querying and filtering
 CREATE INDEX IF NOT EXISTS idx_matches_played_at ON matches(played_at DESC);
@@ -760,3 +781,435 @@ class LeaderboardStore:
             is_custom_filtered=bool(match_row['is_custom_filtered']),
             round_history=round_history if round_history else None,
         )
+
+    def record_challenge_round_guess(
+        self,
+        *,
+        match_id: str,
+        challenge_id: str,
+        player_name: str,
+        round_index: int,
+        photo_index: int = 0,
+        game_mode: str = 'pinpoint',
+        asset_id: str,
+        guess_latitude: float | None = None,
+        guess_longitude: float | None = None,
+        actual_latitude: float | None = None,
+        actual_longitude: float | None = None,
+        actual_city: str | None = None,
+        actual_country: str | None = None,
+        distance_km: float | None = None,
+        location_points: int | None = None,
+        guess_date: str | None = None,
+        actual_date: str | None = None,
+        date_diff_days: int | None = None,
+        date_points: int | None = None,
+        round_score: int,
+        is_correct_location: int | None = None,
+        is_correct_date_order: int | None = None,
+        time_taken_seconds: float = 0.0,
+        submitted_at: str | None = None,
+    ) -> None:
+        """Persist a single player's guess for a challenge round."""
+        now_iso = submitted_at or datetime.now(timezone.utc).isoformat()
+        with self._db.connection() as conn:
+            # Ensure parent match row exists in matches table for foreign key integrity
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO matches (
+                    match_id, challenge_id, room_id, room_name, play_mode, played_at,
+                    libraries_json, game_mode,
+                    rounds, round_length, player_count, location_mode, date_mode,
+                    album_names_json, album_ids_json, person_ids_json, people_mode,
+                    countries_json, cities_json, min_date, max_date,
+                    include_shared, is_custom_filtered, filter_summary, duration_seconds
+                ) VALUES (
+                    ?, ?, NULL, NULL, 'challenge', ?, NULL, ?, 1, '1m', 1, 1, 1,
+                    NULL, NULL, NULL, 'ANY', NULL, NULL, NULL, NULL, 0, 0, NULL, NULL
+                )
+                """,
+                (
+                    match_id,
+                    challenge_id,
+                    now_iso,
+                    game_mode,
+                ),
+            )
+            conn.execute(
+                """
+                INSERT INTO match_round_guesses (
+                    match_id, player_name, round_index, photo_index,
+                    game_mode, asset_id, guess_latitude, guess_longitude,
+                    actual_latitude, actual_longitude, actual_city, actual_country,
+                    distance_km, location_points, guess_date, actual_date,
+                    date_diff_days, date_points, round_score,
+                    is_correct_location, is_correct_date_order,
+                    time_taken_seconds, submitted_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    match_id,
+                    player_name,
+                    round_index,
+                    photo_index,
+                    game_mode,
+                    asset_id,
+                    guess_latitude,
+                    guess_longitude,
+                    actual_latitude,
+                    actual_longitude,
+                    actual_city,
+                    actual_country,
+                    distance_km,
+                    location_points,
+                    guess_date,
+                    actual_date,
+                    date_diff_days,
+                    date_points,
+                    round_score,
+                    is_correct_location,
+                    is_correct_date_order,
+                    time_taken_seconds,
+                    now_iso,
+                ),
+            )
+
+    def finalize_challenge_player_match(
+        self,
+        *,
+        match_id: str,
+        challenge_id: str,
+        config: dict[str, Any],
+        player_name: str,
+        location_score: int | None = None,
+        date_score: int | None = None,
+        total_score: int,
+        total_rounds: int,
+        total_time_seconds: float = 0.0,
+        libraries: list[str] | None = None,
+    ) -> None:
+        """Record completed match and match_entry records when a player finishes all challenge rounds."""
+        played_at = datetime.now(timezone.utc).isoformat()
+        game_mode = config.get('game_mode', 'pinpoint')
+        location_mode = bool(config.get('location_mode', True))
+        date_mode = bool(config.get('date_mode', True))
+        round_length = config.get('round_length', '1m')
+
+        max_score = max_possible_score(
+            total_rounds,
+            location_mode,
+            date_mode,
+        )
+        acc_pct = accuracy_pct(total_score, max_score)
+
+        libraries_json = _canonicalize_filter_list(libraries or config.get('libraries'))
+        album_names_json = _canonicalize_filter_list(config.get('album_names'))
+        album_ids_json = _canonicalize_filter_list(config.get('albums'))
+        person_ids_json = _canonicalize_filter_list(config.get('people'))
+        countries_json = _canonicalize_filter_list(config.get('countries'))
+        cities_json = _canonicalize_filter_list(config.get('cities'))
+        people_mode = config.get('people_mode', 'ANY')
+        filter_summary = config.get('filter_summary')
+        is_custom = 1 if filter_summary and filter_summary != 'Full Library' else 0
+
+        with self._db.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO matches (
+                    match_id, challenge_id, room_id, room_name, play_mode, played_at,
+                    libraries_json, game_mode,
+                    rounds, round_length, player_count, location_mode, date_mode,
+                    album_names_json, album_ids_json, person_ids_json, people_mode,
+                    countries_json, cities_json, min_date, max_date,
+                    include_shared, is_custom_filtered, filter_summary, duration_seconds
+                ) VALUES (?, ?, NULL, NULL, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(match_id) DO UPDATE SET
+                    played_at=excluded.played_at,
+                    libraries_json=excluded.libraries_json,
+                    game_mode=excluded.game_mode,
+                    rounds=excluded.rounds,
+                    round_length=excluded.round_length,
+                    player_count=excluded.player_count,
+                    location_mode=excluded.location_mode,
+                    date_mode=excluded.date_mode,
+                    album_names_json=excluded.album_names_json,
+                    album_ids_json=excluded.album_ids_json,
+                    person_ids_json=excluded.person_ids_json,
+                    people_mode=excluded.people_mode,
+                    countries_json=excluded.countries_json,
+                    cities_json=excluded.cities_json,
+                    min_date=excluded.min_date,
+                    max_date=excluded.max_date,
+                    include_shared=excluded.include_shared,
+                    is_custom_filtered=excluded.is_custom_filtered,
+                    filter_summary=excluded.filter_summary,
+                    duration_seconds=excluded.duration_seconds
+                """,
+                (
+                    match_id,
+                    challenge_id,
+                    played_at,
+                    libraries_json,
+                    game_mode,
+                    total_rounds,
+                    round_length,
+                    1 if location_mode else 0,
+                    1 if date_mode else 0,
+                    album_names_json,
+                    album_ids_json,
+                    person_ids_json,
+                    people_mode,
+                    countries_json,
+                    cities_json,
+                    config.get('min_date'),
+                    config.get('max_date'),
+                    1 if config.get('include_shared') else 0,
+                    is_custom,
+                    filter_summary,
+                    total_time_seconds,
+                ),
+            )
+
+            conn.execute(
+                """
+                INSERT INTO match_entries (
+                    match_id, player_name, location_score, date_score,
+                    total_score, max_possible_score, accuracy_pct,
+                    rank, is_winner, total_time_seconds
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?)
+                """,
+                (
+                    match_id,
+                    player_name,
+                    location_score if location_mode else None,
+                    date_score if date_mode else None,
+                    total_score,
+                    max_score,
+                    acc_pct,
+                    total_time_seconds,
+                ),
+            )
+
+    def get_challenge_participant_count(self, challenge_id: str) -> int:
+        """Return the number of unique participants who have started or finished a challenge."""
+        row = self._db.fetch_one(
+            'SELECT COUNT(DISTINCT player_name) as count FROM challenge_sessions WHERE challenge_id = ?',
+            (challenge_id,),
+        )
+        return int(row['count']) if row else 0
+
+    def get_challenge_standings(
+        self,
+        challenge_id: str,
+        max_round: int | None = None,
+    ) -> list[ChallengeLeaderboardEntry]:
+        """Query and calculate player standings for a challenge under Fog of War.
+
+        If max_round is provided (>= 0), only guesses for round_index <= max_round are included.
+        If max_round is None, full completed session scores are returned.
+        """
+        ch_row = self._db.fetch_one('SELECT config_json FROM challenges WHERE challenge_id = ?', (challenge_id,))
+        if not ch_row:
+            return []
+
+        ch_config = json.loads(ch_row['config_json'])
+        total_rounds = int(ch_config.get('round_count', 10))
+        location_mode = bool(ch_config.get('location_mode', True))
+        date_mode = bool(ch_config.get('date_mode', True))
+
+        sessions = self._db.fetch_all(
+            'SELECT * FROM challenge_sessions WHERE challenge_id = ? ORDER BY started_at ASC',
+            (challenge_id,),
+        )
+        if not sessions:
+            return []
+
+        entries: list[dict[str, Any]] = []
+
+        for s in sessions:
+            p_name = s['player_name']
+            m_id = s['match_id']
+
+            if max_round is not None:
+                if max_round < 0:
+                    entries.append({
+                        'player_name': p_name,
+                        'location_score': 0 if location_mode else None,
+                        'date_score': 0 if date_mode else None,
+                        'total_score': 0,
+                        'max_possible_score': max_possible_score(total_rounds, location_mode, date_mode),
+                        'accuracy_pct': 0.0,
+                        'total_time_seconds': 0.0,
+                        'completed_rounds': 0,
+                        'is_finished': False,
+                    })
+                    continue
+
+                guess_rows = self._db.fetch_all(
+                    """
+                    SELECT round_index, location_points, date_points, round_score, time_taken_seconds
+                    FROM match_round_guesses
+                    WHERE match_id = ? AND player_name = ? AND round_index <= ?
+                    ORDER BY round_index ASC, photo_index ASC
+                    """,
+                    (m_id, p_name, max_round),
+                )
+
+                distinct_rounds = {r['round_index'] for r in guess_rows}
+                completed_r = len(distinct_rounds)
+
+                loc_pts = sum(r['location_points'] or 0 for r in guess_rows) if location_mode else None
+                dt_pts = sum(r['date_points'] or 0 for r in guess_rows) if date_mode else None
+                tot_score = sum(r['round_score'] for r in guess_rows)
+                tot_time = sum(r['time_taken_seconds'] or 0.0 for r in guess_rows)
+
+                max_score = max_possible_score(total_rounds, location_mode, date_mode)
+                acc = accuracy_pct(tot_score, max_score)
+                is_fin = bool(s.get('completed_at')) and completed_r >= total_rounds
+
+                entries.append({
+                    'player_name': p_name,
+                    'location_score': loc_pts,
+                    'date_score': dt_pts,
+                    'total_score': tot_score,
+                    'max_possible_score': max_score,
+                    'accuracy_pct': acc,
+                    'total_time_seconds': tot_time,
+                    'completed_rounds': completed_r,
+                    'is_finished': is_fin,
+                })
+            else:
+                max_score = max_possible_score(total_rounds, location_mode, date_mode)
+                tot_score = s['total_score']
+                acc = accuracy_pct(tot_score, max_score)
+                is_fin = bool(s.get('completed_at'))
+
+                entries.append({
+                    'player_name': p_name,
+                    'location_score': s['location_score'] if location_mode else None,
+                    'date_score': s['date_score'] if date_mode else None,
+                    'total_score': tot_score,
+                    'max_possible_score': max_score,
+                    'accuracy_pct': acc,
+                    'total_time_seconds': float(s['total_time_seconds']),
+                    'completed_rounds': int(s['current_round']),
+                    'is_finished': is_fin,
+                })
+
+        entries.sort(key=lambda x: (-x['total_score'], x['total_time_seconds'], x['player_name'].lower()))
+
+        best_score = entries[0]['total_score'] if entries else 0
+        ranked_entries: list[ChallengeLeaderboardEntry] = []
+
+        prev_total: int | None = None
+        prev_time: float | None = None
+        current_rank = 0
+
+        for idx, item in enumerate(entries):
+            tot = item['total_score']
+            t_sec = item['total_time_seconds']
+            if prev_total is None or tot != prev_total or t_sec != prev_time:
+                current_rank = idx + 1
+                prev_total = tot
+                prev_time = t_sec
+
+            is_win = (tot == best_score and tot > 0)
+
+            ranked_entries.append(
+                ChallengeLeaderboardEntry(
+                    player_name=item['player_name'],
+                    location_score=item['location_score'],
+                    date_score=item['date_score'],
+                    total_score=item['total_score'],
+                    max_possible_score=item['max_possible_score'],
+                    accuracy_pct=item['accuracy_pct'],
+                    rank=current_rank,
+                    is_winner=is_win,
+                    total_time_seconds=item['total_time_seconds'],
+                    completed_rounds=item['completed_rounds'],
+                    is_finished=item['is_finished'],
+                    awards=[],
+                )
+            )
+
+        return ranked_entries
+
+    def get_challenge_round_guesses(
+        self,
+        challenge_id: str,
+        max_round: int | None = None,
+    ) -> list[ChallengeRoundGuessData]:
+        """Query per-player round guesses for a challenge under Fog of War filtering."""
+        sessions = self._db.fetch_all(
+            'SELECT match_id, player_name FROM challenge_sessions WHERE challenge_id = ?',
+            (challenge_id,),
+        )
+        if not sessions:
+            return []
+
+        match_ids = [s['match_id'] for s in sessions]
+        placeholders = ', '.join(['?'] * len(match_ids))
+
+        sql = f"""
+        SELECT * FROM match_round_guesses
+        WHERE match_id IN ({placeholders})
+        """
+        params: list[Any] = list(match_ids)
+
+        if max_round is not None:
+            if max_round < 0:
+                return []
+            sql += ' AND round_index <= ?'
+            params.append(max_round)
+
+        sql += ' ORDER BY round_index ASC, photo_index ASC, player_name ASC'
+
+        rows = self._db.fetch_all(sql, params)
+        guesses: list[ChallengeRoundGuessData] = []
+
+        for row in rows:
+            act_date = _parse_iso_date(row.get('actual_date'))
+            guess_date_str = row.get('guess_date')
+            g_year: int | None = None
+            g_month: int | None = None
+            if guess_date_str:
+                parts = guess_date_str.split('-')
+                if len(parts) >= 2:
+                    with contextlib.suppress(Exception):
+                        g_year = int(parts[0])
+                        g_month = int(parts[1])
+
+            guesses.append(
+                ChallengeRoundGuessData(
+                    player_name=row['player_name'],
+                    round_index=int(row['round_index']),
+                    game_mode=GameMode(row.get('game_mode', 'pinpoint')),
+                    guessed_latitude=row.get('guess_latitude'),
+                    guessed_longitude=row.get('guess_longitude'),
+                    actual_latitude=row.get('actual_latitude'),
+                    actual_longitude=row.get('actual_longitude'),
+                    actual_city=row.get('actual_city'),
+                    actual_country=row.get('actual_country'),
+                    distance_km=row.get('distance_km'),
+                    location_points=row.get('location_points'),
+                    guessed_year=g_year,
+                    guessed_month=g_month,
+                    actual_date=act_date,
+                    date_diff_days=row.get('date_diff_days'),
+                    date_points=row.get('date_points'),
+                    round_score=int(row['round_score']),
+                    time_taken_seconds=float(row.get('time_taken_seconds') or 0.0),
+                    is_correct_location=(
+                        bool(row['is_correct_location'])
+                        if row.get('is_correct_location') is not None
+                        else None
+                    ),
+                    is_correct_date_order=(
+                        bool(row['is_correct_date_order'])
+                        if row.get('is_correct_date_order') is not None
+                        else None
+                    ),
+                )
+            )
+
+        return guesses

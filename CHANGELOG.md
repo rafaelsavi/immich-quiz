@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Challenge Mode Storage & Domain Models (Stage 1 Phase 1)**:
+  - Created `ChallengeStore` in `src/storage/challenge.py` for creating deterministic challenge match seeds, managing capability tokens, and tracking persistent player attempts.
+  - Added `challenge_sessions` table and unique constraint `UNIQUE(challenge_id, player_name)` to `LEADERBOARD_SCHEMA_SQL` in `src/storage/leaderboard.py` for persistent session resumption across server restarts.
+  - Implemented Fog of War query methods in `LeaderboardStore` (`get_challenge_standings`, `get_challenge_round_guesses`, `get_challenge_participant_count`, `record_challenge_round_guess`, `finalize_challenge_player_match`).
+  - Added challenge request and response Pydantic models in `src/models.py` (`ChallengeCreateRequest`, `ChallengeCreateResponse`, `ChallengeDetailResponse`, `ChallengeStartRequest`, `ChallengeStartResponse`, `ChallengeQuestionResponse`, `ChallengeAnswerRequest`, `ChallengeAnswerResponse`, `ChallengeLeaderboardEntry`, `ChallengeLeaderboardResponse`, `ChallengeRoundGuessData`).
+  - Created comprehensive test suite in `tests/test_challenge_storage.py`.
+
 ## [2.5.0] - 2026-08-29
 
 ### Added
