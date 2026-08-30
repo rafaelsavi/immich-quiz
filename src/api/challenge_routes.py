@@ -104,7 +104,7 @@ async def list_challenges(
             rounds = len(rec.get('asset_ids', []))
 
         total_participants = leaderboard_store.get_challenge_participant_count(rec['challenge_id'])
-        play_url = f"{base_url}/play/{rec['capability_token']}"
+        play_url = f'{base_url}/play/{rec["capability_token"]}'
 
         items.append(
             ChallengeListItem(

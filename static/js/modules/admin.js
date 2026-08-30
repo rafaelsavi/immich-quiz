@@ -513,9 +513,7 @@ export async function loadActiveChallenges() {
         statusBadge = `<span class="challenge-status-badge expired">${t("admin.status_expired")}</span>`;
       }
 
-      const participantText = ch.total_participants === 1
-        ? t("challenge.participants.one")
-        : t("challenge.participants.other", { count: ch.total_participants });
+      const participantText = t("challenge.participants", ch.total_participants);
 
       html += `
         <div class="active-challenge-card ${!ch.is_active ? "inactive" : ""}" data-id="${ch.challenge_id}">

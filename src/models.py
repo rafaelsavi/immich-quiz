@@ -1133,4 +1133,3 @@ class ChallengeDeactivateResponse(BaseModel):
 
     success: bool
     challenge_id: str
-

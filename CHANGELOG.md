@@ -48,6 +48,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hardened Docker Compose deployment (`docker-compose.example.yml`) with non-root user execution (`user: "1000:1000"`), isolated bridge network (`quiz-net`), and security best practice guidelines.
   - Added bilingual localization for all `admin.*` keys across English (`en_US.js`) and Brazilian Portuguese (`pt_BR.js`).
 
+### Fixed
+
+- **Challenge UI & Admin Localization**:
+  - Corrected plural translation lookup for `challenge.participants` in `static/js/modules/admin.js` to ensure participant counters render localized plural strings properly instead of raw key names.
+- **Intermission Standings Timing**:
+  - Deduplicated elapsed time calculations across multi-photo rounds in `LeaderboardStore.get_challenge_standings` to prevent Album Shuffle intermission Fog of War standings from tripling player time metrics.
+  - De-duplicated round iterations in `challenge.js` `buildPlayerStats` so Album Shuffle rounds increment the fast-round counter once per round index.
+- **Challenge API Bounds Validation**:
+  - Added boundary validation for `round_index` in `ChallengeService._score_pinpoint` to return HTTP 400 Bad Request instead of unhandled server index errors on invalid indices.
+
 
 ## [2.5.0] - 2026-08-29
 

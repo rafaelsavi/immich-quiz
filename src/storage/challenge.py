@@ -33,11 +33,7 @@ class ChallengeStore:
         challenge_id = f'ch_{uuid4().hex[:12]}'
         capability_token = secrets.token_urlsafe(16)
         created_at = datetime.now(timezone.utc)
-        expires_at = (
-            (created_at + timedelta(hours=expires_in_hours)).isoformat()
-            if expires_in_hours
-            else None
-        )
+        expires_at = (created_at + timedelta(hours=expires_in_hours)).isoformat() if expires_in_hours else None
 
         with self._db.connection() as conn:
             conn.execute(
@@ -271,16 +267,18 @@ class ChallengeStore:
         )
         results = []
         for row in rows:
-            results.append({
-                'challenge_id': row['challenge_id'],
-                'capability_token': row['capability_token'],
-                'title': row['title'],
-                'creator_name': row['creator_name'],
-                'libraries': json.loads(row['libraries_json']) if row['libraries_json'] else [],
-                'config': json.loads(row['config_json']),
-                'asset_ids': json.loads(row['asset_ids_json']),
-                'created_at': row['created_at'],
-                'expires_at': row['expires_at'],
-                'is_active': bool(row['is_active']),
-            })
+            results.append(
+                {
+                    'challenge_id': row['challenge_id'],
+                    'capability_token': row['capability_token'],
+                    'title': row['title'],
+                    'creator_name': row['creator_name'],
+                    'libraries': json.loads(row['libraries_json']) if row['libraries_json'] else [],
+                    'config': json.loads(row['config_json']),
+                    'asset_ids': json.loads(row['asset_ids_json']),
+                    'created_at': row['created_at'],
+                    'expires_at': row['expires_at'],
+                    'is_active': bool(row['is_active']),
+                }
+            )
         return results

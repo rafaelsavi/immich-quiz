@@ -1032,17 +1032,19 @@ class LeaderboardStore:
 
             if max_round is not None:
                 if max_round < 0:
-                    entries.append({
-                        'player_name': p_name,
-                        'location_score': 0 if location_mode else None,
-                        'date_score': 0 if date_mode else None,
-                        'total_score': 0,
-                        'max_possible_score': max_possible_score(total_rounds, location_mode, date_mode),
-                        'accuracy_pct': 0.0,
-                        'total_time_seconds': 0.0,
-                        'completed_rounds': 0,
-                        'is_finished': False,
-                    })
+                    entries.append(
+                        {
+                            'player_name': p_name,
+                            'location_score': 0 if location_mode else None,
+                            'date_score': 0 if date_mode else None,
+                            'total_score': 0,
+                            'max_possible_score': max_possible_score(total_rounds, location_mode, date_mode),
+                            'accuracy_pct': 0.0,
+                            'total_time_seconds': 0.0,
+                            'completed_rounds': 0,
+                            'is_finished': False,
+                        }
+                    )
                     continue
 
                 guess_rows = self._db.fetch_all(
@@ -1061,40 +1063,49 @@ class LeaderboardStore:
                 loc_pts = sum(r['location_points'] or 0 for r in guess_rows) if location_mode else None
                 dt_pts = sum(r['date_points'] or 0 for r in guess_rows) if date_mode else None
                 tot_score = sum(r['round_score'] for r in guess_rows)
-                tot_time = sum(r['time_taken_seconds'] or 0.0 for r in guess_rows)
+                round_times: dict[int, float] = {}
+                for r in guess_rows:
+                    r_idx = r['round_index']
+                    if r_idx not in round_times:
+                        round_times[r_idx] = r['time_taken_seconds'] or 0.0
+                tot_time = sum(round_times.values())
 
                 max_score = max_possible_score(total_rounds, location_mode, date_mode)
                 acc = accuracy_pct(tot_score, max_score)
                 is_fin = bool(s.get('completed_at')) and completed_r >= total_rounds
 
-                entries.append({
-                    'player_name': p_name,
-                    'location_score': loc_pts,
-                    'date_score': dt_pts,
-                    'total_score': tot_score,
-                    'max_possible_score': max_score,
-                    'accuracy_pct': acc,
-                    'total_time_seconds': tot_time,
-                    'completed_rounds': completed_r,
-                    'is_finished': is_fin,
-                })
+                entries.append(
+                    {
+                        'player_name': p_name,
+                        'location_score': loc_pts,
+                        'date_score': dt_pts,
+                        'total_score': tot_score,
+                        'max_possible_score': max_score,
+                        'accuracy_pct': acc,
+                        'total_time_seconds': tot_time,
+                        'completed_rounds': completed_r,
+                        'is_finished': is_fin,
+                    }
+                )
             else:
                 max_score = max_possible_score(total_rounds, location_mode, date_mode)
                 tot_score = s['total_score']
                 acc = accuracy_pct(tot_score, max_score)
                 is_fin = bool(s.get('completed_at'))
 
-                entries.append({
-                    'player_name': p_name,
-                    'location_score': s['location_score'] if location_mode else None,
-                    'date_score': s['date_score'] if date_mode else None,
-                    'total_score': tot_score,
-                    'max_possible_score': max_score,
-                    'accuracy_pct': acc,
-                    'total_time_seconds': float(s['total_time_seconds']),
-                    'completed_rounds': int(s['current_round']),
-                    'is_finished': is_fin,
-                })
+                entries.append(
+                    {
+                        'player_name': p_name,
+                        'location_score': s['location_score'] if location_mode else None,
+                        'date_score': s['date_score'] if date_mode else None,
+                        'total_score': tot_score,
+                        'max_possible_score': max_score,
+                        'accuracy_pct': acc,
+                        'total_time_seconds': float(s['total_time_seconds']),
+                        'completed_rounds': int(s['current_round']),
+                        'is_finished': is_fin,
+                    }
+                )
 
         entries.sort(key=lambda x: (-x['total_score'], x['total_time_seconds'], x['player_name'].lower()))
 
@@ -1113,7 +1124,7 @@ class LeaderboardStore:
                 prev_total = tot
                 prev_time = t_sec
 
-            is_win = (tot == best_score and tot > 0)
+            is_win = tot == best_score and tot > 0
 
             ranked_entries.append(
                 ChallengeLeaderboardEntry(
@@ -1200,14 +1211,10 @@ class LeaderboardStore:
                     round_score=int(row['round_score']),
                     time_taken_seconds=float(row.get('time_taken_seconds') or 0.0),
                     is_correct_location=(
-                        bool(row['is_correct_location'])
-                        if row.get('is_correct_location') is not None
-                        else None
+                        bool(row['is_correct_location']) if row.get('is_correct_location') is not None else None
                     ),
                     is_correct_date_order=(
-                        bool(row['is_correct_date_order'])
-                        if row.get('is_correct_date_order') is not None
-                        else None
+                        bool(row['is_correct_date_order']) if row.get('is_correct_date_order') is not None else None
                     ),
                 )
             )

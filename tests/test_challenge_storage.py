@@ -428,3 +428,52 @@ def test_challenge_models_validation() -> None:
     # 3. Expiration Enum
     assert ChallengeExpirationOption.TWENTY_FOUR_HOURS.value == '24h'
     assert ChallengeExpirationOption.NEVER.value == 'never'
+
+
+def test_challenge_album_shuffle_standings_time_calculation(tmp_path: Path) -> None:
+    """Verify that get_challenge_standings calculates total elapsed time accurately without multiplying by photos."""
+    db_path = tmp_path / 'leaderboard.db'
+    db = DatabaseManager(db_path)
+    leaderboard_store = LeaderboardStore(db)
+    challenge_store = ChallengeStore(db)
+
+    config = {
+        'game_mode': 'album_shuffle',
+        'round_count': 2,
+        'round_length': '1m',
+        'location_mode': True,
+        'date_mode': True,
+    }
+
+    ch = challenge_store.create_challenge(
+        creator_name='Host',
+        libraries=None,
+        config=config,
+        asset_ids=['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+    )
+    ch_id = ch['challenge_id']
+
+    session = challenge_store.get_or_resume_player_session(ch_id, 'Player1')
+
+    # Record 3 photos for round 0, each taking 12.0 seconds for the round turn
+    for photo_idx, pid in enumerate(['p1', 'p2', 'p3']):
+        leaderboard_store.record_challenge_round_guess(
+            match_id=session['match_id'],
+            challenge_id=ch_id,
+            player_name='Player1',
+            round_index=0,
+            photo_index=photo_idx,
+            game_mode='album_shuffle',
+            asset_id=pid,
+            round_score=33,
+            location_points=16,
+            date_points=17,
+            time_taken_seconds=12.0,
+        )
+
+    # Standings at round 0 must report 12.0s, NOT 36.0s (3 * 12.0)
+    standings = leaderboard_store.get_challenge_standings(ch_id, max_round=0)
+    assert len(standings) == 1
+    assert standings[0].total_time_seconds == pytest.approx(12.0)
+    assert standings[0].total_score == 99
+    assert standings[0].completed_rounds == 1

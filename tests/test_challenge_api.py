@@ -20,7 +20,7 @@ def _create_mock_assets(count: int = 25) -> list[dict]:
         month = 1 + (i % 12)
         assets.append(
             make_asset(
-                f'photo-{i+1}',
+                f'photo-{i + 1}',
                 latitude=lat,
                 longitude=lng,
                 captured=f'{year:04d}-{month:02d}-15T12:00:00Z',
@@ -50,7 +50,7 @@ def test_challenge_create_pinpoint(tmp_path: Path) -> None:
 
     assert data['challenge_id'].startswith('ch_')
     assert len(data['capability_token']) > 10
-    assert data['play_url'].endswith(f"/play/{data['capability_token']}")
+    assert data['play_url'].endswith(f'/play/{data["capability_token"]}')
     assert data['title'] == 'Test Pinpoint Challenge'
     assert data['creator_name'] == 'Rafael'
     assert data['rounds'] == 5
@@ -572,7 +572,7 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     ).json()
 
     # 2. Add player to c1 to test participant count
-    client.post(f"/api/challenge/{c1['capability_token']}/start", json={'player_name': 'PlayerA'})
+    client.post(f'/api/challenge/{c1["capability_token"]}/start', json={'player_name': 'PlayerA'})
 
     # 3. Call GET /api/challenge/list
     list_res = client.get('/api/challenge/list')
@@ -597,7 +597,7 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     assert c1_item['total_participants'] == 1
 
     # 4. Deactivate c1
-    deact_res = client.post(f"/api/challenge/{c1['challenge_id']}/deactivate")
+    deact_res = client.post(f'/api/challenge/{c1["challenge_id"]}/deactivate')
     assert deact_res.status_code == 200
     assert deact_res.json()['success'] is True
     assert deact_res.json()['challenge_id'] == c1['challenge_id']
@@ -609,8 +609,46 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     assert c1_updated['is_active'] is False
 
     # 6. Verify accessing c1 returns 404
-    assert client.get(f"/api/challenge/{c1['capability_token']}").status_code == 404
+    assert client.get(f'/api/challenge/{c1["capability_token"]}').status_code == 404
 
     # 7. Deactivating non-existent challenge returns 404
     bad_res = client.post('/api/challenge/non_existent_id/deactivate')
     assert bad_res.status_code == 404
+
+
+def test_challenge_answer_invalid_round_index_returns_400(tmp_path: Path) -> None:
+    immich = FakeImmichClient(_create_mock_assets(25))
+    client = build_client(tmp_path, immich)
+
+    # Create 3-round pinpoint challenge
+    create_res = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Host', 'game_mode': 'pinpoint', 'round_count': 3},
+    )
+    token = create_res.json()['capability_token']
+
+    # Start player
+    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Tester'})
+    p_token = start_res.json()['session_token']
+
+    # Question for round 99 returns 400
+    q_res = client.get(
+        f'/api/challenge/{token}/question/99',
+        headers={'X-Player-Token': p_token},
+    )
+    assert q_res.status_code == 400
+
+    # Answer for round 99 returns 400
+    ans_res = client.post(
+        f'/api/challenge/{token}/answer',
+        headers={'X-Player-Token': p_token},
+        json={
+            'round_index': 99,
+            'guessed_latitude': 10.0,
+            'guessed_longitude': 20.0,
+            'guessed_year': 2022,
+            'guessed_month': 5,
+            'time_taken_seconds': 5.0,
+        },
+    )
+    assert ans_res.status_code == 400

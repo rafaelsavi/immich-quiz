@@ -144,10 +144,7 @@ class ChallengeService:
 
         # Album Shuffle: pre-assign batch groupings and randomized pins
         if game_mode == GameMode.album_shuffle:
-            round_batches = [
-                list(range(i * batch_size, (i + 1) * batch_size))
-                for i in range(setup.round_count)
-            ]
+            round_batches = [list(range(i * batch_size, (i + 1) * batch_size)) for i in range(setup.round_count)]
             config['batch_size'] = batch_size
             config['round_batches'] = round_batches
             # Pre-generate pins for each round batch
@@ -326,6 +323,9 @@ class ChallengeService:
         date_decay_days: float | None,
     ) -> ChallengeAnswerResponse:
         """Score a Pinpoint round using the same exponential decay as local mode."""
+        if body.round_index < 0 or body.round_index >= len(asset_ids):
+            raise HTTPException(status_code=400, detail='Invalid round index for pinpoint.')
+
         target_asset_id = asset_ids[body.round_index]
         asset = self.metadata_store.get_asset_answer(target_asset_id)
         if not asset:
@@ -367,8 +367,7 @@ class ChallengeService:
             actual_mid = date(asset.capture_date.year, asset.capture_date.month, 15)
             date_diff = abs((guess_date - actual_mid).days)
             date_diff_months = abs(
-                (body.guessed_year - asset.capture_date.year) * 12
-                + (body.guessed_month - asset.capture_date.month)
+                (body.guessed_year - asset.capture_date.year) * 12 + (body.guessed_month - asset.capture_date.month)
             )
             date_points = round(SCORE_MAX_POINTS * math.exp(-date_diff / date_decay_days))
 
@@ -528,14 +527,10 @@ class ChallengeService:
             assigned_pin = pin_by_id.get(assigned_pin_id) if assigned_pin_id else None
 
             guess_lat = (
-                float(assigned_pin['latitude'])
-                if assigned_pin and assigned_pin.get('latitude') is not None
-                else None
+                float(assigned_pin['latitude']) if assigned_pin and assigned_pin.get('latitude') is not None else None
             )
             guess_lng = (
-                float(assigned_pin['longitude'])
-                if assigned_pin and assigned_pin.get('longitude') is not None
-                else None
+                float(assigned_pin['longitude']) if assigned_pin and assigned_pin.get('longitude') is not None else None
             )
 
             dist_km: float | None = None
@@ -570,9 +565,7 @@ class ChallengeService:
                     d_days = abs((p_date - target_date).days)
                     diff_days = d_days
                     is_correct_date: int | None = (
-                        1
-                        if (assigned_timeline_index == true_rank_map.get(ba.asset_id) or p_date == target_date)
-                        else 0
+                        1 if (assigned_timeline_index == true_rank_map.get(ba.asset_id) or p_date == target_date) else 0
                     )
                     dt_photo_pts: int | None = (
                         round(per_photo_pts * math.exp(-d_days / date_decay_days))

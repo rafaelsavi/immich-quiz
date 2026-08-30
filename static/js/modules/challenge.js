@@ -1064,6 +1064,7 @@ export const challenge = {
     });
 
     // Aggregate from round_guesses
+    const seenPlayerRounds = new Set();
     (leaderboardData.round_guesses || []).forEach((g) => {
       const pStats = stats[g.player_name];
       if (!pStats) return;
@@ -1088,9 +1089,12 @@ export const challenge = {
         pStats.perfectRounds++;
       }
 
-      // If average active response time is <= 30s per round, consider fast round
-      if (g.time_taken_seconds > 0 && g.time_taken_seconds <= 30) {
-        pStats.fastRoundCount++;
+      const roundKey = `${g.player_name}_${g.round_index}`;
+      if (!seenPlayerRounds.has(roundKey)) {
+        seenPlayerRounds.add(roundKey);
+        if (g.time_taken_seconds > 0 && g.time_taken_seconds <= 30) {
+          pStats.fastRoundCount++;
+        }
       }
     });
 
