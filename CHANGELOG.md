@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented Fog of War query methods in `LeaderboardStore` (`get_challenge_standings`, `get_challenge_round_guesses`, `get_challenge_participant_count`, `record_challenge_round_guess`, `finalize_challenge_player_match`).
   - Added challenge request and response Pydantic models in `src/models.py` (`ChallengeCreateRequest`, `ChallengeCreateResponse`, `ChallengeDetailResponse`, `ChallengeStartRequest`, `ChallengeStartResponse`, `ChallengeQuestionResponse`, `ChallengeAnswerRequest`, `ChallengeAnswerResponse`, `ChallengeLeaderboardEntry`, `ChallengeLeaderboardResponse`, `ChallengeRoundGuessData`).
   - Created comprehensive test suite in `tests/test_challenge_storage.py`.
+- **Challenge Mode REST API & Service Engine (Stage 1 Phase 2)**:
+  - Implemented `ChallengeService` in `src/game/challenge_service.py` to orchestrate deterministic asset selection with diversity sampling, pre-computation of frozen scoring decay constants (`location_decay_km`, `date_decay_days`, `map_bounds`), Album Shuffle batch pre-assignment and randomized pin assignment, secure question delivery, server-side timer grace window enforcement (`round_length + 5s`), answer scoring with frozen decay values, session advancement, and match finalization.
+  - Created `/api/challenge/*` route family in `src/api/challenge_routes.py`:
+    - `POST /api/challenge/create` for creating challenge match seeds with capability URLs.
+    - `GET /api/challenge/{capability_token}` for public challenge details and participant counts.
+    - `POST /api/challenge/{capability_token}/start` for starting or resuming deduplicated player sessions.
+    - `GET /api/challenge/{capability_token}/question/{round_index}` for security-enforced sequential question retrieval.
+    - `POST /api/challenge/{capability_token}/answer` for scoring answers and returning immediate personal reveals.
+    - `GET /api/challenge/{capability_token}/leaderboard` for Fog-of-War filtered standings and opponent guesses.
+  - Added `get_asset_answer(asset_id)` to `MetadataStore` in `src/storage/metadata.py` to query ground truth coordinates and capture timestamps for scoring.
+  - Updated media proxy route in `src/api/routes.py` to authorize photo access for assets in active challenges via `ChallengeStore.is_asset_in_active_challenge`.
+  - Wired `ChallengeStore`, `ChallengeService`, and `challenge_router` into application lifecycle in `src/main.py`.
+  - Added automated test suite in `tests/test_challenge_api.py` covering all challenge endpoints, security constraints, scoring mechanics, and Fog of War visibility.
 
 ## [2.5.0] - 2026-08-29
 

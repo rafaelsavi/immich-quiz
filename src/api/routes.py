@@ -29,6 +29,7 @@ from src.models import (
     SyncStateResponse,
 )
 from src.scoring import SCORE_MAX_POINTS
+from src.storage.challenge import ChallengeStore
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import MetadataStore
 from src.storage.session import SessionStore
@@ -70,6 +71,11 @@ def get_immich_client(request: Request) -> ImmichClient:
 def get_leaderboard_store(request: Request) -> LeaderboardStore:
     """FastAPI dependency yielding the SQLite leaderboard store."""
     return request.app.state.leaderboard_store
+
+
+def get_challenge_store(request: Request) -> ChallengeStore:
+    """FastAPI dependency yielding the SQLite challenge store."""
+    return request.app.state.challenge_store
 
 
 def get_metadata_store(request: Request) -> MetadataStore:
@@ -206,12 +212,17 @@ async def question(
 async def media(
     asset_id: str,
     store: SessionStore = Depends(get_session_store),
+    challenge_store: ChallengeStore = Depends(get_challenge_store),
     immich: ImmichClient = Depends(get_immich_client),
     metadata_store: MetadataStore = Depends(get_metadata_store),
     leaderboard_store: LeaderboardStore = Depends(get_leaderboard_store),
 ) -> Response:
-    if not store.is_asset_registered(asset_id) and not leaderboard_store.is_asset_recorded(asset_id):
-        raise HTTPException(status_code=404, detail='Unknown asset for any match')
+    is_local = store.is_asset_registered(asset_id)
+    is_history = leaderboard_store.is_asset_recorded(asset_id)
+    is_challenge = challenge_store.is_asset_in_active_challenge(asset_id)
+
+    if not is_local and not is_history and not is_challenge:
+        raise HTTPException(status_code=404, detail='Unknown asset for any active game or challenge')
 
     target_library = metadata_store.get_asset_library(asset_id)
     if not target_library:

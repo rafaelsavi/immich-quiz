@@ -11,12 +11,15 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.api.challenge_routes import challenge_router
 from src.api.routes import invalidate_filters_cache, router
 from src.app_logging import LoggingContextMiddleware, get_logger, setup_logging
 from src.config import AppSettings, ConfigError, load_settings
+from src.game.challenge_service import ChallengeService
 from src.game.service import GameService
 from src.i18n import SupportedLanguage, parse_accept_language
 from src.immich.client import ImmichClient, ImmichClientError
+from src.storage.challenge import ChallengeStore
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import MetadataStore
@@ -64,11 +67,18 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         on_sync_complete=invalidate_filters_cache,
     )
     leaderboard_store = LeaderboardStore(leaderboard_db_manager)
+    challenge_store = ChallengeStore(leaderboard_db_manager)
     session_store = SessionStore()
     game_service = GameService(
         session_store=session_store,
         metadata_store=metadata_store,
         immich_client=immich_client,
+        leaderboard_store=leaderboard_store,
+        settings=settings,
+    )
+    challenge_service = ChallengeService(
+        challenge_store=challenge_store,
+        metadata_store=metadata_store,
         leaderboard_store=leaderboard_store,
         settings=settings,
     )
@@ -148,7 +158,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.metadata_store = metadata_store
     app.state.sync_engine = sync_engine
     app.state.leaderboard_store = leaderboard_store
+    app.state.challenge_store = challenge_store
     app.state.game_service = game_service
+    app.state.challenge_service = challenge_service
     app.state.available_libraries = None
     app.state.unavailable_libraries = {}
 
@@ -202,6 +214,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         )
 
     app.include_router(router)
+    app.include_router(challenge_router)
 
     @app.get('/{full_path:path}')
     async def spa_catch_all(request: Request, full_path: str) -> HTMLResponse:

@@ -244,6 +244,27 @@ class MetadataStore:
         row = self._db.fetch_one('SELECT library_name FROM assets WHERE id = ? LIMIT 1', (asset_id,))
         return str(row['library_name']) if row and row.get('library_name') else None
 
+    def get_asset_answer(self, asset_id: str) -> AssetAnswer | None:
+        """Look up location and date answer metadata for an asset ID."""
+        row = self._db.fetch_one(
+            'SELECT latitude, longitude, capture_datetime, city, state, country FROM assets WHERE id = ? LIMIT 1',
+            (asset_id,),
+        )
+        if not row:
+            return None
+        capture_dt: datetime | None = None
+        if row.get('capture_datetime'):
+            with contextlib.suppress(ValueError):
+                capture_dt = datetime.fromisoformat(str(row['capture_datetime']))
+        return AssetAnswer(
+            latitude=float(row['latitude']) if row.get('latitude') is not None else None,
+            longitude=float(row['longitude']) if row.get('longitude') is not None else None,
+            capture_datetime=capture_dt,
+            city=row.get('city'),
+            state=row.get('state'),
+            country=row.get('country'),
+        )
+
     def get_sync_state(self, library_name: str) -> dict[str, Any]:
         """Fetch current sync progress and state record for a library."""
         row = self._db.fetch_one(
