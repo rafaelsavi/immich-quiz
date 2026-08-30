@@ -21,7 +21,28 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#leaderboard-card')).to_be_visible()
 
-    # 3. Unknown route
+    # 3. /challenges route
+    await page.goto('/challenges')
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+    await expect(page.locator('#challenges-nav-btn')).to_have_class(re.compile(r'active'))
+
+    # Click Back to Lobby button
+    await page.locator('#challenges-page-back-btn').click()
+    await expect(page.locator('#setup-card')).to_be_visible()
+    await expect(page.locator('#challenges-page-card')).to_be_hidden()
+
+    # Click header navigation button to go to /challenges
+    await page.locator('#challenges-nav-btn').click()
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+
+    # Click header navigation button again to toggle back to lobby
+    await page.locator('#challenges-nav-btn').click()
+    await expect(page.locator('#setup-card')).to_be_visible()
+    await expect(page.locator('#challenges-page-card')).to_be_hidden()
+
+    # 4. Unknown route
     await page.goto('/unknown/nested/page')
     await expect(page.locator('#game-ended-card')).to_be_visible()
     await expect(page.locator('#game-ended-title')).to_contain_text(re.compile(r'Not Found|Ended', re.IGNORECASE))

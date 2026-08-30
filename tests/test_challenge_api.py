@@ -595,6 +595,10 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     assert c1_item['game_mode'] == 'pinpoint'
     assert c1_item['rounds'] == 5
     assert c1_item['total_participants'] == 1
+    assert isinstance(c1_item['libraries'], list)
+    assert c1_item['location_mode'] is True
+    assert c1_item['date_mode'] is True
+    assert isinstance(c1_item['config'], dict)
 
     # 4. Deactivate c1
     deact_res = client.post(f'/api/challenge/{c1["challenge_id"]}/deactivate')

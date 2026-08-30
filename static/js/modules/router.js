@@ -12,6 +12,7 @@ export const RouteType = {
   GAME_ACTIVE: "GAME_ACTIVE",
   GAME_SUMMARY: "GAME_SUMMARY",
   CHALLENGE: "CHALLENGE",
+  CHALLENGES: "CHALLENGES",
   UNKNOWN: "UNKNOWN",
 };
 
@@ -20,6 +21,11 @@ const ROUTE_DEFINITIONS = [
     type: RouteType.LOBBY,
     pattern: /^\/(stats)?$/,
     canonicalPath: () => "/",
+  },
+  {
+    type: RouteType.CHALLENGES,
+    pattern: /^\/challenges\/?$/,
+    canonicalPath: () => "/challenges",
   },
   {
     type: RouteType.GAME_SUMMARY,

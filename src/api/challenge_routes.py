@@ -121,6 +121,11 @@ async def list_challenges(
                 is_active=rec['is_active'],
                 total_participants=total_participants,
                 filter_summary=config.get('filter_summary'),
+                filter_tooltip=config.get('filter_tooltip'),
+                libraries=rec.get('libraries', []),
+                location_mode=bool(config.get('location_mode', True)),
+                date_mode=bool(config.get('date_mode', True)),
+                config=config,
             )
         )
 

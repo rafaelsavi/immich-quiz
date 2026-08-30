@@ -53,6 +53,12 @@
           title="Install App" aria-label="Install App">
           <span id="pwa-install-icon">📲</span>
         </button>
+        <button type="button" id="challenges-nav-btn" class="header-icon-btn challenges-nav-btn"
+          data-i18n-title="nav.challenges_title" data-i18n-aria-label="nav.challenges_title"
+          title="Challenges Hub" aria-label="Challenges Hub">
+          <span id="challenges-nav-icon">⚔️</span>
+          <span id="header-challenges-badge" class="header-challenges-badge hidden">0</span>
+        </button>
         <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
           aria-label="Switch Language">
           <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"
@@ -463,6 +469,107 @@
           <button type="button" id="game-ended-summary-btn" class="btn-primary" data-i18n="game_ended.view_summary_btn">View Match Summary</button>
           <button type="button" id="game-ended-lobby-btn" class="btn-secondary" data-i18n="game_ended.return_lobby_btn">Return to Lobby</button>
         </div>
+      </div>
+    </section>
+
+    <!-- Dedicated Challenges Hub Page -->
+    <section id="challenges-page-card" class="card hidden">
+      <div class="challenges-page-header">
+        <div class="challenges-page-title-group">
+          <div class="challenges-title-badge-row">
+            <span class="badge-challenge" data-i18n="nav.challenges_title">Challenges Hub</span>
+            <span id="challenges-page-total-badge" class="challenges-counter-pill hidden">0</span>
+          </div>
+          <h2 data-i18n="challenges_page.heading">Multiplayer Challenges</h2>
+          <p class="challenges-page-desc" data-i18n="challenges_page.subtitle">Create, share, and track async multiplayer challenge links across your Immich library.</p>
+        </div>
+        <div class="challenges-page-head-actions">
+          <button type="button" id="challenges-page-back-btn" class="btn-secondary btn-back-lobby">
+            <span class="btn-icon" aria-hidden="true">🏠</span>
+            <span data-i18n="challenges_page.back_btn">Back to Lobby</span>
+          </button>
+          <button type="button" id="challenges-page-refresh-btn" class="btn-secondary" title="Refresh list">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+            <span data-i18n="challenges_page.refresh_btn">Refresh</span>
+          </button>
+          <button type="button" id="challenges-page-create-btn" class="btn-primary">
+            <span class="btn-icon" aria-hidden="true">✨</span>
+            <span data-i18n="challenges_page.create_btn">Create Challenge</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Hero Stats Bar -->
+      <div id="challenges-hero-stats" class="challenges-hero-stats">
+        <div class="challenge-stat-card stat-active">
+          <div class="stat-icon-wrap">🟢</div>
+          <div class="stat-content">
+            <span class="stat-value" id="stat-active-challenges">0</span>
+            <span class="stat-label" data-i18n="challenges_page.stats_active">Active Now</span>
+          </div>
+        </div>
+        <div class="challenge-stat-card stat-players">
+          <div class="stat-icon-wrap">👥</div>
+          <div class="stat-content">
+            <span class="stat-value" id="stat-total-players">0</span>
+            <span class="stat-label" data-i18n="challenges_page.stats_participants">Total Players</span>
+          </div>
+        </div>
+        <div class="challenge-stat-card stat-total">
+          <div class="stat-icon-wrap">🌐</div>
+          <div class="stat-content">
+            <span class="stat-value" id="stat-total-challenges">0</span>
+            <span class="stat-label" data-i18n="challenges_page.stats_total">Total Challenges</span>
+          </div>
+        </div>
+        <div class="challenge-stat-card stat-popular">
+          <div class="stat-icon-wrap">🏆</div>
+          <div class="stat-content">
+            <span class="stat-value-sm" id="stat-popular-challenge">—</span>
+            <span class="stat-label" data-i18n="challenges_page.stats_popular">Most Popular</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toolbar: Search, Filters & Sorting -->
+      <div class="challenges-toolbar">
+        <div class="challenges-search-wrap">
+          <span class="search-icon" aria-hidden="true">🔍</span>
+          <input type="search" id="challenges-search-input" class="challenges-search-input"
+            placeholder="Search by title, host, album, person..."
+            data-i18n-placeholder="challenges_page.search_placeholder" />
+        </div>
+
+        <div class="challenges-filters-group">
+          <!-- Status filter tabs -->
+          <div id="challenges-status-tabs" class="challenges-filter-pills">
+            <button type="button" class="filter-pill active" data-status="all" data-i18n="challenges_page.filter_all">All</button>
+            <button type="button" class="filter-pill" data-status="active" data-i18n="challenges_page.filter_active">Active</button>
+            <button type="button" class="filter-pill" data-status="expired" data-i18n="challenges_page.filter_expired">Expired / Inactive</button>
+          </div>
+
+          <!-- Mode filter dropdown -->
+          <select id="challenges-mode-filter" class="select-input challenges-mode-select">
+            <option value="all" data-i18n="challenges_page.mode_all">All Game Modes</option>
+            <option value="pinpoint" data-i18n="mode.pinpoint">📍 Pinpoint</option>
+            <option value="album_shuffle" data-i18n="mode.album_shuffle">🔀 Album Shuffle</option>
+          </select>
+
+          <!-- Sort dropdown -->
+          <select id="challenges-sort-select" class="select-input challenges-sort-select">
+            <option value="newest" data-i18n="challenges_page.sort_newest">Newest First</option>
+            <option value="players" data-i18n="challenges_page.sort_players">Most Players</option>
+            <option value="expiring" data-i18n="challenges_page.sort_expiring">Ending Soonest</option>
+            <option value="title" data-i18n="challenges_page.sort_title">Title (A-Z)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Challenges List Container -->
+      <div id="challenges-hub-list" class="challenges-hub-list">
+        <div class="challenges-loading" data-i18n="challenges_page.loading">Loading challenges...</div>
       </div>
     </section>
 

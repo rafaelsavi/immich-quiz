@@ -1116,6 +1116,11 @@ class ChallengeListItem(BaseModel):
     is_active: bool
     total_participants: int = Field(default=0, ge=0)
     filter_summary: str | None = None
+    filter_tooltip: str | None = None
+    libraries: list[str] = Field(default_factory=list)
+    location_mode: bool = True
+    date_mode: bool = True
+    config: dict[str, Any] = Field(default_factory=dict)
 
 
 class ChallengeListResponse(BaseModel):

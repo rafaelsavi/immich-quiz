@@ -68,6 +68,11 @@ import {
   renderSummaryContent,
 } from "./modules/screens/summary.js";
 import { challenge } from "./modules/challenge.js";
+import {
+  initChallengesPage,
+  openChallengesPage,
+  updateHeaderChallengeBadge,
+} from "./modules/challenges_page.js";
 
 // Re-export / configure global mode accessor
 
@@ -142,6 +147,9 @@ async function routeToActiveGame(matchId) {
 
 async function handleRoute(route) {
   document.documentElement.classList.remove("route-non-lobby");
+  if (el.challengesNavBtn) {
+    el.challengesNavBtn.classList.toggle("active", route.type === RouteType.CHALLENGES);
+  }
   switch (route.type) {
     case RouteType.GAME_ACTIVE: {
       await routeToActiveGame(route.params.matchId);
@@ -163,6 +171,11 @@ async function handleRoute(route) {
       break;
     }
 
+    case RouteType.CHALLENGES: {
+      clearActiveMatchSession();
+      await openChallengesPage();
+      break;
+    }
 
     case RouteType.UNKNOWN: {
       clearActiveMatchSession();
@@ -287,6 +300,15 @@ bindClick(el.revealReportBtn, () => {
 
 bindClick(el.refreshLeaderboard, () => {
   loadLeaderboard().catch((err) => showAlert(err.message || err));
+});
+
+bindClick(el.challengesNavBtn, () => {
+  const current = parseRoute(window.location.pathname);
+  if (current.type === RouteType.CHALLENGES) {
+    navigate("/");
+  } else {
+    navigate("/challenges");
+  }
 });
 
 bindClick(el.leaderboardHead, handleSortClick);
@@ -445,6 +467,8 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
 (async function bootstrap() {
   initReportModal();
   initAdminModal();
+  initChallengesPage();
+  updateHeaderChallengeBadge();
   refreshActiveScreenLanguage();
   syncFullscreenButtons();
 

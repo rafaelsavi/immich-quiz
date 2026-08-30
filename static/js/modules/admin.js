@@ -18,6 +18,7 @@ import {
   getSelectedPeopleMode,
   playerInput,
 } from "./setup_filters.js";
+import { loadChallengesList, updateHeaderChallengeBadge } from "./challenges_page.js";
 
 const CREATOR_NAME_STORAGE_KEY = "immich_challenge_creator_name";
 
@@ -439,6 +440,11 @@ function displayShareResult(challengeData) {
     const modeName = challengeData.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
     _createdModeBadge.textContent = `${modeEmoji} ${challengeData.rounds} ${t("challenge.rounds")} (${modeName})`;
   }
+
+  // Refresh active challenges list and header badge
+  try {
+    loadChallengesList();
+  } catch (_) {}
 }
 
 /**
@@ -592,6 +598,9 @@ async function confirmAndDeactivateChallenge(challengeId, challengeTitle) {
     });
     showShareToast(t("admin.deactivate_success"));
     loadActiveChallenges();
+    try {
+      loadChallengesList();
+    } catch (_) {}
   } catch (err) {
     console.error("Failed to deactivate challenge:", err);
     showShareToast(err.message || "Failed to deactivate challenge");

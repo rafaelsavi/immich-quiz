@@ -47,6 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `POST /api/challenge/{challenge_id}/deactivate` for admin revocation of active challenge seeds.
   - Hardened Docker Compose deployment (`docker-compose.example.yml`) with non-root user execution (`user: "1000:1000"`), isolated bridge network (`quiz-net`), and security best practice guidelines.
   - Added bilingual localization for all `admin.*` keys across English (`en_US.js`) and Brazilian Portuguese (`pt_BR.js`).
+- **Dedicated Challenges Hub Page & Header Navigation**:
+  - Created dedicated Challenges Page (`/challenges`, `RouteType.CHALLENGES`) providing comprehensive discovery and tracking for multiplayer challenge links.
+  - Added navigation button (`#challenges-nav-btn`) in `.header-controls` with live active challenge count badge (`#header-challenges-badge`) for seamless 1-click toggling between Game Lobby and Challenges Hub.
+  - Built `challenges_page.js` frontend module in `static/js/modules/challenges_page.js` featuring:
+    - **Hero Metrics Bar**: Live counters for active challenges, total players across all challenges, total challenges created, and most popular challenge.
+    - **Search & Filters Toolbar**: Live keyword search (title, host, albums, people, locations), status tabs (All, Active, Expired / Inactive), game mode dropdown (All, Pinpoint, Album Shuffle), and sorting options (Newest, Most Players, Ending Soonest, Title A-Z).
+    - **Rich Challenge Cards**: Host avatar & name, live expiration countdowns with pulsing active status, game mode badges, photo scope tag cloud (libraries, albums, people, date ranges, geographic filters, shared media status), 1-click URL sharing, and direct Play CTA.
+    - **Expandable Standings Drawer**: Inline top 3 podium preview (1st, 2nd, 3rd with medals and accuracy %) and complete rankings table with individual scores, accuracy %, completed rounds progress, and total time.
+  - Enriched `ChallengeListItem` in `src/models.py` and `src/api/challenge_routes.py` with `libraries`, `location_mode`, `date_mode`, `filter_tooltip`, and complete `config` dictionary.
+  - Added comprehensive responsive styling in `static/css/components/challenge.css` and `static/css/components/buttons.css`.
+  - Added full bilingual localization for all `challenges_page.*` and `nav.*` keys across English (`en_US.js`) and Brazilian Portuguese (`pt_BR.js`).
 
 ### Fixed
 
