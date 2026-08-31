@@ -18,6 +18,46 @@ logger = get_logger(LOGGER_SCORING)
 
 T = TypeVar('T', float, int, date)
 
+SCORE_MAX_POINTS: int = 100
+
+# ---------------------------------------------------------------------------
+# Spatial Scoring Constants
+# ---------------------------------------------------------------------------
+
+# Ratio connecting geographic bounding diagonal (span) to exponential distance decay.
+# A ratio of 10.0 means decay = span / 10.0 (10.0% of the total map width/diagonal).
+# At 10.0% map error, player earns 37 points (1/e).
+# At 5.0% map error, player earns 61 points.
+# At > 40% map error (almost halfway across the map), player score drops below 2 points (0 pts).
+LOCATION_SPAN_RATIO: float = 10.0
+
+# Minimum floor clamp for single-city or walking-tour albums (prevents overly punishing decay).
+LOCATION_MIN_DECAY_KM: float = 8.0
+
+# Maximum ceiling clamp for nationwide or worldwide matches.
+LOCATION_MAX_DECAY_KM: float = 200.0
+
+# ---------------------------------------------------------------------------
+# Temporal Scoring Constants
+# ---------------------------------------------------------------------------
+
+# Ratio connecting total album timespan in days to exponential date decay.
+# A ratio of 6.0 means decay = timespan / 6.0 (16.7% of the album's total date range).
+# Players guess by whole year/month, so a slightly wider 1/6th ratio keeps month guesses
+# competitive across multi-year and vacation archives.
+# At 16.7% date error, player earns 37 points (1/e).
+# At > 60% date error, player score drops below 4 points.
+DATE_SPAN_RATIO: float = 6.0
+
+# Minimum floor clamp for short weekend/vacation trips (30 days / 1 month).
+DATE_MIN_DECAY_DAYS: float = 30.0
+
+# Maximum ceiling clamp for multi-decade family archives (500 days / ~16 months).
+DATE_MAX_DECAY_DAYS: float = 500.0
+
+
+PoolItem: TypeAlias = 'AssetAnswer | HasAnswer | Any'
+
 
 class HasAnswer(Protocol):
     """Protocol for container objects (e.g. RoundAsset) wrapping an AssetAnswer."""
@@ -25,15 +65,13 @@ class HasAnswer(Protocol):
     answer: AssetAnswer
 
 
-PoolItem: TypeAlias = 'AssetAnswer | HasAnswer | Any'
-
-
 def _percentile_bounds(
     values: Sequence[T],
     low_pct: float = 0.05,
     high_pct: float = 0.95,
 ) -> tuple[T, T]:
-    """Calculate (low, high) bounds with 5th-95th percentile trimming for outlier robustness.
+    """
+    Calculate (low, high) bounds with 5th-95th percentile trimming for outlier robustness.
 
     For small datasets (< 10 points), returns the exact (min, max).
     For datasets with 10+ points, trims the lowest 5% and highest 5% of values to prevent
@@ -49,7 +87,8 @@ def _percentile_bounds(
 
 
 def _circular_percentile_lng_bounds(lngs: Sequence[float]) -> tuple[float, float, float]:
-    """Calculate circular longitude bounds (min_lng, max_lng, span_degrees) across antimeridian.
+    """
+    Calculate circular longitude bounds (min_lng, max_lng, span_degrees) across antimeridian.
 
     Finds the largest empty angular gap on the 360-degree circle, unwraps the longitudes
     relative to that gap, applies 5th-95th percentile trimming, and returns the bounded endpoints
@@ -94,44 +133,6 @@ def _circular_percentile_lng_bounds(lngs: Sequence[float]) -> tuple[float, float
     return min_lng, max_lng, span_deg
 
 
-SCORE_MAX_POINTS: int = 100
-
-# ---------------------------------------------------------------------------
-# Spatial Scoring Constants
-# ---------------------------------------------------------------------------
-
-# Ratio connecting geographic bounding diagonal (span) to exponential distance decay.
-# A ratio of 10.0 means decay = span / 10.0 (10.0% of the total map width/diagonal).
-# At 10.0% map error, player earns 37 points (1/e).
-# At 5.0% map error, player earns 61 points.
-# At > 40% map error (almost halfway across the map), player score drops below 2 points (0 pts).
-LOCATION_SPAN_RATIO: float = 10.0
-
-# Minimum floor clamp for single-city or walking-tour albums (prevents overly punishing decay).
-LOCATION_MIN_DECAY_KM: float = 5.0
-
-# Maximum ceiling clamp for nationwide or worldwide matches.
-LOCATION_MAX_DECAY_KM: float = 200.0
-
-# ---------------------------------------------------------------------------
-# Temporal Scoring Constants
-# ---------------------------------------------------------------------------
-
-# Ratio connecting total album timespan in days to exponential date decay.
-# A ratio of 6.0 means decay = timespan / 6.0 (16.7% of the album's total date range).
-# Players guess by whole year/month, so a slightly wider 1/6th ratio keeps month guesses
-# competitive across multi-year and vacation archives.
-# At 16.7% date error, player earns 37 points (1/e).
-# At > 60% date error, player score drops below 4 points.
-DATE_SPAN_RATIO: float = 6.0
-
-# Minimum floor clamp for short weekend/vacation trips (30 days / 1 month).
-DATE_MIN_DECAY_DAYS: float = 30.0
-
-# Maximum ceiling clamp for multi-decade family archives (500 days / ~16 months).
-DATE_MAX_DECAY_DAYS: float = 500.0
-
-
 def _extract_answer(item: PoolItem) -> Any:
     return getattr(item, 'answer', item)
 
@@ -143,7 +144,8 @@ def calculate_location_decay(
     min_decay_km: float = LOCATION_MIN_DECAY_KM,
     max_decay_km: float = LOCATION_MAX_DECAY_KM,
 ) -> float:
-    """Calculate dynamic geographic decay (km) adapted to the match pool's bounding box span.
+    """
+    Calculate dynamic geographic decay (km) adapted to the match pool's bounding box span.
 
     Uses 5th-95th percentile trimming on latitude and circular longitude to filter out airport
     layovers or single-photo GPS glitches while seamlessly handling +/-180 antimeridian crossings.
@@ -254,7 +256,8 @@ def calculate_date_decay(
     min_decay_days: float = DATE_MIN_DECAY_DAYS,
     max_decay_days: float = DATE_MAX_DECAY_DAYS,
 ) -> float:
-    """Calculate dynamic temporal decay (days) adapted to the match pool's date span.
+    """
+    Calculate dynamic temporal decay (days) adapted to the match pool's date span.
 
     Uses 5th-95th percentile trimming on capture dates to ignore isolated misdated scans
     or camera timestamp glitches.
