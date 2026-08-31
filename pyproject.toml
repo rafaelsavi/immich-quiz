@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "immich-quiz"
-version = "2.5.0"
+version = "3.0.0"
 description = "Trivia game powered by Immich libraries"
 readme = "README.md"
 requires-python = ">=3.13"
