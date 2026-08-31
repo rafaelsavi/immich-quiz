@@ -23,16 +23,18 @@ export async function shareMatchSummary(summary) {
         : "";
 
   let text = `🏆 Immich Quiz - ${winnerText}\n`;
+  const albumNames = summary.config?.album_names || summary.album_names || [];
   const filterInfo =
     summary.is_custom_filtered && summary.filter_summary
       ? summary.filter_summary
-      : summary.album_names && summary.album_names.length > 0
-        ? formatList(summary.album_names)
+      : albumNames.length > 0
+        ? formatList(albumNames)
         : t("leaderboard.scope_all");
 
+  const libraries = summary.config?.libraries || summary.libraries || [];
   const libPrefix =
-    summary.libraries && summary.libraries.length > 0
-      ? `${formatList(summary.libraries)} • `
+    libraries.length > 0
+      ? `${formatList(libraries)} • `
       : "";
 
   text += `📍 ${libPrefix}${filterInfo} | ${t("summary.meta_rounds", summary.rounds_played)}\n\n`;

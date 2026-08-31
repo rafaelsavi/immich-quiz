@@ -6,6 +6,7 @@ import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../form
 import { animateScoreRollup, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
 import { playChime } from "../audio.js";
 import { openReportModal } from "../components/report_modal.js";
+import { challenge } from "../challenge.js";
 
 let shuffleMap = null;
 let revealShuffleMap = null;
@@ -585,7 +586,11 @@ export const albumShuffleMode = {
     exitBtn.addEventListener("click", () => {
       if (el.revealExitBtn) el.revealExitBtn.click();
     });
-    actionsDiv.append(restartBtn, exitBtn);
+    if (!challenge || !challenge.isActive()) {
+      actionsDiv.append(restartBtn, exitBtn);
+    } else {
+      actionsDiv.append(exitBtn);
+    }
 
     tableScroll.style.marginTop = "1.5rem";
 

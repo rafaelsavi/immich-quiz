@@ -83,6 +83,7 @@ export const el = {
   langIcon: document.getElementById("lang-icon"),
   audioToggleBtn: document.getElementById("audio-toggle-btn"),
   audioIcon: document.getElementById("audio-icon"),
+  homeNavBtn: document.getElementById("home-nav-btn"),
   challengesNavBtn: document.getElementById("challenges-nav-btn"),
   headerChallengesBadge: document.getElementById("header-challenges-badge"),
   setupCard: document.getElementById("setup-card"),

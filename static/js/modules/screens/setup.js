@@ -6,6 +6,7 @@ import { getActiveMode } from "../modes/index.js";
 import { showCard, resetGameUi, confirmAbandonMatch } from "./common.js";
 import { loadQuestion } from "./game.js";
 import { closeAdminModal } from "../admin.js";
+import { challenge } from "../challenge.js";
 import {
   playerInput,
   libraryMultiSelect,
@@ -174,7 +175,7 @@ export function returnToSetup({ updateUrl = true } = {}) {
 }
 
 export async function restartSameGame() {
-  if (state.startingMatch) {
+  if (state.startingMatch || (challenge && challenge.isActive())) {
     return;
   }
 
@@ -222,6 +223,18 @@ export async function restartSameGame() {
 }
 
 export function handleAbandonGame(action) {
+  if (action === "restart" && challenge && challenge.isActive()) {
+    return;
+  }
+  if (challenge && challenge.isActive()) {
+    if (!confirm(t("game.abandon_confirm", t("game.abandon_exit")))) {
+      return;
+    }
+    clearTimer();
+    challenge.reset();
+    navigate("/");
+    return;
+  }
   if (!confirmAbandonMatch(action)) return;
   if (action === "restart") {
     restartSameGame().catch((err) => showAlert(err.message));

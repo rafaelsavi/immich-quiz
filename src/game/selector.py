@@ -62,7 +62,7 @@ def calculate_match_bounds(
         coordinates exist or if the pool span exceeds global threshold limits.
 
     """
-    answers = pool.values() if isinstance(pool, dict) else pool
+    answers = list(pool.values()) if isinstance(pool, dict) else list(pool)
     coords = [
         (ans.latitude, ans.longitude)
         for ans in answers
@@ -71,6 +71,11 @@ def calculate_match_bounds(
         and not (abs(ans.latitude) < 1e-6 and abs(ans.longitude) < 1e-6)
     ]
     if not coords:
+        logger.info(
+            'Smart map auto-zoom calibration: inputs=[pool_size=%d, valid_coords=0] '
+            '-> output=[map_bounds=None (default: no valid coordinates)]',
+            len(answers),
+        )
         return None
 
     lats = [c[0] for c in coords]
@@ -83,18 +88,63 @@ def calculate_match_bounds(
 
     lat_span = max_lat - min_lat
     lng_span = max_lng - min_lng
+    diagonal_km = haversine_km(min_lat, min_lng, max_lat, max_lng)
 
     # Global check: if span is excessively wide (> 60 deg lat or > 90 deg lng),
     # or distance between corners exceeds max_span_km, fallback to world view.
-    if lat_span > 60.0 or lng_span > 90.0 or haversine_km(min_lat, min_lng, max_lat, max_lng) > max_span_km:
+    if lat_span > 60.0 or lng_span > 90.0 or diagonal_km > max_span_km:
+        reasons = []
+        if lat_span > 60.0:
+            reasons.append(f'lat_span {lat_span:.2f}° > 60.0°')
+        if lng_span > 90.0:
+            reasons.append(f'lng_span {lng_span:.2f}° > 90.0°')
+        if diagonal_km > max_span_km:
+            reasons.append(f'diagonal_span {diagonal_km:.2f} km > {max_span_km:.1f} km')
+        reason_str = ', '.join(reasons)
+        logger.info(
+            'Smart map auto-zoom calibration: inputs=[pool_size=%d, coords=%d, diagonal_span=%.2f km (max=%.1f km), '
+            'lat_span=%.2f° (max=60.0°), lng_span=%.2f° (max=90.0°), lat_range=(%.4f, %.4f), lng_range=(%.4f, %.4f)] '
+            '-> output=[map_bounds=None (fallback: %s, defaulting to world view)]',
+            len(answers),
+            len(coords),
+            diagonal_km,
+            max_span_km,
+            lat_span,
+            lng_span,
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            reason_str,
+        )
         return None
 
-    return MapBounds(
+    bounds = MapBounds(
         min_lat=round(min_lat, 6),
         max_lat=round(max_lat, 6),
         min_lng=round(min_lng, 6),
         max_lng=round(max_lng, 6),
     )
+    logger.info(
+        'Smart map auto-zoom calibration: inputs=[pool_size=%d, coords=%d, diagonal_span=%.2f km (max=%.1f km), '
+        'lat_span=%.2f°, lng_span=%.2f°, lat_range=(%.4f, %.4f), lng_range=(%.4f, %.4f)] '
+        '-> output=[map_bounds=MapBounds(min_lat=%.6f, max_lat=%.6f, min_lng=%.6f, max_lng=%.6f)]',
+        len(answers),
+        len(coords),
+        diagonal_km,
+        max_span_km,
+        lat_span,
+        lng_span,
+        min_lat,
+        max_lat,
+        min_lng,
+        max_lng,
+        bounds.min_lat,
+        bounds.max_lat,
+        bounds.min_lng,
+        bounds.max_lng,
+    )
+    return bounds
 
 
 def load_asset_pool(

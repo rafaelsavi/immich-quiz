@@ -147,25 +147,35 @@ export function createPopPinIcon(label, color) {
 
 export function spawnPinPulseEffect(map, latlng, color) {
   if (!map) return;
-  const circle = L.circleMarker(latlng, {
-    radius: 10,
-    color: color || "#2563eb",
-    fillColor: color || "#2563eb",
-    fillOpacity: 0.5,
-    weight: 3,
-  }).addTo(map);
+  let circle;
+  try {
+    circle = L.circleMarker(latlng, {
+      radius: 10,
+      color: color || "#2563eb",
+      fillColor: color || "#2563eb",
+      fillOpacity: 0.5,
+      weight: 3,
+    }).addTo(map);
+  } catch (_) {
+    return;
+  }
 
   let start = null;
   const duration = 550;
   function animatePulse(timestamp) {
+    if (!circle || !circle._map) return;
     if (!start) start = timestamp;
     const progress = (timestamp - start) / duration;
     if (progress < 1) {
-      circle.setRadius(10 + progress * 25);
-      circle.setStyle({ fillOpacity: 0.6 * (1 - progress), opacity: 1 - progress });
-      requestAnimationFrame(animatePulse);
+      try {
+        circle.setRadius(10 + progress * 25);
+        circle.setStyle({ fillOpacity: 0.6 * (1 - progress), opacity: 1 - progress });
+        requestAnimationFrame(animatePulse);
+      } catch (_) {
+        try { circle.remove(); } catch (_) {}
+      }
     } else {
-      circle.remove();
+      try { circle.remove(); } catch (_) {}
     }
   }
   requestAnimationFrame(animatePulse);
@@ -369,6 +379,14 @@ export function ensureGuessMap() {
 
   const shell = container.closest(".map-shell");
 
+  if (state.guessMap && (!state.guessMap.getContainer || state.guessMap.getContainer() !== container)) {
+    try {
+      unregisterActiveMap(state.guessMap);
+      state.guessMap.remove();
+    } catch (_) {}
+    state.guessMap = null;
+  }
+
   if (!state.guessMap) {
     state.guessMap = createStandardMap(container, { titleKey: "game.fullscreen_map_title" });
 
@@ -409,7 +427,9 @@ export function ensureGuessMap() {
   if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
 
   requestAnimationFrame(() => {
-    if (state.guessMap) state.guessMap.invalidateSize();
+    if (state.guessMap && state.guessMap._container && state.guessMap._loaded) {
+      try { state.guessMap.invalidateSize(); } catch (_) {}
+    }
   });
 }
 
@@ -419,6 +439,14 @@ export function ensureRevealMap() {
 
   const shell = container.closest(".map-shell");
 
+  if (state.revealMap && (!state.revealMap.getContainer || state.revealMap.getContainer() !== container)) {
+    try {
+      unregisterActiveMap(state.revealMap);
+      state.revealMap.remove();
+    } catch (_) {}
+    state.revealMap = null;
+  }
+
   if (!state.revealMap) {
     state.revealMap = createStandardMap(container, { titleKey: "game.fullscreen_map_title" });
   }
@@ -426,7 +454,9 @@ export function ensureRevealMap() {
   if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
 
   requestAnimationFrame(() => {
-    if (state.revealMap) state.revealMap.invalidateSize();
+    if (state.revealMap && state.revealMap._container && state.revealMap._loaded) {
+      try { state.revealMap.invalidateSize(); } catch (_) {}
+    }
   });
 }
 
@@ -443,7 +473,9 @@ export function ensureJourneyMap() {
   if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
 
   requestAnimationFrame(() => {
-    if (state.journeyMap) state.journeyMap.invalidateSize();
+    if (state.journeyMap && state.journeyMap._container && state.journeyMap._loaded) {
+      try { state.journeyMap.invalidateSize(); } catch (_) {}
+    }
   });
 }
 
@@ -678,18 +710,20 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
 }
 
 export function refitMap(map, forceRefitBounds = false) {
-  if (!map) return;
-  map.invalidateSize();
-  updateMapMinZoom(map);
-  if (forceRefitBounds && map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
-    const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
-    const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
-    map.fitBounds(map._lastFitBounds, { padding, maxZoom });
-  }
+  if (!map || !map._container || !map._loaded) return;
+  try {
+    map.invalidateSize();
+    updateMapMinZoom(map);
+    if (forceRefitBounds && map._lastFitBounds && typeof map._lastFitBounds.isValid === "function" && map._lastFitBounds.isValid()) {
+      const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
+      const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
+      map.fitBounds(map._lastFitBounds, { padding, maxZoom });
+    }
+  } catch (_) {}
 }
 
 export function fitMapToBounds(map, pointsOrBounds, options = {}) {
-  if (!map || !pointsOrBounds) return;
+  if (!map || !map._container || !pointsOrBounds) return;
 
   let bounds;
   if (Array.isArray(pointsOrBounds)) {
@@ -713,9 +747,11 @@ export function fitMapToBounds(map, pointsOrBounds, options = {}) {
   const maxZoom = options.maxZoom !== undefined ? options.maxZoom : 15;
 
   const doFit = () => {
-    if (!map) return;
-    map.invalidateSize();
-    map.fitBounds(bounds, { padding, maxZoom });
+    if (!map || !map._container || !map._loaded) return;
+    try {
+      map.invalidateSize();
+      map.fitBounds(bounds, { padding, maxZoom });
+    } catch (_) {}
   };
 
   doFit();

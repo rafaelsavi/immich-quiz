@@ -8,6 +8,7 @@ import { navigate } from "../router.js";
 import { getActiveMode } from "../modes/index.js";
 import { showCard } from "./common.js";
 import { loadQuestion } from "./game.js";
+import { challenge } from "../challenge.js";
 
 export async function showRoundReveal(roundNumber) {
   const reveal = await api("/api/round/result", {
@@ -54,6 +55,9 @@ export async function showRoundReveal(roundNumber) {
   state.lastReveal = reveal;
   state.currentScreen = "reveal";
   showCard(el.gameCard);
+  if (!challenge || !challenge.isActive()) {
+    if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");
+  }
   el.guessingUi.classList.add("hidden");
   el.revealUi.classList.remove("hidden");
 
@@ -73,6 +77,9 @@ export async function showRoundReveal(roundNumber) {
 }
 
 export async function handleNextRound() {
+  if (challenge && challenge.isActive()) {
+    return challenge.handleNextRound();
+  }
   if (state.submitting) {
     return;
   }

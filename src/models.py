@@ -773,15 +773,16 @@ class MatchSummaryResponse(BaseModel):
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
-    libraries: list[str] = Field(default_factory=list)
-    album_names: list[str] = Field(default_factory=list)
     finished: bool
     winners: list[str]
     players: list[MatchSummaryPlayer]
     filter_summary: str | None = None
     filter_tooltip: str | None = None
     is_custom_filtered: bool = False
+    config: MatchConfig = Field(default_factory=MatchConfig)
     round_history: list[dict[str, Any]] | None = None
+
+
 
 
 # ---------------------------------------------------------------------------

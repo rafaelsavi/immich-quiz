@@ -19,6 +19,11 @@ This document lists planned features, design ideas, and technical debt items for
   - [x] Document Cloudflare Zero Trust path protection rules and Docker security hardening (`docker-compose.example.yml`).
   - [x] Specified in [`docs/next-milestones/online-multiplayer`](next-milestones/online-multiplayer/00_OVERVIEW.md).
 
+replace challenges-hero-stats by  a simple count of total  and active challenges to save space. It is also duplicated with challenges-page-total-badge.
+challenges-toolbar can also be make more clear. filter-pill is too high because limited width is breaking lines.
+remove challenges-page-back-btn;
+make challenges-page-refresh-btn and refresh-leaderboard more minimalistic: just an icon
+
 - [ ] v3.1.0 **5. Admin Area & Reported Asset Moderation**
   - [ ] Build dedicated admin interface (`/admin` / `static/admin.html`) with authentication/Zero Trust protection.
   - [ ] Review dashboard for flagged/reported assets with detailed issue breakdown (GPS mismatch, incorrect date, face tag, custom notes).

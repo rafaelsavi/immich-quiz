@@ -15,11 +15,13 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await page.goto('/')
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#leaderboard-card')).to_be_visible()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
     # 2. /stats route
     await page.goto('/stats')
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#leaderboard-card')).to_be_visible()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
     # 3. /challenges route
     await page.goto('/challenges')
@@ -27,10 +29,22 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await expect(page.locator('#setup-card')).to_be_hidden()
     await expect(page.locator('#challenges-nav-btn')).to_have_class(re.compile(r'active'))
 
+    # Click home navigation button to return to lobby
+    await page.locator('#home-nav-btn').click()
+    await expect(page.locator('#setup-card')).to_be_visible()
+    await expect(page.locator('#challenges-page-card')).to_be_hidden()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
+
+    # Go back to challenges via button
+    await page.locator('#challenges-nav-btn').click()
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+
     # Click Back to Lobby button
     await page.locator('#challenges-page-back-btn').click()
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#challenges-page-card')).to_be_hidden()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
     # Click header navigation button to go to /challenges
     await page.locator('#challenges-nav-btn').click()
@@ -41,6 +55,7 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await page.locator('#challenges-nav-btn').click()
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#challenges-page-card')).to_be_hidden()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
     # 4. Unknown route
     await page.goto('/unknown/nested/page')

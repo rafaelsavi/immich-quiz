@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS matches (
     album_names_json   TEXT,
     album_ids_json     TEXT,
     person_ids_json    TEXT,
+    person_names_json  TEXT,
     people_mode        TEXT DEFAULT 'ANY',
     countries_json     TEXT,
     cities_json        TEXT,
@@ -260,11 +261,12 @@ def _parse_iso_datetime(val: str | None) -> datetime:
 class LeaderboardStore:
     """Manages persistent match history, player leaderboards, and detailed round guesses in SQLite."""
 
-    def __init__(self, db_path: Path | DatabaseManager) -> None:
+    def __init__(self, db_path: Path | DatabaseManager, metadata_store: Any | None = None) -> None:
         if isinstance(db_path, DatabaseManager):
             self._db = db_path
         else:
             self._db = DatabaseManager(db_path)
+        self._metadata_store = metadata_store
         self._init_db()
 
     def _init_db(self) -> None:
@@ -281,6 +283,10 @@ class LeaderboardStore:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN actual_city TEXT')
                 if 'actual_country' not in existing_cols:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN actual_country TEXT')
+            cursor_m = conn.execute('PRAGMA table_info(matches)')
+            existing_match_cols = {row[1] for row in cursor_m.fetchall()}
+            if existing_match_cols and 'person_names_json' not in existing_match_cols:
+                conn.execute('ALTER TABLE matches ADD COLUMN person_names_json TEXT')
 
     def append_match(
         self,
@@ -317,6 +323,7 @@ class LeaderboardStore:
         album_names_json = _canonicalize_filter_list(config.album_names)
         album_ids_json = _canonicalize_filter_list(config.albums)
         person_ids_json = _canonicalize_filter_list(config.people)
+        person_names_json = _canonicalize_filter_list(config.person_names)
         countries_json = _canonicalize_filter_list(config.countries)
         cities_json = _canonicalize_filter_list(config.cities)
 
@@ -327,10 +334,10 @@ class LeaderboardStore:
                     match_id, challenge_id, room_id, room_name, play_mode, played_at,
                     libraries_json, game_mode,
                     rounds, round_length, player_count, location_mode, date_mode,
-                    album_names_json, album_ids_json, person_ids_json, people_mode,
+                    album_names_json, album_ids_json, person_ids_json, person_names_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
@@ -349,6 +356,7 @@ class LeaderboardStore:
                     album_names_json,
                     album_ids_json,
                     person_ids_json,
+                    person_names_json,
                     config.people_mode.value,
                     countries_json,
                     cities_json,
@@ -360,6 +368,7 @@ class LeaderboardStore:
                     duration_seconds,
                 ),
             )
+
 
             rank = 0
             previous_total: int | None = None
@@ -660,6 +669,8 @@ class LeaderboardStore:
         entries: list[LeaderboardEntry] = []
 
         for row in rows:
+            person_names = _parse_json_list(row.get('person_names_json')) or _parse_json_list(row.get('person_ids_json'))
+            album_names = _parse_json_list(row.get('album_names_json')) or _parse_json_list(row.get('album_ids_json'))
             config = MatchConfig(
                 round_count=row['rounds'],
                 round_length=RoundLength(row['round_length']),
@@ -669,7 +680,8 @@ class LeaderboardStore:
                 libraries=_parse_json_list(row['libraries_json']),
                 albums=_parse_json_list(row['album_ids_json']),
                 people=_parse_json_list(row['person_ids_json']),
-                album_names=_parse_json_list(row['album_names_json']),
+                album_names=album_names,
+                person_names=person_names,
                 people_mode=PeopleMode(row['people_mode']) if row['people_mode'] else PeopleMode.ANY,
                 countries=_parse_json_list(row['countries_json']),
                 cities=_parse_json_list(row['cities_json']),
@@ -748,6 +760,57 @@ class LeaderboardStore:
         )
         round_history = _build_round_history_from_guesses(guess_rows, match_row)
 
+        round_len_str = match_row.get('round_length') or '1m'
+        try:
+            round_len_enum = RoundLength(round_len_str)
+        except ValueError:
+            round_len_enum = RoundLength.minute_1
+
+        people_mode_str = match_row.get('people_mode') or 'ANY'
+        try:
+            people_mode_enum = PeopleMode(people_mode_str)
+        except ValueError:
+            people_mode_enum = PeopleMode.ANY
+
+        # Resolve person names from person_names_json, or fallback to resolving person_ids via metadata store
+        person_names = _parse_json_list(match_row.get('person_names_json'))
+        person_ids = _parse_json_list(match_row.get('person_ids_json'))
+        if not person_names and person_ids:
+            if self._metadata_store:
+                person_map = self._metadata_store.get_person_names(person_ids)
+                person_names = [person_map.get(pid, pid) for pid in person_ids]
+            else:
+                person_names = person_ids
+
+        # Resolve album names from album_names_json, or fallback to resolving album_ids via metadata store
+        album_names = _parse_json_list(match_row.get('album_names_json'))
+        album_ids = _parse_json_list(match_row.get('album_ids_json'))
+        if not album_names and album_ids:
+            if self._metadata_store:
+                album_map = self._metadata_store.get_album_names(album_ids)
+                album_names = [album_map.get(aid, aid) for aid in album_ids]
+            else:
+                album_names = album_ids
+
+        match_config = MatchConfig(
+            round_count=int(match_row['rounds']),
+            round_length=round_len_enum,
+            location_mode=bool(match_row['location_mode']),
+            date_mode=bool(match_row['date_mode']),
+            game_mode=GameMode(match_row['game_mode']),
+            libraries=_parse_json_list(match_row['libraries_json']),
+            albums=album_ids,
+            album_names=album_names,
+            people=person_ids,
+            person_names=person_names,
+            people_mode=people_mode_enum,
+            countries=_parse_json_list(match_row.get('countries_json')),
+            cities=_parse_json_list(match_row.get('cities_json')),
+            min_date=_parse_iso_date(match_row.get('min_date')),
+            max_date=_parse_iso_date(match_row.get('max_date')),
+            include_shared=bool(match_row.get('include_shared')),
+        )
+
         filter_tooltip = None
         if match_row['is_custom_filtered']:
             lang_enum = SupportedLanguage.from_str(language) if language else SupportedLanguage.EN
@@ -756,12 +819,13 @@ class LeaderboardStore:
                 players=[p.player_name for p in players] if players else ['Player 1'],
                 game_mode=GameMode(match_row['game_mode']),
                 libraries=_parse_json_list(match_row['libraries_json']),
-                album_names=_parse_json_list(match_row['album_names_json']),
-                countries=_parse_json_list(match_row['countries_json']),
-                cities=_parse_json_list(match_row['cities_json']),
+                album_names=album_names,
+                person_names=person_names,
+                countries=_parse_json_list(match_row.get('countries_json')),
+                cities=_parse_json_list(match_row.get('cities_json')),
                 min_date=_parse_iso_date(match_row.get('min_date')),
                 max_date=_parse_iso_date(match_row.get('max_date')),
-                include_shared=bool(match_row['include_shared']),
+                include_shared=bool(match_row.get('include_shared')),
             )
             filter_tooltip = setup_obj.format_filter_tooltip(language=lang_enum)
 
@@ -771,14 +835,13 @@ class LeaderboardStore:
             location_mode=bool(match_row['location_mode']),
             date_mode=bool(match_row['date_mode']),
             game_mode=GameMode(match_row['game_mode']),
-            libraries=_parse_json_list(match_row['libraries_json']),
-            album_names=_parse_json_list(match_row['album_names_json']),
             finished=True,
             winners=winners,
             players=players,
             filter_summary=match_row['filter_summary'],
             filter_tooltip=filter_tooltip,
             is_custom_filtered=bool(match_row['is_custom_filtered']),
+            config=match_config,
             round_history=round_history if round_history else None,
         )
 
@@ -820,12 +883,12 @@ class LeaderboardStore:
                     match_id, challenge_id, room_id, room_name, play_mode, played_at,
                     libraries_json, game_mode,
                     rounds, round_length, player_count, location_mode, date_mode,
-                    album_names_json, album_ids_json, person_ids_json, people_mode,
+                    album_names_json, album_ids_json, person_ids_json, person_names_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
                 ) VALUES (
                     ?, ?, NULL, NULL, 'challenge', ?, NULL, ?, 1, '1m', 1, 1, 1,
-                    NULL, NULL, NULL, 'ANY', NULL, NULL, NULL, NULL, 0, 0, NULL, NULL
+                    NULL, NULL, NULL, NULL, 'ANY', NULL, NULL, NULL, NULL, 0, 0, NULL, NULL
                 )
                 """,
                 (
@@ -906,6 +969,7 @@ class LeaderboardStore:
         album_names_json = _canonicalize_filter_list(config.get('album_names'))
         album_ids_json = _canonicalize_filter_list(config.get('albums'))
         person_ids_json = _canonicalize_filter_list(config.get('people'))
+        person_names_json = _canonicalize_filter_list(config.get('person_names'))
         countries_json = _canonicalize_filter_list(config.get('countries'))
         cities_json = _canonicalize_filter_list(config.get('cities'))
         people_mode = config.get('people_mode', 'ANY')
@@ -919,10 +983,10 @@ class LeaderboardStore:
                     match_id, challenge_id, room_id, room_name, play_mode, played_at,
                     libraries_json, game_mode,
                     rounds, round_length, player_count, location_mode, date_mode,
-                    album_names_json, album_ids_json, person_ids_json, people_mode,
+                    album_names_json, album_ids_json, person_ids_json, person_names_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
-                ) VALUES (?, ?, NULL, NULL, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, NULL, NULL, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(match_id) DO UPDATE SET
                     played_at=excluded.played_at,
                     libraries_json=excluded.libraries_json,
@@ -935,6 +999,7 @@ class LeaderboardStore:
                     album_names_json=excluded.album_names_json,
                     album_ids_json=excluded.album_ids_json,
                     person_ids_json=excluded.person_ids_json,
+                    person_names_json=excluded.person_names_json,
                     people_mode=excluded.people_mode,
                     countries_json=excluded.countries_json,
                     cities_json=excluded.cities_json,
@@ -958,6 +1023,7 @@ class LeaderboardStore:
                     album_names_json,
                     album_ids_json,
                     person_ids_json,
+                    person_names_json,
                     people_mode,
                     countries_json,
                     cities_json,

@@ -34,93 +34,201 @@
 }
 
 .summary-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.85rem;
+  width: 100%;
+  margin-bottom: 1.1rem;
 }
 
-.summary-meta-chip {
+/* ==========================================================================
+   Unified Match Meta Specification Section (Game Setup & Library Filters)
+   ========================================================================== */
+.match-meta-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.match-meta-category {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: var(--bg-surface-secondary, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+  transition: border-color 0.15s ease;
+}
+
+.match-meta-category:hover {
+  border-color: #cbd5e1;
+}
+
+.match-meta-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted, #64748b);
+  line-height: 1;
+}
+
+.match-meta-cat-icon {
+  font-size: 0.85rem;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
-  gap: 0.42rem;
-  padding: 0.32rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: var(--ink, #1f2a44);
-  background: #f1f4fa;
-  border: 1px solid #dce2ef;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.summary-meta-chip .meta-chip-icon {
+.match-meta-items {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.match-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 8px;
+  padding: 0.32rem 0.65rem;
+  font-size: 0.82rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+}
+
+.match-meta-item:hover {
+  transform: translateY(-1px);
+  border-color: #94a3b8;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.match-meta-item-icon {
+  font-size: 0.95rem;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.match-meta-item-body {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.match-meta-item-label {
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.match-meta-item-val {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink, #1f2a44);
+  line-height: 1;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Category 1: Game Setup Items */
+.match-meta-item.meta-mode {
+  background: rgba(15, 124, 127, 0.04);
+  border-color: rgba(15, 124, 127, 0.18);
+}
+.match-meta-item.meta-mode .match-meta-item-val {
   color: var(--accent, #0f7c7f);
 }
 
-.summary-meta-chip .meta-chip-icon svg {
-  display: block;
+.match-meta-item.meta-targets {
+  background: rgba(59, 130, 246, 0.04);
+  border-color: rgba(59, 130, 246, 0.18);
 }
-
-.summary-meta-chip.meta-mode {
-  background: rgba(15, 124, 127, 0.08);
-  border-color: rgba(15, 124, 127, 0.22);
-  color: #0d696c;
-}
-
-.summary-meta-chip.meta-rounds {
-  background: rgba(242, 95, 92, 0.08);
-  border-color: rgba(242, 95, 92, 0.22);
-  color: #c93b38;
-}
-
-.summary-meta-chip.meta-rounds .meta-chip-icon {
-  color: #f25f5c;
-}
-
-.summary-meta-chip.meta-targets {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.22);
+.match-meta-item.meta-targets .match-meta-item-val {
   color: #1d4ed8;
 }
 
-.summary-meta-chip.meta-targets .meta-chip-icon {
-  color: #3b82f6;
+.match-meta-item.meta-rounds {
+  background: rgba(242, 95, 92, 0.04);
+  border-color: rgba(242, 95, 92, 0.18);
+}
+.match-meta-item.meta-rounds .match-meta-item-val {
+  color: #c93b38;
 }
 
-.summary-meta-chip.meta-library {
-  background: #ffffff;
-  border-color: #d5dcec;
-  color: #334155;
+.match-meta-item.meta-timer {
+  background: rgba(217, 119, 6, 0.04);
+  border-color: rgba(217, 119, 6, 0.18);
+}
+.match-meta-item.meta-timer .match-meta-item-val {
+  color: #b45309;
 }
 
-.summary-meta-chip.meta-filters.has-active-filters {
-  background: linear-gradient(135deg, rgba(245, 159, 0, 0.12) 0%, rgba(217, 119, 6, 0.14) 100%);
-  border-color: rgba(217, 119, 6, 0.35);
-  color: #92400e;
-  font-weight: 700;
-  box-shadow: 0 1px 4px rgba(217, 119, 6, 0.12);
+/* Category 2: Library Setup & Pool Filters Items */
+.match-meta-item.meta-library {
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
-.summary-meta-chip.meta-filters.has-active-filters .meta-chip-icon {
-  color: #d97706;
+.match-meta-item.meta-places {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.match-meta-item.meta-places .match-meta-item-val {
+  color: #166534;
 }
 
-.summary-meta-chip.meta-filters:not(.has-active-filters) {
-  color: #64748b;
-  border-style: dashed;
-  background: rgba(100, 116, 139, 0.05);
+.match-meta-item.meta-albums {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.match-meta-item.meta-albums .match-meta-item-val {
+  color: #1e40af;
 }
 
-.summary-meta-chip.meta-filters:not(.has-active-filters) .meta-chip-icon {
-  color: #64748b;
+.match-meta-item.meta-people {
+  background: #fdf4ff;
+  border-color: #f5d0fe;
+}
+.match-meta-item.meta-people .match-meta-item-val {
+  color: #86198f;
+}
+
+.match-meta-item.meta-dates {
+  background: #fefce8;
+  border-color: #fef08a;
+}
+.match-meta-item.meta-dates .match-meta-item-val {
+  color: #854d0e;
+}
+
+.match-meta-item.meta-shared {
+  background: #f5f3ff;
+  border-color: #ddd6fe;
+}
+.match-meta-item.meta-shared .match-meta-item-val {
+  color: #5b21b6;
+}
+
+.match-meta-item.meta-all {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
 }
 
 .table-scroll {

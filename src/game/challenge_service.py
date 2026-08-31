@@ -102,6 +102,14 @@ class ChallengeService:
         base_url: str,
     ) -> dict[str, Any]:
         """Create a deterministic challenge seed with frozen scoring parameters."""
+        # Resolve human-readable album and person names if not already populated
+        if setup.albums and not setup.album_names:
+            album_names_map = self.metadata_store.get_album_names(setup.albums)
+            setup.album_names = [album_names_map.get(aid, aid) for aid in setup.albums]
+        if setup.people and not setup.person_names:
+            person_names_map = self.metadata_store.get_person_names(setup.people)
+            setup.person_names = [person_names_map.get(pid, pid) for pid in setup.people]
+
         criteria = AssetFilterCriteria.from_setup(setup, self.settings)
         game_mode = setup.game_mode
 

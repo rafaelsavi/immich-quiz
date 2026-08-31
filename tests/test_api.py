@@ -517,12 +517,12 @@ def test_album_names_are_resolved_server_side(client: TestClient) -> None:
     # 1. Resolving album by ID ('album-1')
     match_id_by_id = start_match(client, albums=['album-1'])
     summary_by_id = client.get(f'/api/match/{match_id_by_id}/summary').json()
-    assert summary_by_id['album_names'] == ['Holidays']
+    assert summary_by_id['config']['album_names'] == ['Holidays']
 
     # 2. Resolving album by Name ('Holidays')
     match_id_by_name = start_match(client, albums=['Holidays'])
     summary_by_name = client.get(f'/api/match/{match_id_by_name}/summary').json()
-    assert summary_by_name['album_names'] == ['Holidays']
+    assert summary_by_name['config']['album_names'] == ['Holidays']
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
@@ -1062,6 +1062,47 @@ def test_calculate_match_bounds_multiple_locations() -> None:
     assert bounds is not None
     assert bounds.min_lat == 48.8584
     assert bounds.max_lat == 48.8606
+
+
+def test_calculate_match_bounds_logging(caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    caplog.set_level(logging.INFO)
+
+    # 1. Empty coordinates
+    calculate_match_bounds([])
+    assert any(
+        'Smart map auto-zoom calibration: inputs=[pool_size=0, valid_coords=0]' in r.message
+        and 'output=[map_bounds=None' in r.message
+        for r in caplog.records
+    )
+
+    # 2. Regional calibrated bounds
+    caplog.clear()
+    answers = [
+        AssetAnswer(latitude=48.8584, longitude=2.2945),
+        AssetAnswer(latitude=48.8606, longitude=2.3376),
+    ]
+    calculate_match_bounds(answers, max_span_km=1000.0)
+    assert any(
+        'Smart map auto-zoom calibration: inputs=[pool_size=2, coords=2' in r.message
+        and 'output=[map_bounds=MapBounds' in r.message
+        for r in caplog.records
+    )
+
+    # 3. Global fallback
+    caplog.clear()
+    global_pool = [
+        AssetAnswer(latitude=48.8584, longitude=2.2945),
+        AssetAnswer(latitude=-33.8688, longitude=151.2093),
+    ]
+    calculate_match_bounds(global_pool, max_span_km=5000.0)
+    assert any(
+        'Smart map auto-zoom calibration: inputs=[pool_size=2, coords=2' in r.message
+        and 'output=[map_bounds=None (fallback:' in r.message
+        for r in caplog.records
+    )
+
 
 
 def test_ui_config_returns_runtime_metadata(tmp_path: Path) -> None:

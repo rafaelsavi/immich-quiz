@@ -8,6 +8,7 @@ import { clearTimer, resetTimerBar, startTimer } from "../timer.js";
 import { markShortcutCooldown } from "../shortcuts.js";
 import { getActiveMode } from "../modes/index.js";
 import { showRoundReveal } from "./reveal.js";
+import { challenge } from "../challenge.js";
 
 export function updateRoundMeta() {
   const roundMeta = el.roundMeta;
@@ -149,6 +150,9 @@ export async function loadQuestion() {
 
   if (el.revealUi) el.revealUi.classList.add("hidden");
   if (el.guessingUi) el.guessingUi.classList.remove("hidden");
+  if (!challenge || !challenge.isActive()) {
+    if (el.gameRestartBtn) el.gameRestartBtn.classList.remove("hidden");
+  }
   if (el.roundMeta) el.roundMeta.replaceChildren();
 
   if (el.quizImage) {
@@ -222,6 +226,9 @@ export async function loadQuestion() {
 }
 
 export async function submitAnswer(fromTimeout = false) {
+  if (challenge && challenge.isActive()) {
+    return challenge.submitAnswer(fromTimeout);
+  }
   if (!state.currentQuestion || state.submitting) {
     return;
   }

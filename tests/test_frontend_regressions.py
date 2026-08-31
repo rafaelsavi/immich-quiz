@@ -698,3 +698,54 @@ def test_challenge_share_qr_code_regression() -> None:
     assert '.challenge-qr-display' in modals_css
 
 
+def test_challenge_mode_disallows_game_restart() -> None:
+    """Verify that restart buttons and actions are disallowed during non-local / challenge matches."""
+    challenge_js = (JS_DIR / 'modules' / 'challenge.js').read_text(encoding='utf-8')
+    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    setup_js = (JS_DIR / 'modules' / 'screens' / 'setup.js').read_text(encoding='utf-8')
+    common_js = (JS_DIR / 'modules' / 'screens' / 'common.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    # 1. challenge.js hides restart buttons in question and reveal screens, and restores on reset
+    assert 'if (el.gameRestartBtn) el.gameRestartBtn.classList.add("hidden");' in challenge_js
+    assert 'if (el.revealRestartBtn) el.revealRestartBtn.classList.add("hidden");' in challenge_js
+    assert 'if (el.gameRestartBtn) el.gameRestartBtn.classList.remove("hidden");' in challenge_js
+    assert 'if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");' in challenge_js
+
+    # 2. album_shuffle.js does not append restartBtn when challenge is active
+    assert 'if (!challenge || !challenge.isActive()) {' in album_shuffle_js
+    assert 'actionsDiv.append(restartBtn, exitBtn);' in album_shuffle_js
+    assert 'actionsDiv.append(exitBtn);' in album_shuffle_js
+
+    # 3. setup.js guards restartSameGame and handleAbandonGame
+    assert 'state.startingMatch || (challenge && challenge.isActive())' in setup_js
+    assert 'action === "restart" && challenge && challenge.isActive()' in setup_js
+
+    # 4. common.js guards confirmAbandonMatch
+    assert 'action === "restart" && challenge' in common_js
+
+    # 5. app.js binds guards on restart buttons and keyboard shortcuts
+    assert 'bindClick(el.gameRestartBtn, () => {\n  if (challenge.isActive()) return;' in app_js
+    assert 'bindClick(el.revealRestartBtn, () => {\n  if (challenge.isActive()) return;' in app_js
+    assert 'onRestartMatch: () => {\n    if (challenge.isActive()) {\n      return;' in app_js
+
+
+def test_challenges_hub_list_updates_language_dynamically() -> None:
+    """Verify that challenges-hub-list and hero stats are dynamically updated when language changes."""
+    challenges_page_js = (JS_DIR / 'modules' / 'challenges_page.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+
+    # 1. challenges_page.js exports refreshChallengesPageLanguage
+    assert 'export function refreshChallengesPageLanguage()' in challenges_page_js
+    assert 'updateHeroStats();' in challenges_page_js
+    assert 'renderChallenges();' in challenges_page_js
+
+    # 2. app.js imports and calls refreshChallengesPageLanguage in refreshActiveScreenLanguage
+    assert 'refreshChallengesPageLanguage' in app_js
+    assert 'refreshChallengesPageLanguage();' in app_js
+
+    # 3. index.html has data-i18n attributes on challenges page components
+    assert 'id="challenges-hub-list"' in index_html
+    assert 'id="challenges-page-refresh-btn"' in index_html
+    assert 'data-i18n-title="challenges_page.refresh_btn"' in index_html

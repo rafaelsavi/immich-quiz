@@ -66,7 +66,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         metadata_store,
         on_sync_complete=invalidate_filters_cache,
     )
-    leaderboard_store = LeaderboardStore(leaderboard_db_manager)
+    leaderboard_store = LeaderboardStore(leaderboard_db_manager, metadata_store=metadata_store)
     challenge_store = ChallengeStore(leaderboard_db_manager)
     session_store = SessionStore()
     game_service = GameService(

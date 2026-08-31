@@ -18,7 +18,8 @@
   position: relative;
 }
 
-.challenges-nav-btn.active {
+.challenges-nav-btn.active,
+.home-nav-btn.active {
   border-color: var(--accent);
   background: rgba(15, 124, 127, 0.12);
   box-shadow: 0 0 0 2.5px rgba(15, 124, 127, 0.25);

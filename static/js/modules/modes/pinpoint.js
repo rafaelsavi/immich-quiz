@@ -490,6 +490,7 @@ function renderRevealMap(reveal) {
 
   state.revealAnimationTimeoutId = window.setTimeout(() => {
     state.revealAnimationTimeoutId = null;
+    if (!state.revealMap) return;
     const lineEntries = playerGuesses.map(({ result, guessed }) => {
       const color = playerColor(result.player_name);
       const line = L.polyline([actual, actual], {
@@ -505,10 +506,15 @@ function renderRevealMap(reveal) {
     const startTime = performance.now();
 
     function animateAllLines(now) {
+      if (!state.revealMap) {
+        state.revealAnimationFrameId = null;
+        return;
+      }
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / lineDuration);
 
       lineEntries.forEach(({ guessed, line }) => {
+        if (!line._map) return;
         const curLat = actual.lat + (guessed.lat - actual.lat) * progress;
         const curLng = actual.lng + (guessed.lng - actual.lng) * progress;
         line.setLatLngs([actual, [curLat, curLng]]);
@@ -518,6 +524,7 @@ function renderRevealMap(reveal) {
         state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
       } else {
         state.revealAnimationFrameId = null;
+        if (!state.revealMap) return;
         lineEntries.forEach(({ result, guessed, color }) => {
           const icon = createPopPinIcon(playerInitial(result.player_name), color);
           const marker = L.marker(guessed, { icon })
@@ -601,6 +608,7 @@ export const pinpointMode = {
   },
 
   unmount() {
+    clearRevealAnimation();
     if (el.mediaFrame) {
       el.mediaFrame.classList.add("hidden");
     }

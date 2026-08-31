@@ -3,6 +3,7 @@ import { clearTimer } from "../timer.js";
 import { unregisterActiveMap } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { t } from "../i18n.js";
+import { challenge } from "../challenge.js";
 
 export function clearRevealAnimation() {
   if (state.revealAnimationFrameId !== null) {
@@ -50,6 +51,8 @@ export function resetGameUi() {
   if (el.passOverlay) el.passOverlay.classList.add("hidden");
   if (el.guessingUi) el.guessingUi.classList.add("hidden");
   if (el.revealUi) el.revealUi.classList.add("hidden");
+  if (el.gameRestartBtn) el.gameRestartBtn.classList.remove("hidden");
+  if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");
   if (el.timeoutNotice) {
     el.timeoutNotice.classList.add("hidden");
     el.timeoutNotice.textContent = "";
@@ -119,6 +122,9 @@ export function resetGameUi() {
 }
 
 export function isGameActive() {
+  if (challenge && typeof challenge.isActive === "function" && challenge.isActive()) {
+    return challenge.isGameActive();
+  }
   return Boolean(state.matchId && !state.matchFinished && !state.lastSummary);
 }
 
@@ -132,6 +138,9 @@ export function handleBeforeUnload(event) {
 
 export function confirmAbandonMatch(action = "exit") {
   if (state.startingMatch) return false;
+  if (action === "restart" && challenge && typeof challenge.isActive === "function" && challenge.isActive()) {
+    return false;
+  }
   if (!isGameActive()) return true;
 
   const label = action === "restart" ? t("game.abandon_restart") : t("game.abandon_exit");

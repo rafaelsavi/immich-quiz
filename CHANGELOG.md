@@ -7,7 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Human-Readable People and Album Names in Match Summaries and Challenges**:
+  - Resolved an issue where person IDs (UUIDs) were displayed instead of human-readable display names in match summaries.
+  - Added `person_names_json` column and backward-compatible database schema migration to SQLite `matches` table.
+  - Added [`MetadataStore.get_album_names`](immich-quiz/src/storage/metadata.py) to resolve album IDs to display names matching existing `get_person_names`.
+  - Updated [`ChallengeService.create_challenge`](immich-quiz/src/game/challenge_service.py) to automatically resolve `album_names` and `person_names` from `MetadataStore` when challenges are configured with ID lists.
+  - Updated [`LeaderboardStore.get_match_summary`](immich-quiz/src/storage/leaderboard.py) and `append_match` to preserve `person_names` and resolve fallback IDs using `MetadataStore`.
+  - Added test `test_match_summary_person_and_album_names` in [`tests/test_leaderboard.py`](immich-quiz/tests/test_leaderboard.py).
+
+- **Dynamic Language Updates for Challenges Hub List**:
+  - Resolved an issue where `#challenges-hub-list` and hero statistics required a manual page reload to reflect UI language toggles.
+  - Exported [`refreshChallengesPageLanguage`](immich-quiz/static/js/modules/challenges_page.js) to re-render challenge cards, match specifications, status badges, and open standings tables dynamically with active locale strings upon language changes.
+  - Integrated `refreshChallengesPageLanguage()` into `refreshActiveScreenLanguage` in [`static/js/app.js`](immich-quiz/static/js/app.js).
+  - Added regression test `test_challenges_hub_list_updates_language_dynamically` in [`tests/test_frontend_regressions.py`](immich-quiz/tests/test_frontend_regressions.py).
+
+- **Clean Filter Dimensions & Game Setup via `config: MatchConfig` in Match Summary**:
+  - Cleaned up [`MatchSummaryResponse`](immich-quiz/src/models.py) to encapsulate all match configuration and filter dimensions (`libraries`, `albums`, `album_names`, `people`, `person_names`, `people_mode`, `countries`, `cities`, `min_date`, `max_date`, `include_shared`, `round_count`, `round_length`, `location_mode`, `date_mode`, `game_mode`) within `config: MatchConfig`.
+  - Removed duplicate, bloated top-level filter attributes from `MatchSummaryResponse`, standardizing it with `LeaderboardEntry.config`.
+  - Updated [`GameService.get_match_summary`](immich-quiz/src/game/service.py) and [`LeaderboardStore.get_match_summary`](immich-quiz/src/storage/leaderboard.py) to construct and serialize the full `MatchConfig`.
+  - Updated frontend summary helpers ([`static/js/modules/components/match_meta.js`](immich-quiz/static/js/modules/components/match_meta.js) and [`static/js/modules/summary/share.js`](immich-quiz/static/js/modules/summary/share.js)) to read all configuration directly from `config`.
+
+- **Instant Header Challenges Badge Display on Startup**:
+  - Configured background preloading of active challenges during application bootstrap in `static/js/app.js` (`loadChallengesList`).
+  - Ensured `#header-challenges-badge` displays the active challenge count immediately upon initial homepage load without requiring a click on the navigation button.
+
+### Changed
+
+- **Enhanced Location, Date Decay, & Map Auto-Zoom Calibration Logging**:
+  - Upgraded logging in [`calculate_location_decay`](immich-quiz/src/scoring.py) and [`calculate_date_decay`](immich-quiz/src/scoring.py) to explicitly detail all inputs (pool size, valid coordinate/date counts, geographic/temporal spans, percentile ranges, divisor ratios, and clamp boundaries) and final outputs (scaled decay, clamped decay, or fallback defaults).
+  - Added calibration logging to [`calculate_match_bounds`](immich-quiz/src/game/selector.py) detailing pool size, valid coordinate counts, diagonal span, latitude/longitude bounds & spans, max span thresholds, and resulting calibrated `MapBounds` (or global fallback reasons).
+  - Promoted fallback and edge case logs from `DEBUG` to `INFO` level to ensure scoring parameters and reasoning are always visible in standard server logs.
+  - Added unit tests in `tests/test_adaptive_scoring.py` and `tests/test_api.py` verifying log formatting and input/output reporting.
+
+- **Disallowed Match Restarting in Non-Local Games**:
+  - Enforced single-attempt integrity for challenge matches by hiding and disallowing `#game-restart-btn` (`el.gameRestartBtn`) and `#reveal-restart-btn` (`el.revealRestartBtn`) during non-local / challenge mode gameplay.
+  - Updated Album Shuffle reveal screen (`album_shuffle.js`) to omit the dynamically created restart button when playing in challenge mode.
+  - Added guards across `restartSameGame()`, `handleAbandonGame("restart")`, and `confirmAbandonMatch("restart")` in `setup.js` and `common.js` to ensure challenge matches cannot be inadvertently restarted or wiped.
+  - Added guards to restart button click handlers and keyboard shortcuts (`onRestartMatch`) in `app.js`.
+  - Added regression test `test_challenge_mode_disallows_game_restart` in `tests/test_frontend_regressions.py`.
+
+- **Challenge Landing Screen Dual-Path Clarification**:
+  - Redesigned the challenge entry screen when an active local session is detected into two clearly distinct, well-labeled choice paths:
+    - **Path 1 (Resume Active Game)**: Highlighted option card with `Active Session` badge, live pulse indicator, player identity pill (e.g. `👤 Rafa`), and a direct `▶ Continue as [Player]` action button.
+    - **Visual Divider**: Center-aligned `— OR —` separator line distinguishing ongoing vs. new attempts.
+    - **Path 2 (Play as Someone Else)**: Secondary option card with clean player name input (not pre-filled with active session name) and a `Start Challenge →` action button to easily join with another name or switch players.
+  - Preserved a streamlined single-card join form with autofocus for first-time players.
+  - Added localized strings for path headers, badges, button text, and descriptions across English and Portuguese (`en-US.json`, `pt-BR.json`, `en_US.js`, `pt_BR.js`).
+  - Added CSS classes for `.challenge-paths-container`, `.challenge-path-card`, `.challenge-path-resume`, `.challenge-path-new`, `.challenge-path-badge`, `.challenge-player-pill`, and `.challenge-paths-divider` in `challenge.css`.
+
+- **Unified 2-Category Match Specifications & Library Filters**:
+  - Replaced ambiguous, unlabelled chips with a standardized, structured 2-category match specification component (`static/js/modules/components/match_meta.js`):
+    - **Category 1 (Game Setup)**: Explicit indicators for Game Mode (`📍 Mode: Pinpoint` / `🔀 Mode: Album Shuffle`), Targets / Guessing Mode (`🎯 Targets: Location & Date` / `🎯 Targets: Pins & Timeline`), Rounds (`🔢 Rounds: 10`), and Round Time Limit (`⏱️ Time Limit: 1m`).
+    - **Category 2 (Library Filters)**: Dedicated explicit badges for each active filter dimension: Libraries (`📚 Library: Rafael`), Places (`🌍 Places: Argentina`), Albums (`📁 Albums: Vacations`), People (`👤 People: Ana, Leo`), Dates (`🗓️ Dates: 2018 → 2024`), Shared Content (`🔗 Shared: Included`), or Full Library (`🌐 Scope: Full Library`).
+  - Standardized this 2-category layout across the Match Results Summary (`#summary-meta` in `summary/table.js`), Challenges Hub cards (`detailed-challenge-card` in `challenges_page.js`), and Challenge Landing screens (`challenge-landing-specs` in `challenge.js`).
+  - Added bilingual translations and CSS styling (`.match-meta-section`, `.match-meta-category`, `.match-meta-item`, `.match-meta-item-label`, `.match-meta-item-val`) across `leaderboard.css`, `challenge.css`, `en_US.js`, `pt_BR.js`, `en-US.json`, and `pt-BR.json`.
+
 ### Added
+
+- **Home Navigation Button in Header Controls**:
+  - Added a dedicated Home navigation button (`#home-nav-btn`) in `.header-controls` beside `#challenges-nav-btn` for direct, 1-click returning to the Game Lobby from any view.
+  - Added synchronized active route state styling (`.home-nav-btn.active`) highlighting the home icon when viewing the lobby and toggling active states when visiting Challenges Hub.
+  - Added bilingual localization strings (`nav.home_title`) across English (`en_US.js`) and Brazilian Portuguese (`pt_BR.js`).
 
 - **QR Code Sharing for Multiplayer Challenges**:
   - Added a dedicated QR code action button (`#challenge-qr-btn`) with `.qr-btn-text` beside the `"Copy Link"` button (`#challenge-copy-link-btn`, `.copy-btn-text`) in the Prepare Game challenge share box.
@@ -75,6 +137,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Challenge Mode Answer Submission Routing & 422 Error**:
+  - Resolved conflicting event handler execution where global `#submit-answer` and `#next-round` event listeners in `app.js` and keyboard shortcuts (`Enter`) concurrently invoked local match methods (`game.js:submitAnswer` / `reveal.js:handleNextRound`) while in Challenge mode.
+  - Added delegation guards in `app.js`, `screens/game.js`, and `screens/reveal.js` checking `challenge.isActive()` to correctly route guess submissions and round advances through `challenge.submitAnswer()` and `challenge.handleNextRound()`.
+  - Fixed `api()` in `static/js/modules/api.js` to preserve `Content-Type: application/json` headers when custom request headers (such as `X-Player-Token`) are supplied.
+  - Added lifecycle safeguards in `static/js/modules/maps.js` and `static/js/modules/modes/pinpoint.js` (`ensureGuessMap`, `ensureRevealMap`, `fitMapToBounds`, `spawnPinPulseEffect`, `unmount`) to prevent detached Leaflet container positioning errors (`_leaflet_pos`) across round transitions.
+  - Added automated end-to-end Playwright test suite in `tests/e2e/test_challenge_gameplay.py` covering multi-round challenge gameplay, button and shortcut answer submissions, personal reveals, social intermission, and Grand Reveal transitions.
+
 - **Leaderboard Scope Pill Lifecycle & Empty State**:
   - Added `.leaderboard-scope-pill:empty { display: none; }` in `static/css/components/leaderboard.css` to prevent rendering a blank badge placeholder before content is rendered.
   - Added immediate synchronous call to `updateLeaderboardScope()` in `refreshActiveScreenLanguage()` (`static/js/app.js`) to guarantee scope text is populated on initial bootstrap and localized when changing languages.
@@ -90,7 +159,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Redundant Modal Preflight Status**:
   - Removed `#challenge-preflight-status` and `#local-preflight-status` elements from the Prepare Game modal along with redundant modal-level preflight polling in `static/js/modules/admin.js` and associated CSS styles in `static/css/components/modals.css`.
-
 
 ## [2.5.0] - 2026-08-29
 

@@ -23,6 +23,7 @@ from src.models import (
     GameSetupRequest,
     GameSetupResponse,
     MapBounds,
+    MatchConfig,
     MatchSummaryPlayer,
     MatchSummaryResponse,
     PeopleMode,
@@ -582,18 +583,36 @@ class GameService:
         is_custom, filter_summary = state.setup.format_filter_summary(language=lang)
         filter_tooltip = state.setup.format_filter_tooltip(language=lang)
 
+        match_config = MatchConfig(
+            round_count=state.setup.round_count,
+            round_length=state.setup.round_length,
+            location_mode=state.setup.location_mode,
+            date_mode=state.setup.date_mode,
+            game_mode=state.setup.game_mode,
+            libraries=list(state.setup.libraries),
+            albums=list(state.setup.albums),
+            album_names=list(state.setup.album_names),
+            people=list(state.setup.people),
+            person_names=list(state.setup.person_names),
+            people_mode=state.setup.people_mode,
+            countries=list(state.setup.countries),
+            cities=list(state.setup.cities),
+            min_date=state.setup.min_date,
+            max_date=state.setup.max_date,
+            include_shared=state.setup.include_shared,
+        )
+
         return MatchSummaryResponse(
             match_id=state.match_id,
             rounds_played=state.setup.round_count,
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
-            libraries=state.setup.libraries,
-            album_names=state.setup.album_names,
             finished=state.finished,
             winners=winners,
             players=players,
             filter_summary=filter_summary,
             filter_tooltip=filter_tooltip,
             is_custom_filtered=bool(is_custom),
+            config=match_config,
         )

@@ -72,6 +72,8 @@ import {
   initChallengesPage,
   openChallengesPage,
   updateHeaderChallengeBadge,
+  loadChallengesList,
+  refreshChallengesPageLanguage,
 } from "./modules/challenges_page.js";
 
 // Re-export / configure global mode accessor
@@ -147,16 +149,21 @@ async function routeToActiveGame(matchId) {
 
 async function handleRoute(route) {
   document.documentElement.classList.remove("route-non-lobby");
+  if (el.homeNavBtn) {
+    el.homeNavBtn.classList.toggle("active", route.type === RouteType.LOBBY);
+  }
   if (el.challengesNavBtn) {
     el.challengesNavBtn.classList.toggle("active", route.type === RouteType.CHALLENGES);
   }
   switch (route.type) {
     case RouteType.GAME_ACTIVE: {
+      challenge.reset();
       await routeToActiveGame(route.params.matchId);
       break;
     }
 
     case RouteType.GAME_SUMMARY: {
+      challenge.reset();
       const matchId = route.params.matchId;
       clearActiveMatchSession();
       const shouldPlayFanfare = Boolean(state.justFinishedMatch && state.matchId === matchId);
@@ -172,12 +179,14 @@ async function handleRoute(route) {
     }
 
     case RouteType.CHALLENGES: {
+      challenge.reset();
       clearActiveMatchSession();
       await openChallengesPage();
       break;
     }
 
     case RouteType.UNKNOWN: {
+      challenge.reset();
       clearActiveMatchSession();
       const notFoundPath = route.path || window.location.pathname;
       showGameEndedCard(
@@ -191,6 +200,7 @@ async function handleRoute(route) {
 
     case RouteType.LOBBY:
     default: {
+      challenge.reset();
       clearActiveMatchSession();
       returnToSetup({ updateUrl: false });
       break;
@@ -250,10 +260,18 @@ bindClick(el.readyBtn, () => {
 });
 
 bindClick(el.submitAnswer, () => {
+  if (challenge.isActive()) {
+    challenge.submitAnswer(false).catch((err) => showAlert(err.message || err));
+    return;
+  }
   submitAnswer(false).catch((err) => showAlert(err.message || err));
 });
 
 bindClick(el.nextRound, () => {
+  if (challenge.isActive()) {
+    challenge.handleNextRound();
+    return;
+  }
   handleNextRound().catch((err) => showAlert(err.message || err));
 });
 
@@ -284,10 +302,12 @@ bindClick(el.gameExitBtn, () => {
 });
 
 bindClick(el.gameRestartBtn, () => {
+  if (challenge.isActive()) return;
   handleAbandonGame("restart");
 });
 
 bindClick(el.revealRestartBtn, () => {
+  if (challenge.isActive()) return;
   handleAbandonGame("restart");
 });
 
@@ -306,6 +326,10 @@ bindClick(el.revealReportBtn, () => {
 
 bindClick(el.refreshLeaderboard, () => {
   loadLeaderboard().catch((err) => showAlert(err.message || err));
+});
+
+bindClick(el.homeNavBtn, () => {
+  navigate("/");
 });
 
 bindClick(el.challengesNavBtn, () => {
@@ -336,9 +360,17 @@ window.addEventListener("beforeunload", handleBeforeUnload);
 
 bindGlobalShortcuts({
   onSubmitAnswer: () => {
+    if (challenge.isActive()) {
+      challenge.submitAnswer(false).catch((err) => showAlert(err.message || err));
+      return;
+    }
     submitAnswer(false).catch((err) => showAlert(err.message || err));
   },
   onNextRound: () => {
+    if (challenge.isActive()) {
+      challenge.handleNextRound();
+      return;
+    }
     handleNextRound().catch((err) => showAlert(err.message || err));
   },
   onPlayerReady: () => {
@@ -371,6 +403,13 @@ bindGlobalShortcuts({
     refreshActiveScreenLanguage();
   },
   onReturnToLobby: () => {
+    if (challenge.isActive()) {
+      if (confirm(t("game.abandon_confirm", t("game.abandon_exit")))) {
+        challenge.reset();
+        navigate("/");
+      }
+      return;
+    }
     if (isGameActive()) {
       handleAbandonGame("exit");
     } else if (!el.summaryCard.classList.contains("hidden")) {
@@ -378,6 +417,9 @@ bindGlobalShortcuts({
     }
   },
   onRestartMatch: () => {
+    if (challenge.isActive()) {
+      return;
+    }
     if (isGameActive()) {
       handleAbandonGame("restart");
     } else if (!el.summaryCard.classList.contains("hidden")) {
@@ -412,6 +454,8 @@ function refreshActiveScreenLanguage() {
   updateLanguageUi();
   refreshFilterComponentsLanguage();
   updateLeaderboardScope();
+  refreshChallengesPageLanguage();
+  challenge.refreshLanguage?.();
   if (state.lastSummary && !el.summaryCard.classList.contains("hidden")) {
     const lang = getLocale();
     api(`/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`)
@@ -437,10 +481,13 @@ function applyUiConfig(config) {
   if (config.immich_web_url) {
     state.immichWebUrl = config.immich_web_url;
   }
-  if (config.language && !localStorage.getItem("immich_quiz_lang")) {
+  if (config.language && !localStorage.getItem("immich_quiz_language")) {
     const lang = normalizeLanguage(config.language);
-    localStorage.setItem("immich_quiz_lang", lang);
-    updateLanguageUi();
+    if (lang) {
+      state.language = lang;
+      localStorage.setItem("immich_quiz_language", lang);
+      updateLanguageUi();
+    }
   }
   applyLanguage();
 }
@@ -490,6 +537,16 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
         }
         return false;
       }
+    } else if (fromRoute.type === RouteType.CHALLENGE && challenge.isGameActive()) {
+      if (toRoute.path !== fromRoute.path) {
+        const label = t("game.abandon_exit");
+        if (confirm(t("game.abandon_confirm", label))) {
+          clearTimer();
+          challenge.reset();
+          return true;
+        }
+        return false;
+      }
     }
     return true;
   });
@@ -506,6 +563,9 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
 
   // Fast background config sync
   initUiConfig().catch((err) => console.warn("UI config error:", err));
+
+  // Background load challenges to populate header challenges badge and preheat challenges page
+  loadChallengesList().catch((err) => console.warn("Challenges startup error:", err));
 
   // Initialize router immediately so non-lobby routes display instantly without flash of lobby
   initRouter(handleRoute);

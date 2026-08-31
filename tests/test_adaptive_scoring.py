@@ -235,3 +235,43 @@ def test_album_shuffle_adaptive_date_scoring_vacation_vs_archive() -> None:
     era_swap_assigned = {'p1': 1, 'p2': 0, 'p3': 2}
     era_score, _, _ = batch_exponential_date_score(era_swap_assigned, archive_dates, decay_days=archive_decay)
     assert 33 <= era_score <= 35
+
+
+def test_decay_logging_location_and_date(caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    caplog.set_level(logging.INFO)
+
+    # 1. Empty pool logging
+    calculate_location_decay([])
+    assert any(
+        'Spatial decay calculation: inputs=[pool=empty' in r.message and 'output=[decay_km=' in r.message
+        for r in caplog.records
+    )
+
+    caplog.clear()
+    calculate_date_decay([])
+    assert any(
+        'Temporal decay calculation: inputs=[pool=empty' in r.message and 'output=[decay_days=' in r.message
+        for r in caplog.records
+    )
+
+    # 2. Calculated pool logging
+    caplog.clear()
+    pool = [
+        _make_answer(48.1351, 11.5820, '2021-01-01T12:00:00Z'),
+        _make_answer(49.4521, 11.0767, '2024-01-01T12:00:00Z'),
+    ]
+    calculate_location_decay(pool)
+    assert any(
+        'Spatial decay calculation: inputs=[pool_size=2' in r.message and 'output=[decay_km=' in r.message
+        for r in caplog.records
+    )
+
+    caplog.clear()
+    calculate_date_decay(pool)
+    assert any(
+        'Temporal decay calculation: inputs=[pool_size=2' in r.message and 'output=[decay_days=' in r.message
+        for r in caplog.records
+    )
+

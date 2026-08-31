@@ -18,6 +18,7 @@ import { navigate } from "./router.js";
 import { showShareToast } from "./summary/share.js";
 import { openAdminModal } from "./admin.js";
 import { playerColor, playerInitial, formatPlace } from "./formatters.js";
+import { buildMatchMetaHtml } from "./components/match_meta.js";
 
 let _challenges = [];
 let _searchQuery = "";
@@ -46,6 +47,7 @@ let _statTotalEl = null;
 let _statPopularEl = null;
 
 let _isInitialized = false;
+let _hasLoaded = false;
 
 /**
  * Format relative duration string from milliseconds.
@@ -167,6 +169,9 @@ export async function openChallengesPage() {
   if (el.challengesNavBtn) {
     el.challengesNavBtn.classList.add("active");
   }
+  if (el.homeNavBtn) {
+    el.homeNavBtn.classList.remove("active");
+  }
 
   await loadChallengesList();
 }
@@ -205,15 +210,17 @@ function isChallengeActive(ch) {
  * @param {boolean} [showToast=false]
  */
 export async function loadChallengesList(showToast = false) {
+  initChallengesPage();
   if (!_hubListEl) return;
 
   if (_challenges.length === 0) {
-    _hubListEl.innerHTML = `<div class="challenges-loading">${t("challenges_page.loading")}</div>`;
+    _hubListEl.innerHTML = `<div class="challenges-loading" data-i18n="challenges_page.loading">${t("challenges_page.loading")}</div>`;
   }
 
   try {
     const res = await api("/api/challenge/list?limit=100&include_inactive=true");
     _challenges = res.challenges || [];
+    _hasLoaded = true;
 
     updateHeroStats();
     updateHeaderChallengeBadge();
@@ -432,52 +439,6 @@ export function renderChallenges() {
     const participantCount = ch.total_participants || 0;
     const isStandingsExpanded = _expandedStandings.has(ch.challenge_id);
 
-    // Build Scope Chips
-    const config = ch.config || {};
-    const scopeChips = [];
-
-    // Libraries
-    if (ch.libraries && ch.libraries.length > 0) {
-      scopeChips.push(`<span class="scope-chip scope-library" title="${ch.libraries.join(", ")}">📚 ${ch.libraries.join(", ")}</span>`);
-    }
-
-    // Albums
-    if (config.album_names && config.album_names.length > 0) {
-      const albumCount = config.album_names.length;
-      const albumText = albumCount <= 2 ? config.album_names.join(", ") : `${config.album_names[0]} +${albumCount - 1}`;
-      scopeChips.push(`<span class="scope-chip scope-album" title="${config.album_names.join(", ")}">📁 ${albumText}</span>`);
-    }
-
-    // People
-    if (config.person_names && config.person_names.length > 0) {
-      const pCount = config.person_names.length;
-      const pText = pCount <= 2 ? config.person_names.join(", ") : `${config.person_names[0]} +${pCount - 1}`;
-      scopeChips.push(`<span class="scope-chip scope-people" title="${config.person_names.join(", ")}">👤 ${pText}</span>`);
-    }
-
-    // Date range
-    if (config.min_date || config.max_date) {
-      const dateText = `${config.min_date || "—"} → ${config.max_date || "—"}`;
-      scopeChips.push(`<span class="scope-chip scope-date" title="${dateText}">🗓️ ${dateText}</span>`);
-    }
-
-    // Geographic
-    if (config.countries && config.countries.length > 0) {
-      scopeChips.push(`<span class="scope-chip scope-geo" title="${config.countries.join(", ")}">🌍 ${config.countries.join(", ")}</span>`);
-    }
-    if (config.cities && config.cities.length > 0) {
-      scopeChips.push(`<span class="scope-chip scope-geo" title="${config.cities.join(", ")}">🏙️ ${config.cities.join(", ")}</span>`);
-    }
-
-    // Shared
-    if (config.include_shared) {
-      scopeChips.push(`<span class="scope-chip scope-shared" title="${t("challenges_page.scope_shared")}">🔗 Shared</span>`);
-    }
-
-    if (scopeChips.length === 0) {
-      scopeChips.push(`<span class="scope-chip scope-all">🌐 ${t("challenges_page.scope_all")}</span>`);
-    }
-
     // Standings toggle text
     const standingsBtnText = isStandingsExpanded
       ? t("challenges_page.hide_standings")
@@ -487,21 +448,11 @@ export function renderChallenges() {
 
     html += `
       <div class="detailed-challenge-card ${!isActive ? "card-inactive" : ""}" data-id="${ch.challenge_id}">
-        <!-- Card Header -->
-        <div class="detailed-card-header">
-          <div class="card-title-block">
-            <div class="card-status-row">
-              ${statusPillHtml}
-              <span class="card-mode-badge" title="${modeDesc}">${modeEmoji} ${modeLabel}</span>
-              ${timeStatusHtml}
-            </div>
-            <h3 class="detailed-challenge-title">${ch.title || `${ch.creator_name}'s Challenge`}</h3>
-            <div class="card-host-row">
-              <span class="host-avatar" style="background-color: ${hostColor};">${hostInitial}</span>
-              <span class="host-name">${t("challenges_page.host_label", ch.creator_name)}</span>
-              <span class="host-dot">•</span>
-              <span class="created-date">${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
-            </div>
+        <!-- Card Top Bar: Status Badges & Quick Action Icons -->
+        <div class="detailed-card-top-bar">
+          <div class="card-status-row">
+            ${statusPillHtml}
+            ${timeStatusHtml}
           </div>
 
           <div class="card-header-actions">
@@ -521,29 +472,19 @@ export function renderChallenges() {
           </div>
         </div>
 
-        <!-- Card Specs & Rules Grid -->
-        <div class="detailed-card-specs">
-          <div class="spec-item">
-            <span class="spec-icon">🎯</span>
-            <span class="spec-text"><strong>${t("challenges_page.rounds_count", ch.rounds)}</strong></span>
-          </div>
-          <div class="spec-item">
-            <span class="spec-icon">⏱️</span>
-            <span class="spec-text">${ch.round_length || "1m"}</span>
-          </div>
-          <div class="spec-item">
-            <span class="spec-icon">👥</span>
-            <span class="spec-text"><strong>${t("challenge.participants", participantCount)}</strong></span>
+        <!-- Card Title & Host -->
+        <div class="card-title-block">
+          <h3 class="detailed-challenge-title">${ch.title || `${ch.creator_name}'s Challenge`}</h3>
+          <div class="card-host-row">
+            <span class="host-avatar" style="background-color: ${hostColor};">${hostInitial}</span>
+            <span class="host-name">${t("challenges_page.host_label", ch.creator_name)}</span>
+            <span class="host-dot">•</span>
+            <span class="created-date">${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
           </div>
         </div>
 
-        <!-- Scope & Filters Tag Cloud -->
-        <div class="detailed-card-scope">
-          <span class="scope-label">${t("challenges_page.scope_heading")}:</span>
-          <div class="scope-chips-container">
-            ${scopeChips.join("")}
-          </div>
-        </div>
+        <!-- Unified Match Meta: Game Setup & Library Filters -->
+        ${buildMatchMetaHtml(ch)}
 
         <!-- Card Footer & Actions -->
         <div class="detailed-card-footer">
@@ -813,3 +754,25 @@ async function confirmAndDeactivate(challengeId, challengeTitle) {
     showShareToast(err.message || "Failed to deactivate challenge");
   }
 }
+
+/**
+ * Refresh challenges hub list and hero stats when UI language changes.
+ */
+export function refreshChallengesPageLanguage() {
+  if (!_isInitialized) return;
+
+  if (_hasLoaded) {
+    updateHeroStats();
+    renderChallenges();
+  } else {
+    const loadingEl = _hubListEl?.querySelector(".challenges-loading");
+    if (loadingEl) {
+      loadingEl.textContent = t("challenges_page.loading");
+    }
+    const retryBtn = document.getElementById("retry-load-challenges-btn");
+    if (retryBtn) {
+      retryBtn.textContent = t("challenges_page.refresh_btn");
+    }
+  }
+}
+

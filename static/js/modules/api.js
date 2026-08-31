@@ -3,9 +3,13 @@ import { getSelectedPeopleMode } from "./setup_filters.js";
 import { getCollator } from "./i18n.js";
 
 export async function api(path, options = {}) {
+  const { headers, ...restOptions } = options;
   const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(headers || {}),
+    },
+    ...restOptions,
   });
 
   if (!response.ok) {

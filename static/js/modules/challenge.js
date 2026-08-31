@@ -19,6 +19,7 @@ import {
   spawnPinPulseEffect,
   applySpiderfy,
   unregisterActiveMap,
+  updateSubmitState,
 } from "./maps.js";
 import { playPinDropSound, playSubmitTone, playVictoryFanfare } from "./audio.js";
 import { launchGoldConfetti, animateScoreRollup } from "./effects.js";
@@ -32,7 +33,7 @@ import {
   renderRoundMeta,
   playerNameCell,
 } from "./formatters.js";
-import { t, getLocale, formatDate } from "./i18n.js";
+import { t, getLocale, formatDate, showAlert } from "./i18n.js";
 import { renderPodium } from "./summary/podium.js";
 import { renderAwards } from "./summary/awards.js";
 import { startTimer, clearTimer, resetTimerBar } from "./timer.js";
@@ -40,6 +41,7 @@ import { getActiveMode } from "./modes/index.js";
 import { showCard } from "./screens/common.js";
 import { navigate } from "./router.js";
 import { renderQRCode } from "./components/qrcode.js";
+import { buildMatchMetaHtml } from "./components/match_meta.js";
 
 
 const POLL_INTERVAL_MS = 3000;
@@ -77,12 +79,67 @@ function sessionKey(capabilityToken) {
 
 export const challenge = {
   /**
+   * Check if challenge mode is currently active (data and session initialized).
+   * @returns {boolean}
+   */
+  isActive() {
+    return Boolean(challengeData && sessionToken);
+  },
+
+  /**
+   * Check if challenge gameplay is active on a question or reveal.
+   * @returns {boolean}
+   */
+  isGameActive() {
+    return Boolean(challengeData && sessionToken && state.currentQuestion);
+  },
+
+  /**
+   * Refresh challenge entry screen language if currently visible.
+   */
+  refreshLanguage() {
+    if (!challengeData) return;
+    if (el.challengeCard && !el.challengeCard.classList.contains("hidden")) {
+      if (!sessionToken) {
+        const savedSessionRaw = challengeData.capability_token
+          ? localStorage.getItem(sessionKey(challengeData.capability_token))
+          : null;
+        let savedSession = null;
+        if (savedSessionRaw) {
+          try {
+            savedSession = JSON.parse(savedSessionRaw);
+          } catch (_) {}
+        }
+        this.renderLandingScreen(challengeData, savedSession);
+      }
+    }
+  },
+
+  /**
+   * Reset all challenge state when leaving challenge mode.
+   */
+  reset() {
+    this.stopPolling();
+    this.cleanupMaps();
+    if (el.gameRestartBtn) el.gameRestartBtn.classList.remove("hidden");
+    if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");
+    challengeData = null;
+    sessionToken = null;
+    sessionPlayerName = null;
+    currentRoundIndex = 0;
+    totalRounds = 0;
+    questionStartTime = null;
+    this.lastRoundResult = null;
+    this.lastRoundIndex = 0;
+    cachedLeaderboardData = null;
+  },
+
+  /**
    * Initialize a challenge from a capability token in the URL.
    * @param {string} capabilityToken
    */
   async init(capabilityToken) {
-    this.stopPolling();
-    this.cleanupMaps();
+    this.reset();
 
     try {
       challengeData = await api(`/api/challenge/${encodeURIComponent(capabilityToken)}`);
@@ -111,6 +168,9 @@ export const challenge = {
    * Render the challenge landing / entry screen with resume detection.
    */
   renderLandingScreen(data, savedSession) {
+    state.currentScreen = null;
+    state.currentQuestion = null;
+    this.lastRoundResult = null;
     if (!el.challengeCard) return;
     showCard(el.challengeCard);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -120,23 +180,104 @@ export const challenge = {
     const modeLabel = data.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
     const filterSummary = data.filter_summary || t("filters.full_library");
 
-    const resumeSectionHtml = savedSession
-      ? `<div class="challenge-resume-notice">
-           <p>${t("challenge.resume_notice")} (<strong>${savedSession.playerName}</strong>)</p>
-           <button type="button" class="btn btn-primary" id="challenge-resume-btn">
-             ${t("challenge.resume_button")}
-           </button>
-         </div>`
-      : "";
+    let mainActionHtml = "";
+
+    if (savedSession) {
+      mainActionHtml = `
+        <div class="challenge-paths-container">
+          <!-- Path 1: Resume Active Session -->
+          <div class="challenge-path-card challenge-path-resume">
+            <div class="challenge-path-badge">
+              <span class="pulse-dot"></span>
+              ${t("challenge.path_active_badge")}
+            </div>
+            <div class="challenge-path-header">
+              <span class="challenge-path-icon" aria-hidden="true">🔄</span>
+              <div class="challenge-path-text">
+                <h3 class="challenge-path-title">${t("challenge.path_resume_title")}</h3>
+                <p class="challenge-path-desc">${t("challenge.path_resume_desc")}</p>
+              </div>
+            </div>
+            <div class="challenge-player-pill">
+              <span class="player-icon" aria-hidden="true">👤</span>
+              <span class="player-name">${savedSession.playerName}</span>
+            </div>
+            <button type="button" class="btn btn-primary btn-large challenge-path-btn" id="challenge-resume-btn">
+              <span>${t("challenge.resume_button_as", savedSession.playerName)}</span>
+              <span class="btn-arrow" aria-hidden="true">→</span>
+            </button>
+          </div>
+
+          <!-- Divider -->
+          <div class="challenge-paths-divider" role="separator" aria-label="${t("challenge.or_divider")}">
+            <span class="divider-line"></span>
+            <span class="divider-badge">${t("challenge.or_divider")}</span>
+            <span class="divider-line"></span>
+          </div>
+
+          <!-- Path 2: Play as Someone Else / Join with New Name -->
+          <div class="challenge-path-card challenge-path-new">
+            <div class="challenge-path-header">
+              <span class="challenge-path-icon" aria-hidden="true">✨</span>
+              <div class="challenge-path-text">
+                <h3 class="challenge-path-title">${t("challenge.path_new_title")}</h3>
+                <p class="challenge-path-desc">${t("challenge.path_new_desc")}</p>
+              </div>
+            </div>
+            <form id="challenge-join-form" class="challenge-form">
+              <div class="challenge-input-group">
+                <label for="player-name-input">${t("challenge.new_player_label")}</label>
+                <input
+                  type="text"
+                  id="player-name-input"
+                  class="input"
+                  placeholder="${t("challenge.new_player_placeholder")}"
+                  maxlength="30"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn btn-secondary btn-large challenge-path-btn" id="challenge-start-btn">
+                <span>${t("challenge.start_button")}</span>
+                <span class="btn-arrow" aria-hidden="true">→</span>
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+    } else {
+      mainActionHtml = `
+        <div class="challenge-single-path">
+          <div class="challenge-single-header">
+            <h3>${t("challenge.join_heading")}</h3>
+            <p>${t("challenge.join_desc")}</p>
+          </div>
+          <form id="challenge-join-form" class="challenge-form">
+            <div class="challenge-input-group">
+              <label for="player-name-input">${t("challenge.name_label")}</label>
+              <input
+                type="text"
+                id="player-name-input"
+                class="input"
+                placeholder="${t("challenge.name_placeholder")}"
+                maxlength="30"
+                required
+                autofocus
+              />
+            </div>
+            <button type="submit" class="btn btn-primary btn-large challenge-path-btn" id="challenge-start-btn">
+              <span>${t("challenge.start_button")}</span>
+              <span class="btn-arrow" aria-hidden="true">→</span>
+            </button>
+          </form>
+        </div>
+      `;
+    }
 
     el.challengeCard.innerHTML = `
       <div class="challenge-landing">
         <div class="challenge-header">
           <span class="badge badge-challenge">${t("challenge.badge")}</span>
           <h2>${data.title || `${data.creator_name}'s Challenge`}</h2>
-          <p class="challenge-meta">
-            ${data.rounds} ${t("challenge.rounds")} • ${modeLabel} • ${filterSummary}
-          </p>
         </div>
 
         <div class="challenge-participants">
@@ -144,24 +285,11 @@ export const challenge = {
           <span>${participantsText}</span>
         </div>
 
-        ${resumeSectionHtml}
+        <div class="challenge-landing-specs">
+          ${buildMatchMetaHtml(data)}
+        </div>
 
-        <form id="challenge-join-form" class="challenge-form">
-          <label for="player-name-input">${t("challenge.name_label")}</label>
-          <input
-            type="text"
-            id="player-name-input"
-            class="input"
-            placeholder="${t("challenge.name_placeholder")}"
-            maxlength="30"
-            required
-            autofocus
-            value="${savedSession ? savedSession.playerName : ""}"
-          />
-          <button type="submit" class="btn btn-primary btn-large" id="challenge-start-btn">
-            ${t("challenge.start_button")}
-          </button>
-        </form>
+        ${mainActionHtml}
       </div>
     `;
 
@@ -221,7 +349,7 @@ export const challenge = {
         this.showGrandReveal();
         return;
       }
-      alert(`${t("challenge.start_error")}: ${err.message || err}`);
+      showAlert(`${t("challenge.start_error")}: ${err.message || err}`);
     }
   },
 
@@ -260,7 +388,7 @@ export const challenge = {
         return;
       }
       console.error("Failed to load challenge question:", err);
-      alert(err.message || "Failed to load question");
+      showAlert(err.message || "Failed to load question");
     }
   },
 
@@ -269,7 +397,11 @@ export const challenge = {
    * @param {object} question
    */
   renderQuestionScreen(question) {
+    state.currentScreen = "guessing";
+    state.lastReveal = null;
+    this.lastRoundResult = null;
     showCard(el.gameCard);
+    if (el.gameRestartBtn) el.gameRestartBtn.classList.add("hidden");
     if (el.guessingUi) el.guessingUi.classList.remove("hidden");
     if (el.revealUi) el.revealUi.classList.add("hidden");
     if (el.passOverlay) el.passOverlay.classList.add("hidden");
@@ -298,19 +430,16 @@ export const challenge = {
 
     if (el.submitAnswer) {
       el.submitAnswer.textContent = t("game.submit_btn");
-      el.submitAnswer.onclick = (e) => {
-        e.preventDefault();
-        this.submitAnswer(false);
-      };
+      el.submitAnswer.onclick = null;
     }
+    updateSubmitState();
 
     // Start countdown timer
     questionStartTime = performance.now();
     startTimer(
       question.round_length || challengeData.round_length,
       getActiveMode,
-      null,
-      () => this.submitAnswer(true)
+      null
     );
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -323,12 +452,13 @@ export const challenge = {
   async submitAnswer(fromTimeout = false) {
     if (state.submitting || !state.currentQuestion) return;
     state.submitting = true;
+    updateSubmitState();
     clearTimer();
     playSubmitTone();
 
     const elapsedSeconds = Math.max(0.1, (performance.now() - (questionStartTime || performance.now())) / 1000);
     const activeMode = getActiveMode();
-    const guessPayload = activeMode.buildAnswerPayload(state.currentQuestion, fromTimeout);
+    const guessPayload = activeMode.buildAnswerPayload(state.currentQuestion, fromTimeout || state.timedOut);
 
     const body = {
       round_index: currentRoundIndex,
@@ -338,7 +468,7 @@ export const challenge = {
       guessed_month: guessPayload.guessed_month ?? null,
       album_shuffle_answers: guessPayload.album_shuffle_answers ?? null,
       time_taken_seconds: elapsedSeconds,
-      timed_out: fromTimeout || Boolean(guessPayload.timed_out),
+      timed_out: fromTimeout || state.timedOut || Boolean(guessPayload.timed_out),
     };
 
     try {
@@ -356,9 +486,10 @@ export const challenge = {
       this.renderPersonalReveal(result, currentRoundIndex);
     } catch (err) {
       console.error("Failed to submit challenge answer:", err);
-      alert(err.message || "Failed to submit answer");
+      showAlert(err.message || "Failed to submit answer");
     } finally {
       state.submitting = false;
+      updateSubmitState();
     }
   },
 
@@ -369,7 +500,11 @@ export const challenge = {
    * @param {number} roundIndex
    */
   renderPersonalReveal(result, roundIndex) {
+    state.currentScreen = "reveal";
+    this.lastRoundResult = result;
+    this.lastRoundIndex = roundIndex;
     showCard(el.gameCard);
+    if (el.revealRestartBtn) el.revealRestartBtn.classList.add("hidden");
     if (el.guessingUi) el.guessingUi.classList.add("hidden");
     if (el.revealUi) el.revealUi.classList.remove("hidden");
 
@@ -419,14 +554,22 @@ export const challenge = {
 
     if (el.nextRound) {
       el.nextRound.textContent = result.is_game_over ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
-      el.nextRound.onclick = (e) => {
-        e.preventDefault();
-        if (result.is_game_over) {
-          this.renderInviteFriendsScreen();
-        } else {
-          this.renderIntermissionScreen(result, roundIndex);
-        }
-      };
+      el.nextRound.onclick = null;
+    }
+    updateSubmitState();
+  },
+
+  /**
+   * Advance from personal reveal to intermission or final invite screen.
+   */
+  handleNextRound() {
+    if (!this.lastRoundResult) return;
+    const result = this.lastRoundResult;
+    const roundIndex = this.lastRoundIndex;
+    if (result.is_game_over) {
+      this.renderInviteFriendsScreen();
+    } else {
+      this.renderIntermissionScreen(result, roundIndex);
     }
   },
 
@@ -437,6 +580,9 @@ export const challenge = {
    * @param {number} roundIndex
    */
   renderIntermissionScreen(roundResult, roundIndex) {
+    state.currentScreen = null;
+    state.currentQuestion = null;
+    this.lastRoundResult = null;
     if (!el.challengeCard) return;
     showCard(el.challengeCard);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -676,6 +822,9 @@ export const challenge = {
   renderInviteFriendsScreen() {
     this.stopPolling();
     this.cleanupMaps();
+    state.currentScreen = null;
+    state.currentQuestion = null;
+    this.lastRoundResult = null;
 
     if (!el.challengeCard) return;
     showCard(el.challengeCard);
@@ -813,6 +962,9 @@ export const challenge = {
   async showGrandReveal() {
     this.stopPolling();
     this.cleanupMaps();
+    state.currentScreen = null;
+    state.currentQuestion = null;
+    this.lastRoundResult = null;
 
     if (!el.challengeCard) return;
     showCard(el.challengeCard);
@@ -1149,6 +1301,9 @@ export const challenge = {
    * @param {string} message
    */
   renderErrorScreen(message) {
+    state.currentScreen = null;
+    state.currentQuestion = null;
+    this.lastRoundResult = null;
     if (!el.challengeCard) return;
     showCard(el.challengeCard);
     el.challengeCard.innerHTML = `
