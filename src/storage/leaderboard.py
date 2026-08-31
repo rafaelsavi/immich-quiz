@@ -369,7 +369,6 @@ class LeaderboardStore:
                 ),
             )
 
-
             rank = 0
             previous_total: int | None = None
             for idx, player in enumerate(ordered_players):
@@ -669,7 +668,9 @@ class LeaderboardStore:
         entries: list[LeaderboardEntry] = []
 
         for row in rows:
-            person_names = _parse_json_list(row.get('person_names_json')) or _parse_json_list(row.get('person_ids_json'))
+            person_names = _parse_json_list(row.get('person_names_json')) or _parse_json_list(
+                row.get('person_ids_json')
+            )
             album_names = _parse_json_list(row.get('album_names_json')) or _parse_json_list(row.get('album_ids_json'))
             config = MatchConfig(
                 round_count=row['rounds'],

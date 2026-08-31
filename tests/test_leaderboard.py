@@ -1111,29 +1111,27 @@ def test_leaderboard_schema_migration_adds_missing_columns(tmp_path: Path) -> No
 
 def test_match_summary_person_and_album_names(tmp_path: Path) -> None:
     """Verify person_names and album_names are correctly preserved and returned in match summary."""
-    db_path = tmp_path / "leaderboard.db"
+    db_path = tmp_path / 'leaderboard.db'
     store = LeaderboardStore(db_path)
 
     config = GameSetupRequest(
-        players=["Alice", "Bob"],
+        players=['Alice', 'Bob'],
         round_count=5,
-        libraries=["main"],
-        albums=["album-id-1"],
-        album_names=["Vacations 2024"],
-        people=["person-id-1", "person-id-2"],
-        person_names=["Alice Person", "Bob Person"],
+        libraries=['main'],
+        albums=['album-id-1'],
+        album_names=['Vacations 2024'],
+        people=['person-id-1', 'person-id-2'],
+        person_names=['Alice Person', 'Bob Person'],
         game_mode=GameMode.pinpoint,
     )
 
     store.append_match(
-        match_id="m-names-test",
+        match_id='m-names-test',
         config=config,
-        player_scores={"Alice": {"location": 500, "date": 500, "total": 1000}},
+        player_scores={'Alice': {'location': 500, 'date': 500, 'total': 1000}},
     )
 
-    summary = store.get_match_summary("m-names-test")
+    summary = store.get_match_summary('m-names-test')
     assert summary is not None
-    assert summary.config.person_names == ["Alice Person", "Bob Person"]
-    assert summary.config.album_names == ["Vacations 2024"]
-
-
+    assert summary.config.person_names == ['Alice Person', 'Bob Person']
+    assert summary.config.album_names == ['Vacations 2024']

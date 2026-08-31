@@ -1208,7 +1208,6 @@ class MetadataStore:
         )
         return {str(r['id']).strip(): str(r['name']).strip() for r in rows if r.get('id') and r.get('name')}
 
-
     def get_facet_counts(self, criteria: AssetFilterCriteria) -> FacetCounts:
         """Compute matching photo counts for each facet option under current criteria.
 

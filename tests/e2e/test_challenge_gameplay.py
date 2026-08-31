@@ -163,4 +163,3 @@ async def test_homepage_header_challenges_badge_on_load(page: Page, e2e_server: 
     await challenges_btn.click()
     await expect(page.locator('#challenges-page-card')).to_be_visible()
     await expect(page.locator('.detailed-challenge-card')).to_have_count(int(badge_text))
-

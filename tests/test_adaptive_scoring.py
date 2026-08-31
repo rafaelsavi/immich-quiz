@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from src.immich.client import AssetAnswer
 from src.scoring import (
     DATE_MAX_DECAY_DAYS,
@@ -274,4 +276,3 @@ def test_decay_logging_location_and_date(caplog: pytest.LogCaptureFixture) -> No
         'Temporal decay calculation: inputs=[pool_size=2' in r.message and 'output=[decay_days=' in r.message
         for r in caplog.records
     )
-

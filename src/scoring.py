@@ -190,7 +190,8 @@ def calculate_location_decay(
 
     if len(coords) < 2:
         logger.info(
-            'Spatial decay calculation: inputs=[pool_size=%d, valid_coords=%d, span_ratio=%.1f, bounds=(%.1f, %.1f) km] '
+            'Spatial decay calculation: '
+            'inputs=[pool_size=%d, valid_coords=%d, span_ratio=%.1f, bounds=(%.1f, %.1f) km] '
             '-> output=[decay_km=%.1f km (default: < 2 coordinates)]',
             len(answers),
             len(coords),

@@ -783,8 +783,6 @@ class MatchSummaryResponse(BaseModel):
     round_history: list[dict[str, Any]] | None = None
 
 
-
-
 # ---------------------------------------------------------------------------
 # Leaderboard
 # ---------------------------------------------------------------------------

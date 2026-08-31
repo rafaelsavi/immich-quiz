@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+import pytest
 from conftest import FakeImmichClient, build_client, make_asset, setup_payload
 from fastapi.testclient import TestClient
 
@@ -1102,7 +1103,6 @@ def test_calculate_match_bounds_logging(caplog: pytest.LogCaptureFixture) -> Non
         and 'output=[map_bounds=None (fallback:' in r.message
         for r in caplog.records
     )
-
 
 
 def test_ui_config_returns_runtime_metadata(tmp_path: Path) -> None:
