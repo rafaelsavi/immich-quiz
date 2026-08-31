@@ -75,6 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Leaderboard Scope Pill Lifecycle & Empty State**:
+  - Added `.leaderboard-scope-pill:empty { display: none; }` in `static/css/components/leaderboard.css` to prevent rendering a blank badge placeholder before content is rendered.
+  - Added immediate synchronous call to `updateLeaderboardScope()` in `refreshActiveScreenLanguage()` (`static/js/app.js`) to guarantee scope text is populated on initial bootstrap and localized when changing languages.
 - **Challenge UI & Admin Localization**:
   - Corrected plural translation lookup for `challenge.participants` in `static/js/modules/admin.js` to ensure participant counters render localized plural strings properly instead of raw key names.
 - **Intermission Standings Timing**:
@@ -82,6 +85,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - De-duplicated round iterations in `challenge.js` `buildPlayerStats` so Album Shuffle rounds increment the fast-round counter once per round index.
 - **Challenge API Bounds Validation**:
   - Added boundary validation for `round_index` in `ChallengeService._score_pinpoint` to return HTTP 400 Bad Request instead of unhandled server index errors on invalid indices.
+
+### Removed
+
+- **Redundant Modal Preflight Status**:
+  - Removed `#challenge-preflight-status` and `#local-preflight-status` elements from the Prepare Game modal along with redundant modal-level preflight polling in `static/js/modules/admin.js` and associated CSS styles in `static/css/components/modals.css`.
 
 
 ## [2.5.0] - 2026-08-29

@@ -673,43 +673,6 @@
   color: var(--ink);
 }
 
-.challenge-preflight-status {
-  margin-top: 0.25rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-
-.challenge-preflight-status.success {
-  color: #15803d;
-}
-
-.challenge-preflight-status.warning {
-  color: #b45309;
-}
-
-.challenge-preflight-status.loading {
-  color: #64748b;
-}
-
-.preflight-spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(100, 116, 139, 0.3);
-  border-top-color: #64748b;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* Share Box View */
 .challenge-share-box {
   display: flex;

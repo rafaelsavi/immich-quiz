@@ -40,8 +40,6 @@ let _formViewEl = null;
 let _titleInput = null;
 let _creatorNameInput = null;
 let _expirationSelect = null;
-let _preflightStatusEl = null;
-let _localPreflightStatusEl = null;
 let _generateBtn = null;
 let _startMatchBtn = null;
 let _localCancelBtn = null;
@@ -61,10 +59,6 @@ let _qrBtn = null;
 let _qrContainer = null;
 let _qrCodeEl = null;
 let _openLinkBtn = null;
-
-let _preflightTimer = null;
-let _preflightAbortCtrl = null;
-let _isPreflightValid = true;
 
 /**
  * Generate smart automatic challenge title based on active configuration.
@@ -103,8 +97,6 @@ export function initAdminModal() {
   _titleInput = document.getElementById("challenge-title-input");
   _creatorNameInput = document.getElementById("challenge-creator-name-input");
   _expirationSelect = document.getElementById("challenge-expiration");
-  _preflightStatusEl = document.getElementById("challenge-preflight-status");
-  _localPreflightStatusEl = document.getElementById("local-preflight-status");
   _generateBtn = document.getElementById("challenge-generate-btn");
   _startMatchBtn = document.getElementById("start-match-btn");
   _localCancelBtn = document.getElementById("local-cancel-btn");
@@ -159,9 +151,6 @@ export function initAdminModal() {
       startMatch(e).catch((err) => showShareToast(err.message || err));
     });
   }
-
-  // Preflight change triggers
-  if (_expirationSelect) _expirationSelect.addEventListener("change", triggerPreflightCheck);
 
   // Generate challenge button
   if (_generateBtn) _generateBtn.addEventListener("click", handleGenerateChallenge);
@@ -224,8 +213,6 @@ export function openAdminModal(initialTab = "local") {
 
   _modalEl.classList.remove("hidden");
   _modalEl.setAttribute("aria-hidden", "false");
-
-  triggerPreflightCheck();
 }
 
 /**
@@ -235,10 +222,6 @@ export function closeAdminModal() {
   if (!_modalEl) return;
   _modalEl.classList.add("hidden");
   _modalEl.setAttribute("aria-hidden", "true");
-  if (_preflightAbortCtrl) {
-    _preflightAbortCtrl.abort();
-    _preflightAbortCtrl = null;
-  }
 }
 
 /**
@@ -262,104 +245,6 @@ export function switchTab(tabName) {
 
   if (isChallenge && _titleInput && !_titleInput.value.trim()) {
     _titleInput.value = generateAutoChallengeTitle();
-  }
-}
-
-/**
- * Trigger live preflight check against current filters and selected mode.
- */
-function triggerPreflightCheck() {
-  if (_preflightTimer) clearTimeout(_preflightTimer);
-  _preflightTimer = setTimeout(runPreflightCheck, 100);
-}
-
-async function runPreflightCheck() {
-  if (!_preflightStatusEl && !_localPreflightStatusEl) return;
-
-  if (_preflightAbortCtrl) {
-    _preflightAbortCtrl.abort();
-  }
-  _preflightAbortCtrl = new AbortController();
-  const { signal } = _preflightAbortCtrl;
-
-  const roundCount = parseInt(el.roundCount?.value || "5", 10);
-  const activeMode = getActiveMode();
-  const gameMode = activeMode ? activeMode.name : state.gameMode || "pinpoint";
-  const batchSize = gameMode === "album_shuffle" ? 3 : 1;
-  const required = roundCount * batchSize;
-
-  if (_preflightStatusEl) {
-    _preflightStatusEl.className = "challenge-preflight-status loading";
-    _preflightStatusEl.innerHTML = `<span class="preflight-spinner"></span><span class="preflight-text">${t("admin.checking_photos")}</span>`;
-  }
-
-  const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
-  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
-  const modePayload = activeMode ? activeMode.getModePayload() : {};
-
-  const payload = {
-    players: [_creatorNameInput?.value?.trim() || "Host"],
-    round_count: roundCount,
-    location_mode: modePayload.location_mode ?? true,
-    date_mode: modePayload.date_mode ?? true,
-    game_mode: gameMode,
-    libraries: selectedLibs,
-    albums: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
-    people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
-    people_mode: typeof getSelectedPeopleMode === "function" ? getSelectedPeopleMode() : "ANY",
-    countries: countryMultiSelect ? countryMultiSelect.getSelectedIds() : [],
-    cities: cityMultiSelect ? cityMultiSelect.getSelectedIds() : [],
-    min_date: minDate,
-    max_date: maxDate,
-    include_shared: el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false,
-  };
-
-  try {
-    const res = await api("/api/game/preflight", {
-      method: "POST",
-      signal,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const eligible = res.eligible_count ?? 0;
-    const ok = Boolean(res.ok) && eligible >= required;
-    _isPreflightValid = ok;
-
-    if (_preflightStatusEl) {
-      if (ok) {
-        _preflightStatusEl.className = "challenge-preflight-status success";
-        _preflightStatusEl.innerHTML = `<span>${t("admin.photos_ready", eligible, required)}</span>`;
-      } else {
-        _preflightStatusEl.className = "challenge-preflight-status warning";
-        _preflightStatusEl.innerHTML = `<span>${t("admin.photos_insufficient", eligible, required)}</span>`;
-      }
-    }
-
-    if (_localPreflightStatusEl) {
-      if (!ok) {
-        _localPreflightStatusEl.className = "challenge-preflight-status warning";
-        _localPreflightStatusEl.innerHTML = `<span>${t("setup.not_enough_media", eligible, required)}</span>`;
-        _localPreflightStatusEl.classList.remove("hidden");
-      } else {
-        _localPreflightStatusEl.classList.add("hidden");
-      }
-    }
-
-    if (_generateBtn) {
-      _generateBtn.disabled = !ok;
-    }
-    if (_startMatchBtn) {
-      _startMatchBtn.disabled = !ok;
-    }
-  } catch (err) {
-    if (err.name === "AbortError" || (err.message && err.message.includes("abort"))) {
-      return;
-    }
-    if (_preflightStatusEl) {
-      _preflightStatusEl.className = "challenge-preflight-status warning";
-      _preflightStatusEl.innerHTML = `<span>${err.message || "Preflight check failed"}</span>`;
-    }
   }
 }
 
@@ -559,7 +444,7 @@ function resetCreateForm() {
     _modalChallengeFooter.classList.remove("hidden");
   }
   if (_titleInput) _titleInput.value = generateAutoChallengeTitle();
-  if (_generateBtn) _generateBtn.disabled = !_isPreflightValid;
+  if (_generateBtn) _generateBtn.disabled = false;
 }
 
 /**

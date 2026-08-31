@@ -178,6 +178,10 @@
   width: fit-content;
 }
 
+.leaderboard-scope-pill:empty {
+  display: none;
+}
+
 .leaderboard-head button {
   width: auto;
 }

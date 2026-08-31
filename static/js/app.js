@@ -32,7 +32,7 @@ import {
   updateMapLayerControls,
   refitAllMaps,
 } from "./modules/maps.js";
-import { loadLeaderboard, handleSortClick } from "./modules/leaderboard.js";
+import { loadLeaderboard, handleSortClick, updateLeaderboardScope } from "./modules/leaderboard.js";
 import { renderSyncStatus, getLastSyncStatus } from "./modules/sync.js";
 import { clearTimer, startTimer } from "./modules/timer.js";
 import { bindGlobalShortcuts, markShortcutCooldown } from "./modules/shortcuts.js";
@@ -411,6 +411,7 @@ function refreshActiveScreenLanguage() {
   applyLanguage();
   updateLanguageUi();
   refreshFilterComponentsLanguage();
+  updateLeaderboardScope();
   if (state.lastSummary && !el.summaryCard.classList.contains("hidden")) {
     const lang = getLocale();
     api(`/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`)
