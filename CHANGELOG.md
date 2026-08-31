@@ -9,7 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Challenge Mode Storage & Domain Models (Stage 1 Phase 1)**:
+- **QR Code Sharing for Multiplayer Challenges**:
+  - Added a dedicated QR code action button (`#challenge-qr-btn`) with `.qr-btn-text` beside the `"Copy Link"` button (`#challenge-copy-link-btn`, `.copy-btn-text`) in the Prepare Game challenge share box.
+  - Implemented a zero-dependency, client-side QR Code vector SVG generator ES module (`static/js/modules/components/qrcode.js`) supporting automatic version selection, Reed-Solomon error correction, and crisp retina rendering without external network requests.
+  - Added smooth animated QR code card preview (`#challenge-qr-container`) with mobile camera scan hints to easily scan and join challenge games from phones or tablets.
+  - Added QR code sharing button and preview to the post-game `"Invite Friends"` intermission screen in `challenge.js`.
+  - Added bilingual translations for `challenge.qr_code`, `challenge.qr_code_title`, and `challenge.scan_qr_hint` across English and Portuguese.
+
+- **Unified Prepare Game Modal & Home Launch Flow**:
+  - Replaced the separate "Start Match" and "Create challenge link" buttons with a single primary `"Prepare game"` button on the lobby setup card.
+  - Streamlined the lobby setup card into a clean game rule & photo scope configurator by moving local player list collection into the `"Local Match"` tab of the Prepare Game modal.
+  - Added a 2-tab Prepare Game modal (`#prepare-game-modal`):
+    - **Local Match Tab**: Houses player chips management (`PlayerInput`), configured match summary chips (mode, rounds, time, active filters scope), live preflight asset verification status, and the `"Start Match"` action button.
+    - **Challenge Link Tab**: Collects host/creator name, automatically generated smart challenge title based on active configuration (e.g. `Rio de Janeiro • Pinpoint (5R)` or `Album Shuffle • 5 Rounds`), expiration duration, photo filter scope summary, and `"Generate Challenge Link"` action button with 1-click URL sharing.
+  - Added full bilingual translations for `setup.prepare_game_btn`, `setup.prepare_modal_title`, `setup.tab_local`, `setup.tab_challenge`, `setup.local_match_desc`, `setup.challenge_match_desc`, and `setup.configured_match_summary` across `en-US.json`, `pt-BR.json`, `en_US.js`, and `pt_BR.js`.
+  - Removed `#challenges-page-create-btn` from Challenges Hub header and wired empty-state creation to open the Prepare Game modal directly on the Challenge tab.
   - Created `ChallengeStore` in `src/storage/challenge.py` for creating deterministic challenge match seeds, managing capability tokens, and tracking persistent player attempts.
   - Added `challenge_sessions` table and unique constraint `UNIQUE(challenge_id, player_name)` to `LEADERBOARD_SCHEMA_SQL` in `src/storage/leaderboard.py` for persistent session resumption across server restarts.
   - Implemented Fog of War query methods in `LeaderboardStore` (`get_challenge_standings`, `get_challenge_round_guesses`, `get_challenge_participant_count`, `record_challenge_round_guess`, `finalize_challenge_player_match`).

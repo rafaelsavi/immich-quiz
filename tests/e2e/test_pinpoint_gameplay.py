@@ -25,6 +25,7 @@ async def test_pinpoint_two_tap_pin_placement_and_reveal(page: Page) -> None:
     await expect(loc_card).to_have_class(re.compile(r'active'))
 
     # Start match
+    await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()
 
     # 2. Wait for Game Screen and Pass Overlay (if multiplayer)

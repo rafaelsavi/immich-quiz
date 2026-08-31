@@ -55,6 +55,7 @@ def test_challenge_create_pinpoint(tmp_path: Path) -> None:
     assert data['creator_name'] == 'Rafael'
     assert data['rounds'] == 5
     assert data['game_mode'] == 'pinpoint'
+    assert data['created_at'] is not None
     assert data['expires_at'] is not None
 
 

@@ -74,6 +74,7 @@ async def create_challenge(
         libraries=record.get('libraries', []),
         rounds=record['rounds'],
         game_mode=GameMode(record.get('game_mode', 'pinpoint')),
+        created_at=record.get('created_at'),
         expires_at=record.get('expires_at'),
     )
 

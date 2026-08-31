@@ -15,6 +15,10 @@ DYNAMIC_IDS = frozenset(
         'challenge-copy-btn',
         'challenge-error-home-btn',
         'challenge-finisher-count',
+        'challenge-invite-link-box',
+        'challenge-invite-qr-btn',
+        'challenge-invite-qr-code',
+        'challenge-invite-qr-container',
         'challenge-join-form',
         'challenge-resume-btn',
         'challenge-see-results-btn',
@@ -605,3 +609,91 @@ def test_screen_and_player_position_persistence_on_reload() -> None:
     # 5. album_shuffle.js hides single-photo mediaFrame on reveal
     shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
     assert 'if (el.mediaFrame) el.mediaFrame.classList.add("hidden");' in shuffle_js
+
+
+def test_prepare_game_flow_and_modal_regression() -> None:
+    """Verify that Prepare Game launch button, 2-tab modal, and removal of challenges-page-create-btn are respected."""
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
+    challenges_page_js = (JS_DIR / 'modules' / 'challenges_page.js').read_text(encoding='utf-8')
+    en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+
+    # 1. Prepare Game button is present on setup card
+    assert 'id="prepare-game-btn"' in index_html, 'prepare-game-btn missing from index.html'
+    assert 'challenges-page-create-btn' not in index_html, (
+        'challenges-page-create-btn should be removed from index.html'
+    )
+    assert 'challenges-page-create-btn' not in challenges_page_js, (
+        'challenges-page-create-btn should be removed from challenges_page.js'
+    )
+
+    # 2. Prepare Game modal structure has 2 tabs: local and challenge
+    assert 'id="prepare-game-modal"' in index_html
+    assert 'id="tab-local-game"' in index_html
+    assert 'id="tab-challenge-game"' in index_html
+    assert 'id="pane-local-game"' in index_html
+    assert 'id="pane-challenge-game"' in index_html
+
+    # 3. Local tab contains player input component and start match button
+    assert 'id="player-input-root"' in index_html
+    assert 'id="player-count-badge"' in index_html
+    assert 'id="start-match-btn"' in index_html
+
+    # 4. Challenge tab contains creator name, title, and expiration
+    assert 'id="challenge-creator-name-input"' in index_html
+    assert 'id="challenge-title-input"' in index_html
+    assert 'id="challenge-expiration"' in index_html
+    assert 'id="challenge-generate-btn"' in index_html
+
+    # 5. admin.js provides auto-title generation
+    assert 'generateAutoChallengeTitle' in admin_js
+
+    # 6. Localization keys exist
+    assert '"setup.prepare_game_btn"' in en_us
+    assert '"setup.tab_local"' in en_us
+    assert '"setup.tab_challenge"' in en_us
+    assert '"setup.prepare_modal_title"' in en_us
+
+
+def test_challenge_share_qr_code_regression() -> None:
+    """Verify that QR Code button is placed beside copy link button, and QR component/translations exist."""
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
+    challenge_js = (JS_DIR / 'modules' / 'challenge.js').read_text(encoding='utf-8')
+    qrcode_js = (JS_DIR / 'modules' / 'components' / 'qrcode.js').read_text(encoding='utf-8')
+    en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+    modals_css = (STATIC_DIR / 'css' / 'components' / 'modals.css').read_text(encoding='utf-8')
+
+    # 1. QR Code button is positioned alongside Copy Link button in share-url-container
+    assert 'id="challenge-copy-link-btn"' in index_html
+    assert 'class="copy-btn-text"' in index_html
+    assert 'id="challenge-qr-btn"' in index_html
+    assert 'class="qr-btn-text"' in index_html
+    assert 'id="challenge-qr-container"' in index_html
+    assert 'id="challenge-qr-code"' in index_html
+
+    # 2. qrcode.js exports createQRCodeSvg and renderQRCode
+    assert 'export function createQRCodeSvg' in qrcode_js
+    assert 'export function renderQRCode' in qrcode_js
+
+    # 3. admin.js imports and uses renderQRCode
+    assert 'import { renderQRCode } from "./components/qrcode.js"' in admin_js
+    assert 'renderQRCode(_qrCodeEl, playUrl' in admin_js
+
+    # 4. challenge.js imports and uses renderQRCode
+    assert 'import { renderQRCode } from "./components/qrcode.js"' in challenge_js
+    assert 'renderQRCode(inviteQrCode, playUrl' in challenge_js
+
+    # 5. Locales define QR code keys
+    for locale in (en_us, pt_br):
+        assert '"challenge.qr_code"' in locale
+        assert '"challenge.qr_code_title"' in locale
+        assert '"challenge.scan_qr_hint"' in locale
+
+    # 6. CSS includes QR container and responsive button styling
+    assert '.btn-qr-code' in modals_css
+    assert '.challenge-qr-container' in modals_css
+    assert '.challenge-qr-display' in modals_css
+
+

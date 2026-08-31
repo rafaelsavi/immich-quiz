@@ -208,9 +208,15 @@ function bindClick(element, handler) {
 
 if (el.setupForm) {
   el.setupForm.addEventListener("submit", (event) => {
-    startMatch(event).catch((err) => showAlert(err.message || err));
+    event.preventDefault();
+    openAdminModal("local");
   });
 }
+
+bindClick(el.prepareGameBtn, (event) => {
+  event.preventDefault();
+  openAdminModal("local");
+});
 
 bindClick(el.readyBtn, () => {
   if (!state.currentQuestion) return;

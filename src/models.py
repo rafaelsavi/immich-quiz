@@ -915,6 +915,7 @@ class ChallengeCreateResponse(BaseModel):
     libraries: list[str] = Field(default_factory=list)
     rounds: int
     game_mode: GameMode = GameMode.pinpoint
+    created_at: datetime | None = None
     expires_at: datetime | None = None
 
 

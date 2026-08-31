@@ -88,7 +88,6 @@ export function initChallengesPage() {
   _modeFilterEl = document.getElementById("challenges-mode-filter");
   _sortSelectEl = document.getElementById("challenges-sort-select");
   _refreshBtnEl = document.getElementById("challenges-page-refresh-btn");
-  _createBtnEl = document.getElementById("challenges-page-create-btn");
   _backBtnEl = document.getElementById("challenges-page-back-btn");
   _totalBadgeEl = document.getElementById("challenges-page-total-badge");
 
@@ -137,13 +136,6 @@ export function initChallengesPage() {
   if (_refreshBtnEl) {
     _refreshBtnEl.addEventListener("click", () => {
       loadChallengesList(true);
-    });
-  }
-
-  // Create button
-  if (_createBtnEl) {
-    _createBtnEl.addEventListener("click", () => {
-      openAdminModal("create");
     });
   }
 
@@ -370,7 +362,7 @@ export function renderChallenges() {
       `;
       const emptyBtn = document.getElementById("empty-state-create-btn");
       if (emptyBtn) {
-        emptyBtn.addEventListener("click", () => openAdminModal("create"));
+        emptyBtn.addEventListener("click", () => openAdminModal("challenge"));
       }
     } else {
       _hubListEl.innerHTML = `

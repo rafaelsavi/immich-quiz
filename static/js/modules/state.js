@@ -94,6 +94,8 @@ export const el = {
   guessingUi: document.getElementById("guessing-ui"),
   revealUi: document.getElementById("reveal-ui"),
   setupForm: document.getElementById("setup-form"),
+  prepareGameBtn: document.getElementById("prepare-game-btn"),
+  prepareGameModal: document.getElementById("prepare-game-modal"),
   setupSubmitBtn: document.getElementById("start-match-btn"),
   players: document.getElementById("players"),
   roundCount: document.getElementById("round-count"),

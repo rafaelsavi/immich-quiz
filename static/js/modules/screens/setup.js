@@ -5,6 +5,7 @@ import { navigate } from "../router.js";
 import { getActiveMode } from "../modes/index.js";
 import { showCard, resetGameUi, confirmAbandonMatch } from "./common.js";
 import { loadQuestion } from "./game.js";
+import { closeAdminModal } from "../admin.js";
 import {
   playerInput,
   libraryMultiSelect,
@@ -127,6 +128,7 @@ export async function startMatch(event) {
     state.playerStats = {};
     state.roundHistory = [];
 
+    closeAdminModal();
     saveActiveMatchSession();
     navigate(`/game/${encodeURIComponent(state.matchId)}`, { force: true });
 

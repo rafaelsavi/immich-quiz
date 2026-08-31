@@ -59,6 +59,7 @@ async def test_pinpoint_single_year_and_month_date_selection(page: Page) -> None
         await date_card.click()
 
     # Start match
+    await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()
 
     # Pass overlay (if multiplayer/present)

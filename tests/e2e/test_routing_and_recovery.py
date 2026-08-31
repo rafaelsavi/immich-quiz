@@ -142,12 +142,6 @@ async def test_pass_and_play_multiplayer_ready_overlay_flow(page: Page) -> None:
     """
     await page.goto('/')
 
-    # Add a second player
-    player_input = page.locator('#player-text-input')
-    if await player_input.is_visible():
-        await player_input.fill('Bob')
-        await page.keyboard.press('Enter')
-
     # Configure date mode only
     loc_card = page.locator('#card-goal-location')
     date_card = page.locator('#card-goal-date')
@@ -158,6 +152,14 @@ async def test_pass_and_play_multiplayer_ready_overlay_flow(page: Page) -> None:
 
     # Configure 5 rounds for test
     await page.locator('#round-count').select_option('5')
+
+    # Open prepare game modal and add a second player
+    await page.locator('#prepare-game-btn').click()
+    player_input = page.locator('#player-text-input')
+    if await player_input.is_visible():
+        await player_input.fill('Bob')
+        await page.keyboard.press('Enter')
+
     await page.locator('#start-match-btn').click()
     await expect(page.locator('#game-card')).to_be_visible()
 

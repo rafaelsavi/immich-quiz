@@ -486,13 +486,14 @@ export function getActiveFilterSummary() {
 
 export function showPreflightWarning(message) {
   let warningEl = document.getElementById("preflight-warning");
-  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
+  const prepareBtn = el.prepareGameBtn || document.querySelector("#setup-form button[type=submit]");
+  const submitBtn = el.setupSubmitBtn || document.getElementById("start-match-btn");
   if (!warningEl) {
     warningEl = document.createElement("div");
     warningEl.id = "preflight-warning";
     warningEl.className = "preflight-warning";
-    if (submitBtn) {
-      submitBtn.insertAdjacentElement("beforebegin", warningEl);
+    if (prepareBtn) {
+      prepareBtn.insertAdjacentElement("beforebegin", warningEl);
     } else {
       document.getElementById("setup-form")?.appendChild(warningEl);
     }
@@ -502,14 +503,21 @@ export function showPreflightWarning(message) {
   if (submitBtn) {
     submitBtn.disabled = true;
   }
+  if (prepareBtn) {
+    prepareBtn.disabled = true;
+  }
 }
 
 export function hidePreflightWarning() {
   const warningEl = document.getElementById("preflight-warning");
   if (warningEl) warningEl.classList.add("hidden");
-  const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
+  const prepareBtn = el.prepareGameBtn || document.querySelector("#setup-form button[type=submit]");
+  const submitBtn = el.setupSubmitBtn || document.getElementById("start-match-btn");
   if (submitBtn) {
     submitBtn.disabled = false;
+  }
+  if (prepareBtn) {
+    prepareBtn.disabled = false;
   }
 }
 

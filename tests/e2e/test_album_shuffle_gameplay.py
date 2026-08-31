@@ -16,6 +16,7 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
     await expect(page.locator('#mode-album-shuffle-btn')).to_have_class(re.compile(r'active'))
 
     # Start match
+    await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()
 
     # Pass overlay (if multiplayer)

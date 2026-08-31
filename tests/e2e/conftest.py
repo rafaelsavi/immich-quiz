@@ -261,4 +261,5 @@ async def start_date_only_match(page: Page, rounds: int = 5, round_length: str |
     if round_length is not None:
         await page.locator('#round-length').select_option(round_length)
     await page.locator('#round-count').select_option(str(rounds))
+    await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()

@@ -223,15 +223,23 @@
 }
 
 .modal-close-btn {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   line-height: 1;
   color: #64748b;
   cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 6px;
-  transition: color 0.15s ease, background 0.15s ease;
+  padding: 0;
+  border-radius: 8px;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .modal-close-btn:hover {
@@ -479,6 +487,25 @@
   flex: 1 1 180px;
 }
 
+.setup-actions-group .btn-prepare-game {
+  width: 100%;
+  padding: 0.95rem 1.75rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  box-shadow: 0 4px 14px rgba(15, 124, 127, 0.25);
+  transition: all 0.2s ease;
+}
+
+.setup-actions-group .btn-prepare-game:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(15, 124, 127, 0.35);
+}
+
 .setup-actions-group .btn-challenge-creator {
   flex: 1 1 180px;
   display: inline-flex;
@@ -487,11 +514,14 @@
   gap: 0.5rem;
 }
 
-/* ----------------------------------------------------------------- Challenge Creator Modal */
+/* ----------------------------------------------------------------- Prepare Game & Challenge Modal */
 
+.prepare-game-card,
 .challenge-creator-card {
   width: min(94vw, 560px);
   max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-title-wrap {
@@ -556,6 +586,14 @@
 
 .modal-pane {
   padding: 1.25rem;
+  overflow-y: auto;
+}
+
+.modal-section-desc {
+  margin: 0 0 1rem 0;
+  font-size: 0.88rem;
+  color: #64748b;
+  line-height: 1.4;
 }
 
 /* Mode Options in Creator */
@@ -628,26 +666,6 @@
   }
 }
 
-/* Active Scope Box */
-.challenge-filter-scope-box {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.85rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.scope-box-header {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #475569;
-}
-
 .scope-summary-text {
   margin: 0;
   font-size: 0.9rem;
@@ -698,8 +716,9 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 1rem;
-  padding: 1rem 0;
+  gap: 1.1rem;
+  padding: 0.5rem 0;
+  width: 100%;
 }
 
 .share-success-icon {
@@ -712,29 +731,199 @@
   font-size: 1.3rem;
   font-weight: 700;
   color: var(--ink);
+  line-height: 1.3;
 }
 
 .share-instructions {
   margin: 0;
   font-size: 0.92rem;
   color: #64748b;
+  line-height: 1.4;
 }
 
 .share-url-container {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.65rem;
   width: 100%;
 }
 
-.share-url-input {
-  flex: 1;
-  padding: 0.65rem 0.85rem;
-  border: 1.5px solid var(--accent);
-  border-radius: 8px;
-  font-family: monospace;
-  font-size: 0.88rem;
+.share-link-box {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
   background: #f8fafc;
-  color: var(--ink);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.share-link-box:hover {
+  background: #ffffff;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 124, 127, 0.12);
+}
+
+.share-link-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.share-url-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #1e293b;
+  direction: ltr;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  outline: none !important;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+
+.share-action-buttons {
+  display: flex;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.btn-copy-link,
+.btn-qr-code {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  border-radius: 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-copy-link {
+  background: linear-gradient(120deg, var(--accent), #0d9195);
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 2px 8px rgba(15, 124, 127, 0.25);
+}
+
+.btn-copy-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 124, 127, 0.35);
+}
+
+.btn-copy-link:active {
+  transform: translateY(0);
+}
+
+.btn-copy-link.copied {
+  background: linear-gradient(120deg, #10b981, #059669);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+.btn-qr-code {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #1e293b;
+}
+
+.btn-qr-code:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.btn-qr-code.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 0 0 2.5px rgba(15, 124, 127, 0.25);
+}
+
+.challenge-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  animation: qrFadeSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.challenge-qr-container.hidden {
+  display: none !important;
+}
+
+@keyframes qrFadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.challenge-qr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.1rem;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+  max-width: 260px;
+  width: 100%;
+}
+
+.challenge-qr-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  padding: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid #f1f5f9;
+}
+
+.challenge-qr-display svg {
+  display: block;
+  width: 180px;
+  height: 180px;
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.qr-scan-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #64748b;
+  text-align: center;
+  line-height: 1.35;
 }
 
 .share-meta-row {
@@ -742,13 +931,14 @@
   gap: 0.5rem;
   flex-wrap: wrap;
   justify-content: center;
+  width: 100%;
 }
 
 .share-meta-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.75rem;
+  padding: 0.4rem 0.8rem;
   background: #f1f5f9;
   border: 1px solid #cbd5e1;
   border-radius: 999px;
@@ -761,11 +951,15 @@
   display: flex;
   gap: 0.75rem;
   width: 100%;
-  margin-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .share-actions-row button {
-  flex: 1;
+  width: 100%;
+  height: 46px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 10px;
 }
 
 /* Active Challenges Management */

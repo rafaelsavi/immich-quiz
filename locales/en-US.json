@@ -109,6 +109,14 @@
   "setup.filter_countries": "Countries",
   "setup.filter_cities": "Cities",
   "setup.start_btn": "Start Match",
+  "setup.prepare_game_btn": "Prepare Game",
+  "setup.prepare_game_label": "Prepare Game",
+  "setup.prepare_modal_title": "Prepare Game",
+  "setup.tab_local": "Local Match",
+  "setup.tab_challenge": "Challenge Link",
+  "setup.local_match_desc": "Pass the device between players on this screen.",
+  "setup.challenge_match_desc": "Create an async challenge link to share with friends.",
+  "setup.configured_match_summary": "Match Settings",
   "setup.not_enough_media": "Cannot start match: only {0} matching photos found, but {1} are required.",
   "setup.preflight_count": {
     "one": "{count} photo available",
@@ -331,5 +339,8 @@
   "tooltip.dates_range": "Dates: {0} – {1}",
   "tooltip.dates_from": "Dates: from {0}",
   "tooltip.dates_until": "Dates: until {0}",
-  "tooltip.shared": "Shared Photos: Included"
+  "tooltip.shared": "Shared Photos: Included",
+  "challenge.qr_code": "QR Code",
+  "challenge.qr_code_title": "Show QR Code",
+  "challenge.scan_qr_hint": "Scan with camera to join on mobile"
 }

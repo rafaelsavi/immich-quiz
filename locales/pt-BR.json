@@ -109,6 +109,14 @@
   "setup.filter_countries": "Países",
   "setup.filter_cities": "Cidades",
   "setup.start_btn": "Iniciar Partida",
+  "setup.prepare_game_btn": "Preparar Jogo",
+  "setup.prepare_game_label": "Preparar Jogo",
+  "setup.prepare_modal_title": "Preparar Jogo",
+  "setup.tab_local": "Partida Local",
+  "setup.tab_challenge": "Link de Desafio",
+  "setup.local_match_desc": "Passe o dispositivo entre os jogadores nesta tela.",
+  "setup.challenge_match_desc": "Crie um link de desafio assíncrono para compartilhar com amigos.",
+  "setup.configured_match_summary": "Configurações da Partida",
   "setup.not_enough_media": "Não é possível iniciar a partida: apenas {0} fotos encontradas, mas {1} são necessárias.",
   "setup.preflight_count": {
     "one": "{count} foto disponível",
@@ -331,5 +339,8 @@
   "tooltip.dates_range": "Datas: {0} – {1}",
   "tooltip.dates_from": "Datas: a partir de {0}",
   "tooltip.dates_until": "Datas: até {0}",
-  "tooltip.shared": "Fotos Compartilhadas: Incluídas"
+  "tooltip.shared": "Fotos Compartilhadas: Incluídas",
+  "challenge.qr_code": "QR Code",
+  "challenge.qr_code_title": "Mostrar QR Code",
+  "challenge.scan_qr_hint": "Escaneie com a câmera para jogar no celular"
 }

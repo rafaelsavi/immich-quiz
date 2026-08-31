@@ -1,13 +1,15 @@
 /**
- * Admin Challenge Creator & Management Module for Immich Quiz.
- * Handles challenge generation with game mode selection, customizable expiration,
- * preflight check validation, 1-click clipboard sharing, and challenge deactivation.
+ * Unified Prepare Game & Challenge Creator Module for Immich Quiz.
+ * Handles opening the 2-tab "Prepare Game" modal (Local Match & Challenge Link),
+ * local player name configuration, preflight checking, auto-title generation,
+ * async multiplayer challenge creation, and clipboard link sharing.
  */
 
 import { state, el } from "./state.js";
 import { api } from "./api.js";
-import { t, formatDate } from "./i18n.js";
+import { t, formatDate, formatDateTime } from "./i18n.js";
 import { showShareToast } from "./summary/share.js";
+import { startMatch } from "./screens/setup.js";
 import {
   libraryMultiSelect,
   albumMultiSelect,
@@ -16,104 +18,126 @@ import {
   peopleMultiSelect,
   dateRangeSlider,
   getSelectedPeopleMode,
+  getActiveFilterSummary,
   playerInput,
 } from "./setup_filters.js";
-import { loadChallengesList, updateHeaderChallengeBadge } from "./challenges_page.js";
+import { loadChallengesList } from "./challenges_page.js";
+import { getActiveMode } from "./modes/index.js";
+import { renderQRCode } from "./components/qrcode.js";
 
 const CREATOR_NAME_STORAGE_KEY = "immich_challenge_creator_name";
 
 let _modalEl = null;
-let _tabCreateBtn = null;
-let _tabManageBtn = null;
-let _paneCreateEl = null;
-let _paneManageEl = null;
-let _paneFooterEl = null;
-let _activeCountBadge = null;
+let _tabLocalBtn = null;
+let _tabChallengeBtn = null;
+let _paneLocalEl = null;
+let _paneChallengeEl = null;
+let _modalLocalFooter = null;
+let _modalChallengeFooter = null;
 
 // Form elements
 let _formViewEl = null;
 let _titleInput = null;
 let _creatorNameInput = null;
-let _selectedGameMode = "pinpoint";
-let _modePinpointBtn = null;
-let _modeShuffleBtn = null;
-let _roundCountSelect = null;
-let _roundLengthSelect = null;
 let _expirationSelect = null;
-let _filtersSummaryEl = null;
 let _preflightStatusEl = null;
+let _localPreflightStatusEl = null;
 let _generateBtn = null;
-let _cancelBtn = null;
+let _startMatchBtn = null;
+let _localCancelBtn = null;
+let _challengeCancelBtn = null;
 let _closeBtn = null;
-let _openModalBtn = null;
+let _openPrepareBtn = null;
 
 // Share box elements
 let _shareBoxEl = null;
 let _createdTitleEl = null;
 let _createdUrlInput = null;
+let _createdTimeBadge = null;
 let _createdExpBadge = null;
 let _createdModeBadge = null;
 let _copyLinkBtn = null;
+let _qrBtn = null;
+let _qrContainer = null;
+let _qrCodeEl = null;
 let _openLinkBtn = null;
-let _createAnotherBtn = null;
-
-// Management elements
-let _challengesListEl = null;
-let _refreshChallengesBtn = null;
 
 let _preflightTimer = null;
 let _preflightAbortCtrl = null;
 let _isPreflightValid = true;
 
 /**
- * Initialize the Admin Challenge Creator modal and bind events.
+ * Generate smart automatic challenge title based on active configuration.
+ */
+export function generateAutoChallengeTitle() {
+  const mode = state.gameMode || "pinpoint";
+  const modeName = mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+  const rounds = el.roundCount ? el.roundCount.value : "5";
+  const summary = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : "";
+  const fullLibLabel =
+    t("filters.full_library") !== "filters.full_library"
+      ? t("filters.full_library")
+      : t("leaderboard.scope_all");
+
+  if (summary && summary !== fullLibLabel && summary !== t("setup.filters_summary_default")) {
+    return `${summary} • ${modeName} (${rounds}R)`;
+  }
+  return `${modeName} • ${rounds} Rounds`;
+}
+
+/**
+ * Initialize the Prepare Game Modal and bind events.
  */
 export function initAdminModal() {
-  _modalEl = document.getElementById("challenge-creator-modal");
+  _modalEl = document.getElementById("prepare-game-modal");
   if (!_modalEl) return;
 
-  _tabCreateBtn = document.getElementById("tab-create-challenge");
-  _tabManageBtn = document.getElementById("tab-manage-challenges");
-  _paneCreateEl = document.getElementById("pane-create-challenge");
-  _paneManageEl = document.getElementById("pane-manage-challenges");
-  _paneFooterEl = document.getElementById("pane-create-footer");
-  _activeCountBadge = document.getElementById("active-challenges-badge");
+  _tabLocalBtn = document.getElementById("tab-local-game");
+  _tabChallengeBtn = document.getElementById("tab-challenge-game");
+  _paneLocalEl = document.getElementById("pane-local-game");
+  _paneChallengeEl = document.getElementById("pane-challenge-game");
+  _modalLocalFooter = document.getElementById("modal-local-footer");
+  _modalChallengeFooter = document.getElementById("modal-challenge-footer");
 
   _formViewEl = document.getElementById("challenge-form-view");
   _titleInput = document.getElementById("challenge-title-input");
   _creatorNameInput = document.getElementById("challenge-creator-name-input");
-  _modePinpointBtn = document.getElementById("challenge-mode-pinpoint-btn");
-  _modeShuffleBtn = document.getElementById("challenge-mode-shuffle-btn");
-  _roundCountSelect = document.getElementById("challenge-round-count");
-  _roundLengthSelect = document.getElementById("challenge-round-length");
   _expirationSelect = document.getElementById("challenge-expiration");
-  _filtersSummaryEl = document.getElementById("challenge-filters-summary-text");
   _preflightStatusEl = document.getElementById("challenge-preflight-status");
+  _localPreflightStatusEl = document.getElementById("local-preflight-status");
   _generateBtn = document.getElementById("challenge-generate-btn");
-  _cancelBtn = document.getElementById("challenge-cancel-btn");
-  _closeBtn = document.getElementById("challenge-modal-close-btn");
-  _openModalBtn = document.getElementById("open-challenge-creator-btn");
+  _startMatchBtn = document.getElementById("start-match-btn");
+  _localCancelBtn = document.getElementById("local-cancel-btn");
+  _challengeCancelBtn = document.getElementById("challenge-cancel-btn");
+  _closeBtn = document.getElementById("prepare-modal-close-btn");
+  _openPrepareBtn = document.getElementById("prepare-game-btn");
 
   _shareBoxEl = document.getElementById("challenge-share-box");
   _createdTitleEl = document.getElementById("challenge-created-title");
   _createdUrlInput = document.getElementById("challenge-created-url");
+  _createdTimeBadge = document.getElementById("challenge-created-time-badge");
   _createdExpBadge = document.getElementById("challenge-created-exp-badge");
   _createdModeBadge = document.getElementById("challenge-created-mode-badge");
   _copyLinkBtn = document.getElementById("challenge-copy-link-btn");
+  _qrBtn = document.getElementById("challenge-qr-btn");
+  _qrContainer = document.getElementById("challenge-qr-container");
+  _qrCodeEl = document.getElementById("challenge-qr-code");
   _openLinkBtn = document.getElementById("challenge-open-link-btn");
-  _createAnotherBtn = document.getElementById("challenge-create-another-btn");
-
-  _challengesListEl = document.getElementById("active-challenges-list");
-  _refreshChallengesBtn = document.getElementById("refresh-active-challenges-btn");
 
   // Tab switching
-  if (_tabCreateBtn) _tabCreateBtn.addEventListener("click", () => switchTab("create"));
-  if (_tabManageBtn) _tabManageBtn.addEventListener("click", () => switchTab("manage"));
+  if (_tabLocalBtn) _tabLocalBtn.addEventListener("click", () => switchTab("local"));
+  if (_tabChallengeBtn) _tabChallengeBtn.addEventListener("click", () => switchTab("challenge"));
 
   // Open / Close modal
-  if (_openModalBtn) _openModalBtn.addEventListener("click", () => openAdminModal("create"));
+  if (_openPrepareBtn) {
+    _openPrepareBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openAdminModal("local");
+    });
+  }
   if (_closeBtn) _closeBtn.addEventListener("click", closeAdminModal);
-  if (_cancelBtn) _cancelBtn.addEventListener("click", closeAdminModal);
+  if (_localCancelBtn) _localCancelBtn.addEventListener("click", closeAdminModal);
+  if (_challengeCancelBtn) _challengeCancelBtn.addEventListener("click", closeAdminModal);
 
   // Close on backdrop click
   _modalEl.addEventListener("click", (e) => {
@@ -129,25 +153,38 @@ export function initAdminModal() {
     }
   });
 
-  // Mode buttons
-  if (_modePinpointBtn) {
-    _modePinpointBtn.addEventListener("click", () => setChallengeGameMode("pinpoint"));
-  }
-  if (_modeShuffleBtn) {
-    _modeShuffleBtn.addEventListener("click", () => setChallengeGameMode("album_shuffle"));
+  // Start match from local tab
+  if (_startMatchBtn) {
+    _startMatchBtn.addEventListener("click", (e) => {
+      startMatch(e).catch((err) => showShareToast(err.message || err));
+    });
   }
 
   // Preflight change triggers
-  if (_roundCountSelect) _roundCountSelect.addEventListener("change", triggerPreflightCheck);
-  if (_roundLengthSelect) _roundLengthSelect.addEventListener("change", triggerPreflightCheck);
   if (_expirationSelect) _expirationSelect.addEventListener("change", triggerPreflightCheck);
 
-  // Generate button
+  // Generate challenge button
   if (_generateBtn) _generateBtn.addEventListener("click", handleGenerateChallenge);
 
   // Share box buttons
   if (_copyLinkBtn) _copyLinkBtn.addEventListener("click", copyCreatedUrl);
-  if (_createAnotherBtn) _createAnotherBtn.addEventListener("click", resetCreateForm);
+  const linkBox = document.getElementById("challenge-share-link-box");
+  if (linkBox) {
+    linkBox.addEventListener("click", (e) => {
+      if (e.target !== _copyLinkBtn && !_copyLinkBtn?.contains(e.target)) {
+        copyCreatedUrl();
+      }
+    });
+  }
+  if (_qrBtn) {
+    _qrBtn.addEventListener("click", () => {
+      if (!_qrContainer) return;
+      const isHidden = _qrContainer.classList.toggle("hidden");
+      _qrBtn.classList.toggle("active", !isHidden);
+      _qrBtn.setAttribute("aria-expanded", String(!isHidden));
+      _qrContainer.setAttribute("aria-hidden", String(isHidden));
+    });
+  }
   if (_openLinkBtn) {
     _openLinkBtn.addEventListener("click", () => {
       const url = _createdUrlInput?.value;
@@ -156,17 +193,12 @@ export function initAdminModal() {
       }
     });
   }
-
-  // Refresh active challenges
-  if (_refreshChallengesBtn) {
-    _refreshChallengesBtn.addEventListener("click", loadActiveChallenges);
-  }
 }
 
 /**
- * Open Admin Challenge modal with initial tab.
+ * Open Prepare Game Modal with initial tab ("local" or "challenge").
  */
-export function openAdminModal(initialTab = "create") {
+export function openAdminModal(initialTab = "local") {
   if (!_modalEl) initAdminModal();
   if (!_modalEl) return;
 
@@ -182,11 +214,11 @@ export function openAdminModal(initialTab = "create") {
     _creatorNameInput.value = savedName;
   }
 
-  // Sync initial game mode from lobby if available
-  const lobbyMode = state.gameMode || "pinpoint";
-  setChallengeGameMode(lobbyMode, false);
+  // Pre-fill challenge title with automatic value
+  if (_titleInput) {
+    _titleInput.value = generateAutoChallengeTitle();
+  }
 
-  updateFilterSummaryReadout();
   resetCreateForm();
   switchTab(initialTab);
 
@@ -197,7 +229,7 @@ export function openAdminModal(initialTab = "create") {
 }
 
 /**
- * Close Admin Challenge modal.
+ * Close Prepare Game Modal.
  */
 export function closeAdminModal() {
   if (!_modalEl) return;
@@ -210,49 +242,27 @@ export function closeAdminModal() {
 }
 
 /**
- * Switch modal tabs.
+ * Switch modal tabs between "local" and "challenge".
  */
 export function switchTab(tabName) {
-  if (!_tabCreateBtn || !_tabManageBtn) return;
+  const isLocal = tabName === "local" || tabName === "create";
+  const isChallenge = tabName === "challenge" || tabName === "manage";
 
-  const isCreate = tabName === "create";
-  _tabCreateBtn.classList.toggle("active", isCreate);
-  _tabManageBtn.classList.toggle("active", !isCreate);
+  if (_tabLocalBtn) _tabLocalBtn.classList.toggle("active", isLocal);
+  if (_tabChallengeBtn) _tabChallengeBtn.classList.toggle("active", isChallenge);
 
-  if (_paneCreateEl) _paneCreateEl.classList.toggle("hidden", !isCreate);
-  if (_paneManageEl) _paneManageEl.classList.toggle("hidden", isCreate);
-  if (_paneFooterEl) {
-    // Footer is only shown on Create tab when not showing share result
+  if (_paneLocalEl) _paneLocalEl.classList.toggle("hidden", !isLocal);
+  if (_paneChallengeEl) _paneChallengeEl.classList.toggle("hidden", !isChallenge);
+
+  if (_modalLocalFooter) _modalLocalFooter.classList.toggle("hidden", !isLocal);
+  if (_modalChallengeFooter) {
     const isShareShown = _shareBoxEl && !_shareBoxEl.classList.contains("hidden");
-    _paneFooterEl.classList.toggle("hidden", !isCreate || isShareShown);
+    _modalChallengeFooter.classList.toggle("hidden", !isChallenge || isShareShown);
   }
 
-  if (!isCreate) {
-    loadActiveChallenges();
+  if (isChallenge && _titleInput && !_titleInput.value.trim()) {
+    _titleInput.value = generateAutoChallengeTitle();
   }
-}
-
-/**
- * Set the selected challenge game mode.
- */
-function setChallengeGameMode(mode, triggerCheck = true) {
-  _selectedGameMode = mode;
-  if (_modePinpointBtn) _modePinpointBtn.classList.toggle("active", mode === "pinpoint");
-  if (_modeShuffleBtn) _modeShuffleBtn.classList.toggle("active", mode === "album_shuffle");
-
-  if (triggerCheck) {
-    triggerPreflightCheck();
-  }
-}
-
-/**
- * Update the active filters summary readout from the lobby.
- */
-function updateFilterSummaryReadout() {
-  if (!_filtersSummaryEl) return;
-  const lobbySummaryBadge = document.getElementById("filters-summary-badge");
-  const text = lobbySummaryBadge ? lobbySummaryBadge.textContent : t("setup.filters_summary_default");
-  _filtersSummaryEl.textContent = text || t("setup.filters_summary_default");
 }
 
 /**
@@ -260,11 +270,11 @@ function updateFilterSummaryReadout() {
  */
 function triggerPreflightCheck() {
   if (_preflightTimer) clearTimeout(_preflightTimer);
-  _preflightTimer = setTimeout(runPreflightCheck, 150);
+  _preflightTimer = setTimeout(runPreflightCheck, 100);
 }
 
 async function runPreflightCheck() {
-  if (!_preflightStatusEl) return;
+  if (!_preflightStatusEl && !_localPreflightStatusEl) return;
 
   if (_preflightAbortCtrl) {
     _preflightAbortCtrl.abort();
@@ -272,22 +282,27 @@ async function runPreflightCheck() {
   _preflightAbortCtrl = new AbortController();
   const { signal } = _preflightAbortCtrl;
 
-  const roundCount = parseInt(_roundCountSelect?.value || "5", 10);
-  const batchSize = _selectedGameMode === "album_shuffle" ? 3 : 1;
+  const roundCount = parseInt(el.roundCount?.value || "5", 10);
+  const activeMode = getActiveMode();
+  const gameMode = activeMode ? activeMode.name : state.gameMode || "pinpoint";
+  const batchSize = gameMode === "album_shuffle" ? 3 : 1;
   const required = roundCount * batchSize;
 
-  _preflightStatusEl.className = "challenge-preflight-status loading";
-  _preflightStatusEl.innerHTML = `<span class="preflight-spinner"></span><span class="preflight-text">${t("admin.checking_photos")}</span>`;
+  if (_preflightStatusEl) {
+    _preflightStatusEl.className = "challenge-preflight-status loading";
+    _preflightStatusEl.innerHTML = `<span class="preflight-spinner"></span><span class="preflight-text">${t("admin.checking_photos")}</span>`;
+  }
 
   const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
   const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
+  const modePayload = activeMode ? activeMode.getModePayload() : {};
 
   const payload = {
     players: [_creatorNameInput?.value?.trim() || "Host"],
     round_count: roundCount,
-    location_mode: true,
-    date_mode: true,
-    game_mode: _selectedGameMode,
+    location_mode: modePayload.location_mode ?? true,
+    date_mode: modePayload.date_mode ?? true,
+    game_mode: gameMode,
     libraries: selectedLibs,
     albums: albumMultiSelect ? albumMultiSelect.getSelectedIds() : [],
     people: peopleMultiSelect ? peopleMultiSelect.getSelectedIds() : [],
@@ -308,26 +323,43 @@ async function runPreflightCheck() {
     });
 
     const eligible = res.eligible_count ?? 0;
-    const ok = eligible >= required;
+    const ok = Boolean(res.ok) && eligible >= required;
     _isPreflightValid = ok;
 
-    if (ok) {
-      _preflightStatusEl.className = "challenge-preflight-status success";
-      _preflightStatusEl.innerHTML = `<span>${t("admin.photos_ready", eligible, required)}</span>`;
-    } else {
-      _preflightStatusEl.className = "challenge-preflight-status warning";
-      _preflightStatusEl.innerHTML = `<span>${t("admin.photos_insufficient", eligible, required)}</span>`;
+    if (_preflightStatusEl) {
+      if (ok) {
+        _preflightStatusEl.className = "challenge-preflight-status success";
+        _preflightStatusEl.innerHTML = `<span>${t("admin.photos_ready", eligible, required)}</span>`;
+      } else {
+        _preflightStatusEl.className = "challenge-preflight-status warning";
+        _preflightStatusEl.innerHTML = `<span>${t("admin.photos_insufficient", eligible, required)}</span>`;
+      }
+    }
+
+    if (_localPreflightStatusEl) {
+      if (!ok) {
+        _localPreflightStatusEl.className = "challenge-preflight-status warning";
+        _localPreflightStatusEl.innerHTML = `<span>${t("setup.not_enough_media", eligible, required)}</span>`;
+        _localPreflightStatusEl.classList.remove("hidden");
+      } else {
+        _localPreflightStatusEl.classList.add("hidden");
+      }
     }
 
     if (_generateBtn) {
       _generateBtn.disabled = !ok;
     }
+    if (_startMatchBtn) {
+      _startMatchBtn.disabled = !ok;
+    }
   } catch (err) {
     if (err.name === "AbortError" || (err.message && err.message.includes("abort"))) {
       return;
     }
-    _preflightStatusEl.className = "challenge-preflight-status warning";
-    _preflightStatusEl.innerHTML = `<span>${err.message || "Preflight check failed"}</span>`;
+    if (_preflightStatusEl) {
+      _preflightStatusEl.className = "challenge-preflight-status warning";
+      _preflightStatusEl.innerHTML = `<span>${err.message || "Preflight check failed"}</span>`;
+    }
   }
 }
 
@@ -349,9 +381,9 @@ async function handleGenerateChallenge(e) {
     localStorage.setItem(CREATOR_NAME_STORAGE_KEY, creatorName);
   } catch (_) {}
 
-  const title = _titleInput?.value?.trim() || null;
-  const roundCount = parseInt(_roundCountSelect?.value || "5", 10);
-  const roundLength = _roundLengthSelect?.value || "1m";
+  const title = _titleInput?.value?.trim() || generateAutoChallengeTitle();
+  const roundCount = parseInt(el.roundCount?.value || "5", 10);
+  const roundLength = el.roundLength?.value || "1m";
   const expValue = _expirationSelect?.value || "24h";
 
   let expiresInHours = 24;
@@ -362,6 +394,10 @@ async function handleGenerateChallenge(e) {
   else if (expValue === "7d") expiresInHours = 168;
   else if (expValue === "never") expiresInHours = null;
 
+  const activeMode = getActiveMode();
+  const gameMode = activeMode ? activeMode.name : state.gameMode || "pinpoint";
+  const modePayload = activeMode ? activeMode.getModePayload() : {};
+
   const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedIds() : [];
   const albumIds = albumMultiSelect ? albumMultiSelect.getSelectedIds() : [];
   const albumNames = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((i) => i.name) : [];
@@ -370,11 +406,11 @@ async function handleGenerateChallenge(e) {
   const payload = {
     creator_name: creatorName,
     title,
-    game_mode: _selectedGameMode,
+    game_mode: gameMode,
     round_count: roundCount,
     round_length: roundLength,
-    location_mode: true,
-    date_mode: true,
+    location_mode: modePayload.location_mode ?? true,
+    date_mode: modePayload.date_mode ?? true,
     expires_in_hours: expiresInHours,
     libraries: selectedLibs,
     albums: albumIds,
@@ -410,42 +446,96 @@ async function handleGenerateChallenge(e) {
   }
 }
 
+let _lastCreatedUrl = "";
+
 /**
  * Display the created challenge link and details.
  */
 function displayShareResult(challengeData) {
+  _formViewEl = _formViewEl || document.getElementById("challenge-form-view");
+  _shareBoxEl = _shareBoxEl || document.getElementById("challenge-share-box");
+  _createdTitleEl = _createdTitleEl || document.getElementById("challenge-created-title");
+  _createdUrlInput = _createdUrlInput || document.getElementById("challenge-created-url");
+  _createdTimeBadge = _createdTimeBadge || document.getElementById("challenge-created-time-badge");
+  _createdExpBadge = _createdExpBadge || document.getElementById("challenge-created-exp-badge");
+  _createdModeBadge = _createdModeBadge || document.getElementById("challenge-created-mode-badge");
+  _qrBtn = _qrBtn || document.getElementById("challenge-qr-btn");
+  _qrContainer = _qrContainer || document.getElementById("challenge-qr-container");
+  _qrCodeEl = _qrCodeEl || document.getElementById("challenge-qr-code");
+
   if (!_formViewEl || !_shareBoxEl) return;
 
   _formViewEl.classList.add("hidden");
   _shareBoxEl.classList.remove("hidden");
-  if (_paneFooterEl) _paneFooterEl.classList.add("hidden");
+  if (_modalChallengeFooter) _modalChallengeFooter.classList.add("hidden");
+
+  const token = challengeData?.capability_token || "";
+  const playUrl =
+    (token ? `${window.location.origin}/play/${token}` : "") ||
+    challengeData?.play_url ||
+    "";
+
+  _lastCreatedUrl = playUrl;
 
   if (_createdTitleEl) {
-    _createdTitleEl.textContent = challengeData.title || "Challenge Created!";
+    _createdTitleEl.textContent = challengeData?.title || "Challenge Created!";
   }
   if (_createdUrlInput) {
-    _createdUrlInput.value = challengeData.play_url;
+    _createdUrlInput.value = playUrl;
+    _createdUrlInput.setAttribute("value", playUrl);
+  }
+
+  if (_qrCodeEl) {
+    renderQRCode(_qrCodeEl, playUrl, { size: 180 });
+  }
+  if (_qrContainer) {
+    _qrContainer.classList.add("hidden");
+    _qrContainer.setAttribute("aria-hidden", "true");
+  }
+  if (_qrBtn) {
+    _qrBtn.classList.remove("active");
+    _qrBtn.setAttribute("aria-expanded", "false");
+  }
+
+  if (_createdTimeBadge) {
+    const createdDate = challengeData?.created_at || new Date();
+    const createdTimeStr = formatDateTime(createdDate, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    _createdTimeBadge.textContent = `📅 ${t("admin.created_at_label")}: ${createdTimeStr}`;
   }
 
   if (_createdExpBadge) {
-    if (challengeData.expires_at) {
-      _createdExpBadge.textContent = `⏳ ${formatDate(challengeData.expires_at)}`;
+    if (challengeData?.expires_at) {
+      const expiresTimeStr = formatDateTime(challengeData.expires_at, {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      _createdExpBadge.textContent = `⏳ ${t("admin.expires_at_label")}: ${expiresTimeStr}`;
     } else {
-      _createdExpBadge.textContent = "♾️ Never expires";
+      _createdExpBadge.textContent = `⏳ ${t("challenges_page.never_expires")}`;
     }
   }
 
   if (_createdModeBadge) {
-    const modeEmoji = challengeData.game_mode === "album_shuffle" ? "🔀" : "📍";
-    const modeName = challengeData.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
-    _createdModeBadge.textContent = `${modeEmoji} ${challengeData.rounds} ${t("challenge.rounds")} (${modeName})`;
+    const modeEmoji = challengeData?.game_mode === "album_shuffle" ? "🔀" : "📍";
+    const modeName = challengeData?.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+    const rounds = challengeData?.rounds || el.roundCount?.value || 5;
+    _createdModeBadge.textContent = `${modeEmoji} ${rounds} ${t("challenge.rounds")} (${modeName})`;
   }
 
-  // Refresh active challenges list and header badge
+  // Refresh challenges list in hub if open
   try {
     loadChallengesList();
   } catch (_) {}
 }
+
+let _copyResetTimer = null;
 
 /**
  * Reset form back to create view.
@@ -453,10 +543,22 @@ function displayShareResult(challengeData) {
 function resetCreateForm() {
   if (_formViewEl) _formViewEl.classList.remove("hidden");
   if (_shareBoxEl) _shareBoxEl.classList.add("hidden");
-  if (_paneFooterEl && _tabCreateBtn?.classList.contains("active")) {
-    _paneFooterEl.classList.remove("hidden");
+  if (_qrContainer) {
+    _qrContainer.classList.add("hidden");
+    _qrContainer.setAttribute("aria-hidden", "true");
   }
-  if (_titleInput) _titleInput.value = "";
+  if (_qrBtn) {
+    _qrBtn.classList.remove("active");
+    _qrBtn.setAttribute("aria-expanded", "false");
+  }
+  if (_copyLinkBtn) {
+    _copyLinkBtn.classList.remove("copied");
+    _copyLinkBtn.innerHTML = `<span class="btn-icon">📋</span> <span class="copy-btn-text" data-i18n="challenge.copy_link">${t("challenge.copy_link")}</span>`;
+  }
+  if (_modalChallengeFooter && _tabChallengeBtn?.classList.contains("active")) {
+    _modalChallengeFooter.classList.remove("hidden");
+  }
+  if (_titleInput) _titleInput.value = generateAutoChallengeTitle();
   if (_generateBtn) _generateBtn.disabled = !_isPreflightValid;
 }
 
@@ -464,145 +566,34 @@ function resetCreateForm() {
  * Copy created capability URL to clipboard.
  */
 async function copyCreatedUrl() {
-  const url = _createdUrlInput?.value;
+  const input = _createdUrlInput || document.getElementById("challenge-created-url");
+  const url = input?.value || _lastCreatedUrl;
   if (!url) return;
+
+  if (input) {
+    input.select();
+  }
 
   try {
     await navigator.clipboard.writeText(url);
     showShareToast(t("challenge.link_copied"));
   } catch (_) {
-    if (_createdUrlInput) {
-      _createdUrlInput.select();
+    if (input) {
+      input.select();
       document.execCommand("copy");
       showShareToast(t("challenge.link_copied"));
     }
   }
-}
 
-/**
- * Load and render active challenges for management.
- */
-export async function loadActiveChallenges() {
-  if (!_challengesListEl) return;
-
-  _challengesListEl.innerHTML = `<div class="challenges-loading">${t("admin.loading_challenges")}</div>`;
-
-  try {
-    const res = await api("/api/challenge/list");
-    const challenges = res.challenges || [];
-
-    if (_activeCountBadge) {
-      const activeCount = challenges.filter((c) => c.is_active).length;
-      _activeCountBadge.textContent = String(activeCount);
-      _activeCountBadge.classList.toggle("hidden", activeCount === 0);
-    }
-
-    if (challenges.length === 0) {
-      _challengesListEl.innerHTML = `
-        <div class="empty-challenges-state">
-          <span class="empty-icon">📭</span>
-          <p>${t("admin.no_active_challenges")}</p>
-        </div>
-      `;
-      return;
-    }
-
-    let html = "";
-    challenges.forEach((ch) => {
-      const modeEmoji = ch.game_mode === "album_shuffle" ? "🔀" : "📍";
-      const modeName = ch.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
-
-      let statusBadge = `<span class="challenge-status-badge active">${t("admin.status_active")}</span>`;
-      if (!ch.is_active) {
-        statusBadge = `<span class="challenge-status-badge deactivated">${t("admin.status_deactivated")}</span>`;
-      } else if (ch.expires_at && new Date(ch.expires_at) < new Date()) {
-        statusBadge = `<span class="challenge-status-badge expired">${t("admin.status_expired")}</span>`;
+  if (_copyLinkBtn) {
+    _copyLinkBtn.classList.add("copied");
+    _copyLinkBtn.innerHTML = `<span>✅</span> <span class="copy-btn-text">${t("challenge.link_copied")}</span>`;
+    if (_copyResetTimer) clearTimeout(_copyResetTimer);
+    _copyResetTimer = setTimeout(() => {
+      if (_copyLinkBtn) {
+        _copyLinkBtn.classList.remove("copied");
+        _copyLinkBtn.innerHTML = `<span class="btn-icon">📋</span> <span class="copy-btn-text" data-i18n="challenge.copy_link">${t("challenge.copy_link")}</span>`;
       }
-
-      const participantText = t("challenge.participants", ch.total_participants);
-
-      html += `
-        <div class="active-challenge-card ${!ch.is_active ? "inactive" : ""}" data-id="${ch.challenge_id}">
-          <div class="challenge-card-head">
-            <div class="challenge-card-title-group">
-              <strong class="challenge-card-title">${ch.title || "Challenge"}</strong>
-              <div class="challenge-card-meta-pills">
-                <span class="meta-pill">${modeEmoji} ${ch.rounds} ${t("challenge.rounds")} (${modeName})</span>
-                <span class="meta-pill">👥 ${participantText}</span>
-                ${statusBadge}
-              </div>
-            </div>
-            <div class="challenge-card-actions">
-              <button type="button" class="btn-icon-action btn-copy-challenge-url" data-url="${ch.play_url}" title="${t("challenge.copy_link")}">
-                📋
-              </button>
-              ${
-                ch.is_active
-                  ? `<button type="button" class="btn-icon-action btn-deactivate-challenge" data-id="${ch.challenge_id}" data-title="${ch.title || "Challenge"}" title="${t("admin.deactivate_btn")}">
-                      🚫
-                    </button>`
-                  : ""
-              }
-            </div>
-          </div>
-          <div class="challenge-card-footer">
-            <span>${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
-            <span>${ch.expires_at ? `${t("admin.expires_at_label")}: ${formatDate(ch.expires_at)}` : "♾️ Never"}</span>
-          </div>
-        </div>
-      `;
-    });
-
-    _challengesListEl.innerHTML = html;
-
-    // Bind item actions
-    _challengesListEl.querySelectorAll(".btn-copy-challenge-url").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const url = btn.getAttribute("data-url");
-        if (url) {
-          try {
-            await navigator.clipboard.writeText(url);
-            showShareToast(t("challenge.link_copied"));
-          } catch (_) {
-            showShareToast(url);
-          }
-        }
-      });
-    });
-
-    _challengesListEl.querySelectorAll(".btn-deactivate-challenge").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-id");
-        const title = btn.getAttribute("data-title");
-        if (id) {
-          confirmAndDeactivateChallenge(id, title);
-        }
-      });
-    });
-  } catch (err) {
-    console.error("Failed to list active challenges:", err);
-    _challengesListEl.innerHTML = `<div class="challenges-error">${err.message || "Failed to load challenges"}</div>`;
-  }
-}
-
-/**
- * Confirm and deactivate challenge by ID.
- */
-async function confirmAndDeactivateChallenge(challengeId, challengeTitle) {
-  const confirmed = window.confirm(t("admin.deactivate_confirm", challengeTitle));
-  if (!confirmed) return;
-
-  try {
-    await api(`/api/challenge/${challengeId}/deactivate`, {
-      method: "POST",
-    });
-    showShareToast(t("admin.deactivate_success"));
-    loadActiveChallenges();
-    try {
-      loadChallengesList();
-    } catch (_) {}
-  } catch (err) {
-    console.error("Failed to deactivate challenge:", err);
-    showShareToast(err.message || "Failed to deactivate challenge");
+    }, 2500);
   }
 }
