@@ -22,7 +22,7 @@
   "setup.round_5m": "5 min",
   "setup.round_unlimited": "Unlimited",
   "setup.game_mode_label": "Game Mode",
-  "setup.game_settings_label": "What to Guess",
+  "setup.game_settings_label": "Guess",
   "setup.challenges_hint": "Select 1 or both",
   "mode.pinpoint": "Pinpoint",
   "mode.pinpoint_desc": "1 photo per round",
