@@ -9,9 +9,16 @@ DYNAMIC_IDS = frozenset(
         'card-goal-date',
         'card-goal-location',
         'carousel-indicator',
+        'carousel-media-row',
         'carousel-next-btn',
+        'carousel-photo-img',
+        'carousel-photo-shell',
+        'carousel-photo-zoom-btn',
         'carousel-prev-btn',
+        'carousel-round-content',
         'carousel-round-extra',
+        'carousel-title',
+        'challenge-avatar-preview',
         'challenge-copy-btn',
         'challenge-error-home-btn',
         'challenge-finisher-count',
@@ -20,6 +27,10 @@ DYNAMIC_IDS = frozenset(
         'challenge-invite-qr-code',
         'challenge-invite-qr-container',
         'challenge-join-form',
+        'challenge-journey-map',
+        'challenge-journey-map-head',
+        'challenge-journey-map-shell',
+        'challenge-polaroid-gallery',
         'challenge-resume-btn',
         'challenge-see-results-btn',
         'challenge-share-btn',
@@ -31,8 +42,11 @@ DYNAMIC_IDS = frozenset(
         'goal-date',
         'goal-location',
         'grand-reveal-home-btn',
+        'grand-reveal-hub-btn',
         'grand-reveal-podium',
+        'grand-reveal-provisional',
         'grand-reveal-share-btn',
+        'grand-reveal-share-summary-btn',
         'grand-reveal-table',
         'intermission-map',
         'intermission-map-shell',
@@ -52,10 +66,29 @@ DYNAMIC_IDS = frozenset(
 )
 
 
-STATIC_DIR = Path(__file__).parent.parent / 'static'
+STATIC_DIR = Path(__file__).resolve().parents[2] / 'static'
 INDEX_HTML = STATIC_DIR / 'index.html'
 AUDIO_PLAYGROUND_HTML = STATIC_DIR / 'audio-playground.html'
 JS_DIR = STATIC_DIR / 'js'
+
+
+def read_challenges_page_js() -> str:
+    challenges_screen = JS_DIR / 'modules' / 'screens' / 'challenges.js'
+    return challenges_screen.read_text(encoding='utf-8')
+
+
+def read_challenge_bundle_js() -> str:
+    challenge_dir = JS_DIR / 'modules' / 'challenge'
+    files = list(challenge_dir.glob('*.js'))
+    return '\n'.join(f.read_text(encoding='utf-8') for f in files)
+
+
+def test_legacy_monolith_and_proxy_files_are_removed() -> None:
+    """Verify that legacy backwards-compatibility files are fully removed."""
+    legacy_challenge_js = JS_DIR / 'modules' / 'challenge.js'
+    legacy_challenges_page_js = JS_DIR / 'modules' / 'challenges_page.js'
+    assert not legacy_challenge_js.exists(), 'Legacy challenge.js should be removed'
+    assert not legacy_challenges_page_js.exists(), 'Legacy challenges_page.js should be removed'
 
 
 def test_every_referenced_element_id_exists_in_markup() -> None:
@@ -384,10 +417,13 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
 
     assert 'id="leaderboard-scope-pill"' in index_html, 'leaderboard-scope-pill ID missing from index.html'
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
     assert 'leaderboardScopePill' in state_js, 'leaderboardScopePill getter missing from state.js'
     assert 'leaderboard-empty-row' in leaderboard_js, 'leaderboard.js must handle empty state'
     assert 'leaderboard-empty-row' in leaderboard_css, 'leaderboard.css must style empty state'
-    assert 'rank-medal' in leaderboard_js, 'leaderboard.js must apply rank medals'
+    assert 'rank-medal' in leaderboard_js or ('createRankBadge' in leaderboard_js and 'rank-medal' in formatters_js), (
+        'leaderboard must apply rank medals'
+    )
     assert 'leaderboard-scope-pill' in leaderboard_css, 'leaderboard.css must style scope pill'
     assert '.leaderboard-scope-pill:empty' in leaderboard_css, 'leaderboard.css must hide empty scope pill'
     assert '"leaderboard.empty"' in i18n_locales, 'locales must define leaderboard.empty key'
@@ -616,7 +652,7 @@ def test_prepare_game_flow_and_modal_regression() -> None:
     """Verify that Prepare Game launch button, 2-tab modal, and removal of challenges-page-create-btn are respected."""
     index_html = INDEX_HTML.read_text(encoding='utf-8')
     admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
-    challenges_page_js = (JS_DIR / 'modules' / 'challenges_page.js').read_text(encoding='utf-8')
+    challenges_page_js = read_challenges_page_js()
     en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
 
     # 1. Prepare Game button is present on setup card
@@ -660,7 +696,7 @@ def test_challenge_share_qr_code_regression() -> None:
     """Verify that QR Code button is placed beside copy link button, and QR component/translations exist."""
     index_html = INDEX_HTML.read_text(encoding='utf-8')
     admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
-    challenge_js = (JS_DIR / 'modules' / 'challenge.js').read_text(encoding='utf-8')
+    challenge_js = read_challenge_bundle_js()
     qrcode_js = (JS_DIR / 'modules' / 'components' / 'qrcode.js').read_text(encoding='utf-8')
     en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
     pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
@@ -682,8 +718,8 @@ def test_challenge_share_qr_code_regression() -> None:
     assert 'import { renderQRCode } from "./components/qrcode.js"' in admin_js
     assert 'renderQRCode(_qrCodeEl, playUrl' in admin_js
 
-    # 4. challenge.js imports and uses renderQRCode
-    assert 'import { renderQRCode } from "./components/qrcode.js"' in challenge_js
+    # 4. challenge module imports and uses renderQRCode
+    assert 'renderQRCode' in challenge_js and 'qrcode.js' in challenge_js
     assert 'renderQRCode(inviteQrCode, playUrl' in challenge_js
 
     # 5. Locales define QR code keys
@@ -700,7 +736,7 @@ def test_challenge_share_qr_code_regression() -> None:
 
 def test_challenge_mode_disallows_game_restart() -> None:
     """Verify that restart buttons and actions are disallowed during non-local / challenge matches."""
-    challenge_js = (JS_DIR / 'modules' / 'challenge.js').read_text(encoding='utf-8')
+    challenge_js = read_challenge_bundle_js()
     album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
     setup_js = (JS_DIR / 'modules' / 'screens' / 'setup.js').read_text(encoding='utf-8')
     common_js = (JS_DIR / 'modules' / 'screens' / 'common.js').read_text(encoding='utf-8')
@@ -732,7 +768,7 @@ def test_challenge_mode_disallows_game_restart() -> None:
 
 def test_challenges_hub_list_updates_language_dynamically() -> None:
     """Verify that challenges-hub-list and hero stats are dynamically updated when language changes."""
-    challenges_page_js = (JS_DIR / 'modules' / 'challenges_page.js').read_text(encoding='utf-8')
+    challenges_page_js = read_challenges_page_js()
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
     index_html = INDEX_HTML.read_text(encoding='utf-8')
 
@@ -749,3 +785,420 @@ def test_challenges_hub_list_updates_language_dynamically() -> None:
     assert 'id="challenges-hub-list"' in index_html
     assert 'id="challenges-page-refresh-btn"' in index_html
     assert 'data-i18n-title="challenges_page.refresh_btn"' in index_html
+
+
+def test_challenges_ui_streamlining_and_minimal_refresh_buttons() -> None:
+    """Verify that challenges page hero stats, back button, and detailed top bar are removed,
+    replaced by compact badges, and refresh buttons are minimalistic icons.
+    """
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    challenges_page_js = read_challenges_page_js()
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+    buttons_css = (STATIC_DIR / 'css' / 'components' / 'buttons.css').read_text(encoding='utf-8')
+
+    # 1. Removal of hero stats grid & back button from index.html and JS
+    assert 'challenges-hero-stats' not in index_html
+    assert 'challenges-page-back-btn' not in index_html
+    assert 'challenges-hero-stats' not in challenge_css
+    assert '_backBtnEl' not in challenges_page_js
+    assert 'stat-active-challenges' not in challenges_page_js
+
+    # 2. Compact total badge is inside challenges-toolbar and updated by updateHeroStats
+    assert 'id="challenges-page-total-badge"' in index_html
+    toolbar_section = index_html[
+        index_html.find('class="challenges-toolbar"') : index_html.find('id="challenges-hub-list"')
+    ]
+    assert 'id="challenges-page-total-badge"' in toolbar_section
+    assert '_totalBadgeEl.textContent =' in challenges_page_js
+
+    # 3. Detailed challenge card restructured (top-bar removed, status pill before title, card-time-status in host row)
+    assert 'detailed-card-top-bar' not in challenges_page_js
+    assert 'card-header-row' in challenges_page_js
+    assert 'card-title-wrap' in challenges_page_js
+    assert '${statusPillHtml}' in challenges_page_js
+    assert 'card-host-row' in challenges_page_js
+    assert '${timeStatusHtml}' in challenges_page_js
+
+    # 4. Filter pill prevents line breaking
+    assert 'white-space: nowrap;' in challenge_css
+
+    # 5. Minimalistic icon refresh buttons
+    assert 'id="challenges-page-refresh-btn" class="btn-icon-action"' in index_html
+    assert 'id="refresh-leaderboard" class="btn-icon-action"' in index_html
+    assert '.btn-icon-action' in buttons_css
+
+
+def test_challenge_invite_counter_clarity() -> None:
+    """Verify that challenge invite counter expresses count as 'You + this many friends',
+    supports zero/one/other pluralization, and updates dynamically on language switch.
+    """
+    challenge_js = read_challenge_bundle_js()
+    i18n_js = (JS_DIR / 'modules' / 'i18n.js').read_text(encoding='utf-8')
+    en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. challenge.js calculates friends count relative to the current player
+    assert 'const friendsCount =' in challenge_js
+    assert 'sessionPlayerName' in challenge_js
+    assert 'Math.max(0, finishedCount - 1)' in challenge_js
+    assert 't("challenge.finisher_count", friendsCount)' in challenge_js
+
+    # 2. challenge.js exposes refreshLanguage for dynamic updates
+    assert 'refreshLanguage()' in challenge_js
+
+    # 3. i18n.js supports forms.zero in plural() and t()
+    assert 'if (n === 0 && forms.zero)' in i18n_js
+    assert '"zero" in entry' in i18n_js
+
+    # 4. English locale defines clear You + friends strings with zero/one/other
+    assert '"challenge.finisher_count": {' in en_us
+    assert '"zero": "You + 0 friends have finished"' in en_us
+    assert '"one": "You + 1 friend has finished"' in en_us
+    assert '"other": "You + {count} friends have finished"' in en_us
+
+    # 5. Portuguese locale defines clear Você + amigos strings com zero/one/other
+    assert '"challenge.finisher_count": {' in pt_br
+    assert '"zero": "Você + 0 amigos concluíram"' in pt_br
+    assert '"one": "Você + 1 amigo concluiu"' in pt_br
+    assert '"other": "Você + {count} amigos concluíram"' in pt_br
+
+    # 6. challenge-invite screen is shown to all finishers (no auto-transition bypass)
+    assert 'finishedCount >= 2' not in challenge_js
+
+
+def test_home_leaderboard_play_mode_and_accordion_meta() -> None:
+    """Verify that home page leaderboard has a PlayMode column and accordion shows match-meta-items."""
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+    filters_css = (STATIC_DIR / 'css' / 'components' / 'filters.css').read_text(encoding='utf-8')
+    leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Leaderboard table has data-sort="play_mode"
+    assert '<th data-sort="play_mode" data-i18n="leaderboard.col_play_mode">' in index_html
+    assert 'getPlayModeInfo' in leaderboard_js
+    assert 'cellPlayMode' in leaderboard_js
+    assert 'col-play-mode' in leaderboard_js
+    assert '.playmode-badge' in leaderboard_css
+    assert '.playmode-badge.mode-local' in leaderboard_css
+    assert '.playmode-badge.mode-challenge' in leaderboard_css
+    assert '.playmode-badge.mode-room' in leaderboard_css
+
+    # 2. Locale strings for play mode
+    assert '"leaderboard.col_play_mode": "Mode"' in en_us
+    assert '"leaderboard.col_play_mode": "Modo"' in pt_br
+    assert '"leaderboard.mode_local": "Local"' in en_us
+    assert '"leaderboard.mode_challenge": "Challenge"' in en_us
+    assert '"leaderboard.mode_challenge": "Desafio"' in pt_br
+
+    # 3. Accordion toggle contains match-meta-items container
+    assert 'id="filters-accordion-meta"' in index_html
+    assert 'class="match-meta-items filters-accordion-meta"' in index_html
+    assert '.filters-accordion-meta' in filters_css
+    assert '.filters-accordion.expanded .filters-accordion-meta' in filters_css
+    assert 'getMatchMetaCategories' in setup_filters_js
+    assert 'renderMatchMetaItemsHtml' in setup_filters_js
+    assert 'filters-accordion-meta' in setup_filters_js
+
+
+def test_reveal_and_all_map_fullscreen_controls() -> None:
+    """Verify that reveal-map-fullscreen and all map fullscreen controls are properly wired,
+    handled, and bound to shortcuts and click events.
+    """
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    # 1. Elements exist in HTML and state.js
+    assert 'id="reveal-map-fullscreen"' in index_html
+    assert 'id="guess-map-fullscreen"' in index_html
+    assert 'id="journey-map-fullscreen"' in index_html
+    assert 'revealMapFullscreen' in state_js
+    assert 'revealMapShell' in state_js
+    assert 'journeyMapFullscreen' in state_js
+    assert 'journeyMapShell' in state_js
+
+    # 2. ensureMapFullscreenButton sets click handler on existing or dynamic button
+    assert 'btn.onclick = (e) =>' in maps_js
+    assert 'toggleMapFullscreen(shell)' in maps_js
+
+    # 3. toggleMapFullscreen supports active screen shells and document.fullscreenElement exit
+    assert 'targetShell =' in maps_js
+    assert 'el.revealMapShell' in maps_js
+    assert 'el.journeyMapShell' in maps_js
+    assert 'el.guessMapShell' in maps_js
+
+    # 4. Global initialization and event listeners
+    assert 'initMapFullscreenControls' in maps_js
+    assert 'initMapFullscreenControls()' in app_js
+    assert 'fullscreenchange' in maps_js
+    assert 'syncFullscreenButtons()' in maps_js
+
+    # 5. pinpoint.js wires up revealMapFullscreen and guessMapFullscreen
+    assert 'el.revealMapFullscreen.onclick =' in pinpoint_js
+    assert 'el.guessMapFullscreen.onclick =' in pinpoint_js
+    assert 'L.DomEvent.disableClickPropagation(el.revealMapFullscreen)' in pinpoint_js
+
+    # 6. app.js shortcut handles reveal and summary screens
+    assert 'onToggleFullscreen:' in app_js
+    assert 'toggleMapFullscreen(el.revealMapShell)' in app_js
+    assert 'toggleMapFullscreen(el.journeyMapShell)' in app_js
+
+
+def test_match_meta_item_time_limit_and_config_support() -> None:
+    """Verify that match_meta.js supports reading round_length, game_mode, location_mode,
+    and date_mode from both top-level fields and nested data.config (as returned by MatchSummaryResponse),
+    and localizes timer values via setup.round_{rawRoundLen}.
+    """
+    match_meta_js = (JS_DIR / 'modules' / 'components' / 'match_meta.js').read_text(encoding='utf-8')
+
+    # 1. Inspects data.config fallback for round_length, game_mode, location_mode, date_mode
+    assert 'const filterConfig = data.config || data;' in match_meta_js
+    assert 'data.game_mode || filterConfig.game_mode' in match_meta_js
+    assert 'data.location_mode !== undefined ? data.location_mode : filterConfig.location_mode' in match_meta_js
+    assert 'data.date_mode !== undefined ? data.date_mode : filterConfig.date_mode' in match_meta_js
+    assert 'data.round_length || filterConfig.round_length' in match_meta_js
+
+    # 2. Uses setup.round_{rawRoundLen} translation key for friendly labels (e.g. '2 min')
+    assert 'const timerKey = `setup.round_${rawRoundLen}`;' in match_meta_js
+    assert 't(timerKey)' in match_meta_js or 'tOr(timerKey' in match_meta_js
+    assert 'meta.time_unlimited' in match_meta_js
+
+
+def test_challenge_error_card_i18n_and_language_refresh() -> None:
+    """Verify that challenge-error screen embeds data-i18n attributes and dynamically refreshes
+    on language toggle via challenge.refreshLanguage().
+    """
+    challenge_js = read_challenge_bundle_js()
+    en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Error screen embeds data-i18n attributes for title, back button, and error message
+    assert 'data-i18n="challenge.error_title"' in challenge_js
+    assert 'data-i18n="challenge.back_home"' in challenge_js
+    assert 'data-i18n="${key}"' in challenge_js or 'data-i18n=' in challenge_js
+
+    # 2. Tracks current error state and resolves i18n keys
+    assert 'this.currentError =' in challenge_js
+    assert '"challenge.error_expired"' in challenge_js
+
+    # 4. English and Portuguese define localized error strings
+    for locale_content in (en_us, pt_br):
+        assert '"challenge.error_title"' in locale_content
+        assert '"challenge.error_expired"' in locale_content
+        assert '"challenge.back_home"' in locale_content
+
+
+def test_challenges_page_share_drawer_and_results_button() -> None:
+    """Verify that challenges_page.js uses an intuitive share button, expandable QR/link share drawer,
+    and converts inactive play buttons into results deep links without duplicate buttons.
+    """
+    challenges_page_js = read_challenges_page_js()
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+    en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Imports and invokes renderQRCode for zero-dependency client-side QR generation
+    assert 'renderQRCode' in challenges_page_js and 'qrcode.js' in challenges_page_js
+    assert 'renderQRCode(' in challenges_page_js
+
+    # 2. Intuitive share button in header with SVG icon & state tracking
+    assert 'btn-share-challenge-hub' in challenges_page_js
+    assert '.btn-share-challenge-hub' in challenge_css
+    assert 'toggleChallengeShare' in challenges_page_js
+    assert '_expandedShareDrawers' in challenges_page_js
+
+    # 3. Expandable Share Drawer with QR code display and direct link copying
+    assert 'challenge-hub-share-drawer' in challenges_page_js
+    assert '.challenge-hub-share-drawer' in challenge_css
+    assert 'share-qr-display' in challenges_page_js
+    assert 'btn-copy-share-url' in challenges_page_js
+
+    # 4. Inactive challenges render Results button deep linking to /play/:token/summary
+    assert 'btn-results-challenge' in challenges_page_js
+    assert '.btn-results-challenge' in challenge_css
+    assert '/play/${ch.capability_token}/summary' in challenges_page_js
+    assert 'navigate(`/play/${token}/summary`)' in challenges_page_js
+
+    # 5. Redundant footer copy button removed
+    assert '.footer-left-actions .btn-copy-challenge-link' not in challenge_css
+
+    # 6. Locale strings for share & results exist in both locales
+    for locale in (en_us, pt_br):
+        assert '"challenges_page.share_btn"' in locale
+        assert '"challenges_page.results_btn"' in locale
+        assert '"challenges_page.share_drawer_title"' in locale
+        assert '"challenges_page.scan_qr_hint"' in locale
+
+
+def test_challenge_carousel_layout_standardization_and_mobile_optimization() -> None:
+    """Verify that carousel-photo-shell standardizes layout with media-frame,
+    uses map-fullscreen-btn, and challenge summary includes mobile responsiveness.
+    """
+    challenge_js = read_challenge_bundle_js()
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. Carousel photo shell uses media-frame class and SVG map-fullscreen-btn
+    assert 'media-frame carousel-photo-shell' in challenge_js
+    assert 'map-fullscreen-btn carousel-photo-zoom-btn' in challenge_js
+    assert 'viewBox="0 0 24 24"' in challenge_js
+
+    # 2. Grand reveal standings table hides accuracy column on mobile screens
+    assert '<th class="col-accuracy text-right hide-on-mobile">' in challenge_js
+    assert '<td class="col-accuracy text-right hide-on-mobile">' in challenge_js
+
+    # 3. Carousel photo shell and scatter map shell layout styling in challenge.css
+    assert '.carousel-photo-shell {' in challenge_css
+    assert 'background: #eef2fb;' in challenge_css
+    assert 'border: 1px solid #d5dcec;' in challenge_css
+    assert 'height: var(--quiz-map-height, 420px);' in challenge_css
+
+    # 4. Mobile responsive rules defined for grand reveal, carousel, table, and summary actions
+    assert '.challenge-grand-reveal' in challenge_css
+    assert '.carousel-nav-controls' in challenge_css
+    assert '#grand-reveal-table' in challenge_css
+    assert '.summary-actions' in challenge_css
+
+
+def test_challenges_page_standings_rank_column_formatting() -> None:
+    """Verify that challenges_page.js correctly formats rank via formatRank instead of formatPlace,
+    preventing 'unknown' place string fallback in the standings drawer table.
+    """
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    challenges_page_js = read_challenges_page_js()
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. formatters.js exports formatRank function
+    assert 'export function formatRank(rank, options = {})' in formatters_js
+
+    # 2. challenges_page.js imports formatRank and does not mis-import formatPlace
+    assert 'formatRank' in challenges_page_js
+    assert 'formatPlace' not in challenges_page_js
+
+    # 3. challenges_page.js computes rankBadge with formatRank
+    assert 'const rankBadge = formatRank(e.rank || idx + 1);' in challenges_page_js
+    assert '<td class="col-rank">${rankBadge}</td>' in challenges_page_js
+
+    # 4. Standings table header has matching col-rank class
+    assert '<th class="col-rank">${t("challenges_page.rank_col")}</th>' in challenges_page_js
+
+    # 5. challenge.css defines col-rank with width and nowrap
+    assert '.col-rank {' in challenge_css
+    assert 'width: 50px;' in challenge_css
+    assert 'white-space: nowrap;' in challenge_css
+
+
+def test_standardized_leaderboard_elements_and_layout() -> None:
+    """Verify that leaderboard/standings elements (rank badge, player cell, rounds badge,
+    table classes) are standardized and reused across leaderboard, summary, and challenge views.
+    """
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
+    summary_table_js = (JS_DIR / 'modules' / 'summary' / 'table.js').read_text(encoding='utf-8')
+    challenge_js = read_challenge_bundle_js()
+    challenges_page_js = read_challenges_page_js()
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. Centralized formatters exist in formatters.js
+    assert 'export function createRankBadge(rank, options = {})' in formatters_js
+    assert 'export function formatRankBadge(rank, options = {})' in formatters_js
+    assert 'export function formatRoundsBadge(completedRounds, totalRounds, isFinished = false)' in formatters_js
+    assert 'export function formatPlayerCellHtml(playerName, options = {})' in formatters_js
+
+    # 2. leaderboard.js reuses createRankBadge
+    assert 'createRankBadge' in leaderboard_js
+
+    # 3. summary/table.js reuses createRankBadge and standardized classes
+    assert 'createRankBadge' in summary_table_js
+    assert 'col-rank' in summary_table_js
+    assert 'col-player' in summary_table_js
+
+    # 4. challenge.js and challenges_page.js reuse formatRoundsBadge and formatPlayerCellHtml
+    assert 'formatRoundsBadge' in challenge_js
+    assert 'formatPlayerCellHtml' in challenge_js
+    assert 'standings-table' in challenge_js
+
+    assert 'formatRoundsBadge' in challenges_page_js
+    assert 'formatPlayerCellHtml' in challenges_page_js
+    assert 'standings-table-wrap table-scroll' in challenges_page_js
+
+    # 5. Shared styling in challenge.css
+    assert '.standings-table tr.winner-row' in challenge_css
+    assert '.winner-crown' in challenge_css
+    assert '.col-progress' in challenge_css
+    assert '.col-rounds' in challenge_css
+
+
+def test_card_header_actions_containment_and_share_icon_simplification() -> None:
+    """Verify that card-header-actions (share button & deactivate button) are always contained
+    inside card-header-row with flex-wrap: nowrap, and btn-share-challenge-hub is simplified
+    to just the symbol icon across all screen widths.
+    """
+    challenges_page_js = read_challenges_page_js()
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. btn-share-text is removed from JavaScript rendering and CSS rules
+    assert 'btn-share-text' not in challenges_page_js
+    assert 'btn-share-text' not in challenge_css
+
+    # 2. Share button has svg icon, title and accessibility aria-label
+    assert 'btn-share-challenge-hub' in challenges_page_js
+    assert 'share-icon' in challenges_page_js
+    assert 'aria-label="${t("challenges_page.share_btn")}"' in challenges_page_js
+
+    # 3. Deactivate button has icon, title and aria-label
+    assert 'btn-deactivate-challenge-hub' in challenges_page_js
+    assert 'aria-label="${t("challenges_page.deactivate_btn")}"' in challenges_page_js
+
+    # 4. card-header-row enforces nowrap containment
+    assert '.card-header-row {' in challenge_css
+    card_header_row_css = challenge_css[
+        challenge_css.find('.card-header-row {') : challenge_css.find('.card-title-wrap {')
+    ]
+    assert 'flex-wrap: nowrap;' in card_header_row_css
+
+    # 5. card-header-actions has flex-shrink: 0 and flex-wrap: nowrap
+    assert '.card-header-actions {' in challenge_css
+    card_header_actions_css = challenge_css[
+        challenge_css.find('.card-header-actions {') : challenge_css.find('.btn-action-icon {')
+    ]
+    assert 'flex-shrink: 0;' in card_header_actions_css
+    assert 'flex-wrap: nowrap;' in card_header_actions_css
+
+    # 6. btn-share-challenge-hub is styled uniformly as 34x34 icon button
+    assert '.btn-share-challenge-hub {' in challenge_css
+    share_btn_css = challenge_css[
+        challenge_css.find('.btn-share-challenge-hub {') : challenge_css.find('.btn-share-challenge-hub svg {')
+    ]
+    assert 'width: 34px !important;' in share_btn_css
+    assert 'height: 34px !important;' in share_btn_css
+
+
+def test_challenge_gameplay_flow_and_label_integrity() -> None:
+    """Verify that date comparison chips use true_date and reveal.js updates state.lastReveal."""
+    challenge_dir = JS_DIR / 'modules' / 'challenge'
+    summary_js = (challenge_dir / 'summary.js').read_text(encoding='utf-8')
+    reveal_js = (challenge_dir / 'reveal.js').read_text(encoding='utf-8')
+    en_us_js = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br_js = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Carousel date chip uses challenge.true_date instead of true_location
+    assert '${t("challenge.true_date")}:' in summary_js
+    assert '${t("challenge.true_location")}:' not in summary_js
+
+    # 2. Grand Reveal summary includes Challenges Hub navigation button
+    assert 'grand-reveal-hub-btn' in summary_js
+    assert 'navigate("/challenges");' in summary_js
+
+    # 3. reveal.js updates state.lastReveal for state consistency
+    assert 'state.lastReveal = formattedReveal;' in reveal_js
+
+    # 4. Translations for true_date and challenges_hub exist in both locales
+    assert '"challenge.true_date": "Actual Date"' in en_us_js
+    assert '"challenge.true_date": "Data Real"' in pt_br_js
+    assert '"challenge.challenges_hub": "Challenges Hub"' in en_us_js
+    assert '"challenge.challenges_hub": "Central de Desafios"' in pt_br_js

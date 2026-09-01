@@ -11,7 +11,7 @@ from src.models import (
     ChallengeExpirationOption,
     RoundLength,
 )
-from src.storage.challenge import ChallengeStore
+from src.storage.challenge import PLAYER_COLORS, ChallengeStore
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
 
@@ -477,3 +477,286 @@ def test_challenge_album_shuffle_standings_time_calculation(tmp_path: Path) -> N
     assert standings[0].total_time_seconds == pytest.approx(12.0)
     assert standings[0].total_score == 99
     assert standings[0].completed_rounds == 1
+
+
+def test_challenge_standings_winner_only_finished(tmp_path: Path) -> None:
+    """Verify that an unfinished player with high score cannot be a winner."""
+    db = DatabaseManager(tmp_path / 'test_winner.db')
+    leaderboard_store = LeaderboardStore(db)
+    challenge_store = ChallengeStore(db)
+
+    config = {'game_mode': 'pinpoint', 'round_length': '1m'}
+    ch = challenge_store.create_challenge(
+        creator_name='Host',
+        libraries=None,
+        config=config,
+        asset_ids=['a1', 'a2'],
+    )
+    ch_id = ch['challenge_id']
+
+    # Unfinished player: plays round 0, scores 200, does not finish round 1
+    s_unf = challenge_store.get_or_resume_player_session(ch_id, 'UnfinishedHighScorer')
+    leaderboard_store.record_challenge_round_guess(
+        match_id=s_unf['match_id'],
+        challenge_id=ch_id,
+        player_name='UnfinishedHighScorer',
+        round_index=0,
+        photo_index=0,
+        game_mode='pinpoint',
+        asset_id='a1',
+        round_score=200,
+        location_points=100,
+        date_points=100,
+        time_taken_seconds=5.0,
+    )
+    challenge_store.advance_session(
+        s_unf['session_token'],
+        round_index=0,
+        location_points=100,
+        date_points=100,
+        round_score=200,
+        time_taken_seconds=5.0,
+    )
+
+    # Finished player: plays round 0 (80 pts) and round 1 (80 pts), total 160
+    s_fin = challenge_store.get_or_resume_player_session(ch_id, 'FinishedPlayer')
+    leaderboard_store.record_challenge_round_guess(
+        match_id=s_fin['match_id'],
+        challenge_id=ch_id,
+        player_name='FinishedPlayer',
+        round_index=0,
+        photo_index=0,
+        game_mode='pinpoint',
+        asset_id='a1',
+        round_score=80,
+        location_points=40,
+        date_points=40,
+        time_taken_seconds=10.0,
+    )
+    challenge_store.advance_session(
+        s_fin['session_token'],
+        round_index=0,
+        location_points=40,
+        date_points=40,
+        round_score=80,
+        time_taken_seconds=10.0,
+    )
+    leaderboard_store.record_challenge_round_guess(
+        match_id=s_fin['match_id'],
+        challenge_id=ch_id,
+        player_name='FinishedPlayer',
+        round_index=1,
+        photo_index=0,
+        game_mode='pinpoint',
+        asset_id='a2',
+        round_score=80,
+        location_points=40,
+        date_points=40,
+        time_taken_seconds=10.0,
+    )
+    challenge_store.advance_session(
+        s_fin['session_token'],
+        round_index=1,
+        location_points=40,
+        date_points=40,
+        round_score=80,
+        time_taken_seconds=10.0,
+        is_final=True,
+    )
+    leaderboard_store.finalize_challenge_player_match(
+        match_id=s_fin['match_id'],
+        challenge_id=ch_id,
+        config=ch['config'],
+        player_name='FinishedPlayer',
+        location_score=80,
+        date_score=80,
+        total_score=160,
+        total_rounds=2,
+        total_time_seconds=20.0,
+        libraries=ch['libraries'],
+    )
+
+    standings = leaderboard_store.get_challenge_standings(ch_id, max_round=None)
+    assert len(standings) == 2
+
+    unf_entry = next(s for s in standings if s.player_name == 'UnfinishedHighScorer')
+    fin_entry = next(s for s in standings if s.player_name == 'FinishedPlayer')
+
+    assert unf_entry.total_score == 200
+    assert unf_entry.is_finished is False
+    assert unf_entry.is_winner is False  # MUST NOT be winner even with highest score
+
+    assert fin_entry.total_score == 160
+    assert fin_entry.is_finished is True
+    assert fin_entry.is_winner is True  # Winner because finished with best score among finished
+
+
+def test_challenge_individual_player_colors(tmp_path: Path) -> None:
+    db_path = tmp_path / 'leaderboard.db'
+    db = DatabaseManager(db_path)
+    LeaderboardStore(db)
+    store = ChallengeStore(db)
+
+    ch = store.create_challenge(
+        creator_name='Host',
+        libraries=None,
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+    )
+    ch_id = ch['challenge_id']
+
+    # 1. First player gets PLAYER_COLORS[0]
+    s1 = store.get_or_resume_player_session(ch_id, 'Alice')
+    assert s1['player_color'] == PLAYER_COLORS[0]
+    assert s1['participant_index'] == 0
+
+    # 2. Second player gets PLAYER_COLORS[1]
+    s2 = store.get_or_resume_player_session(ch_id, 'Bob')
+    assert s2['player_color'] == PLAYER_COLORS[1]
+    assert s2['participant_index'] == 1
+
+    # 3. Third player gets PLAYER_COLORS[2]
+    s3 = store.get_or_resume_player_session(ch_id, 'Charlie')
+    assert s3['player_color'] == PLAYER_COLORS[2]
+    assert s3['participant_index'] == 2
+
+    # Verify colors are distinct
+    assert len({s1['player_color'], s2['player_color'], s3['player_color']}) == 3
+
+    # 4. Resuming Alice's session returns her exact saved color
+    s1_resume = store.get_or_resume_player_session(ch_id, 'Alice')
+    assert s1_resume['session_token'] == s1['session_token']
+    assert s1_resume['player_color'] == PLAYER_COLORS[0]
+
+    # 5. Participants list is ordered
+    participants = store.get_challenge_participants(ch_id)
+    assert participants == ['Alice', 'Bob', 'Charlie']
+
+
+def test_challenge_session_race_condition_resumption(tmp_path: Path, monkeypatch) -> None:
+    """Test that when an INSERT encounters IntegrityError (simulating concurrent insert), it resumes cleanly."""
+    db_path = tmp_path / 'leaderboard.db'
+    db = DatabaseManager(db_path)
+    LeaderboardStore(db)
+    store = ChallengeStore(db)
+
+    ch = store.create_challenge(
+        creator_name='Host',
+        libraries=None,
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+    )
+    ch_id = ch['challenge_id']
+
+    # Pre-create session for Alice
+    s1 = store.get_or_resume_player_session(ch_id, 'Alice')
+
+    # Simulate race condition: fetch_one initially returns None, so code proceeds to INSERT,
+    # which raises IntegrityError because session already exists.
+    orig_fetch_one = db.fetch_one
+    call_count = 0
+
+    def mock_fetch_one(sql, params=()):
+        nonlocal call_count
+        if 'SELECT * FROM challenge_sessions WHERE challenge_id = ? AND player_name = ?' in sql:
+            call_count += 1
+            if call_count == 1:
+                # First check pretends session doesn't exist
+                return None
+        return orig_fetch_one(sql, params)
+
+    monkeypatch.setattr(db, 'fetch_one', mock_fetch_one)
+
+    # Should catch IntegrityError and gracefully return the existing session
+    resumed = store.get_or_resume_player_session(ch_id, 'Alice')
+    assert resumed['session_token'] == s1['session_token']
+    assert resumed['player_name'] == 'Alice'
+
+
+def test_challenge_standings_batch_query_and_subqueries(tmp_path: Path) -> None:
+    """Verify batch prefetch query in get_challenge_standings and indexed subqueries in round guesses and history."""
+    db_path = tmp_path / 'leaderboard.db'
+    db = DatabaseManager(db_path)
+    lb_store = LeaderboardStore(db)
+    ch_store = ChallengeStore(db)
+
+    ch = ch_store.create_challenge(
+        creator_name='Host',
+        libraries=None,
+        config={'game_mode': 'pinpoint', 'round_count': 2},
+        asset_ids=['asset_r0', 'asset_r1'],
+    )
+    ch_id = ch['challenge_id']
+
+    # Two participants
+    s_alice = ch_store.get_or_resume_player_session(ch_id, 'Alice')
+    s_bob = ch_store.get_or_resume_player_session(ch_id, 'Bob')
+
+    # Round 0 guesses for both
+    lb_store.record_challenge_round_guess(
+        match_id=s_alice['match_id'],
+        challenge_id=ch_id,
+        player_name='Alice',
+        round_index=0,
+        photo_index=0,
+        game_mode='pinpoint',
+        asset_id='asset_r0',
+        guess_latitude=10.0,
+        guess_longitude=10.0,
+        actual_latitude=10.0,
+        actual_longitude=10.0,
+        distance_km=0.0,
+        location_points=100,
+        guess_date='2024-01-01',
+        actual_date='2024-01-01',
+        date_diff_days=0,
+        date_points=100,
+        round_score=200,
+        is_correct_location=True,
+        is_correct_date_order=None,
+        time_taken_seconds=5.0,
+    )
+    lb_store.record_challenge_round_guess(
+        match_id=s_bob['match_id'],
+        challenge_id=ch_id,
+        player_name='Bob',
+        round_index=0,
+        photo_index=0,
+        game_mode='pinpoint',
+        asset_id='asset_r0',
+        guess_latitude=15.0,
+        guess_longitude=15.0,
+        actual_latitude=10.0,
+        actual_longitude=10.0,
+        distance_km=500.0,
+        location_points=50,
+        guess_date='2023-01-01',
+        actual_date='2024-01-01',
+        date_diff_days=365,
+        date_points=50,
+        round_score=100,
+        is_correct_location=False,
+        is_correct_date_order=None,
+        time_taken_seconds=8.0,
+    )
+
+    # 1. Test get_challenge_standings with max_round=0 (batch query path)
+    standings_r0 = lb_store.get_challenge_standings(ch_id, max_round=0)
+    assert len(standings_r0) == 2
+    assert standings_r0[0].player_name == 'Alice'
+    assert standings_r0[0].total_score == 200
+    assert standings_r0[0].completed_rounds == 1
+    assert standings_r0[1].player_name == 'Bob'
+    assert standings_r0[1].total_score == 100
+    assert standings_r0[1].completed_rounds == 1
+
+    # 2. Test get_challenge_round_guesses (subquery path)
+    guesses_r0 = lb_store.get_challenge_round_guesses(ch_id, max_round=0)
+    assert len(guesses_r0) == 2
+    guess_players = {g.player_name for g in guesses_r0}
+    assert guess_players == {'Alice', 'Bob'}
+
+    # 3. Test get_challenge_round_history (subquery path)
+    history_r0 = lb_store.get_challenge_round_history(ch_id, max_round=0)
+    assert len(history_r0) == 1
+    assert history_r0[0]['round_number'] == 1

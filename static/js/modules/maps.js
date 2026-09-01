@@ -73,6 +73,10 @@ export function addLayerControl(map, baseLayers) {
   return control;
 }
 
+/**
+ * Update submit and next-round button states according to active game mode
+ * and current question answering progress.
+ */
 export function updateSubmitState() {
   const nextRoundBtns = document.querySelectorAll("#next-round, button.next-round-btn");
   if (state.submitting) {
@@ -120,6 +124,7 @@ export function updateSubmitState() {
     }
   }
 }
+
 
 export function createPinIcon(label, color) {
   const isLong = String(label).length > 2;
@@ -193,6 +198,10 @@ export function ensureMapFullscreenButton(shell, titleKey = "game.fullscreen_map
     L.DomEvent.disableClickPropagation(btn);
     L.DomEvent.disableScrollPropagation(btn);
   }
+  btn.onclick = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    toggleMapFullscreen(shell);
+  };
   const tryMove = () => {
     const rightCorner = shell.querySelector(".leaflet-top.leaflet-right");
     if (rightCorner && btn.parentElement !== rightCorner) {
@@ -408,7 +417,7 @@ export function ensureGuessMap() {
         const lng = (((event.latlng.lng + 180) % 360) + 360) % 360 - 180;
         const clickLatLng = L.latLng(lat, lng);
         state.guessedLatLng = clickLatLng;
-        const player = state.currentQuestion ? state.currentQuestion.player_name : "";
+        const player = state.currentQuestion?.player_name || (state.players && state.players[0]) || "";
         const color = playerColor(player);
         const icon = createPinIcon(playerInitial(player), color);
         if (state.guessMarker) {
@@ -601,13 +610,15 @@ export function applySpiderfy(
   });
 }
 
-export function renderJourneyMap(roundHistory, locationMode = true) {
-  if (!el.journeyMapShell || !el.journeyMapHead) return;
+export function renderJourneyMap(roundHistory, locationMode = true, options = {}) {
+  const mapShell = options.mapShell || el.journeyMapShell;
+  const mapHead = options.mapHead || el.journeyMapHead;
+  if (!mapShell || !mapHead) return null;
 
   if (!locationMode) {
-    el.journeyMapShell.classList.add("hidden");
-    el.journeyMapHead.classList.add("hidden");
-    return;
+    mapShell.classList.add("hidden");
+    mapHead.classList.add("hidden");
+    return null;
   }
 
   const allPins = [];
@@ -654,59 +665,97 @@ export function renderJourneyMap(roundHistory, locationMode = true) {
   });
 
   if (allPins.length === 0) {
-    el.journeyMapShell.classList.add("hidden");
-    el.journeyMapHead.classList.add("hidden");
-    return;
+    mapShell.classList.add("hidden");
+    mapHead.classList.add("hidden");
+    return null;
   }
 
-  el.journeyMapShell.classList.remove("hidden");
-  el.journeyMapHead.classList.remove("hidden");
-  ensureJourneyMap();
+  mapShell.classList.remove("hidden");
+  mapHead.classList.remove("hidden");
 
-  // Clear old layers and stale spider state.
-  state.journeyLayers.forEach((layer) => state.journeyMap.removeLayer(layer));
-  state.journeyLayers = [];
-  Object.values(journeySpiderLines).forEach((line) => state.journeyMap.removeLayer(line));
-  journeySpiderLines = {};
-  journeyTrueCoords = {};
+  let mapInstance;
+  let spiderLinesObj;
+  let trueCoordsObj;
+  let layersArr;
 
-  // Remove any previous zoomend listener before adding a new one.
-  state.journeyMap.off("zoomend");
+  const container = options.container || document.getElementById(options.containerId || "journey-map");
+  if (!container) return null;
 
-  // Store true coordinates and place markers at their true positions.
+  if (options.container || options.containerId) {
+    if (options.existingMap) {
+      mapInstance = options.existingMap;
+      mapInstance.eachLayer((layer) => {
+        if (!(layer instanceof L.TileLayer)) {
+          mapInstance.removeLayer(layer);
+        }
+      });
+    } else {
+      mapInstance = createStandardMap(container, { titleKey: "game.fullscreen_map_title" });
+    }
+    const shell = container.closest(".map-shell");
+    if (shell) ensureMapFullscreenButton(shell, "game.fullscreen_map_title");
+    spiderLinesObj = {};
+    trueCoordsObj = {};
+    layersArr = [];
+  } else {
+    ensureJourneyMap();
+    mapInstance = state.journeyMap;
+    state.journeyLayers.forEach((layer) => state.journeyMap.removeLayer(layer));
+    state.journeyLayers = [];
+    Object.values(journeySpiderLines).forEach((line) => state.journeyMap.removeLayer(line));
+    journeySpiderLines = {};
+    journeyTrueCoords = {};
+    spiderLinesObj = journeySpiderLines;
+    trueCoordsObj = journeyTrueCoords;
+    layersArr = state.journeyLayers;
+  }
+
+  if (!mapInstance) return null;
+
+  mapInstance.off("zoomend");
+
   const points = [];
   allPins.forEach((pin) => {
-    journeyTrueCoords[pin.label] = { lat: pin.lat, lng: pin.lon };
+    trueCoordsObj[pin.label] = { lat: pin.lat, lng: pin.lon };
     points.push(L.latLng(pin.lat, pin.lon));
 
     const marker = L.marker([pin.lat, pin.lon], {
       icon: createPinIcon(pin.label, ACTUAL_COLOR),
-      _trueLabel: pin.label,   // stored so applyJourneySpiderfy can find this marker
+      _trueLabel: pin.label,
     })
-      .addTo(state.journeyMap)
+      .addTo(mapInstance)
       .bindPopup(pin.popupText);
-    state.journeyLayers.push(marker);
+    layersArr.push(marker);
   });
 
-  // Register zoom-aware spiderfy.
-  const buildJourneyMarkerByKey = () => {
+  const buildMarkerByKey = () => {
     const m = {};
-    state.journeyLayers.forEach((layer) => {
+    layersArr.forEach((layer) => {
       if (layer instanceof L.Marker && layer.options._trueLabel !== undefined) {
         m[layer.options._trueLabel] = layer;
       }
     });
     return m;
   };
-  state.journeyMap.on("zoomend", () =>
-    applySpiderfy(state.journeyMap, journeyTrueCoords, buildJourneyMarkerByKey(), journeySpiderLines, () => ACTUAL_COLOR)
+
+  mapInstance.on("zoomend", () =>
+    applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR)
   );
+
   if (points.length > 0) {
-    fitMapToBounds(state.journeyMap, points, { padding: [50, 50], maxZoom: 15 });
-    state.journeyMap.once("moveend", () =>
-      applySpiderfy(state.journeyMap, journeyTrueCoords, buildJourneyMarkerByKey(), journeySpiderLines, () => ACTUAL_COLOR)
+    fitMapToBounds(mapInstance, points, { padding: [50, 50], maxZoom: 15 });
+    mapInstance.once("moveend", () =>
+      applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR)
     );
   }
+
+  requestAnimationFrame(() => {
+    if (mapInstance && mapInstance._container && mapInstance._loaded) {
+      try { mapInstance.invalidateSize(); } catch (_) {}
+    }
+  });
+
+  return mapInstance;
 }
 
 export function refitMap(map, forceRefitBounds = false) {
@@ -760,9 +809,29 @@ export function fitMapToBounds(map, pointsOrBounds, options = {}) {
 }
 
 export function toggleMapFullscreen(shell) {
-  const request =
-    document.fullscreenElement === shell ? document.exitFullscreen() : shell.requestFullscreen();
-  Promise.resolve(request).catch((err) => showAlert(t("game.fullscreen_error", err.message)));
+  const targetShell =
+    shell ||
+    document.fullscreenElement ||
+    (state.currentScreen === "reveal" ? el.revealMapShell : null) ||
+    (state.currentScreen === "summary" ? el.journeyMapShell : null) ||
+    (state.currentScreen === "guessing" ? el.guessMapShell : null) ||
+    document.querySelector(".map-shell:not(.hidden)");
+
+  if (!targetShell && !document.fullscreenElement) return;
+
+  const isFullscreen = Boolean(
+    document.fullscreenElement &&
+      (document.fullscreenElement === targetShell ||
+        (targetShell && (targetShell.contains(document.fullscreenElement) || document.fullscreenElement.contains(targetShell))))
+  );
+
+  const request = isFullscreen
+    ? (document.exitFullscreen ? document.exitFullscreen() : null)
+    : (targetShell && targetShell.requestFullscreen ? targetShell.requestFullscreen() : null);
+
+  if (request) {
+    Promise.resolve(request).catch((err) => showAlert(t("game.fullscreen_error", err.message)));
+  }
 }
 
 export function updateMapLayerControls(extraMaps = []) {
@@ -798,17 +867,20 @@ export function createMapFullscreenButton(shell, titleKey = "game.fullscreen_map
     L.DomEvent.disableClickPropagation(btn);
     L.DomEvent.disableScrollPropagation(btn);
   }
-  btn.addEventListener("click", (e) => {
-    e.stopPropagation();
+  btn.onclick = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     toggleMapFullscreen(shell);
-  });
+  };
   return btn;
 }
 
 export function syncFullscreenButtons() {
   document.querySelectorAll(".map-fullscreen-btn").forEach((button) => {
     const shell = button.closest(".map-shell, .media-frame");
-    const isActive = Boolean(shell && (document.fullscreenElement === shell || shell.contains(document.fullscreenElement)));
+    const isActive = Boolean(
+      document.fullscreenElement &&
+      (document.fullscreenElement === shell || (shell && shell.contains(document.fullscreenElement)))
+    );
     const titleKey = isActive ? "game.fullscreen_exit_btn" : "game.fullscreen_btn";
     button.title = t(titleKey);
     button.setAttribute("data-i18n-title", titleKey);
@@ -816,6 +888,59 @@ export function syncFullscreenButtons() {
     button.classList.toggle("is-active", isActive);
     button.innerHTML = isActive ? EXIT_FS_SVG : ENTER_FS_SVG;
   });
+}
+
+export function handleFullscreenChange() {
+  syncFullscreenButtons();
+  refitAllMaps(true);
+  requestAnimationFrame(() => refitAllMaps(true));
+  setTimeout(() => refitAllMaps(true), 100);
+  setTimeout(() => refitAllMaps(true), 300);
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("fullscreenchange", handleFullscreenChange);
+  document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+}
+
+export function initMapFullscreenControls() {
+  if (el.revealMapFullscreen && el.revealMapShell) {
+    if (window.L && L.DomEvent) {
+      L.DomEvent.disableClickPropagation(el.revealMapFullscreen);
+      L.DomEvent.disableScrollPropagation(el.revealMapFullscreen);
+    }
+    el.revealMapFullscreen.onclick = (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      toggleMapFullscreen(el.revealMapShell);
+    };
+  }
+  if (el.journeyMapFullscreen && el.journeyMapShell) {
+    if (window.L && L.DomEvent) {
+      L.DomEvent.disableClickPropagation(el.journeyMapFullscreen);
+      L.DomEvent.disableScrollPropagation(el.journeyMapFullscreen);
+    }
+    el.journeyMapFullscreen.onclick = (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      toggleMapFullscreen(el.journeyMapShell);
+    };
+  }
+  if (el.guessMapFullscreen && el.guessMapShell) {
+    if (window.L && L.DomEvent) {
+      L.DomEvent.disableClickPropagation(el.guessMapFullscreen);
+      L.DomEvent.disableScrollPropagation(el.guessMapFullscreen);
+    }
+    el.guessMapFullscreen.onclick = (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      toggleMapFullscreen(el.guessMapShell);
+    };
+  }
+  if (el.quizImageFullscreen && el.mediaFrame) {
+    el.quizImageFullscreen.onclick = (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      toggleMapFullscreen(el.mediaFrame);
+    };
+  }
+  syncFullscreenButtons();
 }
 
 export const RESET_ZOOM_SVG = `<svg class="reset-zoom-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">

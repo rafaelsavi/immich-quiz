@@ -77,6 +77,24 @@ def select_diverse_challenge_assets(
     return selected
 
 
+def get_challenge_total_rounds(
+    challenge_or_config: dict[str, Any],
+    asset_ids: list[str] | None = None,
+) -> int:
+    """Calculate the total number of rounds for a challenge based on game mode and asset pool."""
+    if 'config' in challenge_or_config and isinstance(challenge_or_config['config'], dict):
+        config = challenge_or_config['config']
+        assets = asset_ids if asset_ids is not None else challenge_or_config.get('asset_ids', [])
+    else:
+        config = challenge_or_config
+        assets = asset_ids or []
+
+    game_mode = config.get('game_mode', 'pinpoint')
+    if str(game_mode).lower() in ('album_shuffle', 'gamemode.album_shuffle'):
+        return len(config.get('round_batches', []))
+    return len(assets)
+
+
 class ChallengeService:
     """Orchestrates challenge creation, question delivery, and scoring.
 
@@ -380,7 +398,7 @@ class ChallengeService:
             date_points = round(SCORE_MAX_POINTS * math.exp(-date_diff / date_decay_days))
 
         round_score = location_points + date_points
-        total_rounds = len(asset_ids)
+        total_rounds = get_challenge_total_rounds(challenge)
         is_final = body.round_index >= total_rounds - 1
 
         # Persist round guess using existing leaderboard schema
@@ -451,6 +469,7 @@ class ChallengeService:
             is_game_over=is_final,
             total_score=updated['total_score'] if updated else round_score,
             total_time_seconds=updated['total_time_seconds'] if updated else body.time_taken_seconds,
+            player_color=session.get('player_color'),
         )
 
     def _score_album_shuffle(
@@ -466,10 +485,11 @@ class ChallengeService:
         date_decay_days: float | None,
     ) -> ChallengeAnswerResponse:
         """Score an Album Shuffle round using batch partial credit and frozen decay parameters."""
-        round_batches = config.get('round_batches', [])
-        total_rounds = len(round_batches)
+        total_rounds = get_challenge_total_rounds(challenge)
         if body.round_index < 0 or body.round_index >= total_rounds:
             raise HTTPException(status_code=400, detail='Invalid round index.')
+
+        round_batches = config.get('round_batches', [])
 
         batch_indices = round_batches[body.round_index]
         batch_asset_ids = [asset_ids[i] for i in batch_indices]
@@ -659,6 +679,7 @@ class ChallengeService:
             is_game_over=is_final,
             total_score=updated['total_score'] if updated else round_score,
             total_time_seconds=updated['total_time_seconds'] if updated else body.time_taken_seconds,
+            player_color=session.get('player_color'),
         )
 
     def _finalize_player_match(

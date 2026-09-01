@@ -97,6 +97,7 @@
                 </span>
                 <span class="accordion-title" data-i18n="setup.filters_heading">Library & Photo Filters</span>
               </div>
+              <div class="match-meta-items filters-accordion-meta" id="filters-accordion-meta"></div>
               <span class="filters-summary-badge" id="filters-summary-badge"
                 data-i18n="setup.filters_summary_default">All media</span>
             </button>
@@ -473,54 +474,16 @@
         <div class="challenges-page-title-group">
           <div class="challenges-title-badge-row">
             <span class="badge-challenge" data-i18n="nav.challenges_title">Challenges Hub</span>
-            <span id="challenges-page-total-badge" class="challenges-counter-pill hidden">0</span>
           </div>
           <h2 data-i18n="challenges_page.heading">Multiplayer Challenges</h2>
           <p class="challenges-page-desc" data-i18n="challenges_page.subtitle">Create, share, and track async multiplayer challenge links across your Immich library.</p>
         </div>
         <div class="challenges-page-head-actions">
-          <button type="button" id="challenges-page-back-btn" class="btn-secondary btn-back-lobby">
-            <span class="btn-icon" aria-hidden="true">🏠</span>
-            <span data-i18n="challenges_page.back_btn">Back to Lobby</span>
-          </button>
-          <button type="button" id="challenges-page-refresh-btn" class="btn-secondary" title="Refresh list" data-i18n-title="challenges_page.refresh_btn">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon">
+          <button type="button" id="challenges-page-refresh-btn" class="btn-icon-action" title="Refresh list" aria-label="Refresh list" data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
             </svg>
-            <span data-i18n="challenges_page.refresh_btn">Refresh</span>
           </button>
-        </div>
-      </div>
-
-      <!-- Hero Stats Bar -->
-      <div id="challenges-hero-stats" class="challenges-hero-stats">
-        <div class="challenge-stat-card stat-active">
-          <div class="stat-icon-wrap">🟢</div>
-          <div class="stat-content">
-            <span class="stat-value" id="stat-active-challenges">0</span>
-            <span class="stat-label" data-i18n="challenges_page.stats_active">Active Now</span>
-          </div>
-        </div>
-        <div class="challenge-stat-card stat-players">
-          <div class="stat-icon-wrap">👥</div>
-          <div class="stat-content">
-            <span class="stat-value" id="stat-total-players">0</span>
-            <span class="stat-label" data-i18n="challenges_page.stats_participants">Total Players</span>
-          </div>
-        </div>
-        <div class="challenge-stat-card stat-total">
-          <div class="stat-icon-wrap">🌐</div>
-          <div class="stat-content">
-            <span class="stat-value" id="stat-total-challenges">0</span>
-            <span class="stat-label" data-i18n="challenges_page.stats_total">Total Challenges</span>
-          </div>
-        </div>
-        <div class="challenge-stat-card stat-popular">
-          <div class="stat-icon-wrap">🏆</div>
-          <div class="stat-content">
-            <span class="stat-value-sm" id="stat-popular-challenge">—</span>
-            <span class="stat-label" data-i18n="challenges_page.stats_popular">Most Popular</span>
-          </div>
         </div>
       </div>
 
@@ -538,7 +501,7 @@
           <div id="challenges-status-tabs" class="challenges-filter-pills">
             <button type="button" class="filter-pill active" data-status="all" data-i18n="challenges_page.filter_all">All</button>
             <button type="button" class="filter-pill" data-status="active" data-i18n="challenges_page.filter_active">Active</button>
-            <button type="button" class="filter-pill" data-status="expired" data-i18n="challenges_page.filter_expired">Expired / Inactive</button>
+            <button type="button" class="filter-pill" data-status="expired" data-i18n="challenges_page.filter_expired">Expired</button>
           </div>
 
           <!-- Mode filter dropdown -->
@@ -555,6 +518,9 @@
             <option value="expiring" data-i18n="challenges_page.sort_expiring">Ending Soonest</option>
             <option value="title" data-i18n="challenges_page.sort_title">Title (A-Z)</option>
           </select>
+
+          <!-- Total count badge -->
+          <span id="challenges-page-total-badge" class="challenges-counter-pill hidden">0</span>
         </div>
       </div>
 
@@ -573,13 +539,19 @@
           <h2 data-i18n="leaderboard.heading">Leaderboard</h2>
           <span id="leaderboard-scope-pill" class="leaderboard-scope-pill"></span>
         </div>
-        <button id="refresh-leaderboard" class="btn-secondary" data-i18n="leaderboard.refresh_btn">Refresh</button>
+        <button id="refresh-leaderboard" class="btn-icon-action" title="Refresh leaderboard" aria-label="Refresh leaderboard" data-i18n-title="leaderboard.refresh_btn" data-i18n-aria-label="leaderboard.refresh_btn">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+          </svg>
+        </button>
       </div>
       <div class="table-scroll">
         <table id="leaderboard-table">
           <thead>
             <tr>
               <th data-sort="played_at" data-i18n="leaderboard.col_played_at">Played At<span class="sort-arrow"
+                  aria-hidden="true"></span></th>
+              <th data-sort="play_mode" data-i18n="leaderboard.col_play_mode">Mode<span class="sort-arrow"
                   aria-hidden="true"></span></th>
               <th data-sort="player_name" data-i18n="leaderboard.col_player">Player<span class="sort-arrow"
                   aria-hidden="true"></span></th>

@@ -1,6 +1,6 @@
 import { t } from "../i18n.js";
 import { el, state } from "../state.js";
-import { ensureGuessMap, ensureRevealMap, createPinIcon, createPopPinIcon, toggleMapFullscreen, fitMapToBounds, unregisterActiveMap } from "../maps.js";
+import { ensureGuessMap, ensureRevealMap, createPinIcon, createPopPinIcon, toggleMapFullscreen, fitMapToBounds, spawnPinPulseEffect, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import {
   ACTUAL_COLOR,
@@ -21,7 +21,7 @@ import {
   launchGoldConfetti,
   launchStarBurst,
 } from "../effects.js";
-import { playChime } from "../audio.js";
+import { playChime, playPinDropSound } from "../audio.js";
 
 const EARLIEST_YEAR = 1930;
 const SMART_MAP_MAX_INITIAL_ZOOM = 13;
@@ -600,6 +600,26 @@ export const pinpointMode = {
         toggleMapFullscreen(el.guessMapShell);
       };
     }
+    if (el.revealMapFullscreen) {
+      if (window.L && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(el.revealMapFullscreen);
+        L.DomEvent.disableScrollPropagation(el.revealMapFullscreen);
+      }
+      el.revealMapFullscreen.onclick = (e) => {
+        e.stopPropagation();
+        toggleMapFullscreen(el.revealMapShell);
+      };
+    }
+  },
+
+  toggleMapFullscreen() {
+    toggleMapFullscreen(el.guessMapShell);
+  },
+
+  togglePhotoFullscreen() {
+    if (el.mediaFrame) {
+      toggleMapFullscreen(el.mediaFrame);
+    }
   },
 
   setDisabled(disabled) {
@@ -750,6 +770,58 @@ export const pinpointMode = {
   refreshRevealText(revealUi, revealData) {
     // Re-render text-only parts of the reveal without touching the map or triggering effects.
     renderRevealSummary(revealData, true);
+  },
+
+  addOpponentReveal(revealUi, revealData, newOpponents) {
+    renderRevealSummary(revealData, true);
+
+    if (
+      revealData.location_mode &&
+      state.revealMap &&
+      revealData.actual_latitude !== null &&
+      revealData.actual_latitude !== undefined &&
+      revealData.actual_longitude !== null &&
+      revealData.actual_longitude !== undefined
+    ) {
+      const actual = L.latLng(revealData.actual_latitude, revealData.actual_longitude);
+      (newOpponents || []).forEach((opponent) => {
+        if (
+          opponent.guessed_latitude !== null &&
+          opponent.guessed_latitude !== undefined &&
+          opponent.guessed_longitude !== null &&
+          opponent.guessed_longitude !== undefined
+        ) {
+          const guessed = L.latLng(opponent.guessed_latitude, opponent.guessed_longitude);
+          const color = playerColor(opponent.player_name);
+          const line = L.polyline([actual, guessed], {
+            color,
+            weight: 3,
+            dashArray: "8, 8",
+            opacity: 0.85,
+          }).addTo(state.revealMap);
+          state.revealLayers.push(line);
+
+          const icon = createPopPinIcon(playerInitial(opponent.player_name), color);
+          const marker = L.marker(guessed, { icon })
+            .addTo(state.revealMap)
+            .bindPopup(t("reveal.popup_guess", opponent.player_name, formatDistance(opponent.distance_km)));
+          state.revealLayers.push(marker);
+
+          spawnPinPulseEffect(state.revealMap, guessed, color);
+          playPinDropSound();
+        }
+      });
+
+      const allPoints = [actual];
+      (revealData.results || []).forEach((r) => {
+        if (r.guessed_latitude !== null && r.guessed_latitude !== undefined && r.guessed_longitude !== null && r.guessed_longitude !== undefined) {
+          allPoints.push(L.latLng(r.guessed_latitude, r.guessed_longitude));
+        }
+      });
+      if (allPoints.length > 0) {
+        fitMapToBounds(state.revealMap, allPoints, { padding: [50, 50], maxZoom: 15 });
+      }
+    }
   },
 
   openHelp(questionData) { },

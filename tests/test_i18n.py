@@ -1,6 +1,6 @@
 from datetime import date
 
-from src.i18n import SupportedLanguage, t, translate
+from src.i18n import SupportedLanguage, t, t_or, translate
 from src.models import BaseGameConfig, PeopleMode
 
 
@@ -26,6 +26,8 @@ def test_translate_key_fallback() -> None:
 
     # Fallback to key if unknown
     assert translate('unknown.nonexistent.key', SupportedLanguage.EN) == 'unknown.nonexistent.key'
+    assert t_or('unknown.nonexistent.key', 'My Fallback', SupportedLanguage.EN) == 'My Fallback'
+    assert t_or('filters.full_library', 'My Fallback', SupportedLanguage.EN) == 'Full Library'
 
 
 def test_translate_callable_formatting() -> None:

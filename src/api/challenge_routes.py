@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from src.game.challenge_service import ChallengeService
+from src.game.challenge_service import ChallengeService, get_challenge_total_rounds
 from src.models import (
     ChallengeAnswerRequest,
     ChallengeAnswerResponse,
@@ -99,10 +100,7 @@ async def list_challenges(
     for rec in records:
         config = rec.get('config', {})
         game_mode = GameMode(config.get('game_mode', 'pinpoint'))
-        if game_mode == GameMode.album_shuffle:
-            rounds = len(config.get('round_batches', []))
-        else:
-            rounds = len(rec.get('asset_ids', []))
+        rounds = get_challenge_total_rounds(rec)
 
         total_participants = leaderboard_store.get_challenge_participant_count(rec['challenge_id'])
         play_url = f'{base_url}/play/{rec["capability_token"]}'
@@ -152,21 +150,25 @@ async def deactivate_challenge(
 async def get_challenge_detail(
     capability_token: str,
     challenge_store: ChallengeStore = Depends(get_challenge_store),
-    leaderboard_store: LeaderboardStore = Depends(get_leaderboard_store),
 ) -> ChallengeDetailResponse:
     """Public challenge info (metadata, round count, filters, participant count)."""
-    challenge = challenge_store.get_challenge_by_token(capability_token)
+    challenge = challenge_store.get_challenge_by_token(capability_token, include_inactive=True)
     if not challenge:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found or expired.')
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found.')
 
     config = challenge['config']
     game_mode = GameMode(config.get('game_mode', 'pinpoint'))
-    total_participants = leaderboard_store.get_challenge_participant_count(challenge['challenge_id'])
 
-    if game_mode == GameMode.album_shuffle:
-        rounds = len(config.get('round_batches', []))
-    else:
-        rounds = len(challenge['asset_ids'])
+    rounds = get_challenge_total_rounds(challenge)
+
+    is_active = bool(challenge.get('is_active', True))
+    if is_active and challenge.get('expires_at'):
+        exp = datetime.fromisoformat(challenge['expires_at'])
+        if datetime.now(timezone.utc) > exp:
+            is_active = False
+
+    participants = challenge_store.get_challenge_participants(challenge['challenge_id'])
+    total_participants = len(participants)
 
     return ChallengeDetailResponse(
         challenge_id=challenge['challenge_id'],
@@ -185,6 +187,8 @@ async def get_challenge_detail(
         created_at=challenge['created_at'],
         expires_at=challenge['expires_at'],
         total_participants=total_participants,
+        participants=participants,
+        is_active=is_active,
     )
 
 
@@ -206,17 +210,18 @@ async def start_challenge(
     session = challenge_store.get_or_resume_player_session(
         challenge_id=challenge['challenge_id'],
         player_name=body.player_name.strip(),
+        player_color=body.player_color,
     )
-
-    config = challenge['config']
-    game_mode = GameMode(config.get('game_mode', 'pinpoint'))
-
-    if game_mode == GameMode.album_shuffle:
-        total_rounds = len(config.get('round_batches', []))
-    else:
-        total_rounds = len(challenge['asset_ids'])
+    total_rounds = get_challenge_total_rounds(challenge)
 
     is_resumed = session['current_round'] > 0
+    participants = challenge_store.get_challenge_participants(challenge['challenge_id'])
+    participant_index = session.get('participant_index', 0)
+    if 'participant_index' not in session:
+        try:
+            participant_index = participants.index(session['player_name'])
+        except ValueError:
+            participant_index = 0
 
     return ChallengeStartResponse(
         session_token=session['session_token'],
@@ -225,6 +230,9 @@ async def start_challenge(
         total_rounds=total_rounds,
         current_round=session['current_round'],
         is_resumed=is_resumed,
+        player_color=session.get('player_color'),
+        participant_index=participant_index,
+        participants=participants,
     )
 
 
@@ -326,37 +334,69 @@ async def get_challenge_leaderboard(
     is accessible. Players CANNOT see other players' answers for rounds they haven't
     completed yet.
     """
-    challenge = challenge_store.get_challenge_by_token(capability_token)
+    challenge = challenge_store.get_challenge_by_token(capability_token, include_inactive=True)
     if not challenge:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found or expired.')
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found.')
 
     config = challenge['config']
     game_mode = GameMode(config.get('game_mode', 'pinpoint'))
 
-    if game_mode == GameMode.album_shuffle:
-        total_rounds = len(config.get('round_batches', []))
-    else:
-        total_rounds = len(challenge['asset_ids'])
+    total_rounds = get_challenge_total_rounds(challenge)
 
     caller_completed_round = -1
     is_game_over = False
+    session = None
     if x_player_token:
         session = challenge_store.get_player_session(x_player_token)
         if session:
             caller_completed_round = session['current_round'] - 1
             is_game_over = session['current_round'] >= total_rounds
 
-    max_round_filter = caller_completed_round if not is_game_over and x_player_token else None
+    is_expired = False
+    if challenge.get('expires_at'):
+        exp = datetime.fromisoformat(challenge['expires_at'])
+        if datetime.now(timezone.utc) > exp:
+            is_expired = True
+    is_stopped = not challenge.get('is_active', True)
+    is_concluded = bool(is_stopped or is_expired)
+
+    if is_concluded:
+        history_max_round: int | None = None
+        standings_max_round: int | None = None
+        is_game_over = True
+    elif x_player_token and session:
+        if is_game_over:
+            history_max_round = None
+            standings_max_round = None
+        else:
+            history_max_round = caller_completed_round
+            standings_max_round = caller_completed_round
+    else:
+        # Anonymous / unauthenticated caller on an active challenge:
+        # Standings show overall participant progress (for the Challenges Hub drawer),
+        # but Fog of War strictly conceals round guesses and round history (true locations/dates).
+        history_max_round = -1
+        standings_max_round = None
+
+    location_mode = bool(config.get('location_mode', True))
+    date_mode = bool(config.get('date_mode', True))
 
     standings = await asyncio.to_thread(
         leaderboard_store.get_challenge_standings,
         challenge_id=challenge['challenge_id'],
-        max_round=max_round_filter,
+        max_round=standings_max_round,
     )
     guesses = await asyncio.to_thread(
         leaderboard_store.get_challenge_round_guesses,
         challenge_id=challenge['challenge_id'],
-        max_round=max_round_filter,
+        max_round=history_max_round,
+    )
+    round_history = await asyncio.to_thread(
+        leaderboard_store.get_challenge_round_history,
+        challenge_id=challenge['challenge_id'],
+        max_round=history_max_round,
+        game_mode=game_mode.value,
+        location_mode=location_mode,
     )
 
     return ChallengeLeaderboardResponse(
@@ -366,6 +406,10 @@ async def get_challenge_leaderboard(
         up_to_round=caller_completed_round,
         total_rounds=total_rounds,
         is_game_over=is_game_over,
+        is_concluded=is_concluded,
         leaderboard=standings,
         round_guesses=guesses,
+        location_mode=location_mode,
+        date_mode=date_mode,
+        round_history=round_history,
     )

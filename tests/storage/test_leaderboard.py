@@ -1135,3 +1135,77 @@ def test_match_summary_person_and_album_names(tmp_path: Path) -> None:
     assert summary is not None
     assert summary.config.person_names == ['Alice Person', 'Bob Person']
     assert summary.config.album_names == ['Vacations 2024']
+
+
+def test_leaderboard_includes_challenges_and_local_with_play_mode(tmp_path: Path) -> None:
+    """Verify that leaderboard queries include both local matches and finalized challenge matches,
+    with PlayMode accurately populated on entries.
+    """
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    # 1. Record a local match
+    local_cfg = BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.pinpoint)
+    store.append_match(
+        match_id='m-local-entry',
+        config=local_cfg,
+        player_scores={'LocalPlayer': {'location': 400, 'date': 400, 'total': 800}},
+        play_mode=PlayMode.local,
+    )
+
+    # 2. Record a finalized challenge match
+    from src.storage.challenge import ChallengeStore
+
+    ch_store = ChallengeStore(store._db)
+    ch_cfg = {
+        'game_mode': 'pinpoint',
+        'round_count': 5,
+        'round_length': '1m',
+        'location_mode': True,
+        'date_mode': True,
+        'libraries': ['main'],
+    }
+    ch = ch_store.create_challenge(
+        creator_name='Host',
+        libraries=['main'],
+        config=ch_cfg,
+        asset_ids=['p1', 'p2', 'p3', 'p4', 'p5'],
+    )
+    store.finalize_challenge_player_match(
+        match_id='m-challenge-entry',
+        challenge_id=ch['challenge_id'],
+        config=ch_cfg,
+        player_name='ChallengePlayer',
+        location_score=450,
+        date_score=450,
+        total_score=900,
+        total_rounds=5,
+        total_time_seconds=30.0,
+        libraries=['main'],
+    )
+
+    # 3. Query all leaderboard entries (no play_mode filter)
+    all_entries = store.list_entries(LeaderboardQuery(libraries=['main']))
+    assert len(all_entries) == 2
+
+    # ChallengePlayer has higher accuracy/score (rank 1)
+    assert all_entries[0].player_name == 'ChallengePlayer'
+    assert all_entries[0].play_mode == PlayMode.challenge
+    assert all_entries[0].total_score == 900
+
+    # LocalPlayer has lower score (rank 2)
+    assert all_entries[1].player_name == 'LocalPlayer'
+    assert all_entries[1].play_mode == PlayMode.local
+    assert all_entries[1].total_score == 800
+
+    # 4. Query specifically for challenges
+    ch_entries = store.list_entries(LeaderboardQuery(libraries=['main'], play_mode=PlayMode.challenge))
+    assert len(ch_entries) == 1
+    assert ch_entries[0].player_name == 'ChallengePlayer'
+    assert ch_entries[0].play_mode == PlayMode.challenge
+
+    # 5. Query specifically for local matches
+    local_entries = store.list_entries(LeaderboardQuery(libraries=['main'], play_mode=PlayMode.local))
+    assert len(local_entries) == 1
+    assert local_entries[0].player_name == 'LocalPlayer'
+    assert local_entries[0].play_mode == PlayMode.local

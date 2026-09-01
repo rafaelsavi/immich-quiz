@@ -18,35 +18,12 @@ This document lists planned features, design ideas, and technical debt items for
   - [x] Add host challenge management modal (`static/js/modules/admin.js`) with game mode selection, live preflight validation, 1-click URL sharing, and challenge deactivation.
   - [x] Document Cloudflare Zero Trust path protection rules and Docker security hardening (`docker-compose.example.yml`).
   - [x] Specified in [`docs/next-milestones/online-multiplayer`](next-milestones/online-multiplayer/00_OVERVIEW.md).
-
-challenges:
-
-- replace challenges-hero-stats by  a simple count of total  and active challenges to save space. It is also duplicated with challenges-page-total-badge.
-- challenges-toolbar can also be make more clear. filter-pill is too high because limited width is breaking lines.
-- remove challenges-page-back-btn;
-- detailed-card-top-bar can be removed: move "challenge-status-pill status-active" to before "detailed-challenge-title" and format "card-time-status status-active" next to "created-date" in a homogeneous design way.
-- make challenges-page-refresh-btn and refresh-leaderboard more minimalistic: just an icon
-
-home:
-
-- leaderboard in home page should have extra column for PlayMode and include also results from challenges
-- when accordion-toggle-btn is collapsed, show match-meta-items
-
-in page with "challenge-invite-header", "challenge-invite-counter" should be more clear that count is "you + this many friends"
-
-challenge round review:
-
-- in challenge mode, after a guess, theres a roudn review and a waiting screen showing others answers. Lets combine them into a single page. Use classical round review a a base and just bring the dynamic features to auto update results such as the table and the map
-- "intermission-standings-list" needs inspection: if user A is ahead of user B in number of rounds, it should be more clear, so that user A doesnt think that it has more points than B because it played better: its just because it is moved through rounds faster. Perhaps - its better to shown points of current round and total separately in the summary reviews of the challenge.
-
-challenge game review
-
-- "scatter-map" during game summary of challenge should show dashed lines between answers, as in the game summary of local play mode. Main answer should be star instead of ✓
-- "map-reset-zoom-btn leaflet-control" is not well formatted in "leaflet-container leaflet-touch leaflet-fade-anim leaflet-grab leaflet-touch-drag leaflet-touch-zoom" of game review of challenge mode
-- I expected "summary-table" instead of "grand-reveal-table" to make finish screens more homogen between play modes. Evaluate what to do with users that didnt play all rounds yet.
-- Does it make sense to make game summary of challenge as a different page like in local mode, to make it easier to share just the result and not the game play?
-- review "grand-reveal-meta": it has number 2 two times: "10 rodadas • 2 2 participantes"
-- in challenge mode, do you think that "grand-reveal-podium" should only appear when challenge is done?
+  - [x] challenge-invite card page should be shown to all players that finished, not just the first one
+  - [x] Fix Leaflet guess map marker in challenge mode showing "?" instead of the active participant's initial and color.
+  - [x] Standardize `carousel-photo-img` layout with `.media-frame`, top-right SVG fullscreen expand button, and unified heights matching other image views.
+  - [x] Optimize challenge play summary screen (Grand Reveal) for phone screens with responsive headers, table column hiding, thumb-friendly action buttons, and compact carousel navigation.
+  - [x] Add docs for challenge mode ([`docs/CHALLENGES.md`](CHALLENGES.md), [`docs/GAMEPLAY.md`](GAMEPLAY.md), [`docs/API.md`](API.md), [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)).
+  - [x] Remove imp plan for challenge (cleaned up `docs/next-milestones/online-multiplayer/stage-1-challenge-mode/`).
 
 - [ ] v3.1.0 **5. Admin Area & Reported Asset Moderation**
   - [ ] Build dedicated admin interface (`/admin` / `static/admin.html`) with authentication/Zero Trust protection.

@@ -6,7 +6,8 @@ import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../form
 import { animateScoreRollup, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
 import { playChime } from "../audio.js";
 import { openReportModal } from "../components/report_modal.js";
-import { challenge } from "../challenge.js";
+import { openPhotoLightbox } from "../components/lightbox.js";
+import { challenge } from "../challenge/index.js";
 
 let shuffleMap = null;
 let revealShuffleMap = null;
@@ -607,6 +608,10 @@ export const albumShuffleMode = {
     // Re-render all reveal text without re-initializing the map or running animations.
     this.renderReveal(revealUi, revealData, true);
   },
+
+  addOpponentReveal(revealUi, revealData, newOpponents) {
+    this.renderReveal(revealUi, revealData, true);
+  },
 };
 
 let activeBreakdownViewMode = "photo";
@@ -1191,33 +1196,3 @@ export function getShuffleMaps() {
   return [shuffleMap, revealShuffleMap].filter(Boolean);
 }
 
-export function openPhotoLightbox(src) {
-  let lightbox = document.getElementById("photo-lightbox");
-  if (!lightbox) {
-    lightbox = document.createElement("div");
-    lightbox.id = "photo-lightbox";
-    lightbox.className = "photo-lightbox-overlay";
-    lightbox.innerHTML = `
-      <div class="photo-lightbox-content">
-        <button type="button" class="photo-lightbox-close" title="${t("game.close_btn")}" data-i18n-title="game.close_btn">&times;</button>
-        <img id="photo-lightbox-img" src="" alt="${t("game.fullscreen_photo_alt")}" data-i18n-alt="game.fullscreen_photo_alt" />
-      </div>
-    `;
-    document.body.appendChild(lightbox);
-
-    const closeBtn = lightbox.querySelector(".photo-lightbox-close");
-    closeBtn.addEventListener("click", () => lightbox.classList.remove("active"));
-    lightbox.addEventListener("click", (e) => {
-      if (e.target === lightbox) lightbox.classList.remove("active");
-    });
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && lightbox.classList.contains("active")) {
-        lightbox.classList.remove("active");
-      }
-    });
-  }
-
-  const imgEl = document.getElementById("photo-lightbox-img");
-  if (imgEl) imgEl.src = src;
-  lightbox.classList.add("active");
-}

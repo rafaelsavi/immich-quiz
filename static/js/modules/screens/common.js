@@ -3,7 +3,7 @@ import { clearTimer } from "../timer.js";
 import { unregisterActiveMap } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { t } from "../i18n.js";
-import { challenge } from "../challenge.js";
+import { challenge } from "../challenge/index.js";
 
 export function clearRevealAnimation() {
   if (state.revealAnimationFrameId !== null) {

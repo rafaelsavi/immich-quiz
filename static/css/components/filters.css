@@ -82,6 +82,7 @@
 }
 
 .filters-summary-badge {
+  display: none;
   font-size: 0.8rem;
   font-weight: 500;
   color: #6c7893;
@@ -96,6 +97,42 @@
   color: var(--accent, #0f7c7f);
   background: rgba(15, 124, 127, 0.14);
   font-weight: 600;
+}
+
+.filters-accordion-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.filters-accordion-meta .match-meta-item {
+  padding: 0.18rem 0.5rem;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border-light, #dbe1ee);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  gap: 0.35rem;
+}
+
+.filters-accordion-meta .match-meta-item-icon {
+  font-size: 0.85rem;
+}
+
+.filters-accordion-meta .match-meta-item-label {
+  font-size: 0.68rem;
+}
+
+.filters-accordion-meta .match-meta-item-val {
+  font-size: 0.78rem;
+  max-width: 180px;
+}
+
+.filters-accordion.expanded .filters-accordion-meta,
+.filters-accordion-header[data-expanded="true"] .filters-accordion-meta {
+  display: none;
 }
 
 .accordion-arrow {

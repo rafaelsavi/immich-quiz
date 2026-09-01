@@ -14,7 +14,7 @@ async def test_score_rollup_animation_and_post_game_summary(page: Page) -> None:
     and memory cards render on match completion.
     """
     await page.goto('/')
-    await start_date_only_match(page, rounds=5)
+    await start_date_only_match(page, rounds=5, round_length='2m')
     await expect(page.locator('#game-card')).to_be_visible()
 
     # Play through 5 rounds quickly
@@ -46,6 +46,12 @@ async def test_score_rollup_animation_and_post_game_summary(page: Page) -> None:
     await expect(page).to_have_url(re.compile(r'/game/[^/]+/summary$'))
     summary_card = page.locator('#summary-card')
     await expect(summary_card).to_be_visible()
+
+    # Verify Match Meta specifications panel (time limit, rounds, etc.)
+    summary_meta = page.locator('#summary-meta')
+    await expect(summary_meta).to_be_visible()
+    await expect(summary_meta.locator('.meta-timer .match-meta-item-val')).to_contain_text('2 min')
+    await expect(summary_meta.locator('.meta-rounds .match-meta-item-val')).to_contain_text('5')
 
     # Verify winner / podium section
     await expect(page.locator('#summary-winner')).to_be_visible()

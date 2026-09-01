@@ -9,6 +9,230 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Fog of War Secret Leak Prevention on Active Challenges**:
+  - Fixed a vulnerability in `GET /api/challenge/{capability_token}/leaderboard` within [`challenge_routes.py`](src/api/challenge_routes.py) where unauthenticated or anonymous requests without an `X-Player-Token` on active challenges bypassed Fog of War and received full round guesses and true photo coordinates.
+  - Applied `history_max_round = -1` for unauthenticated callers on active matches, strictly concealing secret photo locations and player guesses while maintaining overall player progress in `leaderboard` for the Challenges Hub standings drawer.
+
+- **Carousel Date Chip Label Correction**:
+  - Corrected the date comparison chip label in [`summary.js`](static/js/modules/challenge/summary.js) to use `t("challenge.true_date")` ("Actual Date" / "Data Real") instead of erroneously calling `t("challenge.true_location")` ("True Location" / "Localização Real").
+
+- **Round Reveal State Synchronization**:
+  - Assigned `state.lastReveal = formattedReveal` in [`reveal.js`](static/js/modules/challenge/reveal.js) during personal round review, ensuring photo inconsistency reporting (`#reveal-report-btn`) and global state listeners receive consistent payload references across both local and challenge modes.
+
+- **Challenge Invite Screen Availability for All Finishers**:
+  - Fixed an issue where the `challenge-invite` intermission screen was skipped for second and subsequent finishers due to an auto-transition check (`finishedCount >= 2`) running on the first polling tick.
+  - Removed the premature auto-transition bypass in `startFinisherPolling()` within [`challenge.js`](static/js/modules/challenge.js), allowing all players who complete the final round to view the challenge invite screen, copy the share link, show the QR code, observe live finisher tally updates ("You + X friends have finished"), and advance to the Grand Reveal when they click "See Results".
+
+- **Challenges Hub Standings Drawer Rank Column**:
+  - Fixed a bug where `.col-rank` in `.standings-table-wrap` always displayed `"unknown"` instead of player rankings due to erroneously calling geographic formatter `formatPlace()` instead of a rank formatter.
+  - Implemented and exported `formatRank(rank, options)` in [`formatters.js`](static/js/modules/formatters.js) with medals for top 3 (`🥇 1`, `🥈 2`, `🥉 3`) and plain numbers for remaining places.
+  - Applied `.col-rank` and table header classes to `<th>` elements and ensured `white-space: nowrap;` and `vertical-align: middle;` in [`challenge.css`](static/css/components/challenge.css).
+
+### Changed
+
+- **Challenge Card Header Containment and Share Icon Button Simplification**:
+  - Enforced strict horizontal containment for `.card-header-actions` (the Share and Deactivate buttons) inside `.card-header-row` via `flex-wrap: nowrap;`, `align-items: flex-start;`, and `flex-shrink: 0;` in [`challenge.css`](static/css/components/challenge.css).
+  - Added `overflow-wrap: break-word;` and `word-break: break-word;` to `.detailed-challenge-title` to prevent long challenge titles from pushing header actions out of bounds.
+  - Simplified `.btn-share-challenge-hub` in [`challenges.js`](static/js/modules/screens/challenges.js) to display only the share SVG icon symbol in all viewports, removing `.btn-share-text` while maintaining full accessibility via `aria-label` and `title`.
+  - Styled `.btn-share-challenge-hub` uniformly as a 34x34px square icon button across all screen sizes and container query breakpoints.
+
+- **Architecture Refactoring: Challenge Mode Modularization, Screens Organization & Shared Utilities**:
+  - Decomposed the 1,598-line `challenge.js` monolith into a cohesive sub-package under [`static/js/modules/challenge/`](static/js/modules/challenge/):
+    - `session.js`: Centralized challenge reactive state, session storage keys, reset routine, and Leaflet map lifecycle management.
+    - `landing.js`: Landing screen, resume detection, new player join form, error screens, and dynamic language switcher refresh.
+    - `game.js`: Challenge question loading, active game mode mounting, countdown timer coordination, and answer submission.
+    - `reveal.js`: Round personal reveal, 3-second social polling, and dynamic opponent pin drop animations.
+    - `intermission.js`: Post-round-N "Invite Friends" intermission screen, SVG QR code generation, 1-click URL copy, and live finisher polling.
+    - `summary.js`: Grand Reveal summary screen, 3D podium, awards, scatter-map carousel, and chronological journey map.
+    - `index.js`: Unified facade assembling all submodules into the singleton `challenge` interface.
+    - Fully migrated all consumers to import directly from `static/js/modules/challenge/index.js` and removed legacy `static/js/modules/challenge.js`.
+  - Relocated `challenges_page.js` to [`static/js/modules/screens/challenges.js`](static/js/modules/screens/challenges.js) to establish architectural parity across all primary screen lifecycle controllers (`setup.js`, `game.js`, `reveal.js`, `summary.js`, `challenges.js`), migrated all consumers, and removed legacy `static/js/modules/challenges_page.js`.
+  - Cleaned up legacy re-exports across modules (`openPhotoLightbox` in `album_shuffle.js`, `updateSubmitState` in `screens/game.js`, and legacy state getters/setters in `challenge/index.js`).
+  - Extracted shared modal photo lightbox into [`static/js/modules/components/lightbox.js`](static/js/modules/components/lightbox.js) with click-outside and Escape key dismissal, eliminating duplicate modal creation between Album Shuffle mode and summary polaroids.
+  - Extracted shared `formatRelativeTime(diffMs, isPast)` helper into [`formatters.js`](static/js/modules/formatters.js), deduplicating relative time logic across screens.
+  - Restructured the `tests/` directory to mirror the implementation folder hierarchy in `src/`:
+    - `tests/api/`: FastAPI route tests (`test_api.py`, `test_challenge_api.py`, `test_filters_api.py`).
+    - `tests/app_logging/`: Observability and logging tests (`test_logging.py`).
+    - `tests/game/`: Question candidate selection and candidate diversity tests (`test_diversity.py`).
+    - `tests/immich/`: Immich client adapter tests (`test_immich_client.py`).
+    - `tests/storage/`: Storage subsystem tests (`test_challenge_storage.py`, `test_leaderboard.py`, `test_metadata_storage.py`).
+    - `tests/frontend/`: Frontend regression, component, and DOM interaction tests (`test_frontend_regressions.py`, `test_multi_select.py`, `test_player_input.py`, `test_range_slider.py`).
+    - Root `tests/`: Domain unit tests (`test_config.py`, `test_models.py`, `test_scoring.py`, `test_adaptive_scoring.py`, `test_i18n.py`, `test_version.py`).
+
+- **Standardized and Reusable Leaderboard & Standings Elements**:
+  - Centralized rank formatting and badges into [`formatters.js`](static/js/modules/formatters.js) via `createRankBadge()`, `formatRankBadge()`, and `formatRank()`, eliminating duplicate imperative badge creation across [`leaderboard.js`](static/js/modules/leaderboard.js), [`summary/table.js`](static/js/modules/summary/table.js), [`challenge.js`](static/js/modules/challenge.js), and [`challenges_page.js`](static/js/modules/challenges_page.js).
+  - Centralized rounds completion pills into `formatRoundsBadge()` with unified `.challenge-rounds-pill` (`finished` vs `in-progress`), deprecating divergent `.progress-badge` markup.
+  - Centralized player cell rendering into `formatPlayerCellHtml()` and `playerNameCell()`, ensuring consistent `.player-cell`, `.legend-badge`, `.player-name-text`, and `.winner-crown` across DOM-based and HTML template-based standings tables.
+  - Standardized standings table structure with `.standings-table`, `.table-scroll`, and shared column styling (`.col-rank`, `.col-player`, `.col-rounds` / `.col-progress`, `.col-score`, `.col-acc` / `.col-accuracy`) across Grand Reveal, match summary, and Challenges Hub views.
+
+### Added
+
+- **Standardized Carousel Photo Layout & Mobile Optimization for Challenge Play Summary**:
+  - Replaced ad-hoc dark styling on `.carousel-photo-shell` with `.media-frame` semantic class, `#eef2fb` background, `#d5dcec` border, 14px border radius, and synchronized desktop height (`var(--quiz-map-height, 420px)`) matching the scatter map and regular quiz photo view.
+  - Replaced the ad-hoc emoji zoom button (`🔍`) with the standard `.map-fullscreen-btn` featuring a crisp SVG expand icon positioned at top-right for consistent user interaction.
+  - Optimized the Challenge Play Summary (Grand Reveal) screen for mobile viewports (<=768px and <=480px):
+    - Scaled down and word-wrapped the match title header (`.grand-reveal-header h2`) and metadata to prevent horizontal overflow and text clipping on small screens.
+    - Adjusted padding and typography on `.challenge-provisional-card` and `.challenge-carousel-card`.
+    - Compacted `.carousel-nav-controls` and navigation buttons (`.carousel-nav-btn`) with `width: auto`, preventing button overflow and ensuring `Round X of Y` indicator fits cleanly across narrow viewports.
+    - Added `.hide-on-mobile` to `.col-accuracy` in `#grand-reveal-table` to prevent table horizontal overflow while maintaining core standings columns.
+    - Structured `.summary-actions` buttons as full-width vertical stacks on phone screens for comfortable thumb reach, and added a direct `Challenges Hub` button (`#grand-reveal-hub-btn`) navigating directly to `/challenges`.
+
+- **Interactive Share Drawer & Dynamic Results Button in Challenges Hub**:
+  - Replaced redundant card copy buttons with a header **Share** button (`.btn-share-challenge-hub`) that smoothly expands a dedicated **Share Drawer** (`.challenge-hub-share-drawer`) with a dynamically rendered zero-dependency SVG QR code and a direct URL input with 1-click clipboard copy.
+  - Converted the disabled "Expired" button into an active **Results** deep link button (`.btn-results-challenge`) navigating to `/play/:token/summary` when a challenge is inactive or expired, allowing instant review of match summaries and leaderboards.
+  - Removed duplicate CSS button definitions and added responsive layout rules for the share drawer on mobile screens.
+  - Removed redundant `.host-avatar` placeholder element and styling from challenge card subtitles, keeping player avatar badges strictly reserved for active game participants.
+  - Added localized strings across [`en_US.js`](immich-quiz/static/js/modules/locales/en_US.js) and [`pt_BR.js`](immich-quiz/static/js/modules/locales/pt_BR.js).
+
+- **Individual Participant Icon Colors for Challenge Mode**:
+  - Assigned each participant starting a challenge an individual, distinct avatar icon color from a shared 16-color palette based on chronological join order (`started_at`), exactly mirroring the local game player roster assignment.
+  - Added `player_color` column to `challenge_sessions` in database schema with automatic backward-compatible migration in `src/storage/leaderboard.py`.
+  - Added `participants` list, `participant_index`, and `player_color` to `ChallengeDetailResponse`, `ChallengeStartResponse`, `ChallengeAnswerResponse`, `ChallengeLeaderboardEntry`, and `ChallengeRoundGuessData` in `src/models.py`.
+  - Added live avatar color preview on the Challenge Landing screen with dynamic initials generation on `#player-name-input` and personalized colored resume pill.
+  - Displayed assigned individual icon colors and multi-letter clash-free initials on in-game round headers, map guess markers, round reveal score table, Grand Reveal standings, carousel scatter map, and the Challenges Hub page standings drawer.
+
+- **Home Leaderboard PlayMode Column & Challenge Results Support**:
+  - Added a dedicated sortable **Mode** column to the home page leaderboard table displaying styled badges for `Local` (`👥`), `Challenge` (`🌐`), and `Room` (`⚡`) match sessions.
+  - Included challenge match results seamlessly alongside local matches in global leaderboard listings.
+  - Added internationalized labels and descriptions across [`en_US.js`](immich-quiz/static/js/modules/locales/en_US.js) and [`pt_BR.js`](immich-quiz/static/js/modules/locales/pt_BR.js).
+
+- **Unified Match Meta Items in Collapsed Filters Accordion**:
+  - Rendered active filter configurations as rich `.match-meta-items` chips inside the `#filters-toggle-btn` header when the Library & Photo Filters accordion is collapsed.
+  - Dynamically updates filter chips in real-time as users adjust library, places, albums, people, date ranges, and shared album settings.
+  - Seamlessly hides metadata chips when the accordion is expanded for full filter customization.
+
+- **Unified Challenge Round Review Screen with Live Opponent Updates**:
+  - Combined the Challenge Mode personal round review and the intermission waiting screen into a single unified round review screen based on the classical round review (`#reveal-ui`).
+  - Added real-time polling during round review that dynamically drops opponent pins onto the active reveal map (`state.revealMap`) with dashed lines from the true location, pulse animations, and sound effects.
+  - Dynamically updates the reveal score breakdown table with all participants who completed the round.
+  - Clicking "Next Round" advances directly to the next question (`loadRound(roundIndex + 1)`) without an intermediate intermission screen.
+
+- **World Journey Map & Polaroid Gallery for Album Shuffle Challenges**:
+  - Replaced the single-target `challenge-carousel-card` (which was conceptually designed for Pinpoint mode) with the **World Journey Map** and **Match Memory Cards (Polaroid Gallery)** in Album Shuffle mode challenges.
+  - Placed the Final Standings Table directly beneath the Podium/Awards, followed by the World Journey Map (with numbered pins such as `1-A`, `1-B`, etc. and spiderfy clustering) and interactive Polaroid cards with photo lightbox viewing, matching the Local Mode finish screen layout.
+  - Preserved the interactive round-by-round scatter-map carousel for Pinpoint challenges.
+  - Extended `ChallengeLeaderboardResponse` with `round_history` (including `batch_reveal`), `location_mode`, and `date_mode`, strictly enforcing Fog of War for unplayed rounds.
+  - Enhanced [`renderJourneyMap`](immich-quiz/static/js/modules/maps.js) and [`renderPolaroidGallery`](immich-quiz/static/js/modules/summary/polaroids.js) to support custom containers and lifecycle management.
+
+- **Challenge Carousel Photo Integration & Target-Aware Review**:
+  - Added round photo preview (`/api/media/{asset_id}`) inside `.challenge-carousel-card` alongside the scatter map, complete with lightbox zoom viewing on click.
+  - Made carousel layout target-aware: in Date-Only mode (`location_mode: false`), hides the scatter map and displays a centered photo card with date chips; in Location-Only mode (`date_mode: false`), hides the date comparison chips.
+
+- **Conditional Podium Completion Requirement Notice**:
+  - Made the `🏁 Podium results only count for players who completed all rounds.` notice conditional on `#grand-reveal-podium` and `.mini-podium-bar`: only displayed when there are active/unfinished participants, and automatically omitted when all players have finished to keep the layout clean and compact.
+  - Display "Current Leader: {player}" (or "Current Leaders: {tie}") while a challenge is still in progress, only crowning "Winner: {player}" once the challenge has concluded (expired or closed by host).
+  - Filtered podium standings and winner determinations in `static/js/modules/challenge.js` and `static/js/modules/challenges_page.js` to strictly include participants who completed all rounds (`is_finished=True`).
+  - Updated `src/storage/leaderboard.py` so `is_winner=True` is strictly reserved for finished participants with the best score among completed attempts.
+  - Added `is_concluded` to `ChallengeLeaderboardResponse` and allowed `GET /api/challenge/{capability_token}` to return challenge metadata with `is_active=False` for concluded/expired challenges, enabling direct results viewing from landing cards.
+
+### Fixed
+
+- **Challenge Mode Guess Map Player Marker Initial & Color**:
+  - Attached `sessionPlayerName` to `state.currentQuestion` in `challenge.js` upon question load, and added a safe fallback to `state.players[0]` in `ensureGuessMap()`, ensuring the Leaflet guess map marker correctly renders the player's initial and individual color instead of defaulting to `?` and red.
+
+- **Eliminated N+1 Query in Challenge Standings Calculation**:
+  - Batch-prefetched guess rows across all challenge participants in a single indexed query in `LeaderboardStore.get_challenge_standings`, reducing $N$ sequential SQL queries per 3-second social polling request down to a single O(1) in-memory grouping.
+  - Unified challenge `total_rounds` determination in standings to consistently respect Album Shuffle batches and actual asset pool sizes.
+
+- **Indexed Subquery Optimization for Challenge Guess & History Queries**:
+  - Replaced dynamic SQL parameter list construction (`IN (?, ?, ...)`) in `get_challenge_round_guesses` and `get_challenge_round_history` with indexed SQLite subqueries (`WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)`), avoiding SQLite parameter limits and accelerating execution.
+
+- **Eliminated Redundant Database Query in Challenge Detail API**:
+  - Removed an unused `get_challenge_participant_count` call in `GET /api/challenge/{capability_token}` that was immediately overwritten by session participant length, pruning the unneeded `LeaderboardStore` dependency from the endpoint.
+
+- **Enhanced Clipboard Utility with Rich HTML Feedback**:
+  - Added `copiedHtml` support to `copyToClipboard` in `share.js` to preserve and restore complex inner HTML structures on copy buttons.
+  - Removed manual `_copyResetTimer`, `clearTimeout`, and innerHTML swapping from `admin.js`.
+
+- **Background Tab Polling Guard in Challenge Mode**:
+  - Added `document.hidden` guards to `startPolling` and `startFinisherPolling` in `challenge.js` to suspend background network polling when the user switches tabs or minimizes the window.
+
+- **Optimized Media Proxy Asset Validation in Active Challenges**:
+  - Replaced O(N×M) in-memory JSON deserialization and linear scans in `is_asset_in_active_challenge` with an indexable SQLite query using `json_each()`, eliminating high CPU and memory overhead during `/media/{asset_id}` proxy requests.
+
+- **Race Condition Resilience in Challenge Session Creation**:
+  - Handled concurrent `sqlite3.IntegrityError` in `get_or_resume_player_session` when simultaneous requests join with the same player name, gracefully catching the conflict and returning the existing session instead of throwing a 500 error.
+
+- **Robust Clipboard Sharing & Fallback Error Handling**:
+  - Extracted a unified `copyToClipboard()` utility in `summary/share.js` featuring support for modern async Clipboard API with fallback to `document.execCommand('copy')` for insecure/HTTP contexts, full error handling, and animated button feedback.
+  - Replaced 4 duplicate copy implementations across `challenge.js`, `challenges_page.js`, `admin.js`, and `share.js`.
+
+- **Deduplicated Database Row Mapping & Total Rounds Logic**:
+  - Centralized repeated `challenges` table row-to-dictionary mapping into `ChallengeStore._row_to_challenge_dict`, removing 30+ lines of duplicate deserialization logic.
+  - Unified mode-dependent challenge round counting into `get_challenge_total_rounds()`, eliminating 6 duplicate branches across `challenge_routes.py` and `challenge_service.py`.
+
+- **Internationalization Fallback Helper & Error Card Resolution**:
+  - Introduced `t_or()` / `tOr()` helper in both Python backend and JS frontend for clean translation lookups with fallbacks, simplifying `match_meta.js`.
+  - Streamlined error card message key resolution across all locales dynamically in `challenge.js`.
+
+- **Challenge Exit Game Button & In-Card Error Screen Consistency**:
+  - Fixed an unhandled `ReferenceError: clearTimer is not defined` in [`static/js/modules/screens/setup.js`](immich-quiz/static/js/modules/screens/setup.js) when clicking Exit during challenge mode.
+  - Ensured `handleAbandonGame` cleanly tears down challenge state, stops timers, clears route classes, resets game UI, and navigates back to setup lobby via `returnToSetup()`.
+  - Replaced browser `alert()` popups with consistent in-card `.challenge-error` screens when challenges are stopped or expired during attempt start, round loading, or guess submissions.
+
+- **Past Challenge Standings for Concluded & Expired Matches**:
+  - Allowed `GET /api/challenge/{capability_token}/leaderboard` to return standings and rankings even when a challenge has been deactivated or expired (`include_inactive=True` in `get_challenge_by_token`), ensuring `.challenge-standings-drawer` always displays past results.
+  - Automatically lifted Fog of War (`max_round_filter = None`, `is_game_over = True`) when a challenge is closed or expired, enabling complete score breakdowns and standings inspection for all past participants.
+  - Cleared frontend standings drawer cache (`_cachedStandings.clear()`) on list reload and refresh to ensure newly completed rounds display immediately.
+
+- **Challenge Error Card Dynamic Language Refresh**:
+  - Fixed an issue where the `.challenge-error` screen failed to update its localized title, message, and action button when toggling language via `#lang-toggle-btn`.
+  - Added `data-i18n` attributes to all translatable elements in `.challenge-error` (`challenge.error_title`, `challenge.back_home`, and error message key) so `applyLanguage()` translates them in-place.
+  - Consolidated duplicate `refreshLanguage()` declarations in [`challenge.js`](immich-quiz/static/js/modules/challenge.js) into a unified handler that re-renders the error screen, landing screen, and invite counter seamlessly.
+
+- **Round Reveal & Map Fullscreen Toggle Controls**:
+  - Resolved an issue where clicking `#reveal-map-fullscreen` (and other pre-rendered `.map-fullscreen-btn` elements) failed to toggle fullscreen due to missing event listener attachments during map instantiation.
+  - Updated [`ensureMapFullscreenButton`](immich-quiz/static/js/modules/maps.js) to reliably bind `onclick` handlers and disable Leaflet propagation regardless of whether the button was pre-rendered in HTML or created dynamically.
+  - Added global [`initMapFullscreenControls`](immich-quiz/static/js/modules/maps.js) invoked on bootstrap to wire up all static and dynamic fullscreen buttons (`#reveal-map-fullscreen`, `#guess-map-fullscreen`, `#journey-map-fullscreen`, `#quiz-image-fullscreen`).
+  - Added `fullscreenchange` and `webkitfullscreenchange` listeners to automatically synchronize button states, aria attributes, and invoke [`refitAllMaps`](immich-quiz/static/js/modules/maps.js) with container size invalidation on enter/exit.
+  - Updated global `f` keyboard shortcut to properly toggle active map fullscreen across `reveal`, `guessing`, and `summary` screens.
+
+- **Accurate Time Limit & Match Settings in Game Review Specs**:
+  - Fixed an issue in [`static/js/modules/components/match_meta.js`](immich-quiz/static/js/modules/components/match_meta.js) where `round_length` in local game reviews always fell back to default (`1 min`) because match configuration properties reside inside nested `summary.config`.
+  - Added fallback checks to `data.config` for `round_length`, `round_count`, `location_mode`, `date_mode`, and `game_mode`.
+  - Standardized round length display values to use localized labels (e.g. `2 min`, `30s`, `Unlimited`).
+  - Added regression tests in [`tests/test_frontend_regressions.py`](immich-quiz/tests/test_frontend_regressions.py) and [`tests/e2e/test_summary_and_effects.py`](immich-quiz/tests/e2e/test_summary_and_effects.py).
+
+### Changed
+
+- **Horizontal Match Metadata Categories with Category Tooltip**:
+  - Simplified `.match-meta-cat-header` into a compact icon placed to the left of `.match-meta-items`, saving a full line of vertical space per category block across match summary, challenges hub, and challenge cards.
+  - Replaced the separate `.match-meta-cat-title` text with a semantic `title` tooltip on `.match-meta-category` displaying the localized heading (e.g., *Game Setup*, *Library Filters*).
+  - Maintained full responsive wrapping for `.match-meta-items` chips with flexbox alignment.
+
+- **Preserved Full Card Contrast on Inactive & Expired Challenges**:
+  - Updated `.detailed-challenge-card.card-inactive` to use standard card background (`var(--card)`) and border (`var(--border-light)`), removing the dull greyed-out appearance so past match specifications, participants, and results remain prominent and legible.
+
+- **Standardized Challenge Standings Toggle Button & Inactive Card Contrast**:
+  - Standardized `.btn-standings-toggle` label format to always display participant count uniformly (e.g. `Ver Classificação (N)` / `View Standings (N)`), resolving inconsistency where 0-participant challenges omitted the verb and count badge.
+  - Aligned button typography, padding, borders (`1.5px solid var(--border)`), background (`var(--card)`), and hover animations across `.btn-standings-toggle`, `.btn-copy-challenge-link`, and `.footer-left-actions .btn-secondary`.
+  - Removed root `opacity: 0.75` and `filter: grayscale(0.2)` from `.detailed-challenge-card.card-inactive`, maintaining full crisp contrast, legibility, and homogeneous styling for interactive buttons across both active and expired challenges.
+
+- **Challenge Standings and Round Progress Clarity**:
+  - Enhanced challenge standings tables (including Grand Reveal table) to explicitly show each player's round completion progress with visual status badges (e.g. `🏁 5/5` Finished vs `⏳ 2/5` In Progress).
+  - Clearly separated Round Points from Total Points and added Average Points per Round to prevent players with fewer completed rounds from being misinterpreted as scoring poorly.
+
+- **Challenge Game Summary and Review Enhancements**:
+  - **Dashed Connector Lines & Star Pin**: Added dashed connector polylines linking each player's guess to the true target coordinate on the Grand Reveal scatter map, and upgraded the true answer marker to a star icon (`★`).
+  - **Leaflet Reset Zoom Button Layout**: Added `.map-shell` container styling to `#scatter-map-shell` to ensure `.map-reset-zoom-btn` and Leaflet controls adhere to standard control positioning and formatting.
+  - **Homogenized Summary Table Design**: Standardized the Grand Reveal standings table with `.summary-table` styling, consistent column headers, and avatar chips matching local play mode.
+  - **Dedicated Standings Route (`/play/:token/summary`)**: Introduced a dedicated challenge summary route allowing direct viewing and sharing of standings and round breakdowns.
+  - **Provisional Status & Conditional Podium**: Handled in-progress challenges gracefully by displaying a provisional status banner until $\ge 2$ players complete the game, unlocking the winner podium and performance awards.
+  - **Fixed Duplicate Participant Count**: Corrected internationalized pluralization formatting in `grand-reveal-meta`.
+  - **Challenge Invite Finisher Counter Clarity**:
+    - Updated `#challenge-finisher-count` (`#finisher-count-text`) on the Challenge Invite screen to clearly present the finisher tally as "You + {count} friends have finished" (and "Você + {count} amigos concluíram").
+    - Added explicit `zero`, `one`, and `other` pluralization categories across [`en_US.js`](immich-quiz/static/js/modules/locales/en_US.js) and [`pt_BR.js`](immich-quiz/static/js/modules/locales/pt_BR.js).
+    - Updated [`i18n.js`](immich-quiz/static/js/modules/i18n.js) `plural` and `t` functions to support custom `forms.zero` definitions.
+    - Added [`challenge.refreshLanguage()`](immich-quiz/static/js/modules/challenge.js) to dynamically update the invite counter whenever the application language is toggled.
+
+- **Challenges Hub Total Counter Badge Placement**:
+  - Relocated the challenges counter badge (`#challenges-page-total-badge`) from the page header title group into the `.challenges-toolbar` within `.challenges-filters-group`.
+  - Refined `.challenges-counter-pill` layout styles (`display: inline-flex; align-items: center; white-space: nowrap;`) to seamlessly integrate with toolbar search and filter controls.
+
+## [3.0.0] - 2026-09-01
+
+### Fixed
+
 - **Human-Readable People and Album Names in Match Summaries and Challenges**:
   - Resolved an issue where person IDs (UUIDs) were displayed instead of human-readable display names in match summaries.
   - Added `person_names_json` column and backward-compatible database schema migration to SQLite `matches` table.
@@ -47,6 +271,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added guards across `restartSameGame()`, `handleAbandonGame("restart")`, and `confirmAbandonMatch("restart")` in `setup.js` and `common.js` to ensure challenge matches cannot be inadvertently restarted or wiped.
   - Added guards to restart button click handlers and keyboard shortcuts (`onRestartMatch`) in `app.js`.
   - Added regression test `test_challenge_mode_disallows_game_restart` in `tests/test_frontend_regressions.py`.
+
+- **Streamlined Challenges Hub UI & Minimalistic Refresh Buttons**:
+  - Replaced bulky `#challenges-hero-stats` (4 metric cards) with a compact active/total summary counter badge (`#challenges-page-total-badge`) in the Challenges Hub header.
+  - Resolved filter pill line wrapping in `.challenges-toolbar` by enforcing `white-space: nowrap;` and shortening tab labels to `Expired` / `Expirados`.
+  - Removed redundant "Back to Lobby" button (`#challenges-page-back-btn`) in favor of standard header navigation.
+  - Restructured detailed challenge cards (`detailed-challenge-card`): removed `.detailed-card-top-bar`, placed `.challenge-status-pill` cleanly before `.detailed-challenge-title`, and aligned `.card-time-status` next to `.created-date` with bullet separation.
+  - Converted `#challenges-page-refresh-btn` and `#refresh-leaderboard` into sleek, minimalist icon-only buttons (`.btn-icon-action`) with accessible tooltips and rotation micro-animations.
 
 - **Challenge Landing Screen Dual-Path Clarification**:
   - Redesigned the challenge entry screen when an active local session is detected into two clearly distinct, well-labeled choice paths:

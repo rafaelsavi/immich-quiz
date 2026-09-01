@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-STATIC_DIR = Path(__file__).parent.parent / 'static'
+STATIC_DIR = Path(__file__).resolve().parents[2] / 'static'
 MULTI_SELECT_JS = STATIC_DIR / 'js' / 'modules' / 'components' / 'multi_select.js'
 MULTI_SELECT_CSS = STATIC_DIR / 'css' / 'components' / 'multi_select.css'
 

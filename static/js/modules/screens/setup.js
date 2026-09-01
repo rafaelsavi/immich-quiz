@@ -6,7 +6,8 @@ import { getActiveMode } from "../modes/index.js";
 import { showCard, resetGameUi, confirmAbandonMatch } from "./common.js";
 import { loadQuestion } from "./game.js";
 import { closeAdminModal } from "../admin.js";
-import { challenge } from "../challenge.js";
+import { challenge } from "../challenge/index.js";
+import { clearTimer } from "../timer.js";
 import {
   playerInput,
   libraryMultiSelect,
@@ -232,7 +233,7 @@ export function handleAbandonGame(action) {
     }
     clearTimer();
     challenge.reset();
-    navigate("/");
+    returnToSetup();
     return;
   }
   if (!confirmAbandonMatch(action)) return;

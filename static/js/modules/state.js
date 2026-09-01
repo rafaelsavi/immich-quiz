@@ -168,9 +168,15 @@ export const el = {
   revealLegend: document.getElementById("reveal-legend"),
   revealTableHead: document.querySelector("#reveal-table thead"),
   revealTableBody: document.querySelector("#reveal-table tbody"),
-  revealMapShell: document.getElementById("reveal-map-shell"),
-  revealMapHead: document.getElementById("reveal-map-head"),
-  revealMapFullscreen: document.getElementById("reveal-map-fullscreen"),
+  get revealMapShell() {
+    return document.getElementById("reveal-map-shell");
+  },
+  get revealMapHead() {
+    return document.getElementById("reveal-map-head");
+  },
+  get revealMapFullscreen() {
+    return document.getElementById("reveal-map-fullscreen");
+  },
   nextRound: document.getElementById("next-round"),
   summaryWinner: document.getElementById("summary-winner"),
   summaryMeta: document.getElementById("summary-meta"),
@@ -178,9 +184,15 @@ export const el = {
   summaryTableBody: document.querySelector("#summary-table tbody"),
   newMatch: document.getElementById("new-match"),
   shareSummaryBtn: document.getElementById("share-summary-btn"),
-  journeyMapShell: document.getElementById("journey-map-shell"),
-  journeyMapHead: document.getElementById("journey-map-head"),
-  journeyMapFullscreen: document.getElementById("journey-map-fullscreen"),
+  get journeyMapShell() {
+    return document.getElementById("journey-map-shell");
+  },
+  get journeyMapHead() {
+    return document.getElementById("journey-map-head");
+  },
+  get journeyMapFullscreen() {
+    return document.getElementById("journey-map-fullscreen");
+  },
   polaroidGallery: document.getElementById("polaroid-gallery"),
   gameRestartBtn: document.getElementById("game-restart-btn"),
   gameExitBtn: document.getElementById("game-exit-btn"),

@@ -6,16 +6,26 @@ export function renderPodium(summary, targetEl = null) {
   if (!winnerEl) return;
 
   const isMultiplayer = summary.players && summary.players.length > 1;
+  const isConcluded = summary.is_concluded ?? true;
 
-  const titleText =
-    summary.winners && summary.winners.length > 1
-      ? t("summary.tie", summary.winners.join(" & "))
-      : summary.winners && summary.winners.length > 0
-        ? t("summary.winner", summary.winners[0])
-        : "";
+  let titleText = "";
+  if (!isConcluded) {
+    if (summary.winners && summary.winners.length > 1) {
+      titleText = t("challenge.current_leader_tie", summary.winners.join(" & "));
+    } else if (summary.winners && summary.winners.length > 0) {
+      titleText = t("challenge.current_leader", summary.winners[0]);
+    }
+  } else {
+    if (summary.winners && summary.winners.length > 1) {
+      titleText = t("summary.tie", summary.winners.join(" & "));
+    } else if (summary.winners && summary.winners.length > 0) {
+      titleText = t("summary.winner", summary.winners[0]);
+    }
+  }
 
   winnerEl.replaceChildren();
   const title = document.createElement("div");
+  title.className = isConcluded ? "podium-winner-title" : "podium-leader-title";
   title.textContent = titleText;
   winnerEl.appendChild(title);
 

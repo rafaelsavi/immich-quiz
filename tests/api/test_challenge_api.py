@@ -375,6 +375,24 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
     assert len(ans['batch_reveal']) == 3
     assert ans['is_game_over'] is False
 
+    # Check leaderboard round_history contains batch_reveal
+    lb_res = client.get(
+        f'/api/challenge/{token}/leaderboard',
+        headers={'X-Player-Token': p_token},
+    )
+    assert lb_res.status_code == 200
+    lb_data = lb_res.json()
+    assert lb_data['game_mode'] == 'album_shuffle'
+    assert lb_data['location_mode'] is True
+    assert lb_data['date_mode'] is True
+    assert len(lb_data['round_history']) == 1
+    r0_hist = lb_data['round_history'][0]
+    assert r0_hist['round_number'] == 1
+    assert 'batch_reveal' in r0_hist
+    assert len(r0_hist['batch_reveal']) == 3
+    pins = [item['true_pin_id'] for item in r0_hist['batch_reveal']]
+    assert sorted(pins) == ['A', 'B', 'C']
+
 
 def test_challenge_timer_grace_window(tmp_path: Path) -> None:
     immich = FakeImmichClient(_create_mock_assets(25))
@@ -471,6 +489,7 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
 
     assert lb_p1['up_to_round'] == 0
     assert len(lb_p1['leaderboard']) == 2
+    assert len(lb_p1['round_history']) == 1
     # All returned round guesses must be round_index <= 0
     for g in lb_p1['round_guesses']:
         assert g['round_index'] <= 0
@@ -496,8 +515,20 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
     )
     lb_p1_r1 = lb_res_p1_r1.json()
     assert lb_p1_r1['up_to_round'] == 1
+    assert len(lb_p1_r1['round_history']) == 2
     round_indices = {g['round_index'] for g in lb_p1_r1['round_guesses']}
     assert 1 in round_indices
+
+    # Unauthenticated / anonymous caller on active challenge:
+    # Fog of War MUST conceal round_guesses and round_history (no secret coordinates/dates leaked)
+    # but still provide player standings list for the Challenges Hub drawer.
+    lb_res_anon = client.get(f'/api/challenge/{token}/leaderboard')
+    assert lb_res_anon.status_code == 200
+    lb_anon = lb_res_anon.json()
+    assert lb_anon['round_guesses'] == [], 'Active challenge round guesses must be empty for anonymous callers'
+    assert lb_anon['round_history'] == [], 'Active challenge round history must be empty for anonymous callers'
+    assert lb_anon['is_game_over'] is False
+    assert len(lb_anon['leaderboard']) == 2, 'Leaderboard standings should remain accessible for Challenges Hub'
 
 
 def test_media_proxy_authorization_for_challenge_assets(tmp_path: Path) -> None:
@@ -542,8 +573,11 @@ def test_challenge_expired_and_deactivated_returns_404(tmp_path: Path) -> None:
     with db_mgr.connection() as conn:
         conn.execute('UPDATE challenges SET expires_at = ? WHERE challenge_id = ?', (past_iso, ch_id))
 
-    # All challenge endpoints should return 404 for expired challenge
-    assert client.get(f'/api/challenge/{token}').status_code == 404
+    # Gameplay endpoints should return 404 for expired challenge,
+    # but metadata/standings remain accessible with is_active=False
+    detail_res = client.get(f'/api/challenge/{token}')
+    assert detail_res.status_code == 200
+    assert detail_res.json()['is_active'] is False
     assert client.post(f'/api/challenge/{token}/start', json={'player_name': 'Test'}).status_code == 404
     assert client.get(f'/api/challenge/{token}/question/0', headers={'X-Player-Token': 'tok'}).status_code == 404
     assert (
@@ -554,7 +588,13 @@ def test_challenge_expired_and_deactivated_returns_404(tmp_path: Path) -> None:
         ).status_code
         == 404
     )
-    assert client.get(f'/api/challenge/{token}/leaderboard').status_code == 404
+    exp_lb_res = client.get(f'/api/challenge/{token}/leaderboard')
+    assert exp_lb_res.status_code == 200
+    assert exp_lb_res.json()['challenge_id'] == ch_id
+    assert exp_lb_res.json()['is_game_over'] is True
+
+    # Non-existent token still returns 404
+    assert client.get('/api/challenge/invalid_non_existent_token/leaderboard').status_code == 404
 
 
 def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
@@ -613,8 +653,17 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     c1_updated = next(c for c in challenges2 if c['challenge_id'] == c1['challenge_id'])
     assert c1_updated['is_active'] is False
 
-    # 6. Verify accessing c1 returns 404
-    assert client.get(f'/api/challenge/{c1["capability_token"]}').status_code == 404
+    # 6. Verify accessing c1 gameplay returns 404, but detail shows inactive and standings/leaderboard returns 200
+    detail_res2 = client.get(f'/api/challenge/{c1["capability_token"]}')
+    assert detail_res2.status_code == 200
+    assert detail_res2.json()['is_active'] is False
+    c1_token = c1['capability_token']
+    assert client.post(f'/api/challenge/{c1_token}/start', json={'player_name': 'Test'}).status_code == 404
+    deact_lb_res = client.get(f'/api/challenge/{c1_token}/leaderboard')
+    assert deact_lb_res.status_code == 200
+    assert len(deact_lb_res.json()['leaderboard']) == 1
+    assert deact_lb_res.json()['leaderboard'][0]['player_name'] == 'PlayerA'
+    assert deact_lb_res.json()['is_game_over'] is True
 
     # 7. Deactivating non-existent challenge returns 404
     bad_res = client.post('/api/challenge/non_existent_id/deactivate')
@@ -657,3 +706,70 @@ def test_challenge_answer_invalid_round_index_returns_400(tmp_path: Path) -> Non
         },
     )
     assert ans_res.status_code == 400
+
+
+def test_challenge_individual_player_colors_api(tmp_path: Path) -> None:
+    immich = FakeImmichClient(_create_mock_assets(25))
+    client = build_client(tmp_path, immich)
+
+    # 1. Create challenge
+    create_res = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Rafael', 'game_mode': 'pinpoint', 'round_count': 3},
+    )
+    token = create_res.json()['capability_token']
+
+    # Initial detail has empty participants
+    detail0 = client.get(f'/api/challenge/{token}').json()
+    assert detail0['total_participants'] == 0
+    assert detail0['participants'] == []
+
+    # 2. Player 1 starts
+    p1_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Alice'}).json()
+    assert p1_res['player_name'] == 'Alice'
+    assert p1_res['participant_index'] == 0
+    assert p1_res['player_color'] == '#f25f5c'
+    assert p1_res['participants'] == ['Alice']
+
+    # Detail now reflects Player 1
+    detail1 = client.get(f'/api/challenge/{token}').json()
+    assert detail1['total_participants'] == 1
+    assert detail1['participants'] == ['Alice']
+
+    # 3. Player 2 starts
+    p2_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Bob'}).json()
+    assert p2_res['player_name'] == 'Bob'
+    assert p2_res['participant_index'] == 1
+    assert p2_res['player_color'] == '#0f7c7f'
+    assert p2_res['participants'] == ['Alice', 'Bob']
+
+    # Colors must be distinct
+    assert p1_res['player_color'] != p2_res['player_color']
+
+    # 4. Player 1 submits answer for round 0
+    ans_res = client.post(
+        f'/api/challenge/{token}/answer',
+        headers={'X-Player-Token': p1_res['session_token']},
+        json={
+            'round_index': 0,
+            'guessed_latitude': 10.0,
+            'guessed_longitude': 20.0,
+            'guessed_year': 2022,
+            'guessed_month': 5,
+            'time_taken_seconds': 5.0,
+        },
+    )
+    assert ans_res.status_code == 200
+    assert ans_res.json()['player_color'] == '#f25f5c'
+
+    # 5. Leaderboard returns player_color on entries and round guesses
+    lb_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': p1_res['session_token']})
+    assert lb_res.status_code == 200
+    lb_data = lb_res.json()
+    alice_entry = next(e for e in lb_data['leaderboard'] if e['player_name'] == 'Alice')
+    bob_entry = next(e for e in lb_data['leaderboard'] if e['player_name'] == 'Bob')
+    assert alice_entry['player_color'] == '#f25f5c'
+    assert bob_entry['player_color'] == '#0f7c7f'
+
+    assert len(lb_data['round_guesses']) >= 1
+    assert lb_data['round_guesses'][0]['player_color'] == '#f25f5c'

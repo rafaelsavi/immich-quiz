@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS challenge_sessions (
     total_time_seconds REAL NOT NULL DEFAULT 0.0,
     started_at         TEXT NOT NULL,
     completed_at       TEXT,                          -- ISO8601 UTC when all rounds finished
+    player_color       TEXT,                          -- Hex color assigned to player
     FOREIGN KEY(challenge_id) REFERENCES challenges(challenge_id) ON DELETE CASCADE
 );
 
@@ -287,6 +288,10 @@ class LeaderboardStore:
             existing_match_cols = {row[1] for row in cursor_m.fetchall()}
             if existing_match_cols and 'person_names_json' not in existing_match_cols:
                 conn.execute('ALTER TABLE matches ADD COLUMN person_names_json TEXT')
+            cursor_s = conn.execute('PRAGMA table_info(challenge_sessions)')
+            existing_session_cols = {row[1] for row in cursor_s.fetchall()}
+            if existing_session_cols and 'player_color' not in existing_session_cols:
+                conn.execute('ALTER TABLE challenge_sessions ADD COLUMN player_color TEXT')
 
     def append_match(
         self,
@@ -975,7 +980,20 @@ class LeaderboardStore:
         cities_json = _canonicalize_filter_list(config.get('cities'))
         people_mode = config.get('people_mode', 'ANY')
         filter_summary = config.get('filter_summary')
-        is_custom = 1 if filter_summary and filter_summary != 'Full Library' else 0
+        is_custom = (
+            1
+            if (
+                bool(libraries_json)
+                or bool(album_ids_json)
+                or bool(person_ids_json)
+                or bool(countries_json)
+                or bool(cities_json)
+                or bool(config.get('min_date'))
+                or bool(config.get('max_date'))
+                or bool(config.get('include_shared'))
+            )
+            else 0
+        )
 
         with self._db.connection() as conn:
             conn.execute(
@@ -1075,12 +1093,21 @@ class LeaderboardStore:
         If max_round is provided (>= 0), only guesses for round_index <= max_round are included.
         If max_round is None, full completed session scores are returned.
         """
-        ch_row = self._db.fetch_one('SELECT config_json FROM challenges WHERE challenge_id = ?', (challenge_id,))
+        ch_row = self._db.fetch_one(
+            'SELECT config_json, asset_ids_json FROM challenges WHERE challenge_id = ?',
+            (challenge_id,),
+        )
         if not ch_row:
             return []
 
         ch_config = json.loads(ch_row['config_json'])
-        total_rounds = int(ch_config.get('round_count', 10))
+        asset_ids = json.loads(ch_row['asset_ids_json']) if ch_row['asset_ids_json'] else []
+        mode = ch_config.get('game_mode', 'pinpoint')
+        if str(mode).lower() in ('album_shuffle', 'gamemode.album_shuffle'):
+            total_rounds = len(ch_config.get('round_batches', [])) or int(ch_config.get('round_count', 5))
+        else:
+            total_rounds = len(asset_ids) if asset_ids else int(ch_config.get('round_count', 10))
+
         location_mode = bool(ch_config.get('location_mode', True))
         date_mode = bool(ch_config.get('date_mode', True))
 
@@ -1090,6 +1117,22 @@ class LeaderboardStore:
         )
         if not sessions:
             return []
+
+        # Batch-prefetch guess rows across all challenge participants in a single query (avoids N+1 query loop)
+        guesses_by_session: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        if max_round is not None and max_round >= 0:
+            all_guess_rows = self._db.fetch_all(
+                """
+                SELECT match_id, player_name, round_index, location_points, date_points, round_score, time_taken_seconds
+                FROM match_round_guesses
+                WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
+                  AND round_index <= ?
+                ORDER BY round_index ASC, photo_index ASC
+                """,
+                (challenge_id, max_round),
+            )
+            for r in all_guess_rows:
+                guesses_by_session.setdefault((r['match_id'], r['player_name']), []).append(r)
 
         entries: list[dict[str, Any]] = []
 
@@ -1110,19 +1153,12 @@ class LeaderboardStore:
                             'total_time_seconds': 0.0,
                             'completed_rounds': 0,
                             'is_finished': False,
+                            'player_color': s.get('player_color'),
                         }
                     )
                     continue
 
-                guess_rows = self._db.fetch_all(
-                    """
-                    SELECT round_index, location_points, date_points, round_score, time_taken_seconds
-                    FROM match_round_guesses
-                    WHERE match_id = ? AND player_name = ? AND round_index <= ?
-                    ORDER BY round_index ASC, photo_index ASC
-                    """,
-                    (m_id, p_name, max_round),
-                )
+                guess_rows = guesses_by_session.get((m_id, p_name), [])
 
                 distinct_rounds = {r['round_index'] for r in guess_rows}
                 completed_r = len(distinct_rounds)
@@ -1152,13 +1188,14 @@ class LeaderboardStore:
                         'total_time_seconds': tot_time,
                         'completed_rounds': completed_r,
                         'is_finished': is_fin,
+                        'player_color': s.get('player_color'),
                     }
                 )
             else:
                 max_score = max_possible_score(total_rounds, location_mode, date_mode)
                 tot_score = s['total_score']
                 acc = accuracy_pct(tot_score, max_score)
-                is_fin = bool(s.get('completed_at'))
+                is_fin = bool(s.get('completed_at')) or int(s.get('current_round', 0)) >= total_rounds
 
                 entries.append(
                     {
@@ -1169,14 +1206,16 @@ class LeaderboardStore:
                         'max_possible_score': max_score,
                         'accuracy_pct': acc,
                         'total_time_seconds': float(s['total_time_seconds']),
-                        'completed_rounds': int(s['current_round']),
+                        'completed_rounds': int(s.get('current_round', 0)),
                         'is_finished': is_fin,
+                        'player_color': s.get('player_color'),
                     }
                 )
 
         entries.sort(key=lambda x: (-x['total_score'], x['total_time_seconds'], x['player_name'].lower()))
 
-        best_score = entries[0]['total_score'] if entries else 0
+        finished_scores = [x['total_score'] for x in entries if x['is_finished']]
+        best_score = max(finished_scores) if finished_scores else 0
         ranked_entries: list[ChallengeLeaderboardEntry] = []
 
         prev_total: int | None = None
@@ -1191,7 +1230,7 @@ class LeaderboardStore:
                 prev_total = tot
                 prev_time = t_sec
 
-            is_win = tot == best_score and tot > 0
+            is_win = bool(item['is_finished'] and tot == best_score and tot > 0)
 
             ranked_entries.append(
                 ChallengeLeaderboardEntry(
@@ -1206,6 +1245,7 @@ class LeaderboardStore:
                     total_time_seconds=item['total_time_seconds'],
                     completed_rounds=item['completed_rounds'],
                     is_finished=item['is_finished'],
+                    player_color=item.get('player_color'),
                     awards=[],
                 )
             )
@@ -1219,20 +1259,19 @@ class LeaderboardStore:
     ) -> list[ChallengeRoundGuessData]:
         """Query per-player round guesses for a challenge under Fog of War filtering."""
         sessions = self._db.fetch_all(
-            'SELECT match_id, player_name FROM challenge_sessions WHERE challenge_id = ?',
+            'SELECT match_id, player_name, player_color FROM challenge_sessions WHERE challenge_id = ?',
             (challenge_id,),
         )
         if not sessions:
             return []
 
-        match_ids = [s['match_id'] for s in sessions]
-        placeholders = ', '.join(['?'] * len(match_ids))
+        player_colors = {s['player_name']: s.get('player_color') for s in sessions}
 
-        sql = f"""
+        sql = """
         SELECT * FROM match_round_guesses
-        WHERE match_id IN ({placeholders})
+        WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
         """
-        params: list[Any] = list(match_ids)
+        params: list[Any] = [challenge_id]
 
         if max_round is not None:
             if max_round < 0:
@@ -1260,6 +1299,7 @@ class LeaderboardStore:
             guesses.append(
                 ChallengeRoundGuessData(
                     player_name=row['player_name'],
+                    player_color=player_colors.get(row['player_name']),
                     round_index=int(row['round_index']),
                     game_mode=GameMode(row.get('game_mode', 'pinpoint')),
                     guessed_latitude=row.get('guess_latitude'),
@@ -1287,3 +1327,45 @@ class LeaderboardStore:
             )
 
         return guesses
+
+    def get_challenge_round_history(
+        self,
+        challenge_id: str,
+        max_round: int | None = None,
+        game_mode: str = 'pinpoint',
+        location_mode: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Query round history for a challenge under Fog of War filtering.
+
+        Reconstructs the per-round true asset details and batch reveal structures
+        for replay on match summary, World Journey Map, and Polaroid gallery.
+        """
+        has_sessions = self._db.fetch_one(
+            'SELECT 1 FROM challenge_sessions WHERE challenge_id = ? LIMIT 1',
+            (challenge_id,),
+        )
+        if not has_sessions:
+            return []
+
+        sql = """
+        SELECT * FROM match_round_guesses
+        WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
+        """
+        params: list[Any] = [challenge_id]
+
+        if max_round is not None:
+            if max_round < 0:
+                return []
+            sql += ' AND round_index <= ?'
+            params.append(max_round)
+
+        sql += ' ORDER BY round_index ASC, photo_index ASC, player_name ASC'
+
+        rows = self._db.fetch_all(sql, params)
+        if not rows:
+            return []
+
+        return _build_round_history_from_guesses(
+            rows,
+            {'game_mode': game_mode, 'location_mode': location_mode},
+        )

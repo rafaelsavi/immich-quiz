@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-STATIC_DIR = Path(__file__).parent.parent / 'static'
+STATIC_DIR = Path(__file__).resolve().parents[2] / 'static'
 RANGE_SLIDER_JS = STATIC_DIR / 'js' / 'modules' / 'components' / 'range_slider.js'
 RANGE_SLIDER_CSS = STATIC_DIR / 'css' / 'components' / 'range_slider.css'
 FILTERS_CSS = STATIC_DIR / 'css' / 'components' / 'filters.css'

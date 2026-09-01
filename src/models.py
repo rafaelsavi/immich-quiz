@@ -939,6 +939,8 @@ class ChallengeDetailResponse(BaseModel):
     created_at: datetime
     expires_at: datetime | None = None
     total_participants: int = Field(default=0, ge=0)
+    participants: list[str] = Field(default_factory=list)
+    is_active: bool = True
 
 
 class ChallengeStartRequest(BaseModel):
@@ -947,6 +949,7 @@ class ChallengeStartRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     player_name: str = Field(min_length=1, max_length=50)
+    player_color: str | None = None
 
 
 class ChallengeStartResponse(BaseModel):
@@ -960,6 +963,9 @@ class ChallengeStartResponse(BaseModel):
     total_rounds: int
     current_round: int
     is_resumed: bool = False  # True if player is resuming an incomplete attempt
+    player_color: str | None = None
+    participant_index: int = 0
+    participants: list[str] = Field(default_factory=list)
 
 
 class ChallengeQuestionResponse(BaseModel):
@@ -1034,6 +1040,7 @@ class ChallengeAnswerResponse(BaseModel):
     is_game_over: bool
     total_score: int  # Running total across all completed rounds
     total_time_seconds: float
+    player_color: str | None = None
 
 
 class ChallengeRoundGuessData(BaseModel):
@@ -1042,6 +1049,7 @@ class ChallengeRoundGuessData(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     player_name: str
+    player_color: str | None = None
     round_index: int
     game_mode: GameMode
     guessed_latitude: float | None = None
@@ -1070,6 +1078,7 @@ class ChallengeLeaderboardEntry(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     player_name: str
+    player_color: str | None = None
     location_score: int | None = None
     date_score: int | None = None
     total_score: int
@@ -1094,8 +1103,12 @@ class ChallengeLeaderboardResponse(BaseModel):
     up_to_round: int
     total_rounds: int
     is_game_over: bool
+    is_concluded: bool = False
     leaderboard: list[ChallengeLeaderboardEntry]
     round_guesses: list[ChallengeRoundGuessData]
+    location_mode: bool = True
+    date_mode: bool = True
+    round_history: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class ChallengeListItem(BaseModel):

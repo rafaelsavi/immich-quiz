@@ -31,6 +31,7 @@ import {
   syncFullscreenButtons,
   updateMapLayerControls,
   refitAllMaps,
+  initMapFullscreenControls,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick, updateLeaderboardScope } from "./modules/leaderboard.js";
 import { renderSyncStatus, getLastSyncStatus } from "./modules/sync.js";
@@ -67,14 +68,14 @@ import {
   showGameEndedCard,
   renderSummaryContent,
 } from "./modules/screens/summary.js";
-import { challenge } from "./modules/challenge.js";
+import { challenge } from "./modules/challenge/index.js";
 import {
   initChallengesPage,
   openChallengesPage,
   updateHeaderChallengeBadge,
   loadChallengesList,
   refreshChallengesPageLanguage,
-} from "./modules/challenges_page.js";
+} from "./modules/screens/challenges.js";
 
 // Re-export / configure global mode accessor
 
@@ -169,6 +170,12 @@ async function handleRoute(route) {
       const shouldPlayFanfare = Boolean(state.justFinishedMatch && state.matchId === matchId);
       state.justFinishedMatch = false;
       await showMatchSummaryByMatchId(matchId, { playFanfare: shouldPlayFanfare });
+      break;
+    }
+
+    case RouteType.CHALLENGE_SUMMARY: {
+      clearActiveMatchSession();
+      await challenge.initSummary(route.params.token);
       break;
     }
 
@@ -379,12 +386,20 @@ bindGlobalShortcuts({
     }
   },
   onToggleFullscreen: () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+      return;
+    }
     if (state.currentScreen === "reveal") {
-      toggleMapFullscreen();
+      toggleMapFullscreen(el.revealMapShell);
+    } else if (state.currentScreen === "summary") {
+      toggleMapFullscreen(el.journeyMapShell);
     } else if (state.currentScreen === "guessing") {
       const mode = getActiveMode();
-      if (state.gameMode === "album_shuffle" && mode.isShuffleMapFullscreenActive?.()) {
-        mode.toggleShuffleMapFullscreen?.();
+      if (mode?.toggleMapFullscreen) {
+        mode.toggleMapFullscreen();
+      } else if (mode?.toggleShuffleMapFullscreen && mode?.isShuffleMapFullscreenActive?.()) {
+        mode.toggleShuffleMapFullscreen();
       } else {
         toggleMapFullscreen();
       }
@@ -406,13 +421,13 @@ bindGlobalShortcuts({
     if (challenge.isActive()) {
       if (confirm(t("game.abandon_confirm", t("game.abandon_exit")))) {
         challenge.reset();
-        navigate("/");
+        returnToSetup();
       }
       return;
     }
     if (isGameActive()) {
       handleAbandonGame("exit");
-    } else if (!el.summaryCard.classList.contains("hidden")) {
+    } else if (!el.summaryCard.classList.contains("hidden") || (el.challengeCard && !el.challengeCard.classList.contains("hidden"))) {
       returnToSetup();
     }
   },
@@ -522,6 +537,7 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
   initReportModal();
   initAdminModal();
   initChallengesPage();
+  initMapFullscreenControls();
   updateHeaderChallengeBadge();
   refreshActiveScreenLanguage();
   syncFullscreenButtons();

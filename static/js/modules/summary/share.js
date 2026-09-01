@@ -1,4 +1,4 @@
-import { t, showAlert, formatList } from "../i18n.js";
+import { t, tOr, showAlert, formatList } from "../i18n.js";
 
 export function showShareToast(message) {
   let toast = document.querySelector(".share-toast");
@@ -10,6 +10,73 @@ export function showShareToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 3000);
+}
+
+/**
+ * Safely copy text to clipboard with fallback and optional button/toast feedback.
+ * @param {string} text - Text to copy.
+ * @param {Object} [options]
+ * @param {HTMLElement} [options.button] - Button element to animate feedback on.
+ * @param {string} [options.copiedText] - Text to show on button when copied.
+ * @param {string} [options.copiedHtml] - HTML string to show on button when copied.
+ * @param {string} [options.successMessage] - Toast message to show on copy.
+ * @param {number} [options.resetTimeoutMs=2500] - Duration before reverting button state.
+ * @returns {Promise<boolean>}
+ */
+export async function copyToClipboard(text, options = {}) {
+  const { button, copiedText, copiedHtml, successMessage, resetTimeoutMs = 2500 } = options;
+  let success = false;
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      success = true;
+    } else {
+      throw new Error("Clipboard API unavailable");
+    }
+  } catch (_) {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+      textarea.setAttribute("readonly", "");
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      success = document.execCommand("copy");
+      document.body.removeChild(textarea);
+    } catch (fallbackErr) {
+      console.warn("Clipboard copy failed:", fallbackErr);
+      success = false;
+    }
+  }
+
+  if (success) {
+    if (button) {
+      button.classList.add("copied");
+      const originalHtml = button.innerHTML;
+      if (copiedHtml) {
+        button.innerHTML = copiedHtml;
+      } else if (copiedText) {
+        button.textContent = copiedText;
+      }
+      setTimeout(() => {
+        button.classList.remove("copied");
+        if (copiedHtml || copiedText) {
+          button.innerHTML = originalHtml;
+        }
+      }, resetTimeoutMs);
+    }
+    if (successMessage) {
+      showShareToast(successMessage);
+    }
+  } else {
+    showShareToast(tOr("summary.share_failed", "Failed to copy to clipboard"));
+  }
+
+  return success;
 }
 
 export async function shareMatchSummary(summary) {
@@ -53,17 +120,11 @@ export async function shareMatchSummary(summary) {
     if (navigator.share && navigator.canShare && navigator.canShare({ text, url: shareUrl })) {
       await navigator.share({ title: t("summary.share_title"), text, url: shareUrl });
     } else {
-      await navigator.clipboard.writeText(text);
-      showShareToast(t("summary.share_copied"));
+      await copyToClipboard(text, { successMessage: t("summary.share_copied") });
     }
   } catch (err) {
     if (err && err.name !== "AbortError") {
-      try {
-        await navigator.clipboard.writeText(text);
-        showShareToast(t("summary.share_copied"));
-      } catch (clipErr) {
-        showAlert(clipErr.message || String(clipErr));
-      }
+      await copyToClipboard(text, { successMessage: t("summary.share_copied") });
     }
   }
 }

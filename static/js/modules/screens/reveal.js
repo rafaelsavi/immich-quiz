@@ -8,7 +8,7 @@ import { navigate } from "../router.js";
 import { getActiveMode } from "../modes/index.js";
 import { showCard } from "./common.js";
 import { loadQuestion } from "./game.js";
-import { challenge } from "../challenge.js";
+import { challenge } from "../challenge/index.js";
 
 export async function showRoundReveal(roundNumber) {
   const reveal = await api("/api/round/result", {

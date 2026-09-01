@@ -120,7 +120,9 @@ export function plural(count, forms = {}) {
   }
 
   let rule = "other";
-  if (typeof Intl !== "undefined" && Intl.PluralRules) {
+  if (n === 0 && forms.zero) {
+    rule = "zero";
+  } else if (typeof Intl !== "undefined" && Intl.PluralRules) {
     try {
       rule = new Intl.PluralRules(getLocale()).select(n);
     } catch (_) {
@@ -130,7 +132,7 @@ export function plural(count, forms = {}) {
     rule = n === 1 ? "one" : "other";
   }
 
-  const template = forms[rule] || forms.other || forms.one || "";
+  const template = forms[rule] || forms.other || forms.one || forms.zero || "";
   if (typeof template === "function") {
     return template(displayStr);
   }
@@ -141,7 +143,7 @@ export function plural(count, forms = {}) {
 
 /**
  * Translate a key using the current language stored in state.
- * Supports string templates with {0}, {1}, {count} as well as plural forms { one, other }.
+ * Supports string templates with {0}, {1}, {count} as well as plural forms { zero, one, other }.
  */
 export function t(key, ...args) {
   const lang = getLocale();
@@ -153,7 +155,7 @@ export function t(key, ...args) {
   if (typeof entry === "function") {
     return entry(...args);
   }
-  if (typeof entry === "object" && entry !== null && ("one" in entry || "other" in entry)) {
+  if (typeof entry === "object" && entry !== null && ("one" in entry || "other" in entry || "zero" in entry)) {
     return plural(args[0], entry);
   }
   if (typeof entry === "string" && args.length > 0) {
@@ -168,6 +170,18 @@ export function t(key, ...args) {
     return res;
   }
   return entry !== undefined ? entry : key;
+}
+
+/**
+ * Translate a key with a fallback if translation is missing.
+ * @param {string} key
+ * @param {string} fallback
+ * @param {...any} args
+ * @returns {string}
+ */
+export function tOr(key, fallback, ...args) {
+  const val = t(key, ...args);
+  return val !== key ? val : fallback;
 }
 
 export function translateError(msg) {

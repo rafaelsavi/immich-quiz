@@ -10,15 +10,16 @@
  * - Inline expandable leaderboard & standings drawer with top podium preview
  */
 
-import { api } from "./api.js";
-import { state, el } from "./state.js";
-import { t, formatDate } from "./i18n.js";
-import { showCard } from "./screens/common.js";
-import { navigate } from "./router.js";
-import { showShareToast } from "./summary/share.js";
-import { openAdminModal } from "./admin.js";
-import { playerColor, playerInitial, formatPlace } from "./formatters.js";
-import { buildMatchMetaHtml } from "./components/match_meta.js";
+import { api } from "../api.js";
+import { state, el } from "../state.js";
+import { t, formatDate } from "../i18n.js";
+import { showCard } from "./common.js";
+import { navigate } from "../router.js";
+import { showShareToast, copyToClipboard } from "../summary/share.js";
+import { openAdminModal } from "../admin.js";
+import { playerColor, playerInitial, registerPlayerColor, formatRank, formatRoundsBadge, formatPlayerCellHtml, formatRelativeTime } from "../formatters.js";
+import { buildMatchMetaHtml } from "../components/match_meta.js";
+import { renderQRCode } from "../components/qrcode.js";
 
 let _challenges = [];
 let _searchQuery = "";
@@ -26,6 +27,7 @@ let _statusFilter = "all";
 let _modeFilter = "all";
 let _sortBy = "newest";
 let _expandedStandings = new Set();
+let _expandedShareDrawers = new Set();
 let _cachedStandings = new Map(); // challenge_id -> leaderboard data
 let _loadingStandings = new Set(); // challenge_ids currently fetching
 
@@ -37,45 +39,10 @@ let _statusTabsEl = null;
 let _modeFilterEl = null;
 let _sortSelectEl = null;
 let _refreshBtnEl = null;
-let _createBtnEl = null;
-let _backBtnEl = null;
 let _totalBadgeEl = null;
-
-let _statActiveEl = null;
-let _statPlayersEl = null;
-let _statTotalEl = null;
-let _statPopularEl = null;
 
 let _isInitialized = false;
 let _hasLoaded = false;
-
-/**
- * Format relative duration string from milliseconds.
- * @param {number} diffMs
- * @param {boolean} isPast
- * @returns {string}
- */
-function formatRelativeTime(diffMs, isPast = false) {
-  const absSec = Math.floor(Math.abs(diffMs) / 1000);
-  const minutes = Math.floor(absSec / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) {
-    const dStr = `${days}d ${hours % 24}h`;
-    return isPast ? t("challenges_page.expired_relative_ago", dStr) : t("challenges_page.expires_relative_in", dStr);
-  }
-  if (hours > 0) {
-    const hStr = `${hours}h ${minutes % 60}m`;
-    return isPast ? t("challenges_page.expired_relative_ago", hStr) : t("challenges_page.expires_relative_in", hStr);
-  }
-  if (minutes > 0) {
-    const mStr = `${minutes}m`;
-    return isPast ? t("challenges_page.expired_relative_ago", mStr) : t("challenges_page.expires_relative_in", mStr);
-  }
-  const sStr = `${absSec}s`;
-  return isPast ? t("challenges_page.expired_relative_ago", sStr) : t("challenges_page.expires_relative_in", sStr);
-}
 
 /**
  * Initialize DOM element references and event listeners.
@@ -90,13 +57,7 @@ export function initChallengesPage() {
   _modeFilterEl = document.getElementById("challenges-mode-filter");
   _sortSelectEl = document.getElementById("challenges-sort-select");
   _refreshBtnEl = document.getElementById("challenges-page-refresh-btn");
-  _backBtnEl = document.getElementById("challenges-page-back-btn");
   _totalBadgeEl = document.getElementById("challenges-page-total-badge");
-
-  _statActiveEl = document.getElementById("stat-active-challenges");
-  _statPlayersEl = document.getElementById("stat-total-players");
-  _statTotalEl = document.getElementById("stat-total-challenges");
-  _statPopularEl = document.getElementById("stat-popular-challenge");
 
   // Search input
   if (_searchInputEl) {
@@ -138,13 +99,6 @@ export function initChallengesPage() {
   if (_refreshBtnEl) {
     _refreshBtnEl.addEventListener("click", () => {
       loadChallengesList(true);
-    });
-  }
-
-  // Back to lobby button
-  if (_backBtnEl) {
-    _backBtnEl.addEventListener("click", () => {
-      navigate("/");
     });
   }
 
@@ -220,6 +174,7 @@ export async function loadChallengesList(showToast = false) {
   try {
     const res = await api("/api/challenge/list?limit=100&include_inactive=true");
     _challenges = res.challenges || [];
+    _cachedStandings.clear();
     _hasLoaded = true;
 
     updateHeroStats();
@@ -248,34 +203,21 @@ export async function loadChallengesList(showToast = false) {
 }
 
 /**
- * Update the hero stats metric cards based on fetched challenges.
+ * Update the challenges count badge based on fetched challenges.
  */
 function updateHeroStats() {
   const totalCount = _challenges.length;
   const activeCount = _challenges.filter(isChallengeActive).length;
-  const totalPlayers = _challenges.reduce((sum, c) => sum + (c.total_participants || 0), 0);
 
   if (_totalBadgeEl) {
-    _totalBadgeEl.textContent = `${activeCount} ${t("challenges_page.filter_active").toLowerCase()}`;
-    _totalBadgeEl.classList.toggle("hidden", totalCount === 0);
-  }
-
-  if (_statActiveEl) _statActiveEl.textContent = String(activeCount);
-  if (_statPlayersEl) _statPlayersEl.textContent = String(totalPlayers);
-  if (_statTotalEl) _statTotalEl.textContent = String(totalCount);
-
-  if (_statPopularEl) {
     if (totalCount === 0) {
-      _statPopularEl.textContent = "—";
+      _totalBadgeEl.textContent = `0 ${t("challenges_page.stats_total_short") || "total"}`;
+      _totalBadgeEl.classList.add("hidden");
     } else {
-      const sortedByPlayers = [..._challenges].sort((a, b) => (b.total_participants || 0) - (a.total_participants || 0));
-      const topChallenge = sortedByPlayers[0];
-      if (topChallenge && topChallenge.total_participants > 0) {
-        _statPopularEl.textContent = `${topChallenge.title || topChallenge.creator_name} (${topChallenge.total_participants})`;
-        _statPopularEl.title = topChallenge.title || topChallenge.creator_name;
-      } else {
-        _statPopularEl.textContent = "—";
-      }
+      const activeLabel = t("challenges_page.filter_active").toLowerCase();
+      const totalLabel = t("challenges_page.stats_total_short") || "total";
+      _totalBadgeEl.textContent = `${activeCount} ${activeLabel} • ${totalCount} ${totalLabel}`;
+      _totalBadgeEl.classList.remove("hidden");
     }
   }
 }
@@ -434,37 +376,45 @@ export function renderChallenges() {
       timeStatusHtml = `<span class="card-time-status status-active">♾️ ${t("challenges_page.never_expires")}</span>`;
     }
 
-    const hostInitial = playerInitial(ch.creator_name || "Host");
-    const hostColor = playerColor(0);
     const participantCount = ch.total_participants || 0;
     const isStandingsExpanded = _expandedStandings.has(ch.challenge_id);
+    const isShareExpanded = _expandedShareDrawers.has(ch.challenge_id);
 
     // Standings toggle text
     const standingsBtnText = isStandingsExpanded
       ? t("challenges_page.hide_standings")
-      : participantCount > 0
-      ? t("challenges_page.view_standings", participantCount)
-      : t("challenges_page.standings_btn");
+      : t("challenges_page.view_standings", participantCount);
 
     html += `
       <div class="detailed-challenge-card ${!isActive ? "card-inactive" : ""}" data-id="${ch.challenge_id}">
-        <!-- Card Top Bar: Status Badges & Quick Action Icons -->
-        <div class="detailed-card-top-bar">
-          <div class="card-status-row">
+        <!-- Card Header: Status Pill + Title (Left) and Quick Action Icons (Right) -->
+        <div class="card-header-row">
+          <div class="card-title-wrap">
             ${statusPillHtml}
-            ${timeStatusHtml}
+            <h3 class="detailed-challenge-title">${ch.title || `${ch.creator_name}'s Challenge`}</h3>
           </div>
 
           <div class="card-header-actions">
-            <button type="button" class="btn-copy-challenge-link btn-action-icon" data-url="${ch.play_url}"
-              title="${t("challenges_page.copy_btn")}">
-              <span>📋</span>
+            <button type="button" class="btn-share-challenge-hub ${isShareExpanded ? "active" : ""}"
+              data-id="${ch.challenge_id}" data-url="${ch.play_url}"
+              title="${t("challenges_page.share_btn_title")}"
+              aria-label="${t("challenges_page.share_btn")}"
+              aria-expanded="${isShareExpanded}"
+              aria-controls="share-drawer-${ch.challenge_id}">
+              <svg class="share-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
             </button>
             ${
               isActive
                 ? `<button type="button" class="btn-deactivate-challenge-hub btn-action-icon text-danger"
                     data-id="${ch.challenge_id}" data-title="${ch.title || "Challenge"}"
-                    title="${t("challenges_page.deactivate_btn")}">
+                    title="${t("challenges_page.deactivate_btn")}"
+                    aria-label="${t("challenges_page.deactivate_btn")}">
                     <span>🚫</span>
                   </button>`
                 : ""
@@ -472,15 +422,36 @@ export function renderChallenges() {
           </div>
         </div>
 
-        <!-- Card Title & Host -->
-        <div class="card-title-block">
-          <h3 class="detailed-challenge-title">${ch.title || `${ch.creator_name}'s Challenge`}</h3>
-          <div class="card-host-row">
-            <span class="host-avatar" style="background-color: ${hostColor};">${hostInitial}</span>
-            <span class="host-name">${t("challenges_page.host_label", ch.creator_name)}</span>
-            <span class="host-dot">•</span>
-            <span class="created-date">${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
+        <!-- Expandable Share & QR Drawer -->
+        <div class="challenge-hub-share-drawer ${isShareExpanded ? "open" : "hidden"}" id="share-drawer-${ch.challenge_id}">
+          <div class="share-drawer-inner">
+            <div class="share-drawer-grid">
+              <div class="share-qr-card">
+                <div class="share-qr-display" id="share-qr-${ch.challenge_id}"></div>
+                <p class="share-qr-hint">${t("challenges_page.scan_qr_hint")}</p>
+              </div>
+              <div class="share-info-card">
+                <h4 class="share-card-title">${t("challenges_page.share_drawer_title")}</h4>
+                <p class="share-card-desc">${t("challenges_page.share_drawer_desc")}</p>
+                <div class="share-url-box">
+                  <input type="text" readonly value="${ch.play_url}" id="share-url-${ch.challenge_id}" class="share-url-input" spellcheck="false" autocomplete="off" />
+                  <button type="button" class="btn-primary btn-copy-share-url" data-url="${ch.play_url}">
+                    <span class="btn-icon">📋</span>
+                    ${t("challenges_page.copy_btn")}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <!-- Card Subtitle: Host, Created Date, and Time Status -->
+        <div class="card-host-row">
+          <span class="host-name">${t("challenges_page.host_label", ch.creator_name)}</span>
+          <span class="host-dot">•</span>
+          <span class="created-date">${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
+          <span class="host-dot">•</span>
+          ${timeStatusHtml}
         </div>
 
         <!-- Unified Match Meta: Game Setup & Library Filters -->
@@ -495,14 +466,11 @@ export function renderChallenges() {
                     <span class="btn-icon">🎮</span>
                     ${t("challenges_page.play_btn")}
                   </a>`
-                : `<button type="button" class="btn-secondary" disabled>
-                    ${t("admin.status_expired")}
-                  </button>`
+                : `<a href="/play/${ch.capability_token}/summary" class="btn-secondary btn-results-challenge" data-token="${ch.capability_token}">
+                    <span class="btn-icon">🏆</span>
+                    ${t("challenges_page.results_btn")}
+                  </a>`
             }
-            <button type="button" class="btn-secondary btn-copy-challenge-link" data-url="${ch.play_url}">
-              <span class="btn-icon">📋</span>
-              ${t("challenges_page.copy_btn")}
-            </button>
           </div>
 
           <button type="button" class="btn-standings-toggle ${isStandingsExpanded ? "active" : ""}"
@@ -525,17 +493,23 @@ export function renderChallenges() {
   _hubListEl.innerHTML = html;
 
   // Bind interactive elements
-  _hubListEl.querySelectorAll(".btn-copy-challenge-link").forEach((btn) => {
+  _hubListEl.querySelectorAll(".btn-share-challenge-hub").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute("data-id");
+      const url = btn.getAttribute("data-url");
+      if (id && url) {
+        toggleChallengeShare(id, url);
+      }
+    });
+  });
+
+  _hubListEl.querySelectorAll(".btn-copy-share-url").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
       const url = btn.getAttribute("data-url");
       if (!url) return;
-      try {
-        await navigator.clipboard.writeText(url);
-        showShareToast(t("challenge.link_copied"));
-      } catch (_) {
-        showShareToast(url);
-      }
+      await copyToClipboard(url, { successMessage: t("challenge.link_copied") });
     });
   });
 
@@ -545,6 +519,16 @@ export function renderChallenges() {
       const token = btn.getAttribute("data-token");
       if (token) {
         navigate(`/play/${token}`);
+      }
+    });
+  });
+
+  _hubListEl.querySelectorAll(".btn-results-challenge").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const token = btn.getAttribute("data-token");
+      if (token) {
+        navigate(`/play/${token}/summary`);
       }
     });
   });
@@ -570,6 +554,17 @@ export function renderChallenges() {
     });
   });
 
+  // Re-render any currently expanded share drawers
+  _expandedShareDrawers.forEach((chId) => {
+    const ch = _challenges.find((c) => c.challenge_id === chId);
+    if (ch) {
+      const qrEl = document.getElementById(`share-qr-${chId}`);
+      if (qrEl) {
+        renderQRCode(qrEl, ch.play_url, { size: 120 });
+      }
+    }
+  });
+
   // Re-render any currently expanded standings drawers
   _expandedStandings.forEach((chId) => {
     const ch = _challenges.find((c) => c.challenge_id === chId);
@@ -577,6 +572,44 @@ export function renderChallenges() {
       renderStandingsDrawerContent(chId, ch.capability_token);
     }
   });
+}
+
+/**
+ * Toggle challenge share drawer and generate QR code.
+ * @param {string} challengeId
+ * @param {string} playUrl
+ */
+export function toggleChallengeShare(challengeId, playUrl) {
+  const drawerEl = document.getElementById(`share-drawer-${challengeId}`);
+  const btn = _hubListEl?.querySelector(`.btn-share-challenge-hub[data-id="${challengeId}"]`);
+
+  if (_expandedShareDrawers.has(challengeId)) {
+    _expandedShareDrawers.delete(challengeId);
+    if (drawerEl) {
+      drawerEl.classList.add("hidden");
+      drawerEl.classList.remove("open");
+    }
+    if (btn) {
+      btn.classList.remove("active");
+      btn.setAttribute("aria-expanded", "false");
+    }
+    return;
+  }
+
+  _expandedShareDrawers.add(challengeId);
+  if (drawerEl) {
+    drawerEl.classList.remove("hidden");
+    drawerEl.classList.add("open");
+  }
+  if (btn) {
+    btn.classList.add("active");
+    btn.setAttribute("aria-expanded", "true");
+  }
+
+  const qrEl = document.getElementById(`share-qr-${challengeId}`);
+  if (qrEl) {
+    renderQRCode(qrEl, playUrl, { size: 120 });
+  }
 }
 
 /**
@@ -598,7 +631,7 @@ export async function toggleChallengeStandings(challengeId, capabilityToken) {
       const ch = _challenges.find((c) => c.challenge_id === challengeId);
       const count = ch?.total_participants || 0;
       btn.innerHTML = `<span class="standings-toggle-icon">▼</span><span>${
-        count > 0 ? t("challenges_page.view_standings", count) : t("challenges_page.standings_btn")
+        t("challenges_page.view_standings", count)
       }</span>`;
     }
     return;
@@ -650,6 +683,11 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
   }
 
   const entries = data.leaderboard || [];
+  entries.forEach((p) => {
+    if (p.player_color) {
+      registerPlayerColor(p.player_name, p.player_color);
+    }
+  });
 
   if (entries.length === 0) {
     contentEl.innerHTML = `
@@ -661,15 +699,17 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
     return;
   }
 
-  // Render Mini Podium for Top 3
+  // Render Mini Podium for Top 3 (only players who finished)
   let podiumHtml = "";
-  if (entries.length >= 2) {
-    const top3 = entries.slice(0, 3);
+  const finishedEntries = entries.filter((p) => p.is_finished);
+  const hasUnfinishedPlayers = entries.some((p) => !p.is_finished && p.completed_rounds < data.total_rounds);
+  if (finishedEntries.length >= 2) {
+    const top3 = finishedEntries.slice(0, 3);
     const podiumItems = top3
       .map((p, idx) => {
         const medal = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
         const placeCls = idx === 0 ? "podium-1st" : idx === 1 ? "podium-2nd" : "podium-3rd";
-        const col = playerColor(idx);
+        const col = playerColor(p.player_name);
         const init = playerInitial(p.player_name);
         return `
           <div class="mini-podium-item ${placeCls}">
@@ -681,17 +721,30 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
         `;
       })
       .join("");
-    podiumHtml = `<div class="mini-podium-bar">${podiumItems}</div>`;
+
+    const podiumNoteHtml = hasUnfinishedPlayers
+      ? `
+        <div class="podium-finished-note mini-podium-note">
+          <span class="note-icon" aria-hidden="true">🏁</span>
+          <span data-i18n="challenge.podium_finished_notice">${t("challenge.podium_finished_notice")}</span>
+        </div>
+      `
+      : "";
+
+    podiumHtml = `
+      <div class="mini-podium-container">
+        <div class="mini-podium-bar">${podiumItems}</div>
+        ${podiumNoteHtml}
+      </div>
+    `;
   }
 
   // Render Standings Table
   let rowsHtml = "";
   entries.forEach((e, idx) => {
-    const rankBadge = formatPlace(e.rank || idx + 1);
+    const rankBadge = formatRank(e.rank || idx + 1);
     const isWinner = e.is_winner;
-    const completedBadge = e.is_finished
-      ? `<span class="progress-badge badge-done">✓ ${e.completed_rounds}/${data.total_rounds}</span>`
-      : `<span class="progress-badge badge-wip">⏳ ${e.completed_rounds}/${data.total_rounds}</span>`;
+    const completedBadge = formatRoundsBadge(e.completed_rounds, data.total_rounds, e.is_finished);
 
     const timeFormatted = e.total_time_seconds ? `${Math.round(e.total_time_seconds)}s` : "—";
     const awardsHtml = (e.awards || [])
@@ -702,12 +755,11 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
       <tr class="${isWinner ? "winner-row" : ""}">
         <td class="col-rank">${rankBadge}</td>
         <td class="col-player">
-          <strong>${e.player_name}</strong>
-          ${awardsHtml ? `<div class="player-awards-list">${awardsHtml}</div>` : ""}
+          ${formatPlayerCellHtml(e.player_name, { isWinner, awardsHtml })}
         </td>
         <td class="col-acc"><strong>${e.accuracy_pct}%</strong></td>
         <td class="col-score">${e.total_score} <span class="max-score">/ ${e.max_possible_score}</span></td>
-        <td class="col-progress">${completedBadge}</td>
+        <td class="col-progress text-center">${completedBadge}</td>
         <td class="col-time">${timeFormatted}</td>
       </tr>
     `;
@@ -715,16 +767,16 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
 
   contentEl.innerHTML = `
     ${podiumHtml}
-    <div class="standings-table-wrap">
+    <div class="standings-table-wrap table-scroll">
       <table class="standings-table">
         <thead>
           <tr>
-            <th>${t("challenges_page.rank_col")}</th>
-            <th>${t("challenges_page.player_col")}</th>
-            <th>${t("challenges_page.accuracy_col")}</th>
-            <th>${t("challenges_page.score_col")}</th>
-            <th>${t("challenges_page.progress_col")}</th>
-            <th>${t("challenges_page.time_col")}</th>
+            <th class="col-rank">${t("challenges_page.rank_col")}</th>
+            <th class="col-player">${t("challenges_page.player_col")}</th>
+            <th class="col-acc">${t("challenges_page.accuracy_col")}</th>
+            <th class="col-score">${t("challenges_page.score_col")}</th>
+            <th class="col-progress text-center">${t("challenges_page.progress_col")}</th>
+            <th class="col-time">${t("challenges_page.time_col")}</th>
           </tr>
         </thead>
         <tbody>

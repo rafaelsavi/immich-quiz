@@ -1,6 +1,6 @@
 import { state, el } from "./state.js";
 import { api, setupFilterParams } from "./api.js";
-import { buildCell } from "./formatters.js";
+import { buildCell, createRankBadge } from "./formatters.js";
 import { t, formatDateTime } from "./i18n.js";
 import { getActiveFilterSummary } from "./setup_filters.js";
 
@@ -75,6 +75,33 @@ export function loadLeaderboardDebounced(delay = 250) {
   }, delay);
 }
 
+export function getPlayModeInfo(mode) {
+  switch (mode) {
+    case "challenge":
+      return {
+        label: t("leaderboard.mode_challenge"),
+        icon: "🌐",
+        className: "mode-challenge",
+        title: t("leaderboard.mode_challenge_desc") !== "leaderboard.mode_challenge_desc" ? t("leaderboard.mode_challenge_desc") : "Multiplayer Challenge",
+      };
+    case "room":
+      return {
+        label: t("leaderboard.mode_room"),
+        icon: "⚡",
+        className: "mode-room",
+        title: t("leaderboard.mode_room_desc") !== "leaderboard.mode_room_desc" ? t("leaderboard.mode_room_desc") : "Live Room",
+      };
+    case "local":
+    default:
+      return {
+        label: t("leaderboard.mode_local"),
+        icon: "👥",
+        className: "mode-local",
+        title: t("leaderboard.mode_local_desc") !== "leaderboard.mode_local_desc" ? t("leaderboard.mode_local_desc") : "Local Match",
+      };
+  }
+}
+
 export function renderLeaderboard() {
   updateLeaderboardScope();
   const { key, asc } = state.leaderboardSort;
@@ -85,7 +112,7 @@ export function renderLeaderboard() {
     if (typeof av === "number" && typeof bv === "number") {
       return asc ? av - bv : bv - av;
     }
-    return asc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+    return asc ? String(av || "").localeCompare(String(bv || "")) : String(bv || "").localeCompare(String(av || ""));
   });
 
   el.leaderboardBody.replaceChildren();
@@ -94,7 +121,7 @@ export function renderLeaderboard() {
     const tr = document.createElement("tr");
     tr.className = "leaderboard-empty-row";
     const td = document.createElement("td");
-    td.colSpan = 3;
+    td.colSpan = 4;
     td.className = "leaderboard-empty-cell";
     td.textContent = t("leaderboard.empty");
     tr.appendChild(td);
@@ -112,30 +139,22 @@ export function renderLeaderboard() {
 
     const cell1 = buildCell(formatDateTime(row.played_at));
 
+    // PlayMode cell with icon and styled badge
+    const modeInfo = getPlayModeInfo(row.play_mode);
+    const modeBadge = document.createElement("span");
+    modeBadge.className = `playmode-badge ${modeInfo.className}`;
+    modeBadge.title = modeInfo.title;
+    modeBadge.innerHTML = `<span class="playmode-icon" aria-hidden="true">${modeInfo.icon}</span><span class="playmode-label">${modeInfo.label}</span>`;
+    const cellPlayMode = buildCell(modeBadge);
+    cellPlayMode.className = "col-play-mode";
+
     // Player cell with rank medal and optional perfect badge
     const playerWrap = document.createElement("span");
     playerWrap.className = "player-cell";
 
-    const rankSpan = document.createElement("span");
     const isRankingDescending = (key === "accuracy_pct" || key === "total_score") && !asc;
     const effectiveRank = isRankingDescending ? index + 1 : row.rank;
-
-    if (effectiveRank === 1) {
-      rankSpan.className = "rank-medal";
-      rankSpan.textContent = "🥇";
-      rankSpan.setAttribute("title", t("leaderboard.rank_1st"));
-    } else if (effectiveRank === 2) {
-      rankSpan.className = "rank-medal";
-      rankSpan.textContent = "🥈";
-      rankSpan.setAttribute("title", t("leaderboard.rank_2nd"));
-    } else if (effectiveRank === 3) {
-      rankSpan.className = "rank-medal";
-      rankSpan.textContent = "🥉";
-      rankSpan.setAttribute("title", t("leaderboard.rank_3rd"));
-    } else {
-      rankSpan.className = "rank-num";
-      rankSpan.textContent = `${effectiveRank || index + 1}.`;
-    }
+    const rankSpan = createRankBadge(effectiveRank, { dot: true });
 
     const nameSpan = document.createElement("span");
     nameSpan.className = "player-name-text";
@@ -150,7 +169,7 @@ export function renderLeaderboard() {
       playerWrap.appendChild(perfectBadge);
     }
 
-    const cell2 = buildCell(playerWrap);
+    const cellPlayer = buildCell(playerWrap);
 
     // Accuracy cell with color-coded tier badge
     const accBadge = document.createElement("span");
@@ -166,10 +185,10 @@ export function renderLeaderboard() {
     }
     accBadge.textContent = formatAccuracy(row.accuracy_pct);
 
-    const cell3 = buildCell(accBadge);
-    cell3.className = "col-accuracy";
+    const cellAcc = buildCell(accBadge);
+    cellAcc.className = "col-accuracy";
 
-    tr.append(cell1, cell2, cell3);
+    tr.append(cell1, cellPlayMode, cellPlayer, cellAcc);
     el.leaderboardBody.appendChild(tr);
   });
 

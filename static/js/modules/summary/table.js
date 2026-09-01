@@ -1,6 +1,6 @@
 import { el } from "../state.js";
 import { t } from "../i18n.js";
-import { buildCell, playerNameCell } from "../formatters.js";
+import { buildCell, playerNameCell, createRankBadge } from "../formatters.js";
 import { animateScoreRollup } from "../effects.js";
 
 import { renderMatchMeta } from "../components/match_meta.js";
@@ -28,8 +28,14 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
     const headRow = document.createElement("tr");
     columns.forEach((label) => {
       const cell = buildCell(label, true);
-      if (label === t("summary.col_accuracy")) {
+      if (label === t("summary.col_rank")) {
+        cell.className = "col-rank";
+      } else if (label === t("summary.col_player")) {
+        cell.className = "col-player";
+      } else if (label === t("summary.col_accuracy")) {
         cell.className = "col-accuracy hide-on-mobile";
+      } else if (label === t("summary.col_total")) {
+        cell.className = "col-score";
       }
       headRow.appendChild(cell);
     });
@@ -43,10 +49,17 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
       ? Math.round((summary.max_possible_score || ((summary.rounds_played || 1) * 100 * activeGoalCount)) / activeGoalCount)
       : (summary.max_possible_score || 100);
 
+    const isMultiplayer = (summary.players || []).length > 1;
+
     (summary.players || []).forEach((player) => {
       const row = document.createElement("tr");
+      if (isMultiplayer && player.rank === 1) {
+        row.classList.add("winner-row");
+      }
 
-      row.appendChild(buildCell(String(player.rank)));
+      const rankCell = buildCell(createRankBadge(player.rank, { dot: true }));
+      rankCell.className = "col-rank";
+      row.appendChild(rankCell);
 
       const nameCell = playerNameCell(player.player_name);
       const count = perfectCounts[player.player_name] ?? 0;
@@ -56,7 +69,9 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
         countBadge.textContent = t("fmt.perfect_count", count);
         nameCell.appendChild(countBadge);
       }
-      row.appendChild(buildCell(nameCell));
+      const playerCell = buildCell(nameCell);
+      playerCell.className = "col-player";
+      row.appendChild(playerCell);
 
       if (summary.location_mode) {
         const locCell = buildCell(String(player.location_score ?? 0));

@@ -4,7 +4,9 @@
 [![GHCR Container](https://img.shields.io/badge/docker-ghcr.io%2Frafaelsavi%2Fimmich--quiz-blue?logo=docker)](https://github.com/rafaelsavi/immich-quiz/pkgs/container/immich-quiz)
 [![CI](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml)
 
-Immich Quiz is a pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when photos were taken in **Pinpoint** mode, or matching photo batches to map pins and timeline dates in **Album Shuffle** mode.
+Immich Quiz is a trivia game that generates quiz rounds directly from your Immich photo collection. Players guess where and when photos were taken in **Pinpoint** mode, or match photo batches to map pins and timeline dates in **Album Shuffle** mode.
+
+Play locally with friends on a single screen via **👥 Pass & Play**, or share **🌐 Multiplayer Challenge Links** (with unguessable capability URLs and instant QR codes) for multi-device asynchronous or hybrid competition!
 
 ![Immich Quiz Home Screen](docs/assets/home.webp)
 
@@ -12,13 +14,20 @@ Immich Quiz is a pass-and-play trivia game that generates rounds from your Immic
 
 ## Playing the Game
 
-- Start the app in your browser after launching the server.
-- Select players, choose a game mode (**Pinpoint** or **Album Shuffle**), rounds, round length, guess mode, and libraries.
-- Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching).
-- Take turns guessing photo locations, capture dates, or both.
-- Review end-of-match performance awards and the leaderboard when the game ends.
+### Game Modes & Targets
+- **🎯 Pinpoint**: 1 photo per round. Place a pin on the interactive Leaflet map and/or guess the capture month and year.
+- **🔀 Album Shuffle**: 3 photos per round. Match photos to lettered map pins and/or arrange them in chronological sequence along a timeline.
+- **Targets**: Guess **Location only**, **Date only**, or **Location & Date**.
 
-See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough. For scoring details, see [docs/SCORING.md](docs/SCORING.md).
+### Play Modes
+- **👥 Local Match (Pass & Play)**: Gather friends around a single device or TV. Players take turns passing the device between rounds with a privacy curtain protecting upcoming photos.
+- **🌐 Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
+- **Challenges Hub (`/challenges`)**: Browse, search, share, track active challenges, and view past match summaries.
+
+### Library Filters & Preflight
+Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching). A live preflight indicator verifies that enough diverse, geotagged, and dated photos exist before the match starts.
+
+See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough, [docs/CHALLENGES.md](docs/CHALLENGES.md) for the multiplayer challenge guide, and [docs/SCORING.md](docs/SCORING.md) for mathematical scoring details.
 
 ---
 
@@ -164,6 +173,7 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 
 - [CHANGELOG.md](CHANGELOG.md) — release history and notable changes
 - [docs/GAMEPLAY.md](docs/GAMEPLAY.md) — gameplay rules, setup parameters, and UI walkthrough
+- [docs/CHALLENGES.md](docs/CHALLENGES.md) — multiplayer challenge mode guide, capability tokens, and architecture
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module design, anti-cheat boundary, and data flow
 - [docs/FILTERS.md](docs/FILTERS.md) — setup filter architecture, cascading multi-selects, and live preflight validation
 - [docs/SYNC.md](docs/SYNC.md) — metadata synchronization engine, SQLite schema, and background worker architecture

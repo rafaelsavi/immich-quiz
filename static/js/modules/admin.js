@@ -7,8 +7,8 @@
 
 import { state, el } from "./state.js";
 import { api } from "./api.js";
-import { t, formatDate, formatDateTime } from "./i18n.js";
-import { showShareToast } from "./summary/share.js";
+import { t, tOr, formatDate, formatDateTime } from "./i18n.js";
+import { showShareToast, copyToClipboard } from "./summary/share.js";
 import { startMatch } from "./screens/setup.js";
 import {
   libraryMultiSelect,
@@ -21,7 +21,7 @@ import {
   getActiveFilterSummary,
   playerInput,
 } from "./setup_filters.js";
-import { loadChallengesList } from "./challenges_page.js";
+import { loadChallengesList } from "./screens/challenges.js";
 import { getActiveMode } from "./modes/index.js";
 import { renderQRCode } from "./components/qrcode.js";
 
@@ -68,10 +68,7 @@ export function generateAutoChallengeTitle() {
   const modeName = mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
   const rounds = el.roundCount ? el.roundCount.value : "5";
   const summary = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : "";
-  const fullLibLabel =
-    t("filters.full_library") !== "filters.full_library"
-      ? t("filters.full_library")
-      : t("leaderboard.scope_all");
+  const fullLibLabel = tOr("filters.full_library", t("leaderboard.scope_all"));
 
   if (summary && summary !== fullLibLabel && summary !== t("setup.filters_summary_default")) {
     return `${summary} • ${modeName} (${rounds}R)`;
@@ -420,8 +417,6 @@ function displayShareResult(challengeData) {
   } catch (_) {}
 }
 
-let _copyResetTimer = null;
-
 /**
  * Reset form back to create view.
  */
@@ -459,26 +454,9 @@ async function copyCreatedUrl() {
     input.select();
   }
 
-  try {
-    await navigator.clipboard.writeText(url);
-    showShareToast(t("challenge.link_copied"));
-  } catch (_) {
-    if (input) {
-      input.select();
-      document.execCommand("copy");
-      showShareToast(t("challenge.link_copied"));
-    }
-  }
-
-  if (_copyLinkBtn) {
-    _copyLinkBtn.classList.add("copied");
-    _copyLinkBtn.innerHTML = `<span>✅</span> <span class="copy-btn-text">${t("challenge.link_copied")}</span>`;
-    if (_copyResetTimer) clearTimeout(_copyResetTimer);
-    _copyResetTimer = setTimeout(() => {
-      if (_copyLinkBtn) {
-        _copyLinkBtn.classList.remove("copied");
-        _copyLinkBtn.innerHTML = `<span class="btn-icon">📋</span> <span class="copy-btn-text" data-i18n="challenge.copy_link">${t("challenge.copy_link")}</span>`;
-      }
-    }, 2500);
-  }
+  await copyToClipboard(url, {
+    button: _copyLinkBtn,
+    copiedHtml: `<span>✅</span> <span class="copy-btn-text">${t("challenge.link_copied")}</span>`,
+    successMessage: t("challenge.link_copied"),
+  });
 }

@@ -6,6 +6,7 @@ import { DateRangeSlider } from "./components/range_slider.js";
 import { PlayerInput } from "./components/player_input.js";
 import { loadLeaderboard, loadLeaderboardDebounced } from "./leaderboard.js";
 import { checkSyncStatus, triggerLibrarySync, renderSyncStatus } from "./sync.js";
+import { getMatchMetaCategories, renderMatchMetaItemsHtml } from "./components/match_meta.js";
 
 /** @type {MultiSelect|null} */
 export let libraryMultiSelect = null;
@@ -386,9 +387,32 @@ export function updatePeopleModeToggleVisibility() {
   toggleEl.classList.toggle("hidden", selectedCount < 2);
 }
 
+export function getCurrentSetupFilterData() {
+  const selectedLibs = libraryMultiSelect ? libraryMultiSelect.getSelectedItems().map((l) => l.name || l.id) : [];
+  const selectedAlbums = albumMultiSelect ? albumMultiSelect.getSelectedItems().map((a) => a.name || a.id) : [];
+  const selectedCountries = countryMultiSelect ? countryMultiSelect.getSelectedItems().map((c) => c.name || c.id) : [];
+  const selectedCities = cityMultiSelect ? cityMultiSelect.getSelectedItems().map((c) => c.name || c.id) : [];
+  const selectedPeople = peopleMultiSelect ? peopleMultiSelect.getSelectedItems().map((p) => p.name || p.id) : [];
+  const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
+  const includeShared = el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false;
+
+  return {
+    libraries: selectedLibs,
+    albums: selectedAlbums,
+    album_names: selectedAlbums,
+    countries: selectedCountries,
+    cities: selectedCities,
+    people: selectedPeople,
+    person_names: selectedPeople,
+    min_date: minDate,
+    max_date: maxDate,
+    include_shared: includeShared,
+  };
+}
+
 export function updateFiltersSummaryBadge() {
   const badge = el.filtersSummaryBadge;
-  if (!badge) return;
+  const metaContainer = document.getElementById("filters-accordion-meta");
 
   let count = 0;
   if (libraryMultiSelect && libraryMultiSelect.getSelectedIds().length > 0) count++;
@@ -402,10 +426,18 @@ export function updateFiltersSummaryBadge() {
   }
   if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) count++;
 
-  if (count === 0) {
-    badge.textContent = t("setup.filters_summary_default");
-  } else {
-    badge.textContent = t("setup.filters_active_count", count);
+  if (badge) {
+    if (count === 0) {
+      badge.textContent = t("setup.filters_summary_default");
+    } else {
+      badge.textContent = t("setup.filters_active_count", count);
+    }
+  }
+
+  if (metaContainer) {
+    const data = getCurrentSetupFilterData();
+    const { libItems } = getMatchMetaCategories(data);
+    metaContainer.innerHTML = renderMatchMetaItemsHtml(libItems);
   }
 }
 

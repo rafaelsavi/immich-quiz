@@ -8,7 +8,7 @@ import { clearTimer, resetTimerBar, startTimer } from "../timer.js";
 import { markShortcutCooldown } from "../shortcuts.js";
 import { getActiveMode } from "../modes/index.js";
 import { showRoundReveal } from "./reveal.js";
-import { challenge } from "../challenge.js";
+import { challenge } from "../challenge/index.js";
 
 export function updateRoundMeta() {
   const roundMeta = el.roundMeta;

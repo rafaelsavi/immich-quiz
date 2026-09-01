@@ -665,12 +665,315 @@ Response:
 
 ---
 
-## Anti-Cheat Rules
+## Multiplayer Challenges API
 
-Question payloads never include answer fields:
+Endpoints powering asynchronous and hybrid multiplayer challenge matches. Protected by capability tokens and session headers.
 
-* No EXIF metadata or capture timestamp
+### POST /api/challenge/create
+
+Creates a deterministic challenge seed with pre-selected photo assets and frozen exponential decay scoring constants.
+
+Request:
+
+```json
+{
+  "creator_name": "Alice",
+  "title": "Summer Vacation 2024 (10 Rounds)",
+  "game_mode": "pinpoint",
+  "round_count": 10,
+  "round_length": "1m",
+  "location_mode": true,
+  "date_mode": true,
+  "expires_in_hours": 24,
+  "libraries": ["Family"],
+  "albums": ["album-uuid-1"]
+}
+```
+
+Response (`200 OK`):
+
+```json
+{
+  "challenge_id": "ch_uuid_12345",
+  "capability_token": "ch_9f8e2a1b3c4d5e6f",
+  "play_url": "/play/ch_9f8e2a1b3c4d5e6f",
+  "title": "Summer Vacation 2024 (10 Rounds)",
+  "creator_name": "Alice",
+  "libraries": ["Family"],
+  "rounds": 10,
+  "game_mode": "pinpoint",
+  "created_at": "2026-09-03T12:00:00Z",
+  "expires_at": "2026-09-04T12:00:00Z"
+}
+```
+
+### GET /api/challenge/list
+
+Lists created challenges for host management on the Challenges Hub page (`/challenges`).
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "challenge_id": "ch_uuid_12345",
+    "capability_token": "ch_9f8e2a1b3c4d5e6f",
+    "title": "Summer Vacation 2024",
+    "creator_name": "Alice",
+    "rounds": 10,
+    "game_mode": "pinpoint",
+    "created_at": "2026-09-03T12:00:00Z",
+    "expires_at": "2026-09-04T12:00:00Z",
+    "total_participants": 4,
+    "is_active": true
+  }
+]
+```
+
+### GET /api/challenge/{capability_token}
+
+Retrieves public landing metadata, rule configurations, and participant rosters for a challenge link.
+
+Response (`200 OK`):
+
+```json
+{
+  "challenge_id": "ch_uuid_12345",
+  "capability_token": "ch_9f8e2a1b3c4d5e6f",
+  "title": "Summer Vacation 2024",
+  "creator_name": "Alice",
+  "libraries": ["Family"],
+  "rounds": 10,
+  "round_length": "1m",
+  "location_mode": true,
+  "date_mode": true,
+  "game_mode": "pinpoint",
+  "filter_summary": "Summer Vacation",
+  "filter_tooltip": "Album: Summer Vacation",
+  "map_bounds": { "min_lat": -25.0, "max_lat": -20.0, "min_lon": -50.0, "max_lon": -45.0 },
+  "created_at": "2026-09-03T12:00:00Z",
+  "expires_at": "2026-09-04T12:00:00Z",
+  "total_participants": 4,
+  "participants": ["Alice", "Bob", "Charlie"],
+  "is_active": true
+}
+```
+
+### POST /api/challenge/{capability_token}/start
+
+Initializes or resumes a player's challenge session. If the player name already has an active session, returns the existing session token and current round progress.
+
+Request:
+
+```json
+{
+  "player_name": "Bob",
+  "player_color": "#ff7043"
+}
+```
+
+Response (`200 OK`):
+
+```json
+{
+  "session_token": "sess_tok_abc123",
+  "match_id": "match_uuid_67890",
+  "player_name": "Bob",
+  "total_rounds": 10,
+  "current_round": 0,
+  "is_resumed": false,
+  "player_color": "#ff7043",
+  "participant_index": 1,
+  "participants": ["Alice", "Bob"]
+}
+```
+
+### GET /api/challenge/{capability_token}/question/{round_index}
+
+Fetches the sanitized question payload for round `round_index`. Requires `X-Player-Token` header. Sequential progression is strictly enforced (players cannot skip ahead).
+
+Headers:
+* `X-Player-Token`: Player session token.
+
+Response (`200 OK`):
+
+```json
+{
+  "round_index": 0,
+  "total_rounds": 10,
+  "asset_id": "asset-uuid-101",
+  "media_url": "/api/media/asset-uuid-101",
+  "game_mode": "pinpoint",
+  "location_mode": true,
+  "date_mode": true,
+  "round_length": "1m",
+  "map_bounds": { "min_lat": -25.0, "max_lat": -20.0, "min_lon": -50.0, "max_lon": -45.0 }
+}
+```
+
+### POST /api/challenge/{capability_token}/answer
+
+Submits a guess for the specified round and returns immediate personal reveal scores.
+
+Headers:
+* `X-Player-Token`: Player session token.
+
+Request (Pinpoint Mode):
+
+```json
+{
+  "round_index": 0,
+  "guessed_latitude": -23.5505,
+  "guessed_longitude": -46.6333,
+  "guessed_year": 2023,
+  "guessed_month": 7,
+  "time_taken_seconds": 14.2,
+  "timed_out": false
+}
+```
+
+Response (`200 OK`):
+
+```json
+{
+  "round_index": 0,
+  "round_score": 94,
+  "location_score": 48,
+  "date_score": 46,
+  "distance_km": 1.25,
+  "date_diff_days": 15,
+  "date_diff_months": 0,
+  "actual_latitude": -23.5510,
+  "actual_longitude": -46.6340,
+  "actual_date": "2023-07-22",
+  "actual_year": 2023,
+  "actual_month": 7,
+  "actual_city": "São Paulo",
+  "actual_country": "Brazil",
+  "game_mode": "pinpoint",
+  "is_game_over": false,
+  "total_score": 94,
+  "total_time_seconds": 14.2,
+  "player_color": "#ff7043"
+}
+```
+
+### GET /api/challenge/{capability_token}/leaderboard
+
+Retrieves challenge standings, overall scores, and Fog of War filtered round guesses. Polled every 3 seconds during round reviews.
+
+Headers:
+* `X-Player-Token`: (Optional) Player session token.
+
+**Fog of War Rules**:
+* Unauthenticated callers on active matches receive overall player standings (`leaderboard`), but `round_guesses` and `round_history` are strictly redacted (`[]`) to prevent inspecting future round coordinates or dates.
+* Players who supply `X-Player-Token` only see round guesses and history for rounds they have already completed ($\le \text{completed\_round}$).
+* Once the challenge concludes (or for players who have finished all rounds), full round history and guesses are visible.
+
+Response (`200 OK`):
+
+```json
+{
+  "challenge_id": "ch_uuid_12345",
+  "title": "Summer Vacation 2024",
+  "game_mode": "pinpoint",
+  "up_to_round": 0,
+  "total_rounds": 10,
+  "is_game_over": false,
+  "is_concluded": false,
+  "location_mode": true,
+  "date_mode": true,
+  "leaderboard": [
+    {
+      "player_name": "Alice",
+      "player_color": "#4caf50",
+      "location_score": 48,
+      "date_score": 46,
+      "total_score": 94,
+      "max_possible_score": 100,
+      "accuracy_pct": 94.0,
+      "rank": 1,
+      "is_winner": true,
+      "total_time_seconds": 12.5,
+      "completed_rounds": 1,
+      "is_finished": false,
+      "awards": []
+    }
+  ],
+  "round_guesses": [
+    {
+      "player_name": "Alice",
+      "player_color": "#4caf50",
+      "round_index": 0,
+      "game_mode": "pinpoint",
+      "guessed_latitude": -23.5505,
+      "guessed_longitude": -46.6333,
+      "actual_latitude": -23.5510,
+      "actual_longitude": -46.6340,
+      "distance_km": 1.25,
+      "location_points": 48,
+      "guessed_year": 2023,
+      "guessed_month": 7,
+      "actual_date": "2023-07-22",
+      "date_diff_days": 15,
+      "date_points": 46,
+      "round_score": 94,
+      "time_taken_seconds": 12.5
+    }
+  ],
+  "round_history": [
+    {
+      "round_index": 0,
+      "asset_id": "asset-uuid-101",
+      "actual_lat": -23.5510,
+      "actual_lon": -46.6340,
+      "actual_year": 2023,
+      "actual_month": 7,
+      "actual_date": "2023-07-22",
+      "actual_city": "São Paulo",
+      "actual_country": "Brazil"
+    }
+  ]
+}
+```
+
+### POST /api/challenge/{capability_token}/stop
+
+Terminates an active challenge immediately. Concluded challenges can no longer accept new attempts, while existing results remain accessible.
+
+Response (`200 OK`):
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_uuid_12345",
+  "is_active": false
+}
+```
+
+---
+
+## Anti-Cheat & Security Model
+
+Immich Quiz implements multi-layered security controls across both Local and Challenge modes:
+
+### 1. Sanitized Question Payloads
+Question endpoints (`POST /api/question`, `GET /api/challenge/{token}/question/{round}`) never expose answer metadata:
+* No EXIF metadata, camera models, or timestamps
 * No GPS coordinates (latitude / longitude)
-* No city or country names
+* No reverse-geocoded place, city, or country names
 
-Answer submissions return no reveal data. Reveal data is only available from `POST /api/round/result` once every player in the round has completed their turn.
+### 2. EXIF & GPS Metadata Stripping on Image Proxies
+The media proxy (`GET /api/media/{asset_id}`) reads raw image bytes from Immich and scrubs all EXIF headers, GPS location tags, and creation dates in-memory before streaming bytes to the browser. Inspecting image requests in browser DevTools reveals zero geographic or temporal metadata.
+
+### 3. Capability-Based Asset Authorization
+The media proxy verifies that requested assets belong to an authorized context:
+* In Local mode, the asset must belong to the active in-memory match session.
+* In Challenge mode, the asset must belong to a valid, registered challenge seed.
+* Arbitrary asset ID probing returns HTTP `404 Not Found`.
+
+### 4. Server-Enforced Fog of War
+In Challenge mode, opponent guesses and true round coordinates are withheld until the caller has submitted their own guess for that round. Unauthenticated requests on active matches receive redacted history (`[]`).
+
+### 5. Server-Side Timer Grace Window
+Turn durations (`time_taken_seconds`) are tracked on the client and validated on the backend against `round_length_seconds + 5.0s` (grace period for network latency). Excessively delayed submissions are scored with zero points.

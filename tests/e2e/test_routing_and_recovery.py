@@ -40,8 +40,8 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await expect(page.locator('#challenges-page-card')).to_be_visible()
     await expect(page.locator('#setup-card')).to_be_hidden()
 
-    # Click Back to Lobby button
-    await page.locator('#challenges-page-back-btn').click()
+    # Return to lobby via home navigation button
+    await page.locator('#home-nav-btn').click()
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#challenges-page-card')).to_be_hidden()
     await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
