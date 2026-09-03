@@ -418,7 +418,6 @@ export default {
   "challenge.provisional_title": "Challenge in Progress",
   "challenge.provisional_desc": "You have completed all rounds! Invite friends to complete their game and reveal the final winner podium.",
   "challenge.single_player_podium_hint": "Podium unlocks when more friends finish.",
-  "challenge.podium_finished_notice": "Podium results only count for players who completed all rounds.",
   "challenge.current_leader": "🏆 Current Leader: {0}",
   "challenge.current_leader_tie": "🏆 Current Leaders: {0}",
   "challenge.true_location": "True Location",

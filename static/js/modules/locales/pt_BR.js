@@ -418,7 +418,6 @@ export default {
   "challenge.provisional_title": "Desafio em Andamento",
   "challenge.provisional_desc": "Você concluiu todas as rodadas! Convide amigos para jogar e revelar o pódio final.",
   "challenge.single_player_podium_hint": "O pódio será revelado quando mais amigos concluírem.",
-  "challenge.podium_finished_notice": "Resultados do pódio consideram apenas participantes que concluíram todas as rodadas.",
   "challenge.current_leader": "🏆 Líder Atual: {0}",
   "challenge.current_leader_tie": "🏆 Líderes Atuais: {0}",
   "challenge.true_location": "Localização Real",

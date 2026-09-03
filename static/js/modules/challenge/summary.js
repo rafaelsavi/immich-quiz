@@ -26,6 +26,7 @@ import {
   registerPlayerColor,
   formatDistance,
   formatMonth,
+  formatMonthError,
   formatRankBadge,
   formatRoundsBadge,
   formatPlayerCellHtml,
@@ -490,7 +491,7 @@ export const challengeSummary = {
       }
     }
 
-    // 3. Render Date Comparison Chips (only if date_mode is enabled)
+    // 3. Render Date Comparison Table (only if date_mode is enabled)
     if (extraEl) {
       if (!isDateEnabled) {
         extraEl.innerHTML = "";
@@ -503,27 +504,64 @@ export const challengeSummary = {
             ? formatDate(sampleWithDate.actual_date, { year: "numeric", month: "short", day: "numeric" })
             : formatMonth(sampleWithDate.actual_year, sampleWithDate.actual_month);
 
+          const validGuesses = roundGuesses
+            .filter((g) => g.guessed_year && g.guessed_month)
+            .sort((a, b) => (b.date_points || 0) - (a.date_points || 0) || (a.date_diff_days ?? 999999) - (b.date_diff_days ?? 999999));
+
+          const topScore = validGuesses.length > 0 ? (validGuesses[0].date_points || 0) : 0;
+
           extraEl.innerHTML = `
             <div class="round-date-comparison">
               <div class="date-comp-head">
-                <span>📅 ${t("game.date_guess_label")}</span>
+                <div class="date-comp-title">
+                  <span>📅 ${t("game.date_guess_label")}</span>
+                </div>
+                <div class="date-comp-truth">
+                  <span class="date-comp-truth-icon">✓</span>
+                  <strong>${t("challenge.true_date")}:</strong>
+                  <span>${actualDateStr}</span>
+                </div>
               </div>
-              <div class="date-chips-list">
-                <span class="date-chip true-val">
-                  ✓ <strong>${t("challenge.true_date")}:</strong> ${actualDateStr}
-                </span>
-                ${roundGuesses
-                  .map((g) => {
-                    if (!g.guessed_year || !g.guessed_month) return "";
-                    const pDateStr = formatMonth(g.guessed_year, g.guessed_month);
-                    const daysDiffStr = g.date_diff_days !== null ? ` (${g.date_diff_days}d)` : "";
-                    return `
-                      <span class="date-chip">
-                        <strong>${g.player_name}:</strong> ${pDateStr}${daysDiffStr} • ${g.date_points || 0} pts
-                      </span>
-                    `;
-                  })
-                  .join("")}
+              <div class="table-scroll date-table-scroll">
+                <table class="summary-table round-date-table">
+                  <thead>
+                    <tr>
+                      <th class="col-player">${t("reveal.col_player")}</th>
+                      <th class="col-guess text-center">${t("reveal.col_guessed")}</th>
+                      <th class="col-error text-center">${t("reveal.col_date_error")}</th>
+                      <th class="col-score text-right">${t("reveal.col_points")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${
+                      validGuesses.length === 0
+                        ? `<tr><td colspan="4" class="text-center text-muted py-2">${t("fmt.no_guess")}</td></tr>`
+                        : validGuesses
+                            .map((g, idx) => {
+                              const pDateStr = formatMonth(g.guessed_year, g.guessed_month);
+                              const guessWithActual = {
+                                ...g,
+                                actual_year: g.actual_year ?? sampleWithDate.actual_year,
+                                actual_month: g.actual_month ?? sampleWithDate.actual_month,
+                              };
+                              const errStr = formatMonthError(guessWithActual);
+                              const isCurrent = g.player_name === challengeSession.sessionPlayerName;
+                              const isWinner = idx === 0 && topScore > 0 && validGuesses.length > 1;
+                              return `
+                                <tr class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
+                                  <td class="col-player">
+                                    ${formatPlayerCellHtml(g.player_name, { isWinner, isCurrent })}
+                                  </td>
+                                  <td class="col-guess text-center">${pDateStr}</td>
+                                  <td class="col-error text-center text-muted">${errStr}</td>
+                                  <td class="col-score text-right font-bold">+${g.date_points || 0} pts</td>
+                                </tr>
+                              `;
+                            })
+                            .join("")
+                    }
+                  </tbody>
+                </table>
               </div>
             </div>
           `;

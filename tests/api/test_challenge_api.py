@@ -873,3 +873,61 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     assert bob_map[photo_ids[1]]['assigned_timeline_index'] == 0
     assert bob_map[photo_ids[2]]['assigned_pin_id'] == pin_ids[0]
     assert bob_map[photo_ids[2]]['assigned_timeline_index'] == 1
+
+
+def test_challenge_standings_completion_status_for_in_progress_viewer(tmp_path: Path) -> None:
+    """Verify that an in-progress player (e.g. at round 0) sees actual completion status of finished players."""
+    immich = FakeImmichClient(_create_mock_assets(25))
+    client = build_client(tmp_path, immich)
+
+    # 1. Create a 3-round challenge
+    create_res = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Host', 'game_mode': 'pinpoint', 'round_count': 3, 'round_length': 'unlimited'},
+    )
+    token = create_res.json()['capability_token']
+
+    # 2. Player 1 joins and completes all 3 rounds
+    p1_join = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player1'}).json()
+    t1 = p1_join['session_token']
+    for r in range(3):
+        client.post(
+            f'/api/challenge/{token}/answer',
+            headers={'X-Player-Token': t1},
+            json={'round_index': r, 'guessed_latitude': 10.0, 'guessed_longitude': 10.0, 'time_taken_seconds': 5.0},
+        )
+
+    # 3. Player 2 joins and completes all 3 rounds
+    p2_join = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player2'}).json()
+    t2 = p2_join['session_token']
+    for r in range(3):
+        client.post(
+            f'/api/challenge/{token}/answer',
+            headers={'X-Player-Token': t2},
+            json={'round_index': r, 'guessed_latitude': 10.0, 'guessed_longitude': 10.0, 'time_taken_seconds': 6.0},
+        )
+
+    # 4. Player 3 joins but has not answered any rounds (current_round = 0)
+    p3_join = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player3'}).json()
+    t3 = p3_join['session_token']
+
+    # 5. Player 3 queries leaderboard:
+    # Player 1 and Player 2 MUST be reported with completed_rounds=3 and is_finished=True
+    # Player 3 MUST be reported with completed_rounds=0 and is_finished=False
+    lb_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': t3})
+    assert lb_res.status_code == 200
+    lb = lb_res.json()
+    assert lb['is_game_over'] is False
+    assert len(lb['leaderboard']) == 3
+
+    p_map = {p['player_name']: p for p in lb['leaderboard']}
+    assert p_map['Player1']['is_finished'] is True
+    assert p_map['Player1']['completed_rounds'] == 3
+    assert p_map['Player2']['is_finished'] is True
+    assert p_map['Player2']['completed_rounds'] == 3
+    assert p_map['Player3']['is_finished'] is False
+    assert p_map['Player3']['completed_rounds'] == 0
+    # No winner crowned during in-progress match
+    assert p_map['Player1']['is_winner'] is False
+    assert p_map['Player2']['is_winner'] is False
+    assert p_map['Player3']['is_winner'] is False

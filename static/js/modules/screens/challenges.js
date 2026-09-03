@@ -466,11 +466,12 @@ export function renderChallenges() {
                     <span class="btn-icon">🎮</span>
                     ${t("challenges_page.play_btn")}
                   </a>`
-                : `<a href="/play/${ch.capability_token}/summary" class="btn-secondary btn-results-challenge" data-token="${ch.capability_token}">
-                    <span class="btn-icon">🏆</span>
-                    ${t("challenges_page.results_btn")}
-                  </a>`
+                : ""
             }
+            <a href="/play/${ch.capability_token}/summary" class="btn-secondary btn-results-challenge" data-token="${ch.capability_token}">
+              <span class="btn-icon">🏆</span>
+              ${t("challenges_page.results_btn")}
+            </a>
           </div>
 
           <button type="button" class="btn-standings-toggle ${isStandingsExpanded ? "active" : ""}"
@@ -702,7 +703,6 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
   // Render Mini Podium for Top 3 (only players who finished)
   let podiumHtml = "";
   const finishedEntries = entries.filter((p) => p.is_finished);
-  const hasUnfinishedPlayers = entries.some((p) => !p.is_finished && p.completed_rounds < data.total_rounds);
   if (finishedEntries.length >= 2) {
     const top3 = finishedEntries.slice(0, 3);
     const podiumItems = top3
@@ -722,19 +722,9 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
       })
       .join("");
 
-    const podiumNoteHtml = hasUnfinishedPlayers
-      ? `
-        <div class="podium-finished-note mini-podium-note">
-          <span class="note-icon" aria-hidden="true">🏁</span>
-          <span data-i18n="challenge.podium_finished_notice">${t("challenge.podium_finished_notice")}</span>
-        </div>
-      `
-      : "";
-
     podiumHtml = `
       <div class="mini-podium-container">
         <div class="mini-podium-bar">${podiumItems}</div>
-        ${podiumNoteHtml}
       </div>
     `;
   }

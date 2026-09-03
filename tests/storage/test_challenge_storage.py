@@ -336,12 +336,16 @@ def test_challenge_standings_and_fog_of_war(tmp_path: Path) -> None:
     assert standings_r0[0].player_name == 'Alice'
     assert standings_r0[0].total_score == 180
     assert standings_r0[0].rank == 1
-    assert standings_r0[0].completed_rounds == 1
+    assert standings_r0[0].completed_rounds == 3
+    assert standings_r0[0].is_finished is True
+    assert standings_r0[0].is_winner is False
     # Bob had 150 in Round 0 (rank 2)
     assert standings_r0[1].player_name == 'Bob'
     assert standings_r0[1].total_score == 150
     assert standings_r0[1].rank == 2
     assert standings_r0[1].completed_rounds == 1
+    assert standings_r0[1].is_finished is False
+    assert standings_r0[1].is_winner is False
 
     # Fog of War for guesses: Bob queries guesses up to Round 0
     guesses_r0 = lb_store.get_challenge_round_guesses(ch_id, max_round=0)

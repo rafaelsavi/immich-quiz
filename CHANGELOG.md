@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Challenge Carousel Round Date Breakdown**:
+  - Replaced unstructured `date-chips-list` with a structured `round-date-table` in the Grand Reveal carousel.
+  - Promoted actual date ground truth into a dedicated `.date-comp-truth` header badge.
+  - Added columnar alignment for player identity (with map pin color dots and crown badges), guessed date, localized error duration (`formatMonthError`), and awarded points.
+  - Sorted player rows by date accuracy to immediately highlight round winners.
+
+### Fixed
+
+- **Challenge Multi-Tab Session Isolation & Fog of War Round Count**:
+  - Implemented two-tier storage for challenge sessions (`sessionStorage` for tab-scoped isolation, preventing cross-tab identity leaks on reload, plus player-indexed dictionary in `localStorage` to preserve multiple player sessions on the same device).
+  - Fixed `get_challenge_standings` to accurately report each participant's actual completed round count and finished status under Fog of War, preventing in-progress players from seeing all finished players downgraded to in-progress pills.
+  - Restricted winner crowning (`is_winner`) strictly to settled/full challenge views (`max_round is None`), preventing premature winner crowns during partial in-progress views.
+
+
+## [3.0.0] - 2026-09-03
+
 ### Added
 
 - **Asynchronous Multiplayer Challenge Mode**:
@@ -24,6 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Challenges Hub Actions**:
+  - Both active and inactive challenge cards now consistently display the Results button (`btn-results-challenge`), allowing quick standings review and summary inspection at any stage.
 - **Navigation & Ergonomics**:
   - Replaced button navigation with standard semantic links (`<a href="/">`, `<a href="/challenges">`) supporting native middle-click, new tab, and browser history.
   - Added dedicated Home navigation button (`#home-nav-btn`) in header controls with active route synchronization.
@@ -37,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Preserved full card contrast and legibility for inactive and expired challenges.
 - **Developer Tooling & Testing**:
   - Restructured the `tests/` directory into dedicated functional domains mirroring `src/` (`tests/api/`, `tests/storage/`, `tests/game/`, `tests/frontend/`, etc.).
+
+### Removed
+
+- **Redundant Podium Completion Notice**:
+  - Removed the `challenge.podium_finished_notice` disclaimer from the Grand Reveal summary and Challenges Hub mini-podium; round completion progress is already clearly communicated by table completion badges (`✓ 5/5` vs `⏳ 2/5`) and the live header status pill.
 
 ### Fixed
 

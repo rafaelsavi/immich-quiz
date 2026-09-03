@@ -375,3 +375,108 @@ async def test_challenges_hub_standings_drawer_col_rank(page: Page, e2e_server: 
     assert rank_text is not None
     assert 'unknown' not in rank_text.lower()
     assert '1' in rank_text
+
+
+async def test_challenge_multi_tab_session_isolation_and_standings_on_reload(page: Page, e2e_server: str) -> None:
+    """Verify that multiple tabs in the same browser maintain isolated player identities on reload.
+
+    When Player 1 and Player 2 finish, and Player 3 starts the challenge in a 3rd tab,
+    reloading the results page in Tab 1 and Tab 2 must NOT overwrite Player 1 or Player 2
+    with Player 3's in-progress state or pill.
+    """
+    # 1. Create a 3-round challenge
+    async with httpx.AsyncClient(base_url=e2e_server) as client:
+        res = await client.post(
+            '/api/challenge/create',
+            json={
+                'title': 'Multi-Tab Isolation Challenge',
+                'creator_name': 'Host',
+                'game_mode': 'pinpoint',
+                'location_mode': True,
+                'date_mode': False,
+                'round_count': 3,
+                'round_length': 'unlimited',
+            },
+        )
+        assert res.status_code == 200
+        token = res.json()['capability_token']
+
+    # 2. Tab 1: Player 1 (Alice) plays and finishes all 3 rounds
+    await page.goto(f'/play/{token}')
+    await expect(page.locator('#challenge-card')).to_be_visible()
+    await page.locator('#player-name-input').fill('Alice')
+    await page.locator('#challenge-start-btn').click()
+
+    for _ in range(3):
+        await expect(page.locator('#game-card')).to_be_visible()
+        guess_map = page.locator('#guess-map')
+        await expect(guess_map).to_be_visible()
+        await guess_map.click(position={'x': 110, 'y': 110})
+        await page.locator('#submit-answer').click()
+        await expect(page.locator('#reveal-ui')).to_be_visible()
+        await page.locator('#next-round').click()
+
+    await expect(page.locator('.challenge-invite')).to_be_visible()
+    await page.locator('#challenge-see-results-btn').click()
+    await expect(page.locator('.challenge-grand-reveal')).to_be_visible()
+
+    # Verify Tab 1 shows Alice as (You) with finished 3/3 pill
+    alice_row_tab1 = page.locator('tr[data-player-name="Alice"]')
+    await expect(alice_row_tab1).to_be_visible()
+    await expect(alice_row_tab1.locator('.challenge-you-tag')).to_have_text('(You)')
+    await expect(alice_row_tab1.locator('.challenge-rounds-pill.finished')).to_contain_text('3/3')
+
+    # 3. Tab 2: Player 2 (Bob) plays and finishes all 3 rounds
+    page2 = await page.context.new_page()
+    await page2.goto(f'/play/{token}')
+    await expect(page2.locator('#challenge-card')).to_be_visible()
+    await page2.locator('#player-name-input').fill('Bob')
+    await page2.locator('#challenge-start-btn').click()
+
+    for _ in range(3):
+        await expect(page2.locator('#game-card')).to_be_visible()
+        p2_map = page2.locator('#guess-map')
+        await expect(p2_map).to_be_visible()
+        await p2_map.click(position={'x': 130, 'y': 130})
+        await page2.locator('#submit-answer').click()
+        await expect(page2.locator('#reveal-ui')).to_be_visible()
+        await page2.locator('#next-round').click()
+
+    await expect(page2.locator('.challenge-invite')).to_be_visible()
+    await page2.locator('#challenge-see-results-btn').click()
+    await expect(page2.locator('.challenge-grand-reveal')).to_be_visible()
+
+    # Verify Tab 2 shows Bob as (You) with finished 3/3 pill
+    bob_row_tab2 = page2.locator('tr[data-player-name="Bob"]')
+    await expect(bob_row_tab2).to_be_visible()
+    await expect(bob_row_tab2.locator('.challenge-you-tag')).to_have_text('(You)')
+    await expect(bob_row_tab2.locator('.challenge-rounds-pill.finished')).to_contain_text('3/3')
+
+    # 4. Tab 3: Player 3 (Charlie) starts challenge (round 0 in-progress)
+    page3 = await page.context.new_page()
+    await page3.goto(f'/play/{token}')
+    await expect(page3.locator('#challenge-card')).to_be_visible()
+    await page3.locator('#player-name-input').fill('Charlie')
+    await page3.locator('#challenge-start-btn').click()
+    await expect(page3.locator('#game-card')).to_be_visible()
+
+    # 5. Reload Tab 1 (Alice)
+    await page.reload()
+    await expect(page.locator('.challenge-grand-reveal')).to_be_visible()
+    await expect(page.locator('tr[data-player-name="Alice"] .challenge-you-tag')).to_have_text('(You)')
+    await expect(page.locator('tr[data-player-name="Alice"] .challenge-rounds-pill.finished')).to_contain_text('3/3')
+    await expect(page.locator('tr[data-player-name="Bob"] .challenge-rounds-pill.finished')).to_contain_text('3/3')
+    charlie_pill_tab1 = page.locator('tr[data-player-name="Charlie"] .challenge-rounds-pill.in-progress')
+    await expect(charlie_pill_tab1).to_contain_text('0/3')
+
+    # 6. Reload Tab 2 (Bob)
+    await page2.reload()
+    await expect(page2.locator('.challenge-grand-reveal')).to_be_visible()
+    await expect(page2.locator('tr[data-player-name="Bob"] .challenge-you-tag')).to_have_text('(You)')
+    await expect(page2.locator('tr[data-player-name="Alice"] .challenge-rounds-pill.finished')).to_contain_text('3/3')
+    await expect(page2.locator('tr[data-player-name="Bob"] .challenge-rounds-pill.finished')).to_contain_text('3/3')
+    charlie_pill_tab2 = page2.locator('tr[data-player-name="Charlie"] .challenge-rounds-pill.in-progress')
+    await expect(charlie_pill_tab2).to_contain_text('0/3')
+
+    await page2.close()
+    await page3.close()

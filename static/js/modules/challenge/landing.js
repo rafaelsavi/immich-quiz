@@ -196,6 +196,9 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
       if (savedSession.playerColor) {
         registerPlayerColor(savedSession.playerName, savedSession.playerColor);
       }
+      if (data?.capability_token) {
+        challengeSession.saveSession(data.capability_token, savedSession);
+      }
       if (onStart) {
         onStart(savedSession.playerName, savedSession.playerColor);
       }
@@ -205,6 +208,14 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
   const viewResultsBtn = document.getElementById("challenge-see-results-btn");
   if (viewResultsBtn && onSeeResults) {
     viewResultsBtn.addEventListener("click", () => {
+      if (savedSession && !challengeSession.sessionToken && data?.capability_token) {
+        challengeSession.sessionToken = savedSession.token;
+        challengeSession.sessionPlayerName = savedSession.playerName;
+        if (savedSession.playerColor) {
+          registerPlayerColor(savedSession.playerName, savedSession.playerColor);
+        }
+        challengeSession.saveSession(data.capability_token, savedSession);
+      }
       onSeeResults();
     });
   }
@@ -280,15 +291,9 @@ export function refreshLanguage(onStart, onSeeResults) {
   // 2. Refresh landing / entry screen if currently displayed
   const landingEl = el.challengeCard.querySelector(".challenge-landing");
   if (landingEl && challengeSession.challengeData && !challengeSession.sessionToken) {
-    const savedSessionRaw = challengeSession.challengeData.capability_token
-      ? localStorage.getItem(challengeSession.sessionKey(challengeSession.challengeData.capability_token))
+    const savedSession = challengeSession.challengeData.capability_token
+      ? challengeSession.loadSession(challengeSession.challengeData.capability_token)
       : null;
-    let savedSession = null;
-    if (savedSessionRaw) {
-      try {
-        savedSession = JSON.parse(savedSessionRaw);
-      } catch (_) {}
-    }
     renderLandingScreen(challengeSession.challengeData, savedSession, onStart, onSeeResults);
   }
 

@@ -32,16 +32,8 @@ export const challengeGame = {
       state.gameMode = challengeSession.challengeData.game_mode || "pinpoint";
       state.mapBounds = challengeSession.challengeData.map_bounds || null;
 
-      // Check for existing session in localStorage
-      const savedSessionRaw = localStorage.getItem(challengeSession.sessionKey(capabilityToken));
-      let savedSession = null;
-      if (savedSessionRaw) {
-        try {
-          savedSession = JSON.parse(savedSessionRaw);
-        } catch (_) {
-          localStorage.removeItem(challengeSession.sessionKey(capabilityToken));
-        }
-      }
+      // Check for existing session (prioritizes tab's sessionStorage, falls back to localStorage)
+      const savedSession = challengeSession.loadSession(capabilityToken);
 
       renderLandingScreen(challengeSession.challengeData, savedSession, onStart, onSeeResults);
     } catch (err) {
@@ -63,17 +55,14 @@ export const challengeGame = {
       state.gameMode = challengeSession.challengeData.game_mode || "pinpoint";
       state.mapBounds = challengeSession.challengeData.map_bounds || null;
 
-      // Check for existing session in localStorage
-      const savedSessionRaw = localStorage.getItem(challengeSession.sessionKey(capabilityToken));
-      if (savedSessionRaw) {
-        try {
-          const savedSession = JSON.parse(savedSessionRaw);
-          challengeSession.sessionToken = savedSession.token;
-          challengeSession.sessionPlayerName = savedSession.playerName;
-          if (savedSession.playerColor) {
-            registerPlayerColor(savedSession.playerName, savedSession.playerColor);
-          }
-        } catch (_) {}
+      // Check for existing session in this tab first (strictly isolated per tab)
+      const savedSession = challengeSession.loadSession(capabilityToken, { tabOnly: true });
+      if (savedSession) {
+        challengeSession.sessionToken = savedSession.token;
+        challengeSession.sessionPlayerName = savedSession.playerName;
+        if (savedSession.playerColor) {
+          registerPlayerColor(savedSession.playerName, savedSession.playerColor);
+        }
       }
 
       if (onShowSummary) {
@@ -117,16 +106,13 @@ export const challengeGame = {
       const activeColor = res.player_color || preferredColor || playerColor(res.player_name);
       registerPlayerColor(res.player_name, activeColor);
 
-      // Persist session in localStorage for resume
-      localStorage.setItem(
-        challengeSession.sessionKey(challengeSession.challengeData.capability_token),
-        JSON.stringify({
-          token: challengeSession.sessionToken,
-          matchId: res.match_id,
-          playerName: challengeSession.sessionPlayerName,
-          playerColor: activeColor,
-        })
-      );
+      // Persist session into tab-scoped sessionStorage and player-indexed localStorage
+      challengeSession.saveSession(challengeSession.challengeData.capability_token, {
+        token: challengeSession.sessionToken,
+        matchId: res.match_id,
+        playerName: challengeSession.sessionPlayerName,
+        playerColor: activeColor,
+      });
 
       if (res.is_resumed && res.current_round >= res.total_rounds) {
         if (onShowSummary) onShowSummary();

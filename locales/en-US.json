@@ -354,7 +354,6 @@
   "challenge.new_player_placeholder": "Enter your name...",
   "challenge.join_heading": "Join Challenge",
   "challenge.join_desc": "Enter your name to start playing this match.",
-  "challenge.podium_finished_notice": "Podium results only count for players who completed all rounds.",
   "challenge.current_leader": "🏆 Current Leader: {0}",
   "challenge.current_leader_tie": "🏆 Current Leaders: {0}",
   "challenge.true_date": "Actual Date",

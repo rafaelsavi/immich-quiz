@@ -1024,11 +1024,13 @@ def test_challenges_page_share_drawer_and_results_button() -> None:
     assert 'share-qr-display' in challenges_page_js
     assert 'btn-copy-share-url' in challenges_page_js
 
-    # 4. Inactive challenges render Results button deep linking to /play/:token/summary
+    # 4. Challenge cards render Results button (both active & inactive) deep linking to /play/:token/summary
     assert 'btn-results-challenge' in challenges_page_js
     assert '.btn-results-challenge' in challenge_css
+    assert 'btn-play-challenge' in challenges_page_js
     assert '/play/${ch.capability_token}/summary' in challenges_page_js
     assert 'navigate(`/play/${token}/summary`)' in challenges_page_js
+    assert 'navigate(`/play/${token}`)' in challenges_page_js
 
     # 5. Redundant footer copy button removed
     assert '.footer-left-actions .btn-copy-challenge-link' not in challenge_css
@@ -1385,3 +1387,22 @@ def test_carousel_photo_img_fit_contain_no_scale_clipping() -> None:
     assert 'width: auto;\n  height: auto;\n  max-width: 100%;\n  max-height: 100%;' in challenge_css
     assert '.carousel-photo-img:hover {\n  opacity: 0.95;\n}' in challenge_css
     assert '.carousel-photo-img:hover {\n  transform: scale(1.02);\n}' not in challenge_css
+
+
+def test_challenge_carousel_round_date_comparison_table() -> None:
+    """Verify that summary.js renders a structured comparison table instead of chips."""
+    summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # Verify table markup and sorting in summary.js
+    assert 'table class="summary-table round-date-table"' in summary_js
+    assert 'date-comp-truth' in summary_js
+    assert 'formatMonthError(guessWithActual)' in summary_js
+    assert 'formatPlayerCellHtml(g.player_name' in summary_js
+    assert 'sort((a, b) => (b.date_points || 0) - (a.date_points || 0)' in summary_js
+
+    # Verify CSS rules exist for table and mobile responsiveness
+    assert '.round-date-table {' in challenge_css
+    assert '.date-comp-truth {' in challenge_css
+    assert '.date-table-scroll {' in challenge_css
+    assert '.round-date-table .player-name-text {' in challenge_css

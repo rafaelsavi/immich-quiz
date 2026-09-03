@@ -1147,6 +1147,19 @@ class LeaderboardStore:
 
         # Batch-prefetch guess rows across all challenge participants in a single query (avoids N+1 query loop)
         guesses_by_session: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        all_guess_rounds: dict[tuple[str, str], set[int]] = {}
+
+        all_round_rows = self._db.fetch_all(
+            """
+            SELECT match_id, player_name, round_index
+            FROM match_round_guesses
+            WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
+            """,
+            (challenge_id,),
+        )
+        for r in all_round_rows:
+            all_guess_rounds.setdefault((r['match_id'], r['player_name']), set()).add(r['round_index'])
+
         if max_round is not None and max_round >= 0:
             all_guess_rows = self._db.fetch_all(
                 """
@@ -1167,6 +1180,14 @@ class LeaderboardStore:
             p_name = s['player_name']
             m_id = s['match_id']
 
+            rounds_from_guesses = len(all_guess_rounds.get((m_id, p_name), set()))
+            actual_completed_rounds = max(int(s.get('current_round', 0)), rounds_from_guesses)
+            actual_is_finished = bool(s.get('completed_at')) or actual_completed_rounds >= total_rounds
+            if actual_is_finished and actual_completed_rounds < total_rounds:
+                actual_completed_rounds = total_rounds
+
+            max_score = max_possible_score(total_rounds, location_mode, date_mode)
+
             if max_round is not None:
                 if max_round < 0:
                     entries.append(
@@ -1175,20 +1196,17 @@ class LeaderboardStore:
                             'location_score': 0 if location_mode else None,
                             'date_score': 0 if date_mode else None,
                             'total_score': 0,
-                            'max_possible_score': max_possible_score(total_rounds, location_mode, date_mode),
+                            'max_possible_score': max_score,
                             'accuracy_pct': 0.0,
                             'total_time_seconds': 0.0,
-                            'completed_rounds': 0,
-                            'is_finished': False,
+                            'completed_rounds': actual_completed_rounds,
+                            'is_finished': actual_is_finished,
                             'player_color': s.get('player_color'),
                         }
                     )
                     continue
 
                 guess_rows = guesses_by_session.get((m_id, p_name), [])
-
-                distinct_rounds = {r['round_index'] for r in guess_rows}
-                completed_r = len(distinct_rounds)
 
                 loc_pts = sum(r['location_points'] or 0 for r in guess_rows) if location_mode else None
                 dt_pts = sum(r['date_points'] or 0 for r in guess_rows) if date_mode else None
@@ -1200,9 +1218,7 @@ class LeaderboardStore:
                         round_times[r_idx] = r['time_taken_seconds'] or 0.0
                 tot_time = sum(round_times.values())
 
-                max_score = max_possible_score(total_rounds, location_mode, date_mode)
                 acc = accuracy_pct(tot_score, max_score)
-                is_fin = bool(s.get('completed_at')) and completed_r >= total_rounds
 
                 entries.append(
                     {
@@ -1213,16 +1229,14 @@ class LeaderboardStore:
                         'max_possible_score': max_score,
                         'accuracy_pct': acc,
                         'total_time_seconds': tot_time,
-                        'completed_rounds': completed_r,
-                        'is_finished': is_fin,
+                        'completed_rounds': actual_completed_rounds,
+                        'is_finished': actual_is_finished,
                         'player_color': s.get('player_color'),
                     }
                 )
             else:
-                max_score = max_possible_score(total_rounds, location_mode, date_mode)
                 tot_score = s['total_score']
                 acc = accuracy_pct(tot_score, max_score)
-                is_fin = bool(s.get('completed_at')) or int(s.get('current_round', 0)) >= total_rounds
 
                 entries.append(
                     {
@@ -1233,8 +1247,8 @@ class LeaderboardStore:
                         'max_possible_score': max_score,
                         'accuracy_pct': acc,
                         'total_time_seconds': float(s['total_time_seconds']),
-                        'completed_rounds': int(s.get('current_round', 0)),
-                        'is_finished': is_fin,
+                        'completed_rounds': actual_completed_rounds,
+                        'is_finished': actual_is_finished,
                         'player_color': s.get('player_color'),
                     }
                 )
@@ -1257,7 +1271,7 @@ class LeaderboardStore:
                 prev_total = tot
                 prev_time = t_sec
 
-            is_win = bool(item['is_finished'] and tot == best_score and tot > 0)
+            is_win = bool(max_round is None and item['is_finished'] and tot == best_score and tot > 0)
 
             ranked_entries.append(
                 ChallengeLeaderboardEntry(
