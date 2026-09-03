@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     is_correct_date_order INTEGER,                    -- 1 if correct, 0 if wrong, NULL for pinpoint
     time_taken_seconds REAL,                          -- Time spent answering this specific turn/question
     submitted_at       TEXT NOT NULL,
+    assigned_pin_id    TEXT,                          -- Pin ID assigned in album shuffle mode
+    assigned_timeline_index INTEGER,                  -- Timeline order index assigned in album shuffle mode
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
 
@@ -224,9 +226,22 @@ def _build_round_history_from_guesses(
                     p_dt = _parse_iso_date(g.get('actual_date'))
                     p_idx_raw = g.get('photo_index')
                     p_idx = int(p_idx_raw) if p_idx_raw is not None else 0
+                    # Determine true_pin_id from verified correct guess rows if available
+                    true_pin: str | None = None
+                    for check_g in r_guesses:
+                        if (
+                            check_g.get('asset_id') == p_id
+                            and check_g.get('is_correct_location') == 1
+                            and check_g.get('assigned_pin_id')
+                        ):
+                            true_pin = str(check_g['assigned_pin_id'])
+                            break
+                    if not true_pin:
+                        true_pin = chr(65 + p_idx)
+
                     unique_photos[p_id] = {
                         'photo_id': p_id,
-                        'true_pin_id': chr(65 + p_idx),
+                        'true_pin_id': true_pin,
                         'actual_latitude': g.get('actual_latitude'),
                         'actual_longitude': g.get('actual_longitude'),
                         'actual_date': g.get('actual_date'),
@@ -284,6 +299,10 @@ class LeaderboardStore:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN actual_city TEXT')
                 if 'actual_country' not in existing_cols:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN actual_country TEXT')
+                if 'assigned_pin_id' not in existing_cols:
+                    conn.execute('ALTER TABLE match_round_guesses ADD COLUMN assigned_pin_id TEXT')
+                if 'assigned_timeline_index' not in existing_cols:
+                    conn.execute('ALTER TABLE match_round_guesses ADD COLUMN assigned_timeline_index INTEGER')
             cursor_m = conn.execute('PRAGMA table_info(matches)')
             existing_match_cols = {row[1] for row in cursor_m.fetchall()}
             if existing_match_cols and 'person_names_json' not in existing_match_cols:
@@ -423,8 +442,9 @@ class LeaderboardStore:
                             distance_km, location_points, guess_date, actual_date,
                             date_diff_days, date_points, round_score,
                             is_correct_location, is_correct_date_order,
-                            time_taken_seconds, submitted_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            time_taken_seconds, submitted_at,
+                            assigned_pin_id, assigned_timeline_index
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             rg.get('match_id', match_id),
@@ -450,6 +470,8 @@ class LeaderboardStore:
                             rg.get('is_correct_date_order'),
                             rg.get('time_taken_seconds'),
                             rg.get('submitted_at', played_at),
+                            rg.get('assigned_pin_id'),
+                            rg.get('assigned_timeline_index'),
                         ),
                     )
 
@@ -878,6 +900,8 @@ class LeaderboardStore:
         is_correct_date_order: int | None = None,
         time_taken_seconds: float = 0.0,
         submitted_at: str | None = None,
+        assigned_pin_id: str | None = None,
+        assigned_timeline_index: int | None = None,
     ) -> None:
         """Persist a single player's guess for a challenge round."""
         now_iso = submitted_at or datetime.now(timezone.utc).isoformat()
@@ -913,8 +937,9 @@ class LeaderboardStore:
                     distance_km, location_points, guess_date, actual_date,
                     date_diff_days, date_points, round_score,
                     is_correct_location, is_correct_date_order,
-                    time_taken_seconds, submitted_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    time_taken_seconds, submitted_at,
+                    assigned_pin_id, assigned_timeline_index
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
@@ -940,6 +965,8 @@ class LeaderboardStore:
                     is_correct_date_order,
                     time_taken_seconds,
                     now_iso,
+                    assigned_pin_id,
+                    assigned_timeline_index,
                 ),
             )
 
@@ -1322,6 +1349,12 @@ class LeaderboardStore:
                     ),
                     is_correct_date_order=(
                         bool(row['is_correct_date_order']) if row.get('is_correct_date_order') is not None else None
+                    ),
+                    photo_index=int(row['photo_index']) if row.get('photo_index') is not None else 0,
+                    asset_id=row.get('asset_id'),
+                    assigned_pin_id=row.get('assigned_pin_id'),
+                    assigned_timeline_index=(
+                        int(row['assigned_timeline_index']) if row.get('assigned_timeline_index') is not None else None
                     ),
                 )
             )

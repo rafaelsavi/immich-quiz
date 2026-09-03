@@ -29,33 +29,44 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await expect(page.locator('#setup-card')).to_be_hidden()
     await expect(page.locator('#challenges-nav-btn')).to_have_class(re.compile(r'active'))
 
-    # Click home navigation button to return to lobby
+    # Verify both nav items are standard links with href attributes
+    await expect(page.locator('#home-nav-btn')).to_have_attribute('href', '/')
+    await expect(page.locator('#challenges-nav-btn')).to_have_attribute('href', '/challenges')
+
+    # Click home navigation link to return to lobby
     await page.locator('#home-nav-btn').click()
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#challenges-page-card')).to_be_hidden()
     await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
-    # Go back to challenges via button
+    # Go back to challenges via link
     await page.locator('#challenges-nav-btn').click()
     await expect(page.locator('#challenges-page-card')).to_be_visible()
     await expect(page.locator('#setup-card')).to_be_hidden()
 
-    # Return to lobby via home navigation button
+    # Click header navigation link again: it must ALWAYS navigate to /challenges (not toggle back to lobby)
+    await page.locator('#challenges-nav-btn').click()
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+    await expect(page.locator('#challenges-nav-btn')).to_have_class(re.compile(r'active'))
+
+    # Verify opening challenges link in new tab (middle click)
+    async with page.context.expect_page() as new_tab_info:
+        await page.locator('#challenges-nav-btn').click(button='middle')
+    new_tab = await new_tab_info.value
+    await expect(new_tab).to_have_url(re.compile(r'/challenges$'))
+    await expect(new_tab.locator('#challenges-page-card')).to_be_visible()
+    await new_tab.close()
+
+    # Return to lobby via home navigation link and verify history entry navigation
     await page.locator('#home-nav-btn').click()
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#challenges-page-card')).to_be_hidden()
     await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
-    # Click header navigation button to go to /challenges
-    await page.locator('#challenges-nav-btn').click()
+    await page.go_back()
     await expect(page.locator('#challenges-page-card')).to_be_visible()
     await expect(page.locator('#setup-card')).to_be_hidden()
-
-    # Click header navigation button again to toggle back to lobby
-    await page.locator('#challenges-nav-btn').click()
-    await expect(page.locator('#setup-card')).to_be_visible()
-    await expect(page.locator('#challenges-page-card')).to_be_hidden()
-    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
     # 4. Unknown route
     await page.goto('/unknown/nested/page')
@@ -96,6 +107,7 @@ async def test_active_match_reload_recovery(page: Page) -> None:
     # 2. Submit answer to reach Reveal screen
     await page.locator('#submit-answer').click()
     await expect(page.locator('#reveal-ui')).to_be_visible()
+    await expect(page.locator('#leaderboard-card')).to_be_hidden()
 
     # 3. Reload while on Reveal screen
     await page.reload()
@@ -105,6 +117,7 @@ async def test_active_match_reload_recovery(page: Page) -> None:
     await expect(page.locator('#reveal-ui')).to_be_visible()
     await expect(page.locator('#reveal-table')).to_be_visible()
     await expect(page.locator('#next-round')).to_be_visible()
+    await expect(page.locator('#leaderboard-card')).to_be_hidden()
 
 
 async def test_expired_or_invalid_match_url_navigation(page: Page) -> None:

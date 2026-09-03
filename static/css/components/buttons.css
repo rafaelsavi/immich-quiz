@@ -16,6 +16,8 @@
   flex-shrink: 0;
   cursor: pointer;
   position: relative;
+  text-decoration: none;
+  color: inherit;
 }
 
 .challenges-nav-btn.active,

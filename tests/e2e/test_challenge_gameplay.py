@@ -65,6 +65,7 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
 
     # 5. Verify personal reveal screen is shown without 422 error
     await expect(page.locator('#reveal-ui')).to_be_visible()
+    await expect(page.locator('#leaderboard-card')).to_be_hidden()
     assert not error_alerts, f'Unexpected alert popups: {error_alerts}'
     assert not any('422' in r for r in failed_responses), f'422 errors occurred: {failed_responses}'
 
@@ -162,6 +163,11 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
     await expect(page2.locator('.challenge-grand-reveal')).to_be_visible()
     await expect(page2.locator('#grand-reveal-podium')).to_be_visible()
     await expect(page2.locator('#grand-reveal-table')).to_be_visible()
+
+    # Verify Player 1's open Grand Reveal page dynamically unlocked the podium via background polling!
+    await expect(page.locator('#grand-reveal-podium')).to_be_visible()
+    await expect(page.locator('#grand-reveal-live-status')).to_contain_text('2/2 finished')
+
     await page2.close()
 
 

@@ -624,6 +624,11 @@
   font-weight: 600;
   color: var(--ink);
   margin-bottom: 2rem;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.challenge-invite-counter.bump {
+  animation: pillBump 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ----------------------------------------------------------------- Grand Reveal */
@@ -843,26 +848,28 @@
   border: 1px solid #d5dcec;
   background: #eef2fb;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   height: var(--quiz-map-height, 420px);
   min-height: 280px;
+  padding: 4px;
 }
 
 .carousel-photo-img {
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  border-radius: 14px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.2s ease;
 }
 
 .carousel-photo-img:hover {
-  transform: scale(1.02);
+  opacity: 0.95;
 }
 
 .carousel-photo-zoom-btn {
@@ -1874,6 +1881,7 @@ tr.highlight-player-row {
 
 .col-player {
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .winner-crown {
@@ -2296,3 +2304,160 @@ tr.highlight-player-row {
     max-width: 180px;
   }
 }
+
+/* ----------------------------------------------------------------- Real-Time Activity Toasts (Option 1) */
+.activity-toast-container {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  z-index: 10050;
+  pointer-events: none;
+  width: 90%;
+  max-width: 480px;
+}
+
+.activity-toast {
+  pointer-events: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  background: rgba(255, 253, 248, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-light, rgba(31, 42, 68, 0.12));
+  border-left: 4px solid var(--toast-accent, var(--accent));
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  opacity: 0;
+  transform: translateY(-20px) scale(0.96);
+  transition: opacity 0.32s cubic-bezier(0.16, 1, 0.3, 1), transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.activity-toast.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.activity-toast.hide {
+  opacity: 0;
+  transform: translateY(-16px) scale(0.92);
+}
+
+.activity-toast-leading {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.activity-toast-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.activity-toast-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.activity-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-toast-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-toast-subtitle {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.25;
+  margin-top: 0.1rem;
+}
+
+.activity-toast-score {
+  font-size: 0.95rem;
+  color: var(--accent);
+  background: rgba(15, 124, 127, 0.1);
+  padding: 0.2rem 0.55rem;
+  border-radius: 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------- Animated Table Row Flash (Option 2) */
+@keyframes rowArrivalPulse {
+  0% {
+    background-color: var(--player-accent-alpha, rgba(46, 117, 246, 0.32));
+    box-shadow: inset 0 0 0 2px var(--player-accent, #2e75f6);
+  }
+  35% {
+    background-color: var(--player-accent-alpha, rgba(46, 117, 246, 0.2));
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.row-arrival-flash {
+  animation: rowArrivalPulse 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ----------------------------------------------------------------- Live Header Activity Badge (Option 3) */
+.challenge-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.26rem 0.75rem;
+  background: var(--bg-surface-secondary, #f8fafc);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  vertical-align: middle;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.challenge-live-pill.bump {
+  animation: pillBump 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pillBump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.12);
+    background-color: rgba(16, 185, 129, 0.18);
+    border-color: #10b981;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+

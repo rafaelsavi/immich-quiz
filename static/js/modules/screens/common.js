@@ -4,6 +4,7 @@ import { unregisterActiveMap } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { t } from "../i18n.js";
 import { challenge } from "../challenge/index.js";
+import { clearActivityToasts } from "../components/activity_toast.js";
 
 export function clearRevealAnimation() {
   if (state.revealAnimationFrameId !== null) {
@@ -18,7 +19,15 @@ export function clearRevealAnimation() {
 
 export function showCard(cardEl) {
   clearRevealAnimation();
-  [el.setupCard, el.gameCard, el.summaryCard, el.gameEndedCard, el.challengeCard, el.challengesPageCard].forEach((c) => {
+  [
+    el.setupCard,
+    el.gameCard,
+    el.summaryCard,
+    el.gameEndedCard,
+    el.challengeCard,
+    el.challengesPageCard,
+    el.leaderboardCard,
+  ].forEach((c) => {
     if (c) c.classList.add("hidden");
   });
   if (cardEl) cardEl.classList.remove("hidden");
@@ -51,6 +60,8 @@ export function resetGameUi() {
   if (el.passOverlay) el.passOverlay.classList.add("hidden");
   if (el.guessingUi) el.guessingUi.classList.add("hidden");
   if (el.revealUi) el.revealUi.classList.add("hidden");
+  document.getElementById("challenge-round-live-pill")?.remove();
+  clearActivityToasts();
   if (el.gameRestartBtn) el.gameRestartBtn.classList.remove("hidden");
   if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");
   if (el.timeoutNotice) {

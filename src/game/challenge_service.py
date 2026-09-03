@@ -633,6 +633,8 @@ class ChallengeService:
                 is_correct_location=is_correct_loc,
                 is_correct_date_order=is_correct_date,
                 time_taken_seconds=body.time_taken_seconds,
+                assigned_pin_id=str(assigned_pin_id) if assigned_pin_id else None,
+                assigned_timeline_index=assigned_timeline_index,
             )
 
         # Advance session state

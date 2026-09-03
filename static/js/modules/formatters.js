@@ -274,9 +274,33 @@ export function formatMonthError(result) {
     return "-";
   }
 
-  const years = result.date_diff_years_part ?? 0;
-  const months = result.date_diff_months_part ?? 0;
-  const days = result.date_diff_days_part ?? result.date_diff_days ?? 0;
+  let years = result.date_diff_years_part;
+  let months = result.date_diff_months_part;
+  let days = result.date_diff_days_part;
+
+  if ((years === undefined || months === undefined) && result.guessed_year && result.guessed_month) {
+    const actYear = result.actual_year ?? state.lastReveal?.actual_year;
+    const actMonth = result.actual_month ?? state.lastReveal?.actual_month;
+    if (actYear && actMonth) {
+      const diffTotalMonths = Math.abs((result.guessed_year - actYear) * 12 + (result.guessed_month - actMonth));
+      years = Math.floor(diffTotalMonths / 12);
+      months = diffTotalMonths % 12;
+      days = 0;
+    }
+  }
+
+  if ((years === undefined || months === undefined) && result.date_diff_days !== null && result.date_diff_days !== undefined) {
+    if (result.date_diff_days >= 30) {
+      const totalMonthsApprox = Math.round(result.date_diff_days / 30.4375);
+      years = Math.floor(totalMonthsApprox / 12);
+      months = totalMonthsApprox % 12;
+      days = 0;
+    }
+  }
+
+  years = years ?? 0;
+  months = months ?? 0;
+  days = days ?? result.date_diff_days ?? 0;
 
   if (years === 0 && months === 0) {
     const dayWord = days === 1 ? t("fmt.day") : t("fmt.days");
@@ -318,6 +342,7 @@ export function playerBadge(playerName) {
 
 export function playerNameCell(playerName, timedOut = false) {
   const wrap = document.createElement("span");
+  wrap.className = "player-cell";
   const nameSpan = document.createElement("span");
   nameSpan.className = "player-name-text";
   nameSpan.textContent = playerName;

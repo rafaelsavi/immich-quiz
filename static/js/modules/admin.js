@@ -70,10 +70,18 @@ export function generateAutoChallengeTitle() {
   const summary = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : "";
   const fullLibLabel = tOr("filters.full_library", t("leaderboard.scope_all"));
 
+  const suffix = ` • ${modeName} (${rounds}R)`;
   if (summary && summary !== fullLibLabel && summary !== t("setup.filters_summary_default")) {
-    return `${summary} • ${modeName} (${rounds}R)`;
+    const maxSummaryLen = 100 - suffix.length;
+    let cleanSummary = summary;
+    if (cleanSummary.length > maxSummaryLen) {
+      cleanSummary = cleanSummary.slice(0, Math.max(10, maxSummaryLen - 1)).trimEnd() + "…";
+    }
+    const fullTitle = `${cleanSummary}${suffix}`;
+    return fullTitle.length > 100 ? fullTitle.slice(0, 99) + "…" : fullTitle;
   }
-  return `${modeName} • ${rounds} Rounds`;
+  const defaultTitle = `${modeName} • ${rounds} Rounds`;
+  return defaultTitle.length > 100 ? defaultTitle.slice(0, 99) + "…" : defaultTitle;
 }
 
 /**
@@ -263,7 +271,10 @@ async function handleGenerateChallenge(e) {
     localStorage.setItem(CREATOR_NAME_STORAGE_KEY, creatorName);
   } catch (_) {}
 
-  const title = _titleInput?.value?.trim() || generateAutoChallengeTitle();
+  let title = _titleInput?.value?.trim() || generateAutoChallengeTitle();
+  if (title.length > 100) {
+    title = title.slice(0, 99).trimEnd() + "…";
+  }
   const roundCount = parseInt(el.roundCount?.value || "5", 10);
   const roundLength = el.roundLength?.value || "1m";
   const expValue = _expirationSelect?.value || "24h";

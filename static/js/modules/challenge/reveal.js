@@ -9,10 +9,11 @@ import { api } from "../api.js";
 import { state, el } from "../state.js";
 import { t } from "../i18n.js";
 import { showCard } from "../screens/common.js";
-import { registerPlayerColor } from "../formatters.js";
+import { registerPlayerColor, playerColor, playerInitial } from "../formatters.js";
 import { updateSubmitState } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { challengeSession, POLL_INTERVAL_MS } from "./session.js";
+import { showActivityToast } from "../components/activity_toast.js";
 
 export const challengeReveal = {
   /**
@@ -29,6 +30,9 @@ export const challengeReveal = {
     challengeSession.lastRoundResult = result;
     challengeSession.lastRoundIndex = roundIndex;
     showCard(el.gameCard);
+    if (el.leaderboardCard) {
+      el.leaderboardCard.classList.add("hidden");
+    }
     if (el.revealRestartBtn) el.revealRestartBtn.classList.add("hidden");
     if (el.guessingUi) el.guessingUi.classList.add("hidden");
     if (el.revealUi) el.revealUi.classList.remove("hidden");
@@ -88,6 +92,9 @@ export const challengeReveal = {
     }
     updateSubmitState();
 
+    // Ensure live social status pill in reveal-actual-row
+    this.ensureLivePill(roundIndex);
+
     // Start 3-second social polling to auto-update friends' answers live on this screen
     this.startPolling(roundIndex);
   },
@@ -115,9 +122,10 @@ export const challengeReveal = {
    */
   startPolling(roundIndex) {
     challengeSession.stopPolling();
+    let isInitial = true;
 
     const poll = async () => {
-      if (document.hidden || !challengeSession.challengeData) return;
+      if (!challengeSession.challengeData) return;
       try {
         const data = await api(
           `/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
@@ -128,7 +136,8 @@ export const challengeReveal = {
           }
         );
         challengeSession.cachedLeaderboardData = data;
-        this.updateRoundReveal(data, roundIndex);
+        this.updateRoundReveal(data, roundIndex, { isInitial });
+        isInitial = false;
       } catch (err) {
         console.warn("Challenge polling error:", err);
       }
@@ -143,7 +152,7 @@ export const challengeReveal = {
    * @param {object} leaderboardData
    * @param {number} roundIndex
    */
-  updateRoundReveal(leaderboardData, roundIndex) {
+  updateRoundReveal(leaderboardData, roundIndex, { isInitial = false } = {}) {
     if (state.currentScreen !== "reveal" || !challengeSession.currentRevealData) {
       return;
     }
@@ -165,11 +174,77 @@ export const challengeReveal = {
     const newOpponents = [];
     const updatedResults = [...challengeSession.currentRevealData.results];
 
+    // Defensively ensure local player's album_shuffle_guesses is populated if missing
+    const myResult = updatedResults.find((r) => r.player_name === challengeSession.sessionPlayerName);
+    if (myResult && (!myResult.album_shuffle_guesses || myResult.album_shuffle_guesses.length === 0)) {
+      const myGuesses = currentGuesses.filter((g) => g.player_name === challengeSession.sessionPlayerName);
+      if (myGuesses.length > 0 && myGuesses.some((g) => g.asset_id)) {
+        myResult.album_shuffle_guesses = myGuesses
+          .filter((g) => g.asset_id)
+          .map((g) => ({
+            photo_id: g.asset_id,
+            assigned_pin_id: g.assigned_pin_id || null,
+            assigned_timeline_index:
+              g.assigned_timeline_index !== null && g.assigned_timeline_index !== undefined
+                ? g.assigned_timeline_index
+                : null,
+          }));
+      }
+    }
+
+    const guessesByPlayer = new Map();
     currentGuesses.forEach((guess) => {
-      if (guess.player_name !== challengeSession.sessionPlayerName) {
-        const pinKey = `player_${guess.player_name}`;
-        const opponentResult = {
-          player_name: guess.player_name,
+      if (guess.player_name === challengeSession.sessionPlayerName) return;
+      if (!guessesByPlayer.has(guess.player_name)) {
+        guessesByPlayer.set(guess.player_name, []);
+      }
+      guessesByPlayer.get(guess.player_name).push(guess);
+    });
+
+    guessesByPlayer.forEach((playerGuesses, playerName) => {
+      if (existingNames.has(playerName)) return;
+
+      const pinKey = `player_${playerName}`;
+      const isAlbumShuffle =
+        leaderboardData.game_mode === "album_shuffle" ||
+        playerGuesses.some(
+          (g) =>
+            g.game_mode === "album_shuffle" ||
+            Boolean(g.asset_id) ||
+            g.assigned_pin_id !== undefined ||
+            g.assigned_timeline_index !== undefined
+        );
+
+      let opponentResult;
+      if (isAlbumShuffle) {
+        const totalRoundScore = playerGuesses.reduce((sum, g) => sum + (g.round_score || 0), 0);
+        const totalLocationScore = playerGuesses.reduce((sum, g) => sum + (g.location_points || 0), 0);
+        const totalDateScore = playerGuesses.reduce((sum, g) => sum + (g.date_points || 0), 0);
+        const albumShuffleGuesses = playerGuesses
+          .filter((g) => g.asset_id)
+          .map((g) => ({
+            photo_id: g.asset_id,
+            assigned_pin_id: g.assigned_pin_id || null,
+            assigned_timeline_index:
+              g.assigned_timeline_index !== null && g.assigned_timeline_index !== undefined
+                ? g.assigned_timeline_index
+                : null,
+          }));
+
+        opponentResult = {
+          player_name: playerName,
+          location_score: totalLocationScore,
+          date_score: totalDateScore,
+          round_score: totalRoundScore,
+          total_score:
+            leaderboardData.leaderboard?.find((p) => p.player_name === playerName)?.total_score ?? totalRoundScore,
+          timed_out: playerGuesses.some((g) => g.timed_out),
+          album_shuffle_guesses: albumShuffleGuesses.length > 0 ? albumShuffleGuesses : null,
+        };
+      } else {
+        const guess = playerGuesses[0];
+        opponentResult = {
+          player_name: playerName,
           guessed_latitude: guess.guessed_latitude,
           guessed_longitude: guess.guessed_longitude,
           guessed_year: guess.guessed_year,
@@ -177,20 +252,19 @@ export const challengeReveal = {
           location_score: guess.location_points,
           date_score: guess.date_points,
           round_score: guess.round_score,
-          total_score: (leaderboardData.leaderboard?.find((p) => p.player_name === guess.player_name)?.total_score) ?? guess.round_score,
+          total_score:
+            leaderboardData.leaderboard?.find((p) => p.player_name === playerName)?.total_score ?? guess.round_score,
           distance_km: guess.distance_km,
           date_diff_days: guess.date_diff_days,
           timed_out: guess.timed_out || false,
-          album_shuffle_guesses: guess.album_shuffle_guesses || null,
+          album_shuffle_guesses: null,
         };
-
-        if (!existingNames.has(guess.player_name)) {
-          existingNames.add(guess.player_name);
-          updatedResults.push(opponentResult);
-          newOpponents.push(opponentResult);
-          challengeSession.placedPinIds.add(pinKey);
-        }
       }
+
+      existingNames.add(playerName);
+      updatedResults.push(opponentResult);
+      newOpponents.push(opponentResult);
+      challengeSession.placedPinIds.add(pinKey);
     });
 
     if (newOpponents.length > 0) {
@@ -201,6 +275,106 @@ export const challengeReveal = {
       } else {
         activeMode.renderReveal(el.revealUi, challengeSession.currentRevealData);
       }
+
+      // Only notify and flash for live arrivals while on this screen (not past submissions during initial hydration)
+      if (!isInitial) {
+        // 1. Flash highlight table rows for newly arrived opponents (Option 2)
+        this.flashOpponentRows(newOpponents);
+
+        // 2. Toast notification for each new opponent answer (Option 1)
+        newOpponents.forEach((opponent) => {
+          showActivityToast({
+            icon: "🎯",
+            playerName: opponent.player_name,
+            score: opponent.round_score,
+            title: t("challenge.player_submitted_round", opponent.player_name, roundIndex + 1, opponent.round_score),
+          });
+        });
+      }
     }
+
+    // 3. Live status pill update (Option 3)
+    this.updateLivePill(leaderboardData, roundIndex, isInitial);
+  },
+
+  /**
+   * Ensure the ambient live status pill is rendered inside the reveal header.
+   * @param {number} roundIndex
+   */
+  ensureLivePill(roundIndex) {
+    const actualRow = el.revealUi?.querySelector(".reveal-actual-row");
+    if (!actualRow) return;
+
+    let pill = document.getElementById("challenge-round-live-pill");
+    if (!pill) {
+      pill = document.createElement("span");
+      pill.id = "challenge-round-live-pill";
+      pill.className = "challenge-live-pill";
+      pill.innerHTML = `
+        <span class="live-poll-dot" aria-hidden="true"></span>
+        <span id="challenge-round-live-status"></span>
+      `;
+      const reportBtn = actualRow.querySelector("#reveal-report-btn");
+      if (reportBtn) {
+        actualRow.insertBefore(pill, reportBtn);
+      } else {
+        actualRow.appendChild(pill);
+      }
+    }
+    this.updateLivePill(challengeSession.cachedLeaderboardData, roundIndex, true);
+  },
+
+  /**
+   * Update the ambient live status pill tally.
+   * @param {object} leaderboardData
+   * @param {number} roundIndex
+   * @param {boolean} [isInitial=false]
+   */
+  updateLivePill(leaderboardData, roundIndex, isInitial = false) {
+    const statusEl = document.getElementById("challenge-round-live-status");
+    const pill = document.getElementById("challenge-round-live-pill");
+    if (!statusEl || !pill) return;
+
+    const participants = leaderboardData?.leaderboard || challengeSession.challengeData?.participants || [];
+    const totalCount = Math.max(participants.length, 1);
+    const answeredCount =
+      (leaderboardData?.round_guesses || []).filter((g) => g.round_index === roundIndex).length ||
+      challengeSession.currentRevealData?.results?.length ||
+      1;
+
+    const prevTally = statusEl.textContent;
+    const newTally = t("challenge.live_answered_tally", answeredCount, totalCount);
+    statusEl.textContent = newTally;
+
+    if (!isInitial && prevTally && prevTally !== newTally) {
+      pill.classList.remove("bump");
+      void pill.offsetWidth;
+      pill.classList.add("bump");
+    }
+  },
+
+  /**
+   * Apply animated arrival glow to table rows belonging to newly detected opponents.
+   * @param {Array} newOpponents
+   */
+  flashOpponentRows(newOpponents) {
+    if (!newOpponents || newOpponents.length === 0) return;
+    const newNames = new Set(newOpponents.map((o) => o.player_name));
+    const tableBody = el.revealUi?.querySelector("#reveal-table tbody") || document.querySelector("#reveal-table tbody");
+    if (!tableBody) return;
+
+    Array.from(tableBody.children).forEach((tr) => {
+      const text = tr.textContent;
+      for (const name of newNames) {
+        if (text.includes(name)) {
+          const color = playerColor(name);
+          tr.classList.remove("row-arrival-flash");
+          tr.style.setProperty("--player-accent", color);
+          tr.style.setProperty("--player-accent-alpha", `${color}33`);
+          void tr.offsetWidth;
+          tr.classList.add("row-arrival-flash");
+        }
+      }
+    });
   },
 };

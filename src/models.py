@@ -900,6 +900,13 @@ class ChallengeCreateRequest(BaseGameConfig):
     title: str | None = Field(default=None, max_length=100)
     expires_in_hours: int | None = Field(default=24, ge=1, le=8760)  # None = Never
 
+    @field_validator('title', mode='before')
+    @classmethod
+    def _truncate_title(cls, v: Any) -> Any:
+        if isinstance(v, str) and len(v) > 100:
+            return v[:99].rstrip() + '…'
+        return v
+
 
 class ChallengeCreateResponse(BaseModel):
     """Response payload returned when a challenge is created."""
@@ -1070,6 +1077,10 @@ class ChallengeRoundGuessData(BaseModel):
     # Album Shuffle batch data
     is_correct_location: bool | None = None
     is_correct_date_order: bool | None = None
+    photo_index: int = 0
+    asset_id: str | None = None
+    assigned_pin_id: str | None = None
+    assigned_timeline_index: int | None = None
 
 
 class ChallengeLeaderboardEntry(BaseModel):

@@ -335,19 +335,6 @@ bindClick(el.refreshLeaderboard, () => {
   loadLeaderboard().catch((err) => showAlert(err.message || err));
 });
 
-bindClick(el.homeNavBtn, () => {
-  navigate("/");
-});
-
-bindClick(el.challengesNavBtn, () => {
-  const current = parseRoute(window.location.pathname);
-  if (current.type === RouteType.CHALLENGES) {
-    navigate("/");
-  } else {
-    navigate("/challenges");
-  }
-});
-
 bindClick(el.leaderboardHead, handleSortClick);
 
 window.addEventListener("resize", () => {

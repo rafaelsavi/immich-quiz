@@ -55,6 +55,9 @@ export async function showRoundReveal(roundNumber) {
   state.lastReveal = reveal;
   state.currentScreen = "reveal";
   showCard(el.gameCard);
+  if (el.leaderboardCard) {
+    el.leaderboardCard.classList.add("hidden");
+  }
   if (!challenge || !challenge.isActive()) {
     if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");
   }

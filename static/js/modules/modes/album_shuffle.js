@@ -329,7 +329,7 @@ export const albumShuffleMode = {
       let correctRanks = 0;
 
       batchReveal.forEach((item) => {
-        const pGuess = pGuesses.find((g) => g.photo_id === item.photo_id);
+        const pGuess = pGuesses.find((g) => String(g.photo_id) === String(item.photo_id));
         if (pGuess) {
           if (pGuess.assigned_pin_id && String(pGuess.assigned_pin_id) === String(item.true_pin_id)) {
             correctPins++;
@@ -734,7 +734,7 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
       chipsWrap.className = "player-guess-chips";
 
       const pGuesses = pRes.album_shuffle_guesses || [];
-      const pGuess = pGuesses.find((g) => g.photo_id === item.photo_id);
+      const pGuess = pGuesses.find((g) => String(g.photo_id) === String(item.photo_id));
 
       if (revealData.date_mode) {
         const pSubmittedRank = pGuess ? pGuess.assigned_timeline_index : null;

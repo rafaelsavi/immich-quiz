@@ -32,6 +32,8 @@ DYNAMIC_IDS = frozenset(
         'challenge-journey-map-shell',
         'challenge-polaroid-gallery',
         'challenge-resume-btn',
+        'challenge-round-live-pill',
+        'challenge-round-live-status',
         'challenge-see-results-btn',
         'challenge-share-btn',
         'challenge-share-url',
@@ -43,7 +45,11 @@ DYNAMIC_IDS = frozenset(
         'goal-location',
         'grand-reveal-home-btn',
         'grand-reveal-hub-btn',
+        'grand-reveal-live-pill',
+        'grand-reveal-live-status',
+        'grand-reveal-meta-tally',
         'grand-reveal-podium',
+        'grand-reveal-podium-section',
         'grand-reveal-provisional',
         'grand-reveal-share-btn',
         'grand-reveal-share-summary-btn',
@@ -1047,9 +1053,11 @@ def test_challenge_carousel_layout_standardization_and_mobile_optimization() -> 
     assert 'map-fullscreen-btn carousel-photo-zoom-btn' in challenge_js
     assert 'viewBox="0 0 24 24"' in challenge_js
 
-    # 2. Grand reveal standings table hides accuracy column on mobile screens
+    # 2. Grand reveal standings table hides accuracy column on mobile screens and excludes unnecessary avg-round column
     assert '<th class="col-accuracy text-right hide-on-mobile">' in challenge_js
     assert '<td class="col-accuracy text-right hide-on-mobile">' in challenge_js
+    assert 'col-avg-round' not in challenge_js
+    assert 'summary.col_avg_round' not in challenge_js
 
     # 3. Carousel photo shell and scatter map shell layout styling in challenge.css
     assert '.carousel-photo-shell {' in challenge_css
@@ -1202,3 +1210,178 @@ def test_challenge_gameplay_flow_and_label_integrity() -> None:
     assert '"challenge.true_date": "Data Real"' in pt_br_js
     assert '"challenge.challenges_hub": "Challenges Hub"' in en_us_js
     assert '"challenge.challenges_hub": "Central de Desafios"' in pt_br_js
+
+
+def test_leaderboard_hidden_during_round_reviews() -> None:
+    """Verify that leaderboardCard is hidden in showCard and round review screen modules."""
+    common_js = (JS_DIR / 'modules' / 'screens' / 'common.js').read_text(encoding='utf-8')
+    screens_reveal_js = (JS_DIR / 'modules' / 'screens' / 'reveal.js').read_text(encoding='utf-8')
+    challenge_reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
+
+    # 1. showCard includes el.leaderboardCard in default card hiding list
+    assert 'el.leaderboardCard' in common_js
+
+    # 2. Local reveal explicitly hides leaderboardCard
+    assert 'el.leaderboardCard.classList.add("hidden");' in screens_reveal_js
+
+    # 3. Challenge reveal explicitly hides leaderboardCard
+    assert 'el.leaderboardCard.classList.add("hidden");' in challenge_reveal_js
+
+
+def test_dynamic_multiplayer_live_feedback_features() -> None:
+    """Verify Options 1 to 4 dynamic real-time feedback implementations across JS, CSS, and locales."""
+    toast_js = (JS_DIR / 'modules' / 'components' / 'activity_toast.js').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+    reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
+    summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
+    en_us_js = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br_js = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Option 1: Activity Toast Component & CSS
+    assert 'export function showActivityToast' in toast_js
+    assert 'export function clearActivityToasts' in toast_js
+    assert '.activity-toast-container' in challenge_css
+    assert '.activity-toast' in challenge_css
+
+    # 2. Option 2: Animated Table Row Flash
+    assert '.row-arrival-flash' in challenge_css
+    assert '@keyframes rowArrivalPulse' in challenge_css
+    assert 'flashOpponentRows' in reveal_js
+    assert 'row-arrival-flash' in summary_js
+
+    # 3. Option 3: Live Header Activity Badges
+    assert '.challenge-live-pill' in challenge_css
+    assert 'ensureLivePill' in reveal_js
+    assert 'challenge-round-live-pill' in reveal_js
+    assert 'grand-reveal-live-pill' in summary_js
+
+    # 4. Option 4: Background Polling for Game Results (Grand Reveal)
+    assert 'startSummaryPolling' in summary_js
+    assert 'updateSummaryLive' in summary_js
+    assert 'renderStandingsRows' in summary_js
+
+    # 5. Locales
+    assert '"challenge.player_submitted_round":' in en_us_js
+    assert '"challenge.player_submitted_round":' in pt_br_js
+    assert '"challenge.player_finished_challenge":' in en_us_js
+    assert '"challenge.player_finished_challenge":' in pt_br_js
+    assert '"challenge.live_answered_tally":' in en_us_js
+    assert '"challenge.live_answered_tally":' in pt_br_js
+    assert '"challenge.live_finished_tally":' in en_us_js
+    assert '"challenge.live_finished_tally":' in pt_br_js
+
+
+def test_past_opponent_submissions_do_not_trigger_notifications() -> None:
+    """Verify past submissions during initial screen load do not fire activity toasts or row flashes."""
+    reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
+    summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
+
+    # 1. reveal.js startPolling tracks isInitial and passes it to updateRoundReveal
+    assert 'let isInitial = true;' in reveal_js
+    assert 'this.updateRoundReveal(data, roundIndex, { isInitial });' in reveal_js
+    assert 'isInitial = false;' in reveal_js
+
+    # 2. reveal.js updateRoundReveal guards toasts and row flashes with !isInitial
+    assert 'if (!isInitial) {' in reveal_js
+    assert 'this.flashOpponentRows(newOpponents);' in reveal_js
+    assert 'showActivityToast({' in reveal_js
+
+    # 3. summary.js startSummaryPolling tracks isInitial and passes it to updateSummaryLive
+    assert 'let isInitial = true;' in summary_js
+    assert 'this.updateSummaryLive(data, { isInitial });' in summary_js
+    assert 'if (!isInitial) {' in summary_js
+
+
+def test_page_buttons_are_standard_links_and_not_toggles() -> None:
+    """Verify home and challenges buttons act as normal links with hrefs, allowing open in new tab and not toggling."""
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    buttons_css = (STATIC_DIR / 'css' / 'components' / 'buttons.css').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    # 1. index.html uses <a> anchors with valid href targets
+    assert re.search(r'<a\s+href="/"[^>]*id="home-nav-btn"', index_html) or re.search(
+        r'<a\s+[^>]*id="home-nav-btn"[^>]*href="/"', index_html
+    )
+    assert re.search(r'<a\s+href="/challenges"[^>]*id="challenges-nav-btn"', index_html) or re.search(
+        r'<a\s+[^>]*id="challenges-nav-btn"[^>]*href="/challenges"', index_html
+    )
+
+    # 2. They are no longer <button> elements
+    assert '<button type="button" id="home-nav-btn"' not in index_html
+    assert '<button type="button" id="challenges-nav-btn"' not in index_html
+
+    # 3. buttons.css styles header-icon-btn anchors cleanly without text decoration
+    assert 'text-decoration: none;' in buttons_css
+    assert 'color: inherit;' in buttons_css
+
+    # 4. app.js does not intercept with toggle logic or router.navigate
+    assert 'current.type === RouteType.CHALLENGES' not in app_js
+    assert 'bindClick(el.homeNavBtn' not in app_js
+    assert 'bindClick(el.challengesNavBtn' not in app_js
+
+
+def test_challenge_album_shuffle_opponent_guesses_display() -> None:
+    """Verify that challenge reveal groups round guesses by player and populates album_shuffle_guesses."""
+    reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+
+    # 1. reveal.js groups round_guesses by player and builds albumShuffleGuesses for opponents
+    assert 'const guessesByPlayer = new Map();' in reveal_js
+    assert 'guessesByPlayer.set(guess.player_name, []);' in reveal_js
+    assert 'const isAlbumShuffle =' in reveal_js
+    assert 'album_shuffle_guesses: albumShuffleGuesses.length > 0 ? albumShuffleGuesses : null' in reveal_js
+    assert 'photo_id: g.asset_id' in reveal_js
+    assert 'assigned_pin_id: g.assigned_pin_id || null' in reveal_js
+    assert 'assigned_timeline_index:' in reveal_js
+
+    # 2. album_shuffle.js matches photo_id with robust string equality
+    assert 'String(g.photo_id) === String(item.photo_id)' in shuffle_js
+
+
+def test_player_name_cell_and_col_player_nowrap() -> None:
+    """Verify that playerNameCell has player-cell class and col-player prevents multi-line wrapping."""
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # playerNameCell assigns wrap.className = "player-cell"
+    assert 'wrap.className = "player-cell";' in formatters_js
+
+    # challenge.css .col-player has white-space: nowrap
+    assert '.col-player {\n  font-weight: 600;\n  white-space: nowrap;\n}' in challenge_css
+
+
+def test_format_month_error_derives_year_month_diff() -> None:
+    """Verify that formatMonthError calculates year and month diffs when part breakdown is omitted."""
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+
+    assert '(years === undefined || months === undefined) && result.guessed_year' in formatters_js
+    assert 'Math.abs((result.guessed_year - actYear) * 12' in formatters_js
+    assert 'if (result.date_diff_days >= 30)' in formatters_js
+
+
+def test_summary_build_player_stats_supports_batch_modes_and_correct_flags() -> None:
+    """Verify that summary.js evaluates perfect rounds across batch guesses using correctness flags."""
+    summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
+
+    assert 'g.is_correct_location ||' in summary_js
+    assert 'g.is_correct_date_order ||' in summary_js
+    assert 'const playerRoundGuesses = new Map();' in summary_js
+    assert 'allLocPerfect && allDatePerfect && (isLocationEnabled || isDateEnabled)' in summary_js
+
+
+def test_challenge_title_auto_generation_truncation() -> None:
+    """Verify that admin.js smart-truncates auto-generated challenge titles to prevent HTTP 422 errors."""
+    admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
+
+    assert 'maxSummaryLen = 100 - suffix.length;' in admin_js
+    assert 'cleanSummary.slice(0, Math.max(10, maxSummaryLen - 1)).trimEnd() + "…"' in admin_js
+    assert 'if (title.length > 100)' in admin_js
+
+
+def test_carousel_photo_img_fit_contain_no_scale_clipping() -> None:
+    """Verify that carousel-photo-img uses object-fit: contain without hover scale clipping."""
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    assert 'width: auto;\n  height: auto;\n  max-width: 100%;\n  max-height: 100%;' in challenge_css
+    assert '.carousel-photo-img:hover {\n  opacity: 0.95;\n}' in challenge_css
+    assert '.carousel-photo-img:hover {\n  transform: scale(1.02);\n}' not in challenge_css

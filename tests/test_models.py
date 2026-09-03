@@ -918,3 +918,18 @@ def test_flag_asset_models_validation() -> None:
     assert item.id == 1
     assert item.asset_id == 'a1'
     assert item.reported_by == 'Alice'
+
+
+def test_challenge_create_request_title_truncation() -> None:
+    from src.models import ChallengeCreateRequest
+
+    long_title = 'A' * 150
+    req = ChallengeCreateRequest(creator_name='Host', title=long_title)
+    assert req.title is not None
+    assert len(req.title) <= 100
+    assert req.title.endswith('…')
+    assert len(req.title) == 100
+
+    normal_title = 'Normal Title'
+    req_normal = ChallengeCreateRequest(creator_name='Host', title=normal_title)
+    assert req_normal.title == 'Normal Title'

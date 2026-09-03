@@ -166,6 +166,8 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                         'is_correct_date_order': is_correct_date,
                         'time_taken_seconds': q.time_taken_seconds,
                         'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
+                        'assigned_pin_id': str(assigned_pin_id) if assigned_pin_id else None,
+                        'assigned_timeline_index': assigned_timeline_index,
                     }
                 )
         else:
@@ -195,7 +197,7 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     'actual_date': actual_date_str,
                     'date_diff_days': q.date_diff_days,
                     'date_points': q.date_points if state.setup.date_mode else None,
-                    'round_score': q.location_points + q.date_points,
+                    'round_score': (q.location_points or 0) + (q.date_points or 0),
                     'is_correct_location': None,
                     'is_correct_date_order': None,
                     'time_taken_seconds': q.time_taken_seconds,

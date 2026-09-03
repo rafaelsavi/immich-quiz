@@ -773,3 +773,103 @@ def test_challenge_individual_player_colors_api(tmp_path: Path) -> None:
 
     assert len(lb_data['round_guesses']) >= 1
     assert lb_data['round_guesses'][0]['player_color'] == '#f25f5c'
+
+
+def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> None:
+    immich = FakeImmichClient(_create_mock_assets(25))
+    client = build_client(tmp_path, immich)
+
+    # 1. Create Album Shuffle Challenge
+    create_res = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Host', 'game_mode': 'album_shuffle', 'round_count': 3},
+    )
+    assert create_res.status_code == 200
+    token = create_res.json()['capability_token']
+
+    # 2. Host and Bob start challenge
+    host_start = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Host'}).json()
+    bob_start = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Bob'}).json()
+
+    host_token = host_start['session_token']
+    bob_token = bob_start['session_token']
+
+    # 3. Fetch round 0 question to get batch photo and pin IDs
+    q0_res = client.get(
+        f'/api/challenge/{token}/question/0',
+        headers={'X-Player-Token': host_token},
+    )
+    assert q0_res.status_code == 200
+    q0 = q0_res.json()
+    photo_ids = [p['photo_id'] for p in q0['batch_photos']]
+    pin_ids = [pin['pin_id'] for pin in q0['batch_pins']]
+    assert len(photo_ids) == 3
+    assert len(pin_ids) == 3
+
+    # 4. Host submits round 0
+    ans_host = client.post(
+        f'/api/challenge/{token}/answer',
+        headers={'X-Player-Token': host_token},
+        json={
+            'round_index': 0,
+            'album_shuffle_answers': [
+                {'photo_id': photo_ids[0], 'assigned_pin_id': pin_ids[0], 'assigned_timeline_index': 0},
+                {'photo_id': photo_ids[1], 'assigned_pin_id': pin_ids[1], 'assigned_timeline_index': 1},
+                {'photo_id': photo_ids[2], 'assigned_pin_id': pin_ids[2], 'assigned_timeline_index': 2},
+            ],
+            'time_taken_seconds': 10.0,
+        },
+    )
+    assert ans_host.status_code == 200
+
+    # 5. Bob submits round 0 with different assignments
+    ans_bob = client.post(
+        f'/api/challenge/{token}/answer',
+        headers={'X-Player-Token': bob_token},
+        json={
+            'round_index': 0,
+            'album_shuffle_answers': [
+                {'photo_id': photo_ids[0], 'assigned_pin_id': pin_ids[1], 'assigned_timeline_index': 2},
+                {'photo_id': photo_ids[1], 'assigned_pin_id': pin_ids[2], 'assigned_timeline_index': 0},
+                {'photo_id': photo_ids[2], 'assigned_pin_id': pin_ids[0], 'assigned_timeline_index': 1},
+            ],
+            'time_taken_seconds': 12.0,
+        },
+    )
+    assert ans_bob.status_code == 200
+
+    # 6. Bob queries leaderboard to observe Host's guesses
+    lb_res = client.get(
+        f'/api/challenge/{token}/leaderboard',
+        headers={'X-Player-Token': bob_token},
+    )
+    assert lb_res.status_code == 200
+    lb_data = lb_res.json()
+    assert lb_data['game_mode'] == 'album_shuffle'
+
+    # Verify round_guesses contains both players' 3 photo guesses each (total 6)
+    round_guesses = lb_data['round_guesses']
+    assert len(round_guesses) == 6
+
+    host_guesses = [g for g in round_guesses if g['player_name'] == 'Host']
+    bob_guesses = [g for g in round_guesses if g['player_name'] == 'Bob']
+    assert len(host_guesses) == 3
+    assert len(bob_guesses) == 3
+
+    # Check Host's assigned pins and timeline indexes are accurately preserved
+    host_map = {g['asset_id']: g for g in host_guesses}
+    assert host_map[photo_ids[0]]['assigned_pin_id'] == pin_ids[0]
+    assert host_map[photo_ids[0]]['assigned_timeline_index'] == 0
+    assert host_map[photo_ids[1]]['assigned_pin_id'] == pin_ids[1]
+    assert host_map[photo_ids[1]]['assigned_timeline_index'] == 1
+    assert host_map[photo_ids[2]]['assigned_pin_id'] == pin_ids[2]
+    assert host_map[photo_ids[2]]['assigned_timeline_index'] == 2
+
+    # Check Bob's assigned pins and timeline indexes are accurately preserved
+    bob_map = {g['asset_id']: g for g in bob_guesses}
+    assert bob_map[photo_ids[0]]['assigned_pin_id'] == pin_ids[1]
+    assert bob_map[photo_ids[0]]['assigned_timeline_index'] == 2
+    assert bob_map[photo_ids[1]]['assigned_pin_id'] == pin_ids[2]
+    assert bob_map[photo_ids[1]]['assigned_timeline_index'] == 0
+    assert bob_map[photo_ids[2]]['assigned_pin_id'] == pin_ids[0]
+    assert bob_map[photo_ids[2]]['assigned_timeline_index'] == 1

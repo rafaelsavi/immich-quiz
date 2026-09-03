@@ -295,9 +295,10 @@ export function refreshLanguage(onStart, onSeeResults) {
   // 3. Dynamically refresh invite screen counter language if visible
   const countTextEl = document.getElementById("finisher-count-text");
   if (countTextEl && challengeSession.cachedLeaderboardData && challengeSession.cachedLeaderboardData.leaderboard) {
-    const finishedCount = challengeSession.cachedLeaderboardData.leaderboard.filter((e) => e.is_finished).length;
+    const totalRounds = challengeSession.cachedLeaderboardData.total_rounds || challengeSession.totalRounds;
+    const finishedCount = challengeSession.cachedLeaderboardData.leaderboard.filter((e) => e.is_finished || e.completed_rounds >= totalRounds).length;
     const friendsCount = challengeSession.sessionPlayerName
-      ? challengeSession.cachedLeaderboardData.leaderboard.filter((e) => e.is_finished && e.player_name !== challengeSession.sessionPlayerName).length
+      ? challengeSession.cachedLeaderboardData.leaderboard.filter((e) => (e.is_finished || e.completed_rounds >= totalRounds) && e.player_name !== challengeSession.sessionPlayerName).length
       : Math.max(0, finishedCount - 1);
     countTextEl.textContent = t("challenge.finisher_count", friendsCount);
   }

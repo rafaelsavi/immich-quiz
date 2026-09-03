@@ -120,7 +120,7 @@ export const challengeIntermission = {
     challengeSession.stopPolling();
 
     const poll = async () => {
-      if (document.hidden || !challengeSession.challengeData) return;
+      if (!challengeSession.challengeData) return;
       try {
         const data = await api(
           `/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
@@ -131,13 +131,21 @@ export const challengeIntermission = {
           }
         );
         challengeSession.cachedLeaderboardData = data;
-        const finishedCount = data.leaderboard.filter((e) => e.is_finished).length;
+        const totalRounds = data.total_rounds || challengeSession.totalRounds;
+        const finishedCount = data.leaderboard.filter((e) => e.is_finished || e.completed_rounds >= totalRounds).length;
         const friendsCount = challengeSession.sessionPlayerName
-          ? data.leaderboard.filter((e) => e.is_finished && e.player_name !== challengeSession.sessionPlayerName).length
+          ? data.leaderboard.filter((e) => (e.is_finished || e.completed_rounds >= totalRounds) && e.player_name !== challengeSession.sessionPlayerName).length
           : Math.max(0, finishedCount - 1);
         const countTextEl = document.getElementById("finisher-count-text");
+        const counterWrapEl = document.getElementById("challenge-finisher-count");
         if (countTextEl) {
-          countTextEl.textContent = t("challenge.finisher_count", friendsCount);
+          const newText = t("challenge.finisher_count", friendsCount);
+          if (counterWrapEl && countTextEl.textContent && countTextEl.textContent !== newText && countTextEl.textContent !== t("challenge.loading_count")) {
+            counterWrapEl.classList.remove("bump");
+            void counterWrapEl.offsetWidth;
+            counterWrapEl.classList.add("bump");
+          }
+          countTextEl.textContent = newText;
         }
       } catch (err) {
         console.warn("Finisher polling error:", err);
