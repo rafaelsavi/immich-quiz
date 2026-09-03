@@ -25,6 +25,19 @@ This document lists planned features, design ideas, and technical debt items for
   - [x] Add docs for challenge mode ([`docs/CHALLENGES.md`](CHALLENGES.md), [`docs/GAMEPLAY.md`](GAMEPLAY.md), [`docs/API.md`](API.md), [`docs/ARCHITECTURE.md`](ARCHITECTURE.md)).
   - [x] Remove imp plan for challenge (cleaned up `docs/next-milestones/online-multiplayer/stage-1-challenge-mode/`).
 
+  - DO not show leaderboard-card in round reviews
+  - WHen round review or game result refreshes automatically and detects new players added, show something dynamicly somehow for more clarity that something happened. Give me ideas and options for that.
+
+  - Page buttons (home and challenges) should act as normal links, always navigating to the respective page instead of using router.navigate (which does not add history entry), and allowing "open in new tab". And not as toggle.
+
+  - Can finisher-count-text update dynamically?
+  - Column col-avg-round text-right hide-on-mobile is not necessary
+  - "player-guess-row" of other players during challenge play mode are shown as "None". I can only see my guesses properly.
+
+  - "col-player" in game review in local pinpoint and wide screen has 2 lines for avatar and player name. That could have been one line only.
+  - "carousel-photo-img" is zooming and clipping vertical photos. It should always show full image.
+  - if many filters are involved, pre-generated challenge name is too long to be accepted. Think of a clever solution.
+  
 - [ ] v3.1.0 **5. Admin Area & Reported Asset Moderation**
   - [ ] Build dedicated admin interface (`/admin` / `static/admin.html`) with authentication/Zero Trust protection.
   - [ ] Review dashboard for flagged/reported assets with detailed issue breakdown (GPS mismatch, incorrect date, face tag, custom notes).
