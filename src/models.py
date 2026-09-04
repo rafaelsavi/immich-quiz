@@ -1047,6 +1047,7 @@ class ChallengeAnswerResponse(BaseModel):
     is_game_over: bool
     total_score: int  # Running total across all completed rounds
     total_time_seconds: float
+    timed_out: bool = False
     player_color: str | None = None
 
 
@@ -1074,6 +1075,7 @@ class ChallengeRoundGuessData(BaseModel):
     date_points: int | None = None
     round_score: int
     time_taken_seconds: float
+    timed_out: bool = False
     # Album Shuffle batch data
     is_correct_location: bool | None = None
     is_correct_date_order: bool | None = None

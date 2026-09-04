@@ -96,14 +96,24 @@ async def list_challenges(
         include_inactive=include_inactive,
     )
 
+    challenge_ids = [rec['challenge_id'] for rec in records]
+    participant_counts = await asyncio.to_thread(leaderboard_store.get_challenge_participant_counts, challenge_ids)
+    now_utc = datetime.now(UTC)
+
     items: list[ChallengeListItem] = []
     for rec in records:
         config = rec.get('config', {})
         game_mode = GameMode(config.get('game_mode', 'pinpoint'))
         rounds = get_challenge_total_rounds(rec)
 
-        total_participants = leaderboard_store.get_challenge_participant_count(rec['challenge_id'])
+        total_participants = participant_counts.get(rec['challenge_id'], 0)
         play_url = f'{base_url}/play/{rec["capability_token"]}'
+
+        is_active = bool(rec.get('is_active', True))
+        if is_active and rec.get('expires_at'):
+            exp = datetime.fromisoformat(rec['expires_at'])
+            if now_utc > exp:
+                is_active = False
 
         items.append(
             ChallengeListItem(
@@ -117,7 +127,7 @@ async def list_challenges(
                 round_length=RoundLength(config.get('round_length', '1m')),
                 created_at=rec['created_at'],
                 expires_at=rec.get('expires_at'),
-                is_active=rec['is_active'],
+                is_active=is_active,
                 total_participants=total_participants,
                 filter_summary=config.get('filter_summary'),
                 filter_tooltip=config.get('filter_tooltip'),
@@ -261,6 +271,12 @@ async def get_challenge_question(
     if not session or session['challenge_id'] != challenge['challenge_id']:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid session token.')
 
+    total_rounds = get_challenge_total_rounds(challenge)
+
+    # Prevent accessing questions after challenge completion
+    if session.get('completed_at') or session.get('current_round', 0) >= total_rounds:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Challenge already completed.')
+
     # Enforce sequential round access (no skipping ahead)
     if round_index > session['current_round']:
         raise HTTPException(
@@ -268,8 +284,7 @@ async def get_challenge_question(
             detail=f'Must complete round {session["current_round"]} first.',
         )
 
-    # Prevent accessing questions after challenge completion
-    if session.get('completed_at'):
+    if round_index >= total_rounds:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Challenge already completed.')
 
     return await asyncio.to_thread(service.get_question, challenge, round_index)
@@ -307,7 +322,8 @@ async def submit_challenge_answer(
             detail=f'Expected round {session["current_round"]}, got {body.round_index}.',
         )
 
-    if session.get('completed_at'):
+    total_rounds = get_challenge_total_rounds(challenge)
+    if session.get('completed_at') or session.get('current_round', 0) >= total_rounds:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Challenge already completed.')
 
     return await asyncio.to_thread(

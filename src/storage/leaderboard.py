@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     is_correct_location   INTEGER,                    -- 1 if correct, 0 if wrong, NULL for pinpoint
     is_correct_date_order INTEGER,                    -- 1 if correct, 0 if wrong, NULL for pinpoint
     time_taken_seconds REAL,                          -- Time spent answering this specific turn/question
+    timed_out          INTEGER NOT NULL DEFAULT 0,    -- 1 if timed out, 0 otherwise
     submitted_at       TEXT NOT NULL,
     assigned_pin_id    TEXT,                          -- Pin ID assigned in album shuffle mode
     assigned_timeline_index INTEGER,                  -- Timeline order index assigned in album shuffle mode
@@ -155,6 +156,7 @@ CREATE INDEX IF NOT EXISTS idx_match_entries_match_id ON match_entries(match_id)
 CREATE INDEX IF NOT EXISTS idx_match_entries_player ON match_entries(player_name);
 CREATE INDEX IF NOT EXISTS idx_match_entries_accuracy ON match_entries(accuracy_pct DESC, total_score DESC);
 CREATE INDEX IF NOT EXISTS idx_match_round_guesses_match ON match_round_guesses(match_id);
+CREATE INDEX IF NOT EXISTS idx_match_round_guesses_match_round ON match_round_guesses(match_id, round_index);
 CREATE INDEX IF NOT EXISTS idx_challenges_capability ON challenges(capability_token);
 """
 
@@ -308,6 +310,8 @@ class LeaderboardStore:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN assigned_pin_id TEXT')
                 if 'assigned_timeline_index' not in existing_cols:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN assigned_timeline_index INTEGER')
+                if 'timed_out' not in existing_cols:
+                    conn.execute('ALTER TABLE match_round_guesses ADD COLUMN timed_out INTEGER NOT NULL DEFAULT 0')
             cursor_m = conn.execute('PRAGMA table_info(matches)')
             existing_match_cols = {row[1] for row in cursor_m.fetchall()}
             if existing_match_cols and 'person_names_json' not in existing_match_cols:
@@ -456,9 +460,9 @@ class LeaderboardStore:
                             distance_km, location_points, guess_date, actual_date,
                             date_diff_days, date_points, round_score,
                             is_correct_location, is_correct_date_order,
-                            time_taken_seconds, submitted_at,
+                            time_taken_seconds, timed_out, submitted_at,
                             assigned_pin_id, assigned_timeline_index
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             rg.get('match_id', match_id),
@@ -483,6 +487,7 @@ class LeaderboardStore:
                             rg.get('is_correct_location'),
                             rg.get('is_correct_date_order'),
                             rg.get('time_taken_seconds'),
+                            1 if rg.get('timed_out') else 0,
                             rg.get('submitted_at', played_at),
                             rg.get('assigned_pin_id'),
                             rg.get('assigned_timeline_index'),
@@ -913,6 +918,7 @@ class LeaderboardStore:
         is_correct_location: int | None = None,
         is_correct_date_order: int | None = None,
         time_taken_seconds: float = 0.0,
+        timed_out: bool = False,
         submitted_at: str | None = None,
         assigned_pin_id: str | None = None,
         assigned_timeline_index: int | None = None,
@@ -951,9 +957,9 @@ class LeaderboardStore:
                     distance_km, location_points, guess_date, actual_date,
                     date_diff_days, date_points, round_score,
                     is_correct_location, is_correct_date_order,
-                    time_taken_seconds, submitted_at,
+                    time_taken_seconds, timed_out, submitted_at,
                     assigned_pin_id, assigned_timeline_index
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
@@ -978,6 +984,7 @@ class LeaderboardStore:
                     is_correct_location,
                     is_correct_date_order,
                     time_taken_seconds,
+                    1 if timed_out else 0,
                     now_iso,
                     assigned_pin_id,
                     assigned_timeline_index,
@@ -1124,6 +1131,22 @@ class LeaderboardStore:
         )
         return int(row['count']) if row else 0
 
+    def get_challenge_participant_counts(self, challenge_ids: list[str]) -> dict[str, int]:
+        """Return a mapping of challenge_id -> unique participant count in a single query."""
+        if not challenge_ids:
+            return {}
+        placeholders = ', '.join('?' for _ in challenge_ids)
+        rows = self._db.fetch_all(
+            f"""
+            SELECT challenge_id, COUNT(DISTINCT player_name) as count
+            FROM challenge_sessions
+            WHERE challenge_id IN ({placeholders})
+            GROUP BY challenge_id
+            """,
+            challenge_ids,
+        )
+        return {str(r['challenge_id']): int(r['count']) for r in rows}
+
     def get_challenge_standings(
         self,
         challenge_id: str,
@@ -1159,20 +1182,22 @@ class LeaderboardStore:
         if not sessions:
             return []
 
-        # Batch-prefetch guess rows across all challenge participants in a single query (avoids N+1 query loop)
-        guesses_by_session: dict[tuple[str, str], list[dict[str, Any]]] = {}
-        all_guess_rounds: dict[tuple[str, str], set[int]] = {}
-
-        all_round_rows = self._db.fetch_all(
+        # Aggregate completed round counts per session using SQL GROUP BY
+        completed_rounds_rows = self._db.fetch_all(
             """
-            SELECT match_id, player_name, round_index
+            SELECT match_id, player_name, COUNT(DISTINCT round_index) as completed_count
             FROM match_round_guesses
             WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
+            GROUP BY match_id, player_name
             """,
             (challenge_id,),
         )
-        for r in all_round_rows:
-            all_guess_rounds.setdefault((r['match_id'], r['player_name']), set()).add(r['round_index'])
+        completed_rounds_by_session = {
+            (r['match_id'], r['player_name']): int(r['completed_count']) for r in completed_rounds_rows
+        }
+
+        # Batch-prefetch guess rows across all challenge participants in a single query (avoids N+1 query loop)
+        guesses_by_session: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
         if max_round is not None and max_round >= 0:
             all_guess_rows = self._db.fetch_all(
@@ -1194,7 +1219,7 @@ class LeaderboardStore:
             p_name = s['player_name']
             m_id = s['match_id']
 
-            rounds_from_guesses = len(all_guess_rounds.get((m_id, p_name), set()))
+            rounds_from_guesses = completed_rounds_by_session.get((m_id, p_name), 0)
             actual_completed_rounds = max(int(s.get('current_round', 0)), rounds_from_guesses)
             actual_is_finished = bool(s.get('completed_at')) or actual_completed_rounds >= total_rounds
             if actual_is_finished and actual_completed_rounds < total_rounds:
@@ -1372,6 +1397,7 @@ class LeaderboardStore:
                     date_points=row.get('date_points'),
                     round_score=int(row['round_score']),
                     time_taken_seconds=float(row.get('time_taken_seconds') or 0.0),
+                    timed_out=bool(row.get('timed_out', 0)),
                     is_correct_location=(
                         bool(row['is_correct_location']) if row.get('is_correct_location') is not None else None
                     ),

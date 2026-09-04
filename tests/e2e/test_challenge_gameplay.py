@@ -480,3 +480,89 @@ async def test_challenge_multi_tab_session_isolation_and_standings_on_reload(pag
 
     await page2.close()
     await page3.close()
+
+
+async def test_challenge_opponent_reveal_pin_and_distance_error(page: Page, e2e_server: str) -> None:
+    """Verify that an opponent's pin, distance error, date guess, and date error appear on the round reveal screen."""
+    # 1. Create a 2-round pinpoint challenge with both location and date modes enabled
+    async with httpx.AsyncClient(base_url=e2e_server) as client:
+        res = await client.post(
+            '/api/challenge/create',
+            json={
+                'title': 'Opponent Reveal Verification Challenge',
+                'creator_name': 'Host',
+                'game_mode': 'pinpoint',
+                'location_mode': True,
+                'date_mode': True,
+                'round_count': 3,
+                'round_length': 'unlimited',
+            },
+        )
+        assert res.status_code == 200
+        token = res.json()['capability_token']
+
+    # 2. Player 1 (Alice) starts and submits round 1
+    await page.goto(f'/play/{token}')
+    await expect(page.locator('#challenge-card')).to_be_visible()
+    await page.locator('#player-name-input').fill('Alice')
+    await page.locator('#challenge-start-btn').click()
+
+    await expect(page.locator('#game-card')).to_be_visible()
+    p1_map = page.locator('#guess-map')
+    await expect(p1_map).to_be_visible()
+    await p1_map.click(position={'x': 100, 'y': 100})
+    await page.locator('#submit-answer').click()
+
+    # Alice is now on reveal screen for Round 1
+    await expect(page.locator('#reveal-ui')).to_be_visible()
+    p1_reveal_map = page.locator('#reveal-map')
+    await expect(p1_reveal_map).to_be_visible()
+    # Initially Alice only sees her own pin
+    await expect(p1_reveal_map.locator('.player-pin:has-text("A")')).to_be_visible()
+
+    # 3. Player 2 (Bob) joins on page2 and also submits Round 1
+    page2 = await page.context.new_page()
+    await page2.goto(f'/play/{token}')
+    await expect(page2.locator('#challenge-card')).to_be_visible()
+    await page2.locator('#player-name-input').fill('Bob')
+    await page2.locator('#challenge-start-btn').click()
+
+    await expect(page2.locator('#game-card')).to_be_visible()
+    p2_map = page2.locator('#guess-map')
+    await expect(p2_map).to_be_visible()
+    await p2_map.click(position={'x': 160, 'y': 160})
+    await page2.locator('#submit-answer').click()
+
+    # Bob is now on reveal screen for Round 1
+    await expect(page2.locator('#reveal-ui')).to_be_visible()
+
+    # 4. Verify that on Alice's screen (page), background polling picks up Bob:
+    # - Bob's pin drops on Alice's reveal map
+    await expect(p1_reveal_map.locator('.player-pin:has-text("B")')).to_be_visible(timeout=8000)
+
+    # - Bob's row appears in Alice's reveal table
+    bob_row = page.locator('#reveal-table tbody tr:has-text("Bob")')
+    await expect(bob_row).to_be_visible()
+
+    # - Bob's distance error is visible and NOT "-"
+    bob_row_text = await bob_row.text_content()
+    assert bob_row_text is not None
+    # Distance error should contain km or m
+    assert 'km' in bob_row_text or 'm' in bob_row_text, f'Bob distance error missing: {bob_row_text}'
+    # Date guess should NOT be "no guess"
+    assert 'no guess' not in bob_row_text.lower(), f'Bob date guess missing: {bob_row_text}'
+
+    # - Ambient live pill updates to 2/2 answered
+    live_pill = page.locator('#challenge-round-live-status')
+    await expect(live_pill).to_contain_text('2/2 answered')
+
+    # 5. Also verify on Bob's screen (page2) that Alice's pin and distance error are visible
+    p2_reveal_map = page2.locator('#reveal-map')
+    await expect(p2_reveal_map.locator('.player-pin:has-text("A")')).to_be_visible(timeout=8000)
+    alice_row = page2.locator('#reveal-table tbody tr:has-text("Alice")')
+    await expect(alice_row).to_be_visible()
+    alice_row_text = await alice_row.text_content()
+    assert alice_row_text is not None
+    assert 'km' in alice_row_text or 'm' in alice_row_text, f'Alice distance error missing: {alice_row_text}'
+
+    await page2.close()

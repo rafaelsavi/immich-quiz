@@ -1,10 +1,9 @@
 import { t, formatDate } from "../i18n.js";
 import { state, el } from "../state.js";
-import { createStandardMap, createBadgePinIcon, updateSubmitState, toggleMapFullscreen, fitMapToBounds, createMapFullscreenButton, ensureMapFullscreenButton, applySpiderfy, unregisterActiveMap } from "../maps.js";
+import { createStandardMap, createBadgePinIcon, updateSubmitState, fitMapToBounds, createMapFullscreenButton, applySpiderfy, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
-import { playerBadge, playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
-import { animateScoreRollup, createPerfectBadge, launchGoldConfetti, launchStarBurst } from "../effects.js";
-import { playChime } from "../audio.js";
+import { playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
+import { animateScoreRollup, createPerfectBadge } from "../effects.js";
 import { openReportModal } from "../components/report_modal.js";
 import { openPhotoLightbox } from "../components/lightbox.js";
 import { challenge } from "../challenge/index.js";

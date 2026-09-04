@@ -103,20 +103,10 @@ export const challengeSummary = {
         (challengeSession.challengeData.expires_at && new Date() > new Date(challengeSession.challengeData.expires_at))
       );
 
-      const podiumNoteHtml = (isSettled && hasUnfinishedPlayers)
-        ? `
-            <div class="podium-finished-note" id="grand-reveal-podium-finished-note">
-              <span class="note-icon" aria-hidden="true">🏁</span>
-              <span data-i18n="challenge.podium_finished_notice">${t("challenge.podium_finished_notice")}</span>
-            </div>
-          `
-        : "";
-
       const podiumHtml = isSettled
         ? `
           <div class="grand-reveal-podium-wrap">
             <div id="grand-reveal-podium" class="summary-winner"></div>
-            ${podiumNoteHtml}
           </div>
         `
         : `
@@ -198,7 +188,7 @@ export const challengeSummary = {
             <div class="carousel-round-content" id="carousel-round-content">
               <div class="carousel-media-row" id="carousel-media-row">
                 <div class="media-frame carousel-photo-shell hidden" id="carousel-photo-shell">
-                  <img id="carousel-photo-img" class="carousel-photo-img" alt="${t("game.photo_alt")}" />
+                  <img id="carousel-photo-img" class="carousel-photo-img" alt="${t("game.fullscreen_photo_alt")}" />
                   <button type="button" class="map-fullscreen-btn carousel-photo-zoom-btn" id="carousel-photo-zoom-btn"
                     title="${t("game.fullscreen_image_title")}" data-i18n-title="game.fullscreen_image_title" aria-pressed="false">
                     <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
@@ -617,7 +607,7 @@ export const challengeSummary = {
         (g.date_diff_days !== null && (g.date_diff_days === 0 || g.date_points === 100))
       );
 
-      if (g.distance_km !== null) {
+      if (g.distance_km != null) {
         pStats.totalDistanceKm += g.distance_km;
         pStats.distanceCount++;
         if (isLocPerfect) {
@@ -625,7 +615,7 @@ export const challengeSummary = {
         }
       }
 
-      if (g.date_diff_days !== null) {
+      if (g.date_diff_days != null) {
         pStats.totalDateDiffDays += g.date_diff_days;
         pStats.dateCount++;
         if (isDatePerfect) {
@@ -826,12 +816,6 @@ export const challengeSummary = {
         podiumWrap.id = "grand-reveal-podium-section";
         podiumWrap.innerHTML = `
           <div id="grand-reveal-podium" class="summary-winner"></div>
-          ${(isSettled && hasUnfinishedPlayers) ? `
-            <div class="podium-finished-note" id="grand-reveal-podium-finished-note">
-              <span class="note-icon" aria-hidden="true">🏁</span>
-              <span data-i18n="challenge.podium_finished_notice">${t("challenge.podium_finished_notice")}</span>
-            </div>
-          ` : ""}
         `;
         provisionalCard.replaceWith(podiumWrap);
 

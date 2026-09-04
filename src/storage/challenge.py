@@ -346,9 +346,16 @@ class ChallengeStore:
         include_inactive: bool = True,
     ) -> list[dict[str, Any]]:
         """List challenges ordered by creation time descending."""
-        where_clause = '' if include_inactive else 'WHERE is_active = 1'
-        rows = self._db.fetch_all(
-            f'SELECT * FROM challenges {where_clause} ORDER BY created_at DESC LIMIT ?',
-            (limit,),
-        )
+        if include_inactive:
+            sql = 'SELECT * FROM challenges ORDER BY created_at DESC LIMIT ?'
+            params: tuple[Any, ...] = (limit,)
+        else:
+            now_iso = datetime.now(UTC).isoformat()
+            sql = (
+                'SELECT * FROM challenges WHERE is_active = 1 '
+                'AND (expires_at IS NULL OR expires_at > ?) '
+                'ORDER BY created_at DESC LIMIT ?'
+            )
+            params = (now_iso, limit)
+        rows = self._db.fetch_all(sql, params)
         return [_row_to_challenge_dict(row) for row in rows]

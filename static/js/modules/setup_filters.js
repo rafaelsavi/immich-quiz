@@ -4,8 +4,8 @@ import { api } from "./api.js";
 import { MultiSelect } from "./components/multi_select.js";
 import { DateRangeSlider } from "./components/range_slider.js";
 import { PlayerInput } from "./components/player_input.js";
-import { loadLeaderboard, loadLeaderboardDebounced } from "./leaderboard.js";
-import { checkSyncStatus, triggerLibrarySync, renderSyncStatus } from "./sync.js";
+import { loadLeaderboardDebounced } from "./leaderboard.js";
+import { checkSyncStatus, triggerLibrarySync } from "./sync.js";
 import { getMatchMetaCategories, renderMatchMetaItemsHtml } from "./components/match_meta.js";
 
 /** @type {MultiSelect|null} */

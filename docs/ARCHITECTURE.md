@@ -67,7 +67,7 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, modals.css, multi_select.css, player_input.css, range_slider.css, filters.css, timer.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, filters.css, timer.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.

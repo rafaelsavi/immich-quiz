@@ -327,6 +327,8 @@ def test_challenge_standings_and_fog_of_war(tmp_path: Path) -> None:
 
     # Participant count
     assert lb_store.get_challenge_participant_count(ch_id) == 2
+    assert lb_store.get_challenge_participant_counts([ch_id, 'non-existent']) == {ch_id: 2}
+    assert lb_store.get_challenge_participant_counts([]) == {}
 
     # 1. Fog of War: Bob queries standings having only completed Round 0 (max_round=0)
     # Standings must ONLY include scores up to Round 0
@@ -856,3 +858,59 @@ def test_player_session_case_insensitive_resume(tmp_path: Path) -> None:
     # Total participants is still exactly 1
     participants = store.get_challenge_participants(ch_id)
     assert len(participants) == 1
+
+
+def test_list_challenges_active_and_expiration_filtering(tmp_path: Path) -> None:
+    """Verify list_challenges filters inactive and expired challenges when include_inactive=False."""
+    db = DatabaseManager(tmp_path / 'leaderboard.db')
+    LeaderboardStore(db)
+    store = ChallengeStore(db)
+
+    # 1. Normal active challenge (no expiration)
+    c1 = store.create_challenge(
+        creator_name='Host',
+        libraries=['lib'],
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+        expires_in_hours=None,
+    )
+
+    # 2. Active challenge expiring in future
+    c2 = store.create_challenge(
+        creator_name='Host',
+        libraries=['lib'],
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+        expires_in_hours=24,
+    )
+
+    # 3. Challenge that is already expired
+    past_iso = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
+    c3 = store.create_challenge(
+        creator_name='Host',
+        libraries=['lib'],
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+        expires_in_hours=None,
+    )
+    with db.connection() as conn:
+        conn.execute('UPDATE challenges SET expires_at = ? WHERE challenge_id = ?', (past_iso, c3['challenge_id']))
+
+    # 4. Challenge marked inactive explicitly
+    c4 = store.create_challenge(
+        creator_name='Host',
+        libraries=['lib'],
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+        expires_in_hours=None,
+    )
+    store.deactivate_challenge(c4['challenge_id'])
+
+    # include_inactive=True should return all 4
+    all_challenges = store.list_challenges(include_inactive=True)
+    assert len(all_challenges) == 4
+
+    # include_inactive=False should return only c1 and c2
+    active_challenges = store.list_challenges(include_inactive=False)
+    active_ids = {c['challenge_id'] for c in active_challenges}
+    assert active_ids == {c1['challenge_id'], c2['challenge_id']}

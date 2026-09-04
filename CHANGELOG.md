@@ -79,13 +79,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Developer Tooling & Testing**:
   - Restructured the `tests/` directory into dedicated functional domains mirroring `src/` (`tests/api/`, `tests/storage/`, `tests/game/`, `tests/frontend/`, etc.).
 
+- **Database & Query Efficiency**:
+  - Added batch participant count query (`LeaderboardStore.get_challenge_participant_counts`) eliminating N+1 database roundtrips when listing challenges.
+  - Added composite index `idx_match_round_guesses_match_round` on `match_round_guesses(match_id, round_index)`.
+  - Optimized `LeaderboardStore.get_challenge_standings` with SQL `COUNT(DISTINCT round_index)` aggregation per session.
+  - Enhanced `ChallengeStore.list_challenges` to automatically filter expired challenges when `include_inactive=False`.
+- **Question Security & Boundary Hardening**:
+  - Enforced round boundary checks in `get_challenge_question` and `submit_challenge_answer` returning `409 Conflict` if the player has already completed all challenge rounds.
+
 ### Removed
 
+- **Dead Prototype Styles & Unused Code**:
+  - Removed ~500 lines of unused prototype styles (obsolete social intermission grid, unreferenced date chips, unused creator options, obsolete album shuffle breakdown/player cards, and redundant card badges) from `challenge.css`, `modals.css`, `album_shuffle.css`, `pinpoint.css`, and `layout.css`.
+  - Removed 21 unused imports and orphaned state variables across frontend modules (`app.js`, `admin.js`, `album_shuffle.js`, `reveal.js`, `player_input.js`, `report_modal.js`, `share.js`, `sync.js`, `setup_filters.js`, `session.js`).
 - **Redundant Podium Completion Notice**:
   - Removed the `challenge.podium_finished_notice` disclaimer from the Grand Reveal summary and Challenges Hub mini-podium; round completion progress is already clearly communicated by table completion badges (`✓ 5/5` vs `⏳ 2/5`) and the live header status pill.
 
 ### Fixed
 
+- **Opponent Round Reveal Pin & Telemetry Bug**:
+  - Fixed a critical bug in `updateRoundReveal` ([`reveal.js`](static/js/modules/challenge/reveal.js)) where `isAlbumShuffle` evaluated to `true` for all Pinpoint opponents (due to `Boolean(g.asset_id)` and `g.assigned_pin_id !== undefined` matching every row). This stripped `distance_km`, `guessed_latitude`, `guessed_longitude`, `guessed_year`, `guessed_month`, and `date_diff_days` from opponent records, rendering `-` for distance error, `no guess` for date, and preventing opponent pins from dropping onto the reveal map.
+  - Fixed live answered tally pill in `updateLivePill` ([`reveal.js`](static/js/modules/challenge/reveal.js)) to count distinct player names (`answeredPlayers.size`) rather than total row count, preventing 3x overcounting in Album Shuffle matches.
+- **Round Timeout Flag Persistence & Opponent Telemetry**:
+  - Added `timed_out` column to `match_round_guesses` table, `ChallengeRoundGuessData`, and `ChallengeAnswerResponse` models with automatic SQLite migration.
+  - Ensures that when a player times out in Pinpoint or Album Shuffle, opponents properly see the `[⏰ Timed Out]` badge in the round reveal, unassigned photos/pins display `None ✗` and `no guess` gracefully, and partial credit answers are accurately preserved.
+- **Grand Reveal Transition Scope Error**:
+  - Fixed a dormant `ReferenceError: hasUnfinishedPlayers is not defined` in `updateGrandRevealStandings` ([`summary.js`](static/js/modules/challenge/summary.js)) during dynamic provisional-to-podium transitions, and corrected carousel photo `alt` translation key to `game.fullscreen_photo_alt`.
 - **Round Submission Race Condition**:
   - Added optimistic locking (`WHERE session_token = ? AND current_round = ?`) to `advance_session` in `src/storage/challenge.py` and `409 Conflict` detection in `src/game/challenge_service.py`, preventing duplicate round submissions.
 - **Dockerfile Translations & Permissions**:

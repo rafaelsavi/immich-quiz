@@ -14,6 +14,7 @@ import { startTimer, clearTimer, resetTimerBar } from "../timer.js";
 import { showCard } from "../screens/common.js";
 import { updateSubmitState } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
+import { navigate } from "../router.js";
 import { challengeSession } from "./session.js";
 import { renderLandingScreen, renderErrorScreen } from "./landing.js";
 
@@ -236,8 +237,9 @@ export const challengeGame = {
    * Submit answer and transition to personal reveal.
    * @param {boolean} fromTimeout
    * @param {Function} [onPersonalReveal] Callback when answer succeeds
+   * @param {Function} [onShowSummary] Callback when challenge already completed (409)
    */
-  async submitAnswer(fromTimeout = false, onPersonalReveal = null) {
+  async submitAnswer(fromTimeout = false, onPersonalReveal = null, onShowSummary = null) {
     if (state.submitting || !state.currentQuestion) return;
     state.submitting = true;
     updateSubmitState();
@@ -276,6 +278,14 @@ export const challengeGame = {
       }
     } catch (err) {
       console.error("Failed to submit challenge answer:", err);
+      if (err.status === 409) {
+        if (onShowSummary) {
+          onShowSummary();
+        } else if (challengeSession.challengeData?.capability_token) {
+          navigate(`/play/${encodeURIComponent(challengeSession.challengeData.capability_token)}/summary`);
+        }
+        return;
+      }
       if (err.status === 404 || String(err.message || "").toLowerCase().includes("not found") || String(err.message || "").toLowerCase().includes("expired")) {
         renderErrorScreen(t("challenge.error_expired"), "challenge.error_expired");
         return;

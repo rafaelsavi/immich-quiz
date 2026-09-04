@@ -3,7 +3,7 @@
  * Allows players to report map/GPS or date inconsistencies and open direct source links in Immich Web.
  */
 
-import { state, el } from "../state.js";
+import { state } from "../state.js";
 import { api } from "../api.js";
 import { t } from "../i18n.js";
 import { showShareToast } from "../summary/share.js";

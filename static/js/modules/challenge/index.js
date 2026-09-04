@@ -154,7 +154,8 @@ export const challenge = {
   async submitAnswer(fromTimeout = false) {
     return challengeGame.submitAnswer(
       fromTimeout,
-      (result, roundIndex) => this.renderPersonalReveal(result, roundIndex)
+      (result, roundIndex) => this.renderPersonalReveal(result, roundIndex),
+      () => this.showGrandReveal()
     );
   },
 

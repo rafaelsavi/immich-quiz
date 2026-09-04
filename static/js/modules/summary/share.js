@@ -1,4 +1,4 @@
-import { t, tOr, showAlert, formatList } from "../i18n.js";
+import { t, tOr, formatList } from "../i18n.js";
 
 export function showShareToast(message) {
   let toast = document.querySelector(".share-toast");

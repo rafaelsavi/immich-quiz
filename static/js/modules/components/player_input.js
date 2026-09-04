@@ -1,5 +1,5 @@
 import { t } from "../i18n.js";
-import { PLAYER_COLORS, playerColor, playerInitial } from "../formatters.js";
+import { PLAYER_COLORS } from "../formatters.js";
 
 /**
  * Modern Player Input Component

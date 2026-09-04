@@ -15,10 +15,8 @@ import {
 } from "./modules/router.js";
 import {
   t,
-  translateError,
   showAlert,
   applyLanguage,
-  getInitialLanguagePreference,
   updateLanguageUi,
   toggleLanguage,
   getLocale,
@@ -34,7 +32,6 @@ import {
   initMapFullscreenControls,
 } from "./modules/maps.js";
 import { loadLeaderboard, handleSortClick, updateLeaderboardScope } from "./modules/leaderboard.js";
-import { renderSyncStatus, getLastSyncStatus } from "./modules/sync.js";
 import { clearTimer, startTimer } from "./modules/timer.js";
 import { bindGlobalShortcuts, markShortcutCooldown } from "./modules/shortcuts.js";
 import { shareMatchSummary } from "./modules/summary/share.js";
@@ -48,12 +45,10 @@ import {
 import { getActiveMode } from "./modules/modes/index.js";
 import {
   showCard,
-  resetGameUi,
   isGameActive,
   handleBeforeUnload,
 } from "./modules/screens/common.js";
 import {
-  startMatch,
   returnToSetup,
   restartSameGame,
   handleAbandonGame,

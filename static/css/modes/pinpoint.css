@@ -188,15 +188,6 @@
   border-color: #ef4444 !important;
 }
 
-.mode-info-box {
-  font-size: 0.85rem;
-  color: #0369a1;
-  background: #e0f2fe;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  border-left: 4px solid #0284c7;
-  line-height: 1.4;
-}
 
 @media (max-width: 520px) {
   .mode-buttons {

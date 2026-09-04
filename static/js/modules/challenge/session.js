@@ -26,10 +26,6 @@ export const challengeSession = {
   currentError: null,
 
   // Map references
-  intermissionMap: null,
-  intermissionMarkers: {},
-  intermissionSpiderLines: {},
-  intermissionTrueCoords: {},
   placedPinIds: new Set(),
 
   carouselMap: null,
@@ -209,13 +205,6 @@ export const challengeSession = {
    * Cleanup any active Leaflet maps.
    */
   cleanupMaps() {
-    if (this.intermissionMap) {
-      try {
-        unregisterActiveMap(this.intermissionMap);
-        this.intermissionMap.remove();
-      } catch (_) {}
-      this.intermissionMap = null;
-    }
     if (this.carouselMap) {
       try {
         unregisterActiveMap(this.carouselMap);

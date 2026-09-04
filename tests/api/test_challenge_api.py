@@ -422,6 +422,14 @@ def test_challenge_timer_grace_window(tmp_path: Path) -> None:
         },
     )
     assert ans_res.status_code == 200
+    assert ans_res.json()['timed_out'] is True
+
+    # Check that leaderboard round_guesses for opponents also exposes timed_out
+    lead_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': p_token})
+    assert lead_res.status_code == 200
+    guesses = lead_res.json()['round_guesses']
+    assert len(guesses) == 1
+    assert guesses[0]['timed_out'] is True
 
 
 def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
@@ -931,3 +939,41 @@ def test_challenge_standings_completion_status_for_in_progress_viewer(tmp_path: 
     assert p_map['Player1']['is_winner'] is False
     assert p_map['Player2']['is_winner'] is False
     assert p_map['Player3']['is_winner'] is False
+
+
+def test_challenge_album_shuffle_timeout(tmp_path: Path) -> None:
+    immich = FakeImmichClient(_create_mock_assets(25))
+    client = build_client(tmp_path, immich)
+
+    create_res = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Host', 'game_mode': 'album_shuffle', 'round_count': 3},
+    )
+    assert create_res.status_code == 200
+    token = create_res.json()['capability_token']
+
+    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'ShufflePlayer'})
+    p_token = start_res.json()['session_token']
+
+    # Submit empty answers with timed_out=True
+    ans_res = client.post(
+        f'/api/challenge/{token}/answer',
+        headers={'X-Player-Token': p_token},
+        json={
+            'round_index': 0,
+            'album_shuffle_answers': [],
+            'time_taken_seconds': 60.0,
+            'timed_out': True,
+        },
+    )
+    assert ans_res.status_code == 200
+    ans = ans_res.json()
+    assert ans['timed_out'] is True
+    assert ans['round_score'] == 0
+
+    # Verify leaderboard exposes timed_out
+    lead_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': p_token})
+    assert lead_res.status_code == 200
+    guesses = lead_res.json()['round_guesses']
+    assert len(guesses) == 3  # 3 photos in round 0
+    assert all(g['timed_out'] is True for g in guesses)

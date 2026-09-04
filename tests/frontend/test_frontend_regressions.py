@@ -54,10 +54,6 @@ DYNAMIC_IDS = frozenset(
         'grand-reveal-share-btn',
         'grand-reveal-share-summary-btn',
         'grand-reveal-table',
-        'intermission-map',
-        'intermission-map-shell',
-        'intermission-next-btn',
-        'intermission-standings-list',
         'photo-lightbox',
         'photo-lightbox-img',
         'player-name-input',
@@ -1338,6 +1334,24 @@ def test_challenge_album_shuffle_opponent_guesses_display() -> None:
 
     # 2. album_shuffle.js matches photo_id with robust string equality
     assert 'String(g.photo_id) === String(item.photo_id)' in shuffle_js
+
+
+def test_challenge_pinpoint_opponent_guesses_display() -> None:
+    """Verify that challenge reveal retains distance error, coordinates, and date guess for pinpoint opponents."""
+    reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
+
+    # 1. isAlbumShuffle must not misclassify pinpoint matches based on asset_id or assigned_pin_id
+    assert 'Boolean(g.asset_id)' not in reveal_js
+    assert 'g.assigned_pin_id !== undefined' not in reveal_js
+
+    # 2. Pinpoint opponent result extracts distance_km, guessed coordinates, and dates
+    assert 'distance_km: guess.distance_km,' in reveal_js
+    assert 'guessed_latitude: guess.guessed_latitude,' in reveal_js
+    assert 'guessed_longitude: guess.guessed_longitude,' in reveal_js
+    assert 'guessed_year: guess.guessed_year,' in reveal_js
+    assert 'guessed_month: guess.guessed_month,' in reveal_js
+    assert 'date_diff_days: guess.date_diff_days,' in reveal_js
+    assert 'answeredPlayers.size' in reveal_js
 
 
 def test_player_name_cell_and_col_player_nowrap() -> None:

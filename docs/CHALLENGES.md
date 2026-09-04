@@ -7,15 +7,19 @@ Immich Quiz features **Multiplayer Challenge Mode**, enabling multi-device trivi
 ## 1. Core Concepts
 
 ### Asynchronous vs. Hybrid Multiplayer
+
 - **Asynchronous Play**: Friends can open the capability link anytime within the configurable expiration window on their mobile phone or desktop, playing through rounds at their own convenience.
 - **Hybrid "Socially Synced" Play**: Friends jump on a Discord, Google Meet, or living room call and open the same link together. While each player interacts with their own device, the **Round Reveal Screen** polls the server every 3 seconds, dropping friends' pins onto the map with animated pulses as they finish each round.
 
 ### Capability URLs & Unguessable Tokens
+
 Challenges do not require player login accounts or complex authentication. Instead, each challenge is protected by a **128-bit unguessable capability token** (e.g. `ch_9f8e2a...` generated via `secrets.token_urlsafe(16)`).
 Anyone with the link can participate or view results, while unauthorized users cannot guess or brute-force active match tokens.
 
 ### Deterministic Scoring Fairness (Frozen Decay Constants)
+
 In local matches, exponential decay constants adapt dynamically to the geographic and temporal spread of selected photos. For challenges, the decay formulas:
+
 - **Location**: $\text{score} = 100 \times e^{-\text{distance\_km} / \text{location\_decay\_km}}$
 - **Date**: $\text{score} = 100 \times e^{-\text{date\_diff\_days} / \text{date\_decay\_days}}$
 
@@ -26,6 +30,7 @@ are computed **once** at challenge creation time from the selected photo pool an
 ## 2. Host Creation & Management
 
 ### Creating a Challenge
+
 1. Open the game setup screen and configure game settings (Mode: **Pinpoint** or **Album Shuffle**, Targets: **Location**, **Date**, or **Both**, Rounds, Round Length, and Library Filters).
 2. Click **🎮 Prepare Game** to open the match preparation modal.
 3. Switch to the **Challenge Link** tab:
@@ -42,7 +47,9 @@ are computed **once** at challenge creation time from the selected photo pool an
 5. Click **📋 Copy Link** or scan the QR code to share with friends.
 
 ### The Challenges Hub (`/challenges`)
+
 The **Challenges Hub** provides an administrative overview of all challenges:
+
 - **Toolbar & Filtering**:
   - **Search**: Live filter by challenge title, host name, album, or tagged person.
   - **Status Pills**: Filter by **All**, **Active**, or **Expired**.
@@ -78,6 +85,7 @@ Grand Reveal Summary (/play/:token/summary)
 ```
 
 ### 1. Landing & Session Resume (`/play/:token`)
+
 - **New Players**: Enter a player name. An avatar circle dynamically previews the participant's initial and assigned color palette in real-time.
 - **Returning Players**: If a player has an active session on the device, a two-path card appears:
   1. *Resume Active Session*: Shows player avatar, name, and a one-click resume button to continue where they left off.
@@ -85,23 +93,27 @@ Grand Reveal Summary (/play/:token/summary)
 - **Expired Challenges**: Displays a status notice and a direct **🏆 See Results** button so past matches remain viewable.
 
 ### 2. In-Game Round Gameplay
+
 - Single-player experience matching local game rules (Pinpoint map pin & date picker, or Album Shuffle card reordering and pin matching).
 - Local restart buttons are hidden to prevent accidental session abandonment.
 - Turn timer features smooth 60 FPS transitions with audible ticks under 10s. If the timer expires, inputs freeze and zero points are scored cleanly.
 
 ### 3. Personal Reveal & Live Social Polling
+
 - Immediately shows personal performance: distance error in kilometers, date error, points awarded, and true location/date.
 - The reveal map displays the actual star location and the player's guess connected by a dashed polyline.
 - **3-Second Background Polling**: While reviewing the round, the client polls the server. As friends complete that round, their colored pins drop into the map with pulse animations and their scores append to the round score table live.
 - Tab background throttling: Polling pauses when the browser tab is hidden to conserve bandwidth and battery.
 
 ### 4. Post-Game "Invite Friends" Intermission
+
 - Shown to **all players** upon completing the final round.
 - Features celebratory header, direct challenge URL copy button, collapsible SVG QR code, and a live finisher tally:
   > *"You + 2 friends have finished"*
 - Players click **🏆 See Results** when ready to view the podium.
 
 ### 5. Grand Reveal / Final Summary (`/play/:token/summary`)
+
 - Gold confetti and fanfare audio play upon entry.
 - **Provisional vs. Settled Podium**:
   - If only 1 player has completed the match: A *Provisional Standings* notice explains that rankings may shift as friends finish.
@@ -119,21 +131,25 @@ Grand Reveal Summary (/play/:token/summary)
 Immich Quiz implements defense-in-depth protections for challenge matches:
 
 ### 1. Server-Enforced Fog of War
+
 - When querying `GET /api/challenge/{token}/leaderboard`, the server strictly withholds round answers and player guesses for future rounds:
   - If a player is on Round $k$, they can only see round history and guesses for rounds $\le k - 1$.
   - Unauthenticated requests on active matches receive empty `round_history: []` and `round_guesses: []`.
   - True photo coordinates, dates, and other players' guesses are only exposed after the player completes the round, or when the challenge concludes.
 
 ### 2. EXIF & GPS Metadata Stripping
+
 - Image thumbnails are proxied through FastAPI (`GET /api/media/{asset_id}`).
 - All EXIF metadata, GPS latitude/longitude tags, and camera timestamps are stripped in-memory before streaming image bytes to the client. Inspecting images in browser DevTools or Network tabs reveals no location or date data.
 
 ### 3. Asset Authorization via Capability Tokens
+
 - Media proxy endpoints require proof of authorization:
   - Local matches require an active in-memory `match_id`.
   - Challenge matches verify that the requested `asset_id` belongs to an active or valid challenge seed. Arbitrary asset probing is blocked with HTTP 404.
 
 ### 4. Server-Side Timer Grace Window
+
 - Active answer duration (`time_taken_seconds`) is tracked client-side and validated on the backend.
 - Submissions exceeding `round_length_seconds + 5.0s` (network latency grace window) are flagged or rejected to prevent client-side timer tampering.
 
@@ -144,11 +160,12 @@ Immich Quiz implements defense-in-depth protections for challenge matches:
 When hosting Immich Quiz behind Cloudflare Zero Trust, Traefik, Nginx, or Caddy, public challenge paths must be allowed while protecting administrative interfaces.
 
 ### Path Protection Rules
+
 | Path | Access Level | Description |
-|:---|:---|:---|
+| :--- | :--- | :--- |
 | `/play/*` | **Public** | Challenge landing, participant join, and match summary |
 | `/api/challenge/*` | **Public** | Capability-token authenticated challenge endpoints |
-| `/media/*` | **Public** | Metadata-scrubbed thumbnail proxy (authorized by asset ID) |
+| `/api/media/*` | **Public** | Metadata-scrubbed thumbnail proxy (authorized by asset ID) |
 | `/static/*` | **Public** | Frontend assets (JS, CSS, audio, icons) |
 | `/api/challenge/create` | **Protected / Host** | Challenge creation (protect with Zero Trust / HTTP Basic Auth) |
 | `/api/challenge/*/stop` | **Protected / Host** | Challenge termination |
@@ -156,6 +173,7 @@ When hosting Immich Quiz behind Cloudflare Zero Trust, Traefik, Nginx, or Caddy,
 | `/api/sync*` | **Protected / Admin** | Metadata synchronization triggers |
 
 ### Example Nginx Configuration
+
 ```nginx
 server {
     listen 443 ssl http2;
@@ -168,7 +186,7 @@ server {
     location /api/challenge/ {
         proxy_pass http://127.0.0.1:8010;
     }
-    location /media/ {
+    location /api/media/ {
         proxy_pass http://127.0.0.1:8010;
     }
     location /static/ {

@@ -429,6 +429,7 @@ class ChallengeService:
             date_points=date_points if date_mode else None,
             round_score=round_score,
             time_taken_seconds=body.time_taken_seconds,
+            timed_out=body.timed_out,
         )
 
         # Advance session state
@@ -474,6 +475,7 @@ class ChallengeService:
             is_game_over=is_final,
             total_score=updated['total_score'] if updated else round_score,
             total_time_seconds=updated['total_time_seconds'] if updated else body.time_taken_seconds,
+            timed_out=body.timed_out,
             player_color=session.get('player_color'),
         )
 
@@ -638,6 +640,7 @@ class ChallengeService:
                 is_correct_location=is_correct_loc,
                 is_correct_date_order=is_correct_date,
                 time_taken_seconds=body.time_taken_seconds,
+                timed_out=body.timed_out,
                 assigned_pin_id=str(assigned_pin_id) if assigned_pin_id else None,
                 assigned_timeline_index=assigned_timeline_index,
             )
@@ -691,6 +694,7 @@ class ChallengeService:
             is_game_over=is_final,
             total_score=updated['total_score'] if updated else round_score,
             total_time_seconds=updated['total_time_seconds'] if updated else body.time_taken_seconds,
+            timed_out=body.timed_out,
             player_color=session.get('player_color'),
         )
 

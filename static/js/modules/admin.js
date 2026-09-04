@@ -7,7 +7,7 @@
 
 import { state, el } from "./state.js";
 import { api } from "./api.js";
-import { t, tOr, formatDate, formatDateTime } from "./i18n.js";
+import { t, tOr, formatDateTime } from "./i18n.js";
 import { showShareToast, copyToClipboard } from "./summary/share.js";
 import { startMatch } from "./screens/setup.js";
 import {
@@ -28,6 +28,7 @@ import { activateFocusTrap, deactivateFocusTrap } from "./components/focus_trap.
 
 const CREATOR_NAME_STORAGE_KEY = "immich_challenge_creator_name";
 
+let _isInitialized = false;
 let _modalEl = null;
 let _tabLocalBtn = null;
 let _tabChallengeBtn = null;
@@ -89,8 +90,10 @@ export function generateAutoChallengeTitle() {
  * Initialize the Prepare Game Modal and bind events.
  */
 export function initAdminModal() {
+  if (_isInitialized) return;
   _modalEl = document.getElementById("prepare-game-modal");
   if (!_modalEl) return;
+  _isInitialized = true;
 
   _tabLocalBtn = document.getElementById("tab-local-game");
   _tabChallengeBtn = document.getElementById("tab-challenge-game");

@@ -9,7 +9,7 @@ import { api } from "../api.js";
 import { state, el } from "../state.js";
 import { t } from "../i18n.js";
 import { showCard } from "../screens/common.js";
-import { registerPlayerColor, playerColor, playerInitial } from "../formatters.js";
+import { registerPlayerColor, playerColor } from "../formatters.js";
 import { updateSubmitState } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { challengeSession, POLL_INTERVAL_MS } from "./session.js";
@@ -174,21 +174,29 @@ export const challengeReveal = {
     const newOpponents = [];
     const updatedResults = [...challengeSession.currentRevealData.results];
 
-    // Defensively ensure local player's album_shuffle_guesses is populated if missing
-    const myResult = updatedResults.find((r) => r.player_name === challengeSession.sessionPlayerName);
-    if (myResult && (!myResult.album_shuffle_guesses || myResult.album_shuffle_guesses.length === 0)) {
-      const myGuesses = currentGuesses.filter((g) => g.player_name === challengeSession.sessionPlayerName);
-      if (myGuesses.length > 0 && myGuesses.some((g) => g.asset_id)) {
-        myResult.album_shuffle_guesses = myGuesses
-          .filter((g) => g.asset_id)
-          .map((g) => ({
-            photo_id: g.asset_id,
-            assigned_pin_id: g.assigned_pin_id || null,
-            assigned_timeline_index:
-              g.assigned_timeline_index !== null && g.assigned_timeline_index !== undefined
-                ? g.assigned_timeline_index
-                : null,
-          }));
+    const isRoundAlbumShuffle =
+      leaderboardData.game_mode === "album_shuffle" ||
+      challengeSession.challengeData?.game_mode === "album_shuffle" ||
+      state.gameMode === "album_shuffle" ||
+      currentGuesses.some((g) => g.game_mode === "album_shuffle");
+
+    if (isRoundAlbumShuffle) {
+      // Defensively ensure local player's album_shuffle_guesses is populated if missing
+      const myResult = updatedResults.find((r) => r.player_name === challengeSession.sessionPlayerName);
+      if (myResult && (!myResult.album_shuffle_guesses || myResult.album_shuffle_guesses.length === 0)) {
+        const myGuesses = currentGuesses.filter((g) => g.player_name === challengeSession.sessionPlayerName);
+        if (myGuesses.length > 0 && myGuesses.some((g) => g.asset_id)) {
+          myResult.album_shuffle_guesses = myGuesses
+            .filter((g) => g.asset_id)
+            .map((g) => ({
+              photo_id: g.asset_id,
+              assigned_pin_id: g.assigned_pin_id || null,
+              assigned_timeline_index:
+                g.assigned_timeline_index !== null && g.assigned_timeline_index !== undefined
+                  ? g.assigned_timeline_index
+                  : null,
+            }));
+        }
       }
     }
 
@@ -207,13 +215,9 @@ export const challengeReveal = {
       const pinKey = `player_${playerName}`;
       const isAlbumShuffle =
         leaderboardData.game_mode === "album_shuffle" ||
-        playerGuesses.some(
-          (g) =>
-            g.game_mode === "album_shuffle" ||
-            Boolean(g.asset_id) ||
-            g.assigned_pin_id !== undefined ||
-            g.assigned_timeline_index !== undefined
-        );
+        challengeSession.challengeData?.game_mode === "album_shuffle" ||
+        state.gameMode === "album_shuffle" ||
+        playerGuesses.some((g) => g.game_mode === "album_shuffle");
 
       let opponentResult;
       if (isAlbumShuffle) {
@@ -249,6 +253,12 @@ export const challengeReveal = {
           guessed_longitude: guess.guessed_longitude,
           guessed_year: guess.guessed_year,
           guessed_month: guess.guessed_month,
+          actual_latitude: guess.actual_latitude ?? challengeSession.currentRevealData.actual_latitude,
+          actual_longitude: guess.actual_longitude ?? challengeSession.currentRevealData.actual_longitude,
+          actual_year: guess.actual_year ?? challengeSession.currentRevealData.actual_year,
+          actual_month: guess.actual_month ?? challengeSession.currentRevealData.actual_month,
+          actual_city: guess.actual_city ?? challengeSession.currentRevealData.actual_city,
+          actual_country: guess.actual_country ?? challengeSession.currentRevealData.actual_country,
           location_score: guess.location_points,
           date_score: guess.date_points,
           round_score: guess.round_score,
@@ -337,8 +347,13 @@ export const challengeReveal = {
 
     const participants = leaderboardData?.leaderboard || challengeSession.challengeData?.participants || [];
     const totalCount = Math.max(participants.length, 1);
+    const answeredPlayers = new Set(
+      (leaderboardData?.round_guesses || [])
+        .filter((g) => g.round_index === roundIndex)
+        .map((g) => g.player_name)
+    );
     const answeredCount =
-      (leaderboardData?.round_guesses || []).filter((g) => g.round_index === roundIndex).length ||
+      answeredPlayers.size ||
       challengeSession.currentRevealData?.results?.length ||
       1;
 
