@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS challenge_sessions (
     session_token      TEXT PRIMARY KEY,
     match_id           TEXT NOT NULL,
     challenge_id       TEXT NOT NULL,
-    player_name        TEXT NOT NULL,
+    player_name        TEXT NOT NULL COLLATE NOCASE,
     current_round      INTEGER NOT NULL DEFAULT 0,
     location_score     INTEGER NOT NULL DEFAULT 0,
     date_score         INTEGER NOT NULL DEFAULT 0,
@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS challenge_sessions (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_challenge_sessions_unique_player
-    ON challenge_sessions(challenge_id, player_name);
+    ON challenge_sessions(challenge_id, player_name COLLATE NOCASE);
 
 -- Indices for rapid querying and filtering
 CREATE INDEX IF NOT EXISTS idx_matches_played_at ON matches(played_at DESC);
@@ -271,7 +271,7 @@ def _parse_iso_datetime(val: str | None) -> datetime:
     if val:
         with contextlib.suppress(Exception):
             return datetime.fromisoformat(val)
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class LeaderboardStore:
@@ -284,6 +284,11 @@ class LeaderboardStore:
             self._db = DatabaseManager(db_path)
         self._metadata_store = metadata_store
         self._init_db()
+
+    @property
+    def db(self) -> DatabaseManager:
+        """Return the underlying DatabaseManager instance."""
+        return self._db
 
     def _init_db(self) -> None:
         self._db.execute_script(LEADERBOARD_SCHEMA_SQL)
@@ -309,8 +314,17 @@ class LeaderboardStore:
                 conn.execute('ALTER TABLE matches ADD COLUMN person_names_json TEXT')
             cursor_s = conn.execute('PRAGMA table_info(challenge_sessions)')
             existing_session_cols = {row[1] for row in cursor_s.fetchall()}
-            if existing_session_cols and 'player_color' not in existing_session_cols:
-                conn.execute('ALTER TABLE challenge_sessions ADD COLUMN player_color TEXT')
+            if existing_session_cols:
+                if 'player_color' not in existing_session_cols:
+                    conn.execute('ALTER TABLE challenge_sessions ADD COLUMN player_color TEXT')
+                # Ensure unique index on challenge_sessions uses COLLATE NOCASE for existing databases
+                conn.execute('DROP INDEX IF EXISTS idx_challenge_sessions_unique_player')
+                conn.execute(
+                    """
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_challenge_sessions_unique_player
+                        ON challenge_sessions(challenge_id, player_name COLLATE NOCASE)
+                    """
+                )
 
     def append_match(
         self,
@@ -327,7 +341,7 @@ class LeaderboardStore:
         round_guesses: list[dict[str, Any]] | None = None,
     ) -> None:
         """Persist a completed match with match metadata, player entries, and detailed guesses."""
-        played_at = datetime.now(timezone.utc).isoformat()
+        played_at = datetime.now(UTC).isoformat()
         is_custom, summary = config.format_filter_summary()
 
         max_score = max_possible_score(
@@ -904,7 +918,7 @@ class LeaderboardStore:
         assigned_timeline_index: int | None = None,
     ) -> None:
         """Persist a single player's guess for a challenge round."""
-        now_iso = submitted_at or datetime.now(timezone.utc).isoformat()
+        now_iso = submitted_at or datetime.now(UTC).isoformat()
         with self._db.connection() as conn:
             # Ensure parent match row exists in matches table for foreign key integrity
             conn.execute(
@@ -985,7 +999,7 @@ class LeaderboardStore:
         libraries: list[str] | None = None,
     ) -> None:
         """Record completed match and match_entry records when a player finishes all challenge rounds."""
-        played_at = datetime.now(timezone.utc).isoformat()
+        played_at = datetime.now(UTC).isoformat()
         game_mode = config.get('game_mode', 'pinpoint')
         location_mode = bool(config.get('location_mode', True))
         date_mode = bool(config.get('date_mode', True))

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -85,7 +85,7 @@ def test_challenge_expiration_and_deactivation(tmp_path: Path) -> None:
         expires_in_hours=1,
     )
     # Manually backdate expires_at
-    past_iso = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+    past_iso = (datetime.now(UTC) - timedelta(hours=2)).isoformat()
     with db.connection() as conn:
         conn.execute(
             'UPDATE challenges SET expires_at = ? WHERE challenge_id = ?',
@@ -764,3 +764,95 @@ def test_challenge_standings_batch_query_and_subqueries(tmp_path: Path) -> None:
     history_r0 = lb_store.get_challenge_round_history(ch_id, max_round=0)
     assert len(history_r0) == 1
     assert history_r0[0]['round_number'] == 1
+
+
+def test_advance_session_optimistic_concurrency(tmp_path: Path) -> None:
+    """Verify that advance_session uses optimistic concurrency and prevents duplicate submissions."""
+    db = DatabaseManager(tmp_path / 'leaderboard.db')
+    LeaderboardStore(db)
+    store = ChallengeStore(db)
+
+    res = store.create_challenge(
+        creator_name='Admin',
+        libraries=['lib'],
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+    )
+    ch_id = res['challenge_id']
+
+    session = store.get_or_resume_player_session(ch_id, 'Player1')
+    tok = session['session_token']
+    assert session['current_round'] == 0
+
+    # First advance for round 0 succeeds
+    success1 = store.advance_session(
+        tok,
+        round_index=0,
+        location_points=100,
+        date_points=50,
+        round_score=150,
+        time_taken_seconds=4.5,
+    )
+    assert success1 is True
+
+    updated = store.get_player_session(tok)
+    assert updated is not None
+    assert updated['current_round'] == 1
+    assert updated['total_score'] == 150
+
+    # Duplicate submission for round 0 fails (0 rows updated)
+    success2 = store.advance_session(
+        tok,
+        round_index=0,
+        location_points=100,
+        date_points=50,
+        round_score=150,
+        time_taken_seconds=4.5,
+    )
+    assert success2 is False
+
+    # Score was NOT double-incremented
+    refreshed = store.get_player_session(tok)
+    assert refreshed is not None
+    assert refreshed['current_round'] == 1
+    assert refreshed['total_score'] == 150
+
+
+def test_player_session_case_insensitive_resume(tmp_path: Path) -> None:
+    """Verify that challenge participant lookups and resumes treat player names case-insensitively."""
+    db = DatabaseManager(tmp_path / 'leaderboard.db')
+    LeaderboardStore(db)
+    store = ChallengeStore(db)
+
+    res = store.create_challenge(
+        creator_name='Host',
+        libraries=['lib'],
+        config={'game_mode': 'pinpoint', 'round_count': 3},
+        asset_ids=['a1', 'a2', 'a3'],
+    )
+    ch_id = res['challenge_id']
+
+    # Player joins as "Alice"
+    s1 = store.get_or_resume_player_session(ch_id, 'Alice', player_color='#f25f5c')
+    assert s1['current_round'] == 0
+    tok = s1['session_token']
+
+    # Advance round for "Alice"
+    store.advance_session(
+        tok,
+        round_index=0,
+        location_points=90,
+        date_points=80,
+        round_score=170,
+        time_taken_seconds=6.0,
+    )
+
+    # Player later joins / resumes typing "alice" in lowercase
+    s2 = store.get_or_resume_player_session(ch_id, 'alice')
+    assert s2['session_token'] == tok
+    assert s2['current_round'] == 1
+    assert s2['total_score'] == 170
+
+    # Total participants is still exactly 1
+    participants = store.get_challenge_participants(ch_id)
+    assert len(participants) == 1

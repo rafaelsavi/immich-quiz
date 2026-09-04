@@ -17,7 +17,7 @@ import { showCard } from "./common.js";
 import { navigate } from "../router.js";
 import { showShareToast, copyToClipboard } from "../summary/share.js";
 import { openAdminModal } from "../admin.js";
-import { playerColor, playerInitial, registerPlayerColor, formatRank, formatRoundsBadge, formatPlayerCellHtml, formatRelativeTime } from "../formatters.js";
+import { playerColor, playerInitial, registerPlayerColor, formatRank, formatRoundsBadge, formatPlayerCellHtml, formatRelativeTime, escapeHtml } from "../formatters.js";
 import { buildMatchMetaHtml } from "../components/match_meta.js";
 import { renderQRCode } from "../components/qrcode.js";
 
@@ -99,6 +99,79 @@ export function initChallengesPage() {
   if (_refreshBtnEl) {
     _refreshBtnEl.addEventListener("click", () => {
       loadChallengesList(true);
+    });
+  }
+
+  // Delegated event listener on challenges list container
+  if (_hubListEl) {
+    _hubListEl.addEventListener("click", async (e) => {
+      // 1. Share toggle button
+      const shareBtn = e.target.closest(".btn-share-challenge-hub");
+      if (shareBtn) {
+        e.stopPropagation();
+        const id = shareBtn.getAttribute("data-id");
+        const url = shareBtn.getAttribute("data-url");
+        if (id && url) {
+          toggleChallengeShare(id, url);
+        }
+        return;
+      }
+
+      // 2. Copy share URL button
+      const copyBtn = e.target.closest(".btn-copy-share-url");
+      if (copyBtn) {
+        e.stopPropagation();
+        const url = copyBtn.getAttribute("data-url");
+        if (url) {
+          await copyToClipboard(url, { successMessage: t("challenge.link_copied") });
+        }
+        return;
+      }
+
+      // 3. Play challenge button
+      const playBtn = e.target.closest(".btn-play-challenge");
+      if (playBtn) {
+        e.preventDefault();
+        const token = playBtn.getAttribute("data-token");
+        if (token) {
+          navigate(`/play/${token}`);
+        }
+        return;
+      }
+
+      // 4. Results challenge button
+      const resultsBtn = e.target.closest(".btn-results-challenge");
+      if (resultsBtn) {
+        e.preventDefault();
+        const token = resultsBtn.getAttribute("data-token");
+        if (token) {
+          navigate(`/play/${token}/summary`);
+        }
+        return;
+      }
+
+      // 5. Deactivate challenge button
+      const deactivateBtn = e.target.closest(".btn-deactivate-challenge-hub");
+      if (deactivateBtn) {
+        e.stopPropagation();
+        const id = deactivateBtn.getAttribute("data-id");
+        const title = deactivateBtn.getAttribute("data-title");
+        if (id) {
+          confirmAndDeactivate(id, title);
+        }
+        return;
+      }
+
+      // 6. Standings toggle button
+      const standingsBtn = e.target.closest(".btn-standings-toggle");
+      if (standingsBtn) {
+        const id = standingsBtn.getAttribute("data-id");
+        const token = standingsBtn.getAttribute("data-token");
+        if (id && token) {
+          toggleChallengeStandings(id, token);
+        }
+        return;
+      }
     });
   }
 
@@ -386,21 +459,21 @@ export function renderChallenges() {
       : t("challenges_page.view_standings", participantCount);
 
     html += `
-      <div class="detailed-challenge-card ${!isActive ? "card-inactive" : ""}" data-id="${ch.challenge_id}">
+      <div class="detailed-challenge-card ${!isActive ? "card-inactive" : ""}" data-id="${escapeHtml(ch.challenge_id)}">
         <!-- Card Header: Status Pill + Title (Left) and Quick Action Icons (Right) -->
         <div class="card-header-row">
           <div class="card-title-wrap">
             ${statusPillHtml}
-            <h3 class="detailed-challenge-title">${ch.title || `${ch.creator_name}'s Challenge`}</h3>
+            <h3 class="detailed-challenge-title">${escapeHtml(ch.title || `${ch.creator_name}'s Challenge`)}</h3>
           </div>
 
           <div class="card-header-actions">
             <button type="button" class="btn-share-challenge-hub ${isShareExpanded ? "active" : ""}"
-              data-id="${ch.challenge_id}" data-url="${ch.play_url}"
+              data-id="${escapeHtml(ch.challenge_id)}" data-url="${escapeHtml(ch.play_url)}"
               title="${t("challenges_page.share_btn_title")}"
               aria-label="${t("challenges_page.share_btn")}"
               aria-expanded="${isShareExpanded}"
-              aria-controls="share-drawer-${ch.challenge_id}">
+              aria-controls="share-drawer-${escapeHtml(ch.challenge_id)}">
               <svg class="share-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="18" cy="5" r="3"></circle>
                 <circle cx="6" cy="12" r="3"></circle>
@@ -412,7 +485,7 @@ export function renderChallenges() {
             ${
               isActive
                 ? `<button type="button" class="btn-deactivate-challenge-hub btn-action-icon text-danger"
-                    data-id="${ch.challenge_id}" data-title="${ch.title || "Challenge"}"
+                    data-id="${escapeHtml(ch.challenge_id)}" data-title="${escapeHtml(ch.title || "Challenge")}"
                     title="${t("challenges_page.deactivate_btn")}"
                     aria-label="${t("challenges_page.deactivate_btn")}">
                     <span>🚫</span>
@@ -423,19 +496,19 @@ export function renderChallenges() {
         </div>
 
         <!-- Expandable Share & QR Drawer -->
-        <div class="challenge-hub-share-drawer ${isShareExpanded ? "open" : "hidden"}" id="share-drawer-${ch.challenge_id}">
+        <div class="challenge-hub-share-drawer ${isShareExpanded ? "open" : "hidden"}" id="share-drawer-${escapeHtml(ch.challenge_id)}">
           <div class="share-drawer-inner">
             <div class="share-drawer-grid">
               <div class="share-qr-card">
-                <div class="share-qr-display" id="share-qr-${ch.challenge_id}"></div>
+                <div class="share-qr-display" id="share-qr-${escapeHtml(ch.challenge_id)}"></div>
                 <p class="share-qr-hint">${t("challenges_page.scan_qr_hint")}</p>
               </div>
               <div class="share-info-card">
                 <h4 class="share-card-title">${t("challenges_page.share_drawer_title")}</h4>
                 <p class="share-card-desc">${t("challenges_page.share_drawer_desc")}</p>
                 <div class="share-url-box">
-                  <input type="text" readonly value="${ch.play_url}" id="share-url-${ch.challenge_id}" class="share-url-input" spellcheck="false" autocomplete="off" />
-                  <button type="button" class="btn-primary btn-copy-share-url" data-url="${ch.play_url}">
+                  <input type="text" readonly value="${escapeHtml(ch.play_url)}" id="share-url-${escapeHtml(ch.challenge_id)}" class="share-url-input" spellcheck="false" autocomplete="off" />
+                  <button type="button" class="btn-primary btn-copy-share-url" data-url="${escapeHtml(ch.play_url)}">
                     <span class="btn-icon">📋</span>
                     ${t("challenges_page.copy_btn")}
                   </button>
@@ -447,7 +520,7 @@ export function renderChallenges() {
 
         <!-- Card Subtitle: Host, Created Date, and Time Status -->
         <div class="card-host-row">
-          <span class="host-name">${t("challenges_page.host_label", ch.creator_name)}</span>
+          <span class="host-name">${t("challenges_page.host_label", escapeHtml(ch.creator_name))}</span>
           <span class="host-dot">•</span>
           <span class="created-date">${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
           <span class="host-dot">•</span>
@@ -492,68 +565,6 @@ export function renderChallenges() {
   });
 
   _hubListEl.innerHTML = html;
-
-  // Bind interactive elements
-  _hubListEl.querySelectorAll(".btn-share-challenge-hub").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const id = btn.getAttribute("data-id");
-      const url = btn.getAttribute("data-url");
-      if (id && url) {
-        toggleChallengeShare(id, url);
-      }
-    });
-  });
-
-  _hubListEl.querySelectorAll(".btn-copy-share-url").forEach((btn) => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const url = btn.getAttribute("data-url");
-      if (!url) return;
-      await copyToClipboard(url, { successMessage: t("challenge.link_copied") });
-    });
-  });
-
-  _hubListEl.querySelectorAll(".btn-play-challenge").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      const token = btn.getAttribute("data-token");
-      if (token) {
-        navigate(`/play/${token}`);
-      }
-    });
-  });
-
-  _hubListEl.querySelectorAll(".btn-results-challenge").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.preventDefault();
-      const token = btn.getAttribute("data-token");
-      if (token) {
-        navigate(`/play/${token}/summary`);
-      }
-    });
-  });
-
-  _hubListEl.querySelectorAll(".btn-deactivate-challenge-hub").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const id = btn.getAttribute("data-id");
-      const title = btn.getAttribute("data-title");
-      if (id) {
-        confirmAndDeactivate(id, title);
-      }
-    });
-  });
-
-  _hubListEl.querySelectorAll(".btn-standings-toggle").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-id");
-      const token = btn.getAttribute("data-token");
-      if (id && token) {
-        toggleChallengeStandings(id, token);
-      }
-    });
-  });
 
   // Re-render any currently expanded share drawers
   _expandedShareDrawers.forEach((chId) => {
@@ -713,10 +724,10 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
         const init = playerInitial(p.player_name);
         return `
           <div class="mini-podium-item ${placeCls}">
-            <div class="mini-podium-avatar" style="border-color: ${col};">${init}</div>
+            <div class="mini-podium-avatar" style="border-color: ${escapeHtml(col)};">${escapeHtml(init)}</div>
             <span class="mini-podium-medal">${medal}</span>
-            <strong class="mini-podium-name">${p.player_name}</strong>
-            <span class="mini-podium-acc">${p.accuracy_pct}%</span>
+            <strong class="mini-podium-name">${escapeHtml(p.player_name)}</strong>
+            <span class="mini-podium-acc">${escapeHtml(p.accuracy_pct)}%</span>
           </div>
         `;
       })

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import secrets
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -77,7 +77,7 @@ class ChallengeStore:
         """Create a deterministic challenge seed with a capability URL token."""
         challenge_id = f'ch_{uuid4().hex[:12]}'
         capability_token = secrets.token_urlsafe(16)
-        created_at = datetime.now(timezone.utc)
+        created_at = datetime.now(UTC)
         expires_at = (created_at + timedelta(hours=expires_in_hours)).isoformat() if expires_in_hours else None
 
         with self._db.connection() as conn:
@@ -142,7 +142,7 @@ class ChallengeStore:
             # Check expiration
             if row['expires_at']:
                 exp = datetime.fromisoformat(row['expires_at'])
-                if datetime.now(timezone.utc) > exp:
+                if datetime.now(UTC) > exp:
                     return None  # Expired
 
             if not row['is_active']:
@@ -174,7 +174,7 @@ class ChallengeStore:
         Assigns a persistent individual icon color based on join order.
         """
         existing = self._db.fetch_one(
-            'SELECT * FROM challenge_sessions WHERE challenge_id = ? AND player_name = ?',
+            'SELECT * FROM challenge_sessions WHERE challenge_id = ? AND player_name = ? COLLATE NOCASE',
             (challenge_id, player_name),
         )
         if existing:
@@ -219,7 +219,7 @@ class ChallengeStore:
 
         session_token = secrets.token_urlsafe(24)
         match_id = f'ch_match_{uuid4().hex[:12]}'
-        started_at = datetime.now(timezone.utc).isoformat()
+        started_at = datetime.now(UTC).isoformat()
 
         try:
             with self._db.connection() as conn:
@@ -235,7 +235,7 @@ class ChallengeStore:
                 )
         except sqlite3.IntegrityError:
             existing = self._db.fetch_one(
-                'SELECT * FROM challenge_sessions WHERE challenge_id = ? AND player_name = ?',
+                'SELECT * FROM challenge_sessions WHERE challenge_id = ? AND player_name = ? COLLATE NOCASE',
                 (challenge_id, player_name),
             )
             if existing:
@@ -284,11 +284,15 @@ class ChallengeStore:
         round_score: int,
         time_taken_seconds: float,
         is_final: bool = False,
-    ) -> None:
-        """Advance session state after a round submission."""
-        completed_at = datetime.now(timezone.utc).isoformat() if is_final else None
+    ) -> bool:
+        """Advance session state after a round submission.
+
+        Uses optimistic concurrency: only updates if current_round matches round_index.
+        Returns True if row was updated, False if round was already advanced.
+        """
+        completed_at = datetime.now(UTC).isoformat() if is_final else None
         with self._db.connection() as conn:
-            conn.execute(
+            cursor = conn.execute(
                 """
                 UPDATE challenge_sessions SET
                     current_round = ?,
@@ -297,7 +301,7 @@ class ChallengeStore:
                     total_score = total_score + ?,
                     total_time_seconds = total_time_seconds + ?,
                     completed_at = COALESCE(?, completed_at)
-                WHERE session_token = ?
+                WHERE session_token = ? AND current_round = ?
                 """,
                 (
                     round_index + 1,
@@ -307,12 +311,14 @@ class ChallengeStore:
                     time_taken_seconds,
                     completed_at,
                     session_token,
+                    round_index,
                 ),
             )
+            return cursor.rowcount > 0
 
     def is_asset_in_active_challenge(self, asset_id: str) -> bool:
         """Verify if an asset is registered to any currently active challenge (for /media proxying)."""
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         row = self._db.fetch_one(
             """
             SELECT 1 FROM challenges, json_each(challenges.asset_ids_json)

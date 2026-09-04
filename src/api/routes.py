@@ -2,7 +2,7 @@ import asyncio
 from typing import Annotated, Any
 
 from cachetools import TTLCache
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
 from src.config import AppSettings
 from src.game.service import GameService
@@ -100,8 +100,17 @@ def get_game_service(request: Request) -> GameService:
 
 
 @router.get('/health')
-async def health() -> dict[str, str]:
-    return {'status': 'ok', 'version': APP_VERSION}
+async def health(metadata_store: MetadataStore = Depends(get_metadata_store)) -> dict[str, str]:
+    try:
+        val = await asyncio.to_thread(metadata_store._db.fetch_val, 'SELECT 1;')
+        if val != 1:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='Database probe failed')
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f'Database unhealthy: {exc}',
+        ) from exc
+    return {'status': 'ok', 'version': APP_VERSION, 'database': 'connected'}
 
 
 @router.get('/ui-config')
@@ -211,30 +220,49 @@ async def question(
 @router.get('/media/{asset_id}')
 async def media(
     asset_id: str,
+    request: Request,
     store: SessionStore = Depends(get_session_store),
     challenge_store: ChallengeStore = Depends(get_challenge_store),
     immich: ImmichClient = Depends(get_immich_client),
     metadata_store: MetadataStore = Depends(get_metadata_store),
     leaderboard_store: LeaderboardStore = Depends(get_leaderboard_store),
 ) -> Response:
-    is_local = store.is_asset_registered(asset_id)
-    is_history = leaderboard_store.is_asset_recorded(asset_id)
-    is_challenge = challenge_store.is_asset_in_active_challenge(asset_id)
+    is_local = await asyncio.to_thread(store.is_asset_registered, asset_id)
+    is_history = await asyncio.to_thread(leaderboard_store.is_asset_recorded, asset_id)
+    is_challenge = await asyncio.to_thread(challenge_store.is_asset_in_active_challenge, asset_id)
 
     if not is_local and not is_history and not is_challenge:
         raise HTTPException(status_code=404, detail='Unknown asset for any active game or challenge')
 
-    target_library = metadata_store.get_asset_library(asset_id)
+    target_library = await asyncio.to_thread(metadata_store.get_asset_library, asset_id)
     if not target_library:
         raise HTTPException(status_code=404, detail='Cannot resolve library for asset')
+
+    etag = f'"{asset_id}"'
+    if_none_match = request.headers.get('if-none-match')
+    if if_none_match and if_none_match.strip() == etag:
+        return Response(
+            status_code=status.HTTP_304_NOT_MODIFIED,
+            headers={
+                'ETag': etag,
+                'Cache-Control': 'public, max-age=86400, immutable',
+            },
+        )
 
     try:
         content, content_type = await immich.get_asset_bytes(target_library, asset_id)
     except ImmichClientError as exc:
-        metadata_store.mark_asset_invalid(asset_id)
+        await asyncio.to_thread(metadata_store.mark_asset_invalid, asset_id)
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    return Response(content=content, media_type=content_type)
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            'ETag': etag,
+            'Cache-Control': 'public, max-age=86400, immutable',
+        },
+    )
 
 
 @router.post('/answer', response_model=AnswerResponse)

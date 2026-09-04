@@ -24,6 +24,7 @@ import {
 import { loadChallengesList } from "./screens/challenges.js";
 import { getActiveMode } from "./modes/index.js";
 import { renderQRCode } from "./components/qrcode.js";
+import { activateFocusTrap, deactivateFocusTrap } from "./components/focus_trap.js";
 
 const CREATOR_NAME_STORAGE_KEY = "immich_challenge_creator_name";
 
@@ -218,12 +219,14 @@ export function openAdminModal(initialTab = "local") {
 
   _modalEl.classList.remove("hidden");
   _modalEl.setAttribute("aria-hidden", "false");
+  activateFocusTrap(_modalEl);
 }
 
 /**
  * Close Prepare Game Modal.
  */
 export function closeAdminModal() {
+  deactivateFocusTrap();
   if (!_modalEl) return;
   _modalEl.classList.add("hidden");
   _modalEl.setAttribute("aria-hidden", "true");

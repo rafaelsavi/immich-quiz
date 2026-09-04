@@ -10,21 +10,9 @@
  */
 
 import { t, tOr } from "../i18n.js";
+import { escapeHtml } from "../formatters.js";
 
-/**
- * Escapes HTML characters for safe attribute and text insertion.
- * @param {string} str
- * @returns {string}
- */
-export function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+export { escapeHtml };
 
 /**
  * Render an array of match meta item objects to HTML.

@@ -18,7 +18,8 @@ Response:
 ```json
 {
   "status": "ok",
-  "version": "2.4.0"
+  "version": "3.0.0",
+  "database": "connected"
 }
 ```
 
@@ -33,7 +34,7 @@ Response:
   "language": "EN",
   "score_max_points": 100,
   "immich_web_url": "https://immich.example.com",
-  "version": "2.5.0"
+  "version": "3.0.0"
 }
 ```
 

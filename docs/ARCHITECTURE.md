@@ -5,7 +5,7 @@
 - Backend: FastAPI with async endpoints, served by Uvicorn.
 - Frontend: static HTML/CSS/JS with Leaflet (no build step).
 - Session persistence: in-memory for active games.
-- Historical persistence: SQLite databases (`data/metadata.db` for metadata cache, `data/leaderboard.db` for the 5-table relational match & challenge schema: `challenges`, `challenge_sessions`, `matches`, `match_entries`, `match_round_guesses`).
+- Historical persistence: SQLite databases (`data/metadata.db` for metadata cache, `data/leaderboard.db` for the 5-table relational match & challenge schema: `challenges`, `challenge_sessions`, `matches`, `match_entries`, `match_round_guesses`) operating in WAL mode with `synchronous=NORMAL`, automated post-sync checkpoints, periodic 6-hour journal truncation, and shutdown maintenance.
 - Metadata synchronization: Background asynchronous full & delta indexing from Immich (see [`docs/SYNC.md`](SYNC.md) for full architecture).
 
 ---
@@ -73,7 +73,10 @@ immich-quiz/
     ├── js/audio-playground.js Playground controller & visualizer logic.
     └── js/modules/      Modular ES modules:
         ├── components/  Reusable UI components:
+        │   ├── activity_toast.js Glassmorphic activity toast notifications for real-time multiplayer.
+        │   ├── focus_trap.js Accessible modal focus trap utility (Tab / Shift+Tab) restoring focus.
         │   ├── lightbox.js  Zero-dependency modal photo lightbox with click-outside and Escape dismissal.
+        │   ├── match_meta.js Match configuration rendering, game setup & library filter summary badges.
         │   ├── multi_select.js Searchable tag-based multi-select with select-all/clear.
         │   ├── player_input.js Interactive player chip input with duplicate detection & colors.
         │   ├── qrcode.js    Zero-dependency SVG QR code generator for challenge links.

@@ -9,7 +9,7 @@ import { state, el } from "../state.js";
 import { t, TRANSLATIONS, translateError } from "../i18n.js";
 import { showCard } from "../screens/common.js";
 import { navigate } from "../router.js";
-import { playerColor, playerInitial, registerPlayerColor } from "../formatters.js";
+import { playerColor, playerInitial, registerPlayerColor, escapeHtml } from "../formatters.js";
 import { buildMatchMetaHtml } from "../components/match_meta.js";
 import { challengeSession } from "./session.js";
 
@@ -70,11 +70,11 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
             </div>
           </div>
           <div class="challenge-player-pill">
-            <span class="player-pill-avatar" style="background: ${resumeColor};">${playerInitial(savedSession.playerName)}</span>
-            <span class="player-name">${savedSession.playerName}</span>
+            <span class="player-pill-avatar" style="background: ${escapeHtml(resumeColor)};">${escapeHtml(playerInitial(savedSession.playerName))}</span>
+            <span class="player-name">${escapeHtml(savedSession.playerName)}</span>
           </div>
           <button type="button" class="btn btn-primary btn-large challenge-path-btn" id="challenge-resume-btn">
-            <span>${t("challenge.resume_button_as", savedSession.playerName)}</span>
+            <span>${t("challenge.resume_button_as", escapeHtml(savedSession.playerName))}</span>
             <span class="btn-arrow" aria-hidden="true">→</span>
           </button>
         </div>
@@ -154,7 +154,7 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
     <div class="challenge-landing">
       <div class="challenge-header">
         <span class="badge badge-challenge">${t("challenge.badge")}</span>
-        <h2>${data.title || `${data.creator_name}'s Challenge`}</h2>
+        <h2>${escapeHtml(data.title || `${data.creator_name}'s Challenge`)}</h2>
       </div>
 
       <div class="challenge-participants">

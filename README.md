@@ -83,6 +83,7 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `PEOPLE_BLACKLIST`               | No       | —             | Comma-separated list of excluded people names or IDs in filters (case-insensitive)    |
 | `TAG_WHITELIST`                  | No       | —             | Comma-separated list of allowed asset tag names or IDs in filters (case-insensitive)  |
 | `TAG_BLACKLIST`                  | No       | —             | Comma-separated list of excluded asset tag names or IDs in filters (case-insensitive) |
+| `EXCLUDE_FLAGGED_ASSETS`         | No       | `true`        | Exclude reported photos with metadata inconsistencies from question pools (default: true) |
 | `DATA_PATH`                      | No       | `data`        | Directory for SQLite persistence (`metadata.db` and `leaderboard.db`)                 |
 | `AUTO_SYNC_ON_STARTUP`           | No       | `true`        | Auto-trigger metadata sync in the background on server startup                        |
 | `AUTO_DELTA_SYNC_INTERVAL_HOURS` | No       | `6`           | Interval in hours for periodic delta metadata sync (`0` disables)                     |
@@ -124,7 +125,7 @@ uv run playwright install chromium
 3. Start the app:
 
 ```bash
-uv run -m src.main
+uv run python -m src.main
 ```
 
 ### Tests and Quality Gates
@@ -148,6 +149,7 @@ uv run pytest tests/e2e
 
 # Run linters and type checkers
 uv run ruff check .
+uv run ruff format --check
 uv run mypy src
 
 # Run full test suite with coverage

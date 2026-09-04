@@ -59,6 +59,7 @@ def test_health_endpoint_returns_version(client: TestClient) -> None:
     data = response.json()
     assert data['status'] == 'ok'
     assert data['version'] == APP_VERSION
+    assert data['database'] == 'connected'
 
 
 def test_ui_config_endpoint_returns_version(client: TestClient) -> None:
@@ -79,3 +80,9 @@ def test_changelog_contains_current_version() -> None:
     pattern = r'##\s*\[?v?' + re.escape(version) + r'\]?'
 
     assert re.search(pattern, content), f"Version '{version}' from pyproject.toml not found in CHANGELOG.md"
+
+
+def test_service_worker_contains_current_version(client: TestClient) -> None:
+    response = client.get('/sw.js')
+    assert response.status_code == 200
+    assert f"const CACHE_NAME = 'immich-quiz-v{APP_VERSION}';" in response.text

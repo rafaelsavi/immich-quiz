@@ -6,14 +6,7 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-- [ ] v3.1.0 **5. Admin Area & Reported Asset Moderation**
-  - [ ] Build dedicated admin interface (`/admin` / `static/admin.html`) with authentication/Zero Trust protection.
-  - [ ] Review dashboard for flagged/reported assets with detailed issue breakdown (GPS mismatch, incorrect date, face tag, custom notes).
-  - [ ] Interactive asset inspection view with side-by-side preview and direct deep links to Immich Web for quick metadata correction.
-  - [ ] Moderation workflows: mark issues as resolved, reinstate false alarms, or permanently exclude problematic assets from quiz candidate pools.
-  - [ ] Moderation summary metrics (total reports, pending vs. resolved counts, frequent issue categories).
-
-- [ ] v3.2.0 **6. Player Statistics & Match Replays**
+- [ ] v3.1.0 **6. Player Statistics & Match Replays**
   - [ ] Build dedicated player profile & stats dashboard querying relational data in `data/leaderboard.db`.
   - [ ] Visual accuracy analytics:
     - Distance error distribution histograms (<5 km, 5–50 km, 50–500 km, >500 km).
@@ -21,13 +14,19 @@ This document lists planned features, design ideas, and technical debt items for
     - Best score streaks, average response time, and most-played libraries.
   - [ ] Interactive match replay view allowing players to step through past games round-by-round with maps and polaroid cards.
 
-- [ ] v3.3.0 **7. Improve Share Functionality & Social Scorecards**
+- [ ] v3.2.0 **7. Improve Share Functionality & Social Scorecards**
+
+- [ ] v3.3.0 **5. Admin Area & Reported Asset Moderation**
+  - [ ] Build dedicated admin interface (`/admin` / `static/admin.html`) with authentication/Zero Trust protection.
+  - [ ] Review dashboard for flagged/reported assets with detailed issue breakdown (GPS mismatch, incorrect date, face tag, custom notes).
+  - [ ] Interactive asset inspection view with side-by-side preview and direct deep links to Immich Web for quick metadata correction.
+  - [ ] Moderation workflows: mark issues as resolved, reinstate false alarms, or permanently exclude problematic assets from quiz candidate pools.
 
 - [ ] v3.4.0 **8. Add Support for Videos**
   - [ ] Integrate Immich video streaming adapter using transcoded preview streams (`/api/asset/video/playback/{id}` or `encoded-video`) instead of raw 4K originals.
   - [ ] Implement in-game video player UI with autoplay, seamless loop, mute/unmute toggle, and poster image fallback.
   - [ ] Update metadata sync and preflight filter to index video duration and ensure video GPS/date metadata validity.
-  - [ ] Add setup filter "Media Type" toggle (*Photos Only*, *Videos Only*, *Photos & Videos*).
+  - [ ] Add library filter "Media Type" toggle (*Photos Only*, *Videos Only*, *Photos & Videos*).
 
 - [ ] v4.0.0 **9. Multiplayer Live Lounge (Real-Time Synchronous)**
   - [ ] Implement backend room coordinator and WebSocket manager (`src/room/manager.py`, `src/room/websocket.py`) supporting room codes, lobby state broadcasts, and host controls.

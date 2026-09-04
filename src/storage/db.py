@@ -32,11 +32,12 @@ class DatabaseManager:
             conn.execute('PRAGMA busy_timeout=5000;')
 
     @contextmanager
-    def connection(self) -> Generator[sqlite3.Connection, None, None]:
+    def connection(self) -> Generator[sqlite3.Connection]:
         """Context manager yielding a SQLite connection with foreign keys and row factory."""
         conn = sqlite3.connect(self.db_path, timeout=10.0)
         conn.row_factory = sqlite3.Row
         conn.execute('PRAGMA foreign_keys=ON;')
+        conn.execute('PRAGMA synchronous=NORMAL;')
         try:
             yield conn
             conn.commit()
@@ -70,3 +71,28 @@ class DatabaseManager:
             cursor = conn.execute(sql, params)
             row = cursor.fetchone()
             return row[0] if row is not None else None
+
+    def checkpoint(self, mode: str = 'TRUNCATE') -> None:
+        """Checkpoint the WAL journal back into the database file.
+
+        Modes supported: PASSIVE, FULL, RESTART, TRUNCATE.
+        """
+        valid_modes = {'PASSIVE', 'FULL', 'RESTART', 'TRUNCATE'}
+        normalized_mode = mode.strip().upper()
+        if normalized_mode not in valid_modes:
+            normalized_mode = 'TRUNCATE'
+        try:
+            with self.connection() as conn:
+                conn.execute(f'PRAGMA wal_checkpoint({normalized_mode});')
+                logger.debug('WAL checkpoint (%s) executed for %s', normalized_mode, self.db_path.name)
+        except Exception as exc:
+            logger.warning('Failed to checkpoint WAL for %s: %s', self.db_path.name, exc)
+
+    def optimize(self) -> None:
+        """Run PRAGMA optimize to update SQLite query planner statistics."""
+        try:
+            with self.connection() as conn:
+                conn.execute('PRAGMA optimize;')
+                logger.debug('PRAGMA optimize executed for %s', self.db_path.name)
+        except Exception as exc:
+            logger.warning('Failed to run PRAGMA optimize for %s: %s', self.db_path.name, exc)

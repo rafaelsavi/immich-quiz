@@ -1406,3 +1406,58 @@ def test_challenge_carousel_round_date_comparison_table() -> None:
     assert '.date-comp-truth {' in challenge_css
     assert '.date-table-scroll {' in challenge_css
     assert '.round-date-table .player-name-text {' in challenge_css
+
+
+def test_xss_escaping_and_dead_css_cleanup_regression() -> None:
+    """Verify that escapeHtml is centralized and exported, formatPlayerCellHtml escapes player names,
+    and obsolete challenge modal CSS is removed from modals.css.
+    """
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    match_meta_js = (JS_DIR / 'modules' / 'components' / 'match_meta.js').read_text(encoding='utf-8')
+    toast_js = (JS_DIR / 'modules' / 'components' / 'activity_toast.js').read_text(encoding='utf-8')
+    challenges_js = read_challenges_page_js()
+    modals_css = (STATIC_DIR / 'css' / 'components' / 'modals.css').read_text(encoding='utf-8')
+
+    # 1. escapeHtml is exported from formatters.js and re-exported from match_meta.js
+    assert 'export function escapeHtml(str)' in formatters_js
+    assert 'import { escapeHtml } from "../formatters.js";' in match_meta_js
+    assert 'export { escapeHtml };' in match_meta_js
+
+    # 2. formatPlayerCellHtml escapes player name and initial
+    assert 'escapeHtml(playerName)' in formatters_js
+    assert 'escapeHtml(init)' in formatters_js
+
+    # 3. activity_toast and challenges_js import and use escapeHtml
+    assert 'escapeHtml' in toast_js
+    assert 'escapeHtml' in challenges_js
+
+    # 4. Dead challenge modal CSS is deleted
+    assert '.active-challenge-card' not in modals_css
+    assert '.active-challenges-list' not in modals_css
+    assert '.challenge-status-badge' not in modals_css
+    assert '.btn-deactivate-challenge:' not in modals_css
+
+
+def test_focus_trap_and_dynamic_version_stamping_regression() -> None:
+    """Verify that focus trap utility exists and is wired into modals, and static asset versions use template tokens."""
+    focus_trap_js = (JS_DIR / 'modules' / 'components' / 'focus_trap.js').read_text(encoding='utf-8')
+    admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
+    report_js = (JS_DIR / 'modules' / 'components' / 'report_modal.js').read_text(encoding='utf-8')
+    sw_js = (STATIC_DIR / 'sw.js').read_text(encoding='utf-8')
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+
+    # 1. Focus trap exports and usage
+    assert 'export function activateFocusTrap(' in focus_trap_js
+    assert 'export function deactivateFocusTrap(' in focus_trap_js
+    assert 'activateFocusTrap(_modalEl' in admin_js
+    assert 'deactivateFocusTrap()' in admin_js
+    assert 'activateFocusTrap(_modalEl' in report_js
+    assert 'deactivateFocusTrap()' in report_js
+
+    # 2. Dynamic version stamping in index.html
+    assert 'href="/static/css/style.css?v={{APP_VERSION}}"' in index_html
+    assert 'src="/static/js/app.js?v={{APP_VERSION}}"' in index_html
+
+    # 3. Service Worker dynamic version template and ignoreSearch option
+    assert "const CACHE_NAME = 'immich-quiz-v{{APP_VERSION}}';" in sw_js
+    assert 'ignoreSearch: true' in sw_js

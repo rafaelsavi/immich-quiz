@@ -31,6 +31,7 @@ import {
   formatRoundsBadge,
   formatPlayerCellHtml,
   formatPlace,
+  escapeHtml,
 } from "../formatters.js";
 import { t, formatDate } from "../i18n.js";
 import { renderPodium } from "../summary/podium.js";
@@ -224,7 +225,7 @@ export const challengeSummary = {
         <div class="challenge-grand-reveal">
           <div class="grand-reveal-header">
             <span class="badge badge-challenge">${t("challenge.badge")}</span>
-            <h2>${data.title || `${challengeSession.challengeData.creator_name}'s Challenge`}</h2>
+            <h2>${escapeHtml(data.title || `${challengeSession.challengeData?.creator_name || "Host"}'s Challenge`)}</h2>
             <p class="grand-reveal-meta">
               <span id="grand-reveal-meta-tally">${totalRoundsCount} ${t("challenge.rounds")} • ${t("challenge.participants", data.leaderboard.length)}</span>
               <span id="grand-reveal-live-pill" class="challenge-live-pill">
@@ -678,7 +679,7 @@ export const challengeSummary = {
         const isCurrent = p.player_name === challengeSession.sessionPlayerName;
         const isWinner = p.is_winner && isSettled;
         return `
-          <tr data-player-name="${p.player_name}" data-total-score="${p.total_score}" class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
+          <tr data-player-name="${escapeHtml(p.player_name)}" data-total-score="${escapeHtml(p.total_score)}" class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
             <td class="col-rank">${formatRankBadge(p.rank, { showNumber: true })}</td>
             <td class="col-player">
               ${formatPlayerCellHtml(p.player_name, { isWinner, isCurrent })}

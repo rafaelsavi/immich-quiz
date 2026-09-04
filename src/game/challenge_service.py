@@ -432,7 +432,7 @@ class ChallengeService:
         )
 
         # Advance session state
-        self.challenge_store.advance_session(
+        advanced = self.challenge_store.advance_session(
             session['session_token'],
             round_index=body.round_index,
             location_points=location_points,
@@ -441,6 +441,11 @@ class ChallengeService:
             time_taken_seconds=body.time_taken_seconds,
             is_final=is_final,
         )
+        if not advanced:
+            raise HTTPException(
+                status_code=409,
+                detail=f'Round {body.round_index} was already submitted or session has moved on.',
+            )
 
         # Finalize match entry if last round
         if is_final:
@@ -638,7 +643,7 @@ class ChallengeService:
             )
 
         # Advance session state
-        self.challenge_store.advance_session(
+        advanced = self.challenge_store.advance_session(
             session['session_token'],
             round_index=body.round_index,
             location_points=location_points,
@@ -647,6 +652,11 @@ class ChallengeService:
             time_taken_seconds=body.time_taken_seconds,
             is_final=is_final,
         )
+        if not advanced:
+            raise HTTPException(
+                status_code=409,
+                detail=f'Round {body.round_index} was already submitted or session has moved on.',
+            )
 
         # Finalize match entry if last round
         if is_final:

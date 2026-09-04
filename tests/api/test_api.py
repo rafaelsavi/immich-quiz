@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
@@ -508,10 +508,20 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
     match_id = start_match(client)
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
 
-    response = client.get(f'/api/media/{question["asset_id"]}')
+    asset_id = question['asset_id']
+    response = client.get(f'/api/media/{asset_id}')
     assert response.status_code == 200
     assert response.headers['content-type'].startswith('image/jpeg')
     assert response.content == b'fake-jpg'
+    assert response.headers['etag'] == f'"{asset_id}"'
+    assert response.headers['cache-control'] == 'public, max-age=86400, immutable'
+
+    # Conditional request with matching If-None-Match should return 304 Not Modified
+    cached_response = client.get(f'/api/media/{asset_id}', headers={'If-None-Match': f'"{asset_id}"'})
+    assert cached_response.status_code == 304
+    assert cached_response.headers['etag'] == f'"{asset_id}"'
+    assert cached_response.headers['cache-control'] == 'public, max-age=86400, immutable'
+    assert cached_response.content == b''
 
 
 def test_album_names_are_resolved_server_side(client: TestClient) -> None:
@@ -609,6 +619,7 @@ def test_security_headers(client: TestClient) -> None:
     assert res.headers['X-Content-Type-Options'] == 'nosniff'
     assert res.headers['X-Frame-Options'] == 'DENY'
     assert res.headers['Referrer-Policy'] == 'strict-origin-when-cross-origin'
+    assert res.headers['Permissions-Policy'] == 'camera=(), microphone=(), geolocation=(), payment=()'
 
 
 def test_session_store_cleanup(client: TestClient) -> None:
@@ -681,7 +692,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     sel_ans = AssetAnswer(
         latitude=48.8584,
         longitude=2.2945,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=UTC),
     )
     sel_asset = RoundAsset(asset_id='asset-1', answer=sel_ans)
 
@@ -689,7 +700,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     same_loc = AssetAnswer(
         latitude=48.85841,
         longitude=2.29451,
-        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(same_loc, [sel_asset], location_mode=True, date_mode=True) is False
 
@@ -697,7 +708,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     same_time = AssetAnswer(
         latitude=40.7128,
         longitude=-74.0060,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 30, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 30, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(same_time, [sel_asset], location_mode=True, date_mode=True) is False
 
@@ -705,7 +716,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     valid_cand = AssetAnswer(
         latitude=40.7128,
         longitude=-74.0060,
-        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(valid_cand, [sel_asset], location_mode=True, date_mode=True) is True
 
@@ -844,7 +855,7 @@ def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_locatio
     no_coords = AssetAnswer(
         latitude=None,
         longitude=None,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(no_coords, [], location_mode=True, date_mode=True) is False
     assert is_asset_valid_for_batch(no_coords, [], location_mode=False, date_mode=True) is True
@@ -852,7 +863,7 @@ def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_locatio
     zero_coords = AssetAnswer(
         latitude=0.0,
         longitude=0.0,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(zero_coords, [], location_mode=True, date_mode=True) is False
     assert is_asset_valid_for_batch(zero_coords, [], location_mode=False, date_mode=True) is True
@@ -1436,10 +1447,14 @@ def test_webmanifest_endpoint(client: TestClient) -> None:
 
 
 def test_service_worker_endpoint(client: TestClient) -> None:
+    from src.version import APP_VERSION
+
     response = client.get('/sw.js')
     assert response.status_code == 200
     assert 'javascript' in response.headers['content-type']
     assert response.headers.get('service-worker-allowed') == '/'
+    assert response.headers.get('cache-control') == 'no-cache, must-revalidate'
+    assert f"const CACHE_NAME = 'immich-quiz-v{APP_VERSION}';" in response.text
 
 
 def test_index_accept_language_negotiation(client: TestClient) -> None:

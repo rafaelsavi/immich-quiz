@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from src.app_logging import LOGGER_STORAGE, get_logger
@@ -217,6 +217,11 @@ class MetadataStore:
     def __init__(self, db: DatabaseManager) -> None:
         self._db = db
         self.init_schema()
+
+    @property
+    def db(self) -> DatabaseManager:
+        """Return the underlying DatabaseManager instance."""
+        return self._db
 
     def init_schema(self) -> None:
         """Initialize metadata database schema tables and indices."""
@@ -937,8 +942,7 @@ class MetadataStore:
             SELECT a.id, a.latitude, a.longitude, a.capture_datetime, a.city, a.state, a.country
             FROM assets a
             WHERE {where_sql}
-            GROUP BY a.id
-            ORDER BY MIN(a.times_played) ASC, RANDOM()
+            ORDER BY a.times_played ASC, RANDOM()
             LIMIT ?
         """
         rows = self._db.fetch_all(sql, (*params, limit))
@@ -1380,7 +1384,7 @@ class MetadataStore:
         reported_at: str | None = None,
     ) -> dict[str, Any]:
         """Record or update an issue report for an asset."""
-        ts = reported_at or datetime.now(timezone.utc).isoformat()
+        ts = reported_at or datetime.now(UTC).isoformat()
         with self._db.connection() as conn:
             conn.execute(
                 """

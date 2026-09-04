@@ -5,25 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Changed
-
-- **Challenge Carousel Round Date Breakdown**:
-  - Replaced unstructured `date-chips-list` with a structured `round-date-table` in the Grand Reveal carousel.
-  - Promoted actual date ground truth into a dedicated `.date-comp-truth` header badge.
-  - Added columnar alignment for player identity (with map pin color dots and crown badges), guessed date, localized error duration (`formatMonthError`), and awarded points.
-  - Sorted player rows by date accuracy to immediately highlight round winners.
-
-### Fixed
-
-- **Challenge Multi-Tab Session Isolation & Fog of War Round Count**:
-  - Implemented two-tier storage for challenge sessions (`sessionStorage` for tab-scoped isolation, preventing cross-tab identity leaks on reload, plus player-indexed dictionary in `localStorage` to preserve multiple player sessions on the same device).
-  - Fixed `get_challenge_standings` to accurately report each participant's actual completed round count and finished status under Fog of War, preventing in-progress players from seeing all finished players downgraded to in-progress pills.
-  - Restricted winner crowning (`is_winner`) strictly to settled/full challenge views (`max_round is None`), preventing premature winner crowns during partial in-progress views.
-
-
-## [3.0.0] - 2026-09-03
+## [3.0.0] - 2026-09-09
 
 ### Added
 
@@ -39,6 +21,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Individual player identity: 16-color participant avatar palette with clash-free initials, maintained across map pins, round headers, and standings tables.
   - Single-attempt match integrity preventing inadvertent game restarts during challenge play.
   - Global home leaderboard integration with sortable **Mode** badges (`Local` 👥, `Challenge` 🌐, `Room` ⚡).
+- **Container Least-Privilege Hardening**:
+  - Enforced non-root user execution (`USER 1000:1000`) in [`Dockerfile`](Dockerfile), ensuring processes run without root privileges even outside Docker Compose.
+- **CI Formatting Validation**:
+  - Added `uv run ruff format --check` step to [`.github/workflows/ci.yml`](.github/workflows/ci.yml) to strictly enforce code formatting standards on remote pulls and pushes.
+- **Database Health Probe**:
+  - Added a lightweight SQLite connectivity check to `/api/health` in [`routes.py`](src/api/routes.py), returning database status and failing with 503 if database access fails.
+- **Accessible Modal Focus Trapping**:
+  - Created reusable focus trap utility [`focus_trap.js`](static/js/modules/components/focus_trap.js) to trap `Tab` and `Shift+Tab` navigation inside modal dialogs and restore previous focus upon closure. Integrated across Prepare Game ([`admin.js`](static/js/modules/admin.js)) and Report Issue ([`report_modal.js`](static/js/modules/components/report_modal.js)) modals.
+- **Graceful Background Sync Cancellation**:
+  - Added `cancel_all_syncs()` to [`SyncEngine`](src/storage/sync.py) with explicit `asyncio.CancelledError` state reset to `idle`, wired into FastAPI `lifespan` shutdown in [`main.py`](src/main.py).
+- **Periodic SQLite Maintenance & Checkpointing**:
+  - Added `DatabaseManager.checkpoint(mode)` and `DatabaseManager.optimize()` in [`db.py`](src/storage/db.py), automatically executed post-sync in [`SyncEngine`](src/storage/sync.py), every 6 hours in periodic background maintenance, and on FastAPI `lifespan` shutdown in [`main.py`](src/main.py) to truncate `-wal` journal files and refresh query planner statistics.
+- **Hardware Permissions Policy Header**:
+  - Added `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()` security header to all HTTP responses in [`main.py`](src/main.py), explicitly disabling unneeded device sensors.
+- **HTTP Media Caching & ETag**:
+  - Added HTTP `ETag` and `Cache-Control: public, max-age=86400, immutable` headers to `/api/media/{asset_id}`.
+  - Added `304 Not Modified` conditional request handling via `If-None-Match`, eliminating redundant image downloads during round transitions and grand reveal review.
+- **Frontend Locale Parity Automated Testing**:
+  - Added automated test in `tests/test_i18n.py` verifying 100% key parity across all frontend JavaScript locale files (`en_US.js` and `pt_BR.js`).
+- **Database Case-Insensitive Participant Collation & Auto-Migration**:
+  - Added `COLLATE NOCASE` to `player_name` and unique index `idx_challenge_sessions_unique_player`, preventing case-variant duplicate participation.
+  - Added automatic index recreation migration in `LeaderboardStore._migrate_db` for existing databases.
 
 ### Changed
 
@@ -55,6 +59,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Aligned photo layout with `.media-frame` styling, crisp SVG zoom controls, and natural aspect ratio containment.
   - Optimized Challenge Play Summary for mobile viewports (<=768px and <=480px) with fluid typography, compacted controls, and full-width thumb-friendly action buttons.
   - Preserved full card contrast and legibility for inactive and expired challenges.
+- **Dynamic Frontend Version Stamping & Cache-Busting**:
+  - Replaced legacy hardcoded `?v=2.5.x` on `style.css` and `app.js` in [`index.html`](static/index.html) with dynamic `?v={{APP_VERSION}}` template interpolation.
+  - Dynamically inject application version (`immich-quiz-v{{APP_VERSION}}`) into Service Worker [`sw.js`](static/sw.js) via `_render_sw_js` in [`main.py`](src/main.py) with `no-cache, must-revalidate` headers, eliminating manual cache version bumps.
+  - Enabled `{ ignoreSearch: true }` in [`sw.js`](static/sw.js) for robust cache matching with versioned asset URLs.
+- **Static Asset Revalidation Caching**:
+  - Replaced `no-store` with `no-cache, must-revalidate` for `/static/` middleware headers in [`main.py`](src/main.py), enabling 304 revalidation and PWA Cache API persistence for UI assets.
+- **Database WAL Connection Optimization**:
+  - Enforced `PRAGMA synchronous=NORMAL;` per connection in [`DatabaseManager.connection()`](src/storage/db.py), eliminating default fallback to `FULL` disk syncs.
+- **Candidate Query Optimization**:
+  - Removed redundant `GROUP BY a.id` and `MIN()` aggregation in [`MetadataStore.fetch_candidate_assets`](src/storage/metadata.py), reducing query execution overhead on large photo libraries.
+- **Centralized Frontend HTML Escaping & XSS Protection**:
+  - Consolidated canonical `escapeHtml` utility into [`formatters.js`](static/js/modules/formatters.js), re-exported from [`match_meta.js`](static/js/modules/components/match_meta.js) for backward compatibility.
+  - Sanitized dynamic templates across challenge cards, grand reveal tables, activity toasts, participant cells, and challenge landing screens.
+- **FastAPI Event-Loop Async Offloading**:
+  - Offloaded synchronous SQLite operations in `challenge_routes.py` and asset lookups in `routes.py` to background worker threads via `asyncio.to_thread()`, preventing event-loop stalls under concurrent load.
+- **Challenges Hub Event Delegation**:
+  - Replaced repetitive per-item event listener binding with unified click delegation on the list container using `e.target.closest()`.
 - **Developer Tooling & Testing**:
   - Restructured the `tests/` directory into dedicated functional domains mirroring `src/` (`tests/api/`, `tests/storage/`, `tests/game/`, `tests/frontend/`, etc.).
 
@@ -65,6 +86,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Round Submission Race Condition**:
+  - Added optimistic locking (`WHERE session_token = ? AND current_round = ?`) to `advance_session` in `src/storage/challenge.py` and `409 Conflict` detection in `src/game/challenge_service.py`, preventing duplicate round submissions.
+- **Dockerfile Translations & Permissions**:
+  - Added `COPY locales ./locales` to `Dockerfile` ensuring backend translation catalogs are bundled in production containers.
+  - Added directory creation and ownership assignment (`1000:1000`) for the `/app/data` volume in production images.
+- **Windows & Non-UTF-8 Console Logging**:
+  - Reconfigured standard output/error streams to UTF-8 with `backslashreplace` fallback in `setup_logging()` ([`setup.py`](src/app_logging/setup.py)), preventing `UnicodeEncodeError: 'charmap'` crashes when logging emojis on Windows and non-UTF-8 terminal environments.
+- **Git Pre-Push Hook Format Check Parity**:
+  - Added `uv run ruff format --check` to [`.githooks/pre-push`](.githooks/pre-push) ensuring complete parity with GitHub Actions CI workflows.
+- **Dead CSS Removal**:
+  - Removed ~170 lines of orphaned legacy CSS classes in `modals.css`.
 - **Human-Readable People & Album Names**: Resolved person and album UUIDs to human-readable display names in match summaries via `MetadataStore`.
 - **Match Review Configuration**: Fixed an issue where `round_length` and match settings in game reviews fell back to defaults instead of reading nested configuration.
 - **Date Error Breakdown**: Accurately computes year and month deltas from guessed and actual dates instead of falling back to raw days.

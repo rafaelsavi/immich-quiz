@@ -163,3 +163,30 @@ def test_plural_resolution() -> None:
     assert t('filters.albums_count', SupportedLanguage.PT, 2) == '2 álbuns'
     assert t('setup.libraries_selected', SupportedLanguage.PT, 1) == '1 biblioteca selecionada'
     assert t('setup.libraries_selected', SupportedLanguage.PT, 4) == '4 bibliotecas selecionadas'
+
+
+def test_frontend_locales_parity() -> None:
+    """Verify that frontend locale JS modules (en_US.js and pt_BR.js) have 100% key parity."""
+    import re
+    from pathlib import Path
+
+    locales_js_dir = Path(__file__).parent.parent / 'static' / 'js' / 'modules' / 'locales'
+    en_js = locales_js_dir / 'en_US.js'
+    pt_js = locales_js_dir / 'pt_BR.js'
+
+    assert en_js.exists(), 'static/js/modules/locales/en_US.js missing'
+    assert pt_js.exists(), 'static/js/modules/locales/pt_BR.js missing'
+
+    def extract_keys(path: Path) -> set[str]:
+        text = path.read_text(encoding='utf-8')
+        return set(re.findall(r'"([a-zA-Z0-9_.]+)":', text))
+
+    en_keys = extract_keys(en_js)
+    pt_keys = extract_keys(pt_js)
+
+    missing_in_pt = en_keys - pt_keys
+    missing_in_en = pt_keys - en_keys
+
+    assert not missing_in_pt, f'Keys present in en_US.js but missing in pt_BR.js: {missing_in_pt}'
+    assert not missing_in_en, f'Keys present in pt_BR.js but missing in en_US.js: {missing_in_en}'
+    assert len(en_keys) >= 400, f'Expected at least 400 translation keys in JS locales, found {len(en_keys)}'

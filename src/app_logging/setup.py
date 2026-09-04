@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import sys
 from typing import TYPE_CHECKING
@@ -47,6 +48,12 @@ def setup_logging(settings: AppSettings | None = None) -> None:
     # Remove any existing handlers on root to prevent duplicate log lines
     for handler in list(root_logger.handlers):
         root_logger.removeHandler(handler)
+
+    # Reconfigure streams to UTF-8 with replacement fallback to avoid charmap encoding errors on Windows
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            with contextlib.suppress(Exception):
+                stream.reconfigure(encoding='utf-8', errors='backslashreplace')
 
     # Standard Console Handler targeting stdout (captured by docker logs)
     handler = logging.StreamHandler(sys.stdout)

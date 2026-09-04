@@ -3,7 +3,7 @@
  * Displays floating glassmorphism notifications when opponents submit answers or finish rounds.
  */
 
-import { playerInitial, playerColor } from "../formatters.js";
+import { playerInitial, playerColor, escapeHtml } from "../formatters.js";
 
 let _containerEl = null;
 
@@ -59,14 +59,14 @@ export function showActivityToast({
 
   toast.innerHTML = `
     <div class="activity-toast-leading">
-      <span class="activity-toast-icon" aria-hidden="true">${icon}</span>
-      <span class="activity-toast-avatar" style="background: ${color};" aria-hidden="true">${initial}</span>
+      <span class="activity-toast-icon" aria-hidden="true">${escapeHtml(icon)}</span>
+      <span class="activity-toast-avatar" style="background: ${escapeHtml(color)};" aria-hidden="true">${escapeHtml(initial)}</span>
     </div>
     <div class="activity-toast-body">
-      <div class="activity-toast-title">${title}</div>
-      ${subtitle ? `<div class="activity-toast-subtitle">${subtitle}</div>` : ""}
+      <div class="activity-toast-title">${escapeHtml(title)}</div>
+      ${subtitle ? `<div class="activity-toast-subtitle">${escapeHtml(subtitle)}</div>` : ""}
     </div>
-    ${score !== null && score !== undefined ? `<span class="activity-toast-score font-bold">+${score}</span>` : ""}
+    ${score !== null && score !== undefined ? `<span class="activity-toast-score font-bold">+${escapeHtml(score)}</span>` : ""}
   `;
 
   container.appendChild(toast);

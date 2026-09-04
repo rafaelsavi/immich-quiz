@@ -11,12 +11,16 @@ COPY pyproject.toml uv.lock ./
 # Install dependencies into virtual environment
 RUN uv sync --frozen --no-dev
 
-# Copy project source code and assets
+# Copy project source code, assets, and localization files
 COPY src ./src
 COPY static ./static
+COPY locales ./locales
 
 # Create default data directory for SQLite persistence (metadata.db and leaderboard.db)
-RUN mkdir -p data
+RUN mkdir -p data && chown -R 1000:1000 data
+
+# Non-root user execution (UID:GID 1000:1000) for security hardening
+USER 1000:1000
 
 EXPOSE 8010
 

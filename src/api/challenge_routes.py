@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
@@ -152,7 +152,7 @@ async def get_challenge_detail(
     challenge_store: ChallengeStore = Depends(get_challenge_store),
 ) -> ChallengeDetailResponse:
     """Public challenge info (metadata, round count, filters, participant count)."""
-    challenge = challenge_store.get_challenge_by_token(capability_token, include_inactive=True)
+    challenge = await asyncio.to_thread(challenge_store.get_challenge_by_token, capability_token, include_inactive=True)
     if not challenge:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found.')
 
@@ -164,10 +164,10 @@ async def get_challenge_detail(
     is_active = bool(challenge.get('is_active', True))
     if is_active and challenge.get('expires_at'):
         exp = datetime.fromisoformat(challenge['expires_at'])
-        if datetime.now(timezone.utc) > exp:
+        if datetime.now(UTC) > exp:
             is_active = False
 
-    participants = challenge_store.get_challenge_participants(challenge['challenge_id'])
+    participants = await asyncio.to_thread(challenge_store.get_challenge_participants, challenge['challenge_id'])
     total_participants = len(participants)
 
     return ChallengeDetailResponse(
@@ -203,11 +203,12 @@ async def start_challenge(
     If the player already has a session (same name), their existing
     progress is resumed instead of creating a duplicate entry.
     """
-    challenge = challenge_store.get_challenge_by_token(capability_token)
+    challenge = await asyncio.to_thread(challenge_store.get_challenge_by_token, capability_token)
     if not challenge:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found or expired.')
 
-    session = challenge_store.get_or_resume_player_session(
+    session = await asyncio.to_thread(
+        challenge_store.get_or_resume_player_session,
         challenge_id=challenge['challenge_id'],
         player_name=body.player_name.strip(),
         player_color=body.player_color,
@@ -215,7 +216,7 @@ async def start_challenge(
     total_rounds = get_challenge_total_rounds(challenge)
 
     is_resumed = session['current_round'] > 0
-    participants = challenge_store.get_challenge_participants(challenge['challenge_id'])
+    participants = await asyncio.to_thread(challenge_store.get_challenge_participants, challenge['challenge_id'])
     participant_index = session.get('participant_index', 0)
     if 'participant_index' not in session:
         try:
@@ -252,11 +253,11 @@ async def get_challenge_question(
     Server enforces security: no answer coordinates or dates are exposed.
     Validates that the player has completed all previous rounds.
     """
-    challenge = challenge_store.get_challenge_by_token(capability_token)
+    challenge = await asyncio.to_thread(challenge_store.get_challenge_by_token, capability_token)
     if not challenge:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found or expired.')
 
-    session = challenge_store.get_player_session(x_player_token)
+    session = await asyncio.to_thread(challenge_store.get_player_session, x_player_token)
     if not session or session['challenge_id'] != challenge['challenge_id']:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid session token.')
 
@@ -271,7 +272,7 @@ async def get_challenge_question(
     if session.get('completed_at'):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Challenge already completed.')
 
-    return service.get_question(challenge, round_index)
+    return await asyncio.to_thread(service.get_question, challenge, round_index)
 
 
 @challenge_router.post(
@@ -291,11 +292,11 @@ async def submit_challenge_answer(
     so the player sees their own result immediately — Fog of War only restricts
     visibility of OTHER players' answers until they also complete that round.
     """
-    challenge = challenge_store.get_challenge_by_token(capability_token)
+    challenge = await asyncio.to_thread(challenge_store.get_challenge_by_token, capability_token)
     if not challenge:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found or expired.')
 
-    session = challenge_store.get_player_session(x_player_token)
+    session = await asyncio.to_thread(challenge_store.get_player_session, x_player_token)
     if not session or session['challenge_id'] != challenge['challenge_id']:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid session token.')
 
@@ -334,7 +335,7 @@ async def get_challenge_leaderboard(
     is accessible. Players CANNOT see other players' answers for rounds they haven't
     completed yet.
     """
-    challenge = challenge_store.get_challenge_by_token(capability_token, include_inactive=True)
+    challenge = await asyncio.to_thread(challenge_store.get_challenge_by_token, capability_token, include_inactive=True)
     if not challenge:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Challenge not found.')
 
@@ -347,7 +348,7 @@ async def get_challenge_leaderboard(
     is_game_over = False
     session = None
     if x_player_token:
-        session = challenge_store.get_player_session(x_player_token)
+        session = await asyncio.to_thread(challenge_store.get_player_session, x_player_token)
         if session:
             caller_completed_round = session['current_round'] - 1
             is_game_over = session['current_round'] >= total_rounds
@@ -355,7 +356,7 @@ async def get_challenge_leaderboard(
     is_expired = False
     if challenge.get('expires_at'):
         exp = datetime.fromisoformat(challenge['expires_at'])
-        if datetime.now(timezone.utc) > exp:
+        if datetime.now(UTC) > exp:
             is_expired = True
     is_stopped = not challenge.get('is_active', True)
     is_concluded = bool(is_stopped or is_expired)

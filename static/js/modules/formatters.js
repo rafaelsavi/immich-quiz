@@ -41,6 +41,21 @@ export function clearPlayerColors() {
   _assignedPlayerColors.clear();
 }
 
+/**
+ * Escapes HTML characters for safe attribute and text insertion.
+ * @param {string|number} str
+ * @returns {string}
+ */
+export function escapeHtml(str) {
+  if (!str && str !== 0) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export function normalizedName(playerName) {
   return String(playerName || "?").replace(/[^\p{L}\p{N}]/gu, "");
 }
@@ -173,15 +188,15 @@ export function formatRankBadge(rank, options = {}) {
   const showNumber = options.showNumber ?? false;
   if (r === 1) {
     const text = showNumber ? "🥇 1" : "🥇";
-    return `<span class="rank-medal" title="${t("leaderboard.rank_1st")}">${text}</span>`;
+    return `<span class="rank-medal" title="${escapeHtml(t("leaderboard.rank_1st"))}">${text}</span>`;
   }
   if (r === 2) {
     const text = showNumber ? "🥈 2" : "🥈";
-    return `<span class="rank-medal" title="${t("leaderboard.rank_2nd")}">${text}</span>`;
+    return `<span class="rank-medal" title="${escapeHtml(t("leaderboard.rank_2nd"))}">${text}</span>`;
   }
   if (r === 3) {
     const text = showNumber ? "🥉 3" : "🥉";
-    return `<span class="rank-medal" title="${t("leaderboard.rank_3rd")}">${text}</span>`;
+    return `<span class="rank-medal" title="${escapeHtml(t("leaderboard.rank_3rd"))}">${text}</span>`;
   }
   const suffix = options.dot ? "." : "";
   return `<span class="rank-num">${r}${suffix}</span>`;
@@ -225,9 +240,9 @@ export function formatRoundsBadge(completedRounds, totalRounds, isFinished = fal
   const isFin = Boolean(isFinished || (totalRounds && completedRounds >= totalRounds));
   const progressStr = totalRounds ? `${completedRounds}/${totalRounds}` : `${completedRounds}`;
   if (isFin) {
-    return `<span class="challenge-rounds-pill finished" title="${t("challenge.finished_badge")}">🏁 ${progressStr}</span>`;
+    return `<span class="challenge-rounds-pill finished" title="${escapeHtml(t("challenge.finished_badge"))}">🏁 ${escapeHtml(progressStr)}</span>`;
   }
-  return `<span class="challenge-rounds-pill in-progress" title="${t("challenge.in_progress_badge")}">⏳ ${progressStr}</span>`;
+  return `<span class="challenge-rounds-pill in-progress" title="${escapeHtml(t("challenge.in_progress_badge"))}">⏳ ${escapeHtml(progressStr)}</span>`;
 }
 
 /**
@@ -248,8 +263,8 @@ export function formatPlayerCellHtml(playerName, options = {}) {
 
   return `
     <span class="player-cell">
-      <span class="legend-badge" style="background:${col};">${init}</span>
-      <span class="player-name-text">${playerName}</span>
+      <span class="legend-badge" style="background:${escapeHtml(col)};">${escapeHtml(init)}</span>
+      <span class="player-name-text">${escapeHtml(playerName)}</span>
       ${crown}${you}
     </span>
     ${awards}

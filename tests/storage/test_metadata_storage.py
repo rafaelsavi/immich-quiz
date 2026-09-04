@@ -1,4 +1,5 @@
-from datetime import date, datetime, timedelta, timezone
+import asyncio
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +30,8 @@ def test_db_manager_init(db_mgr: DatabaseManager) -> None:
         cursor = conn.execute('PRAGMA journal_mode;')
         row = cursor.fetchone()
         assert row[0].lower() == 'wal'
+        sync_row = conn.execute('PRAGMA synchronous;').fetchone()
+        assert sync_row[0] == 1  # 1 corresponds to NORMAL in SQLite
 
 
 def test_metadata_store_schema_and_sync_state(meta_store: MetadataStore) -> None:
@@ -1440,7 +1443,7 @@ def test_sync_stages_telemetry(meta_store: MetadataStore) -> None:
 
 
 def test_is_sync_due_logic() -> None:
-    now = datetime(2026, 8, 17, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 8, 17, 12, 0, 0, tzinfo=UTC)
 
     # Disabled interval returns False
     assert not SyncEngine.is_sync_due(None, 0, now=now)
@@ -1462,31 +1465,32 @@ def test_is_sync_due_logic() -> None:
     assert SyncEngine.is_sync_due(day_ago, 24, now=now)
 
 
+class _DummySyncClient:
+    def _library_key(self, name: str) -> str:
+        return 'key'
+
+    async def _current_user_id(self, key: str) -> str:
+        return 'user-1'
+
+    async def _request_json(self, method: str, path: str, key: str, json: Any = None) -> Any:
+        return []
+
+    async def get_asset_count(self, library_name: str) -> int | None:
+        return 0
+
+    def _extract_total_assets(self, raw: Any) -> int | None:
+        return 0
+
+    def _extract_asset_items(self, raw: Any) -> list[dict[str, Any]]:
+        return []
+
+
 @pytest.mark.asyncio
 async def test_check_and_trigger_scheduled_sync(meta_store: MetadataStore) -> None:
-    class DummyImmichClient:
-        def _library_key(self, name: str) -> str:
-            return 'key'
-
-        async def _current_user_id(self, key: str) -> str:
-            return 'user-1'
-
-        async def _request_json(self, method: str, path: str, key: str, json: Any = None) -> Any:
-            return []
-
-        async def get_asset_count(self, library_name: str) -> int | None:
-            return 0
-
-        def _extract_total_assets(self, raw: Any) -> int | None:
-            return 0
-
-        def _extract_asset_items(self, raw: Any) -> list[dict[str, Any]]:
-            return []
-
-    client = DummyImmichClient()
+    client = _DummySyncClient()
     sync_engine = SyncEngine(client, meta_store)  # type: ignore
 
-    now = datetime(2026, 8, 17, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 8, 17, 12, 0, 0, tzinfo=UTC)
 
     # 1. When full sync is due (25h ago), triggers full sync
     meta_store.set_sync_state(
@@ -1534,6 +1538,32 @@ async def test_check_and_trigger_scheduled_sync(meta_store: MetadataStore) -> No
         now=now,
     )
     assert task3 is None
+
+
+async def test_sync_engine_cancel_all_syncs(meta_store: MetadataStore) -> None:
+    """Verify that cancel_all_syncs cleanly cancels running tasks and marks state as cancelled."""
+    client = _DummySyncClient()
+    sync_engine = SyncEngine(client, meta_store)  # type: ignore
+
+    async def slow_sync(lib_name: str, *, force_full: bool = False) -> None:
+        try:
+            await asyncio.sleep(10.0)
+        except asyncio.CancelledError:
+            meta_store.set_sync_state(lib_name, status=SyncStatus.idle, error='Sync cancelled')
+            raise
+
+    sync_engine.sync_library = slow_sync  # type: ignore
+    task = sync_engine.trigger_sync('slow_lib')
+    assert sync_engine.is_syncing('slow_lib')
+    await asyncio.sleep(0.01)
+
+    sync_engine.cancel_all_syncs()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    state = meta_store.get_sync_state('slow_lib')
+    assert state['sync_status'] == SyncStatus.idle.value
+    assert state['sync_error'] == 'Sync cancelled'
 
 
 def test_multi_library_isolated_sync(meta_store: MetadataStore) -> None:
@@ -1953,3 +1983,25 @@ def test_exclude_flagged_assets_filtering(meta_store: MetadataStore) -> None:
     assert meta_store.count_eligible_assets(criteria_included) == 2
     candidates_inc = meta_store.fetch_candidate_assets(criteria_included)
     assert set(candidates_inc.keys()) == {'asset-clean-1', 'asset-flagged-bad-gps'}
+
+
+def test_database_manager_checkpoint_and_optimize(tmp_path: Path) -> None:
+    """Verify DatabaseManager checkpoint and optimize execution."""
+    db_file = tmp_path / 'test_checkpoint.db'
+    db_mgr = DatabaseManager(db_file)
+
+    # Insert test data into a WAL table
+    db_mgr.execute_script('CREATE TABLE items (id INT, val TEXT); INSERT INTO items VALUES (1, "hello");')
+
+    # Run checkpoints across valid modes
+    db_mgr.checkpoint(mode='PASSIVE')
+    db_mgr.checkpoint(mode='TRUNCATE')
+
+    # Run query planner optimization
+    db_mgr.optimize()
+
+    # Invalid mode falls back safely to TRUNCATE without throwing
+    db_mgr.checkpoint(mode='INVALID_MODE')
+
+    val = db_mgr.fetch_val('SELECT val FROM items WHERE id = 1')
+    assert val == 'hello'
