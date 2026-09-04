@@ -7,6 +7,10 @@ export const TRANSLATIONS = {
   "pt-BR": ptTranslations,
 };
 
+if (typeof window !== "undefined") {
+  window.TRANSLATIONS = TRANSLATIONS;
+}
+
 /**
  * Normalize arbitrary language code string into supported BCP-47 tag ('en-US' or 'pt-BR').
  */
@@ -311,18 +315,35 @@ export function applyLanguage() {
     const dict = TRANSLATIONS[currentLocale] || TRANSLATIONS["en-US"] || {};
     const rawEntry = key in dict ? dict[key] : (TRANSLATIONS["en-US"] ? TRANSLATIONS["en-US"][key] : undefined);
 
-    // Skip dynamic entries whose translation value is a function or plural needing arguments
-    if (typeof rawEntry === "function" || (typeof rawEntry === "object" && rawEntry !== null)) {
-      return;
+    let translation;
+    if (element.dataset.i18nArgs) {
+      try {
+        const args = JSON.parse(element.dataset.i18nArgs);
+        translation = t(key, ...(Array.isArray(args) ? args : [args]));
+      } catch (_) {
+        translation = t(key);
+      }
+    } else {
+      // Skip dynamic entries whose translation value is a function or plural needing arguments
+      if (typeof rawEntry === "function" || (typeof rawEntry === "object" && rawEntry !== null)) {
+        return;
+      }
+      translation = rawEntry !== undefined ? rawEntry : key;
     }
 
-    const translation = rawEntry !== undefined ? rawEntry : key;
     if (typeof translation !== "string") {
       return;
     }
 
+    const icon = element.querySelector(".meta-pill-icon-wrap, .meta-pill-icon");
     const arrow = element.querySelector(".sort-arrow");
-    if (arrow) {
+    if (icon) {
+      const iconClone = icon.cloneNode(true);
+      const textSpan = element.querySelector(".round-meta-text") || document.createElement("span");
+      textSpan.className = "round-meta-text";
+      textSpan.textContent = translation;
+      element.replaceChildren(iconClone, textSpan);
+    } else if (arrow) {
       const arrowClone = arrow.cloneNode(true);
       element.textContent = translation;
       element.appendChild(arrowClone);

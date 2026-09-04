@@ -39,43 +39,47 @@ export const challengeReveal = {
 
     challengeSession.placedPinIds = new Set([`player_${challengeSession.sessionPlayerName}`]);
 
+    const pr = result.pinpoint_reveal;
+    const pd = result.pinpoint_deviation;
+    const isShuffle = (result.game_mode || challengeSession.challengeData.game_mode) === "album_shuffle";
+
+    const pinpointPlayerResult = !isShuffle ? {
+      guessed_latitude: state.guessedLatLng?.lat ?? null,
+      guessed_longitude: state.guessedLatLng?.lng ?? null,
+      guessed_year: el.dateGuessYear ? Number(el.dateGuessYear.value) : null,
+      guessed_month: el.dateGuessMonth ? Number(el.dateGuessMonth.value) : null,
+      location_score: result.location_score,
+      date_score: result.date_score,
+      distance_km: pd?.distance_km ?? null,
+      date_diff_days: pd?.date_diff_days ?? null,
+      date_diff_months: pd?.date_diff_months ?? null,
+    } : null;
+
     const formattedReveal = {
       round_number: roundIndex + 1,
       total_rounds: challengeSession.totalRounds,
       location_mode: challengeSession.challengeData.location_mode !== false,
       date_mode: challengeSession.challengeData.date_mode !== false,
       game_mode: result.game_mode || challengeSession.challengeData.game_mode,
-      asset_id: state.currentQuestion?.asset_id || null,
-      media_url: state.currentQuestion?.media_url || null,
-      actual_latitude: result.actual_latitude,
-      actual_longitude: result.actual_longitude,
-      actual_date: result.actual_date,
-      actual_year: result.actual_year,
-      actual_month: result.actual_month,
-      actual_city: result.actual_city,
-      actual_country: result.actual_country,
+      asset_id: state.currentQuestion?.asset_id || pr?.asset_id || null,
+      media_url: state.currentQuestion?.media_url || pr?.media_url || null,
+      pinpoint_reveal: pr || null,
       batch_reveal: result.batch_reveal || null,
       match_finished: result.is_game_over,
       results: [
         {
           player_name: challengeSession.sessionPlayerName,
-          guessed_latitude: result.actual_latitude !== null ? (state.guessedLatLng?.lat ?? null) : null,
-          guessed_longitude: result.actual_longitude !== null ? (state.guessedLatLng?.lng ?? null) : null,
-          guessed_year: result.actual_year !== null && el.dateGuessYear ? Number(el.dateGuessYear.value) : null,
-          guessed_month: result.actual_month !== null && el.dateGuessMonth ? Number(el.dateGuessMonth.value) : null,
-          location_score: result.location_score,
-          date_score: result.date_score,
           round_score: result.round_score,
           total_score: result.total_score,
-          distance_km: result.distance_km,
-          date_diff_days: result.date_diff_days,
-          date_diff_months: result.date_diff_months,
+          location_score: result.location_score,
+          date_score: result.date_score,
           timed_out: result.timed_out || false,
-          album_shuffle_guesses: state.albumShuffleState?.orderedPhotoIds?.map((pid, idx) => ({
+          pinpoint: pinpointPlayerResult,
+          album_shuffle_guesses: isShuffle ? (state.albumShuffleState?.orderedPhotoIds?.map((pid, idx) => ({
             photo_id: pid,
             assigned_pin_id: state.albumShuffleState.pinAssignments[pid] || null,
             assigned_timeline_index: idx,
-          })) || null,
+          })) || null) : null,
         },
       ],
     };
@@ -83,6 +87,9 @@ export const challengeReveal = {
     challengeSession.currentRevealData = formattedReveal;
     state.lastReveal = formattedReveal;
 
+    if (formattedReveal.game_mode) {
+      state.gameMode = formattedReveal.game_mode;
+    }
     const activeMode = getActiveMode();
     activeMode.renderReveal(el.revealUi, formattedReveal);
 
@@ -225,14 +232,12 @@ export const challengeReveal = {
         const totalLocationScore = playerGuesses.reduce((sum, g) => sum + (g.location_points || 0), 0);
         const totalDateScore = playerGuesses.reduce((sum, g) => sum + (g.date_points || 0), 0);
         const albumShuffleGuesses = playerGuesses
-          .filter((g) => g.asset_id)
+          .filter((g) => g.album_shuffle?.asset_id || g.asset_id)
           .map((g) => ({
-            photo_id: g.asset_id,
-            assigned_pin_id: g.assigned_pin_id || null,
+            photo_id: g.album_shuffle?.asset_id || g.asset_id,
+            assigned_pin_id: g.album_shuffle?.assigned_pin_id || g.assigned_pin_id || null,
             assigned_timeline_index:
-              g.assigned_timeline_index !== null && g.assigned_timeline_index !== undefined
-                ? g.assigned_timeline_index
-                : null,
+              g.album_shuffle?.assigned_timeline_index ?? g.assigned_timeline_index ?? null,
           }));
 
         opponentResult = {
@@ -247,26 +252,26 @@ export const challengeReveal = {
         };
       } else {
         const guess = playerGuesses[0];
+        const pp = guess.pinpoint;
         opponentResult = {
           player_name: playerName,
-          guessed_latitude: guess.guessed_latitude,
-          guessed_longitude: guess.guessed_longitude,
-          guessed_year: guess.guessed_year,
-          guessed_month: guess.guessed_month,
-          actual_latitude: guess.actual_latitude ?? challengeSession.currentRevealData.actual_latitude,
-          actual_longitude: guess.actual_longitude ?? challengeSession.currentRevealData.actual_longitude,
-          actual_year: guess.actual_year ?? challengeSession.currentRevealData.actual_year,
-          actual_month: guess.actual_month ?? challengeSession.currentRevealData.actual_month,
-          actual_city: guess.actual_city ?? challengeSession.currentRevealData.actual_city,
-          actual_country: guess.actual_country ?? challengeSession.currentRevealData.actual_country,
           location_score: guess.location_points,
           date_score: guess.date_points,
           round_score: guess.round_score,
           total_score:
             leaderboardData.leaderboard?.find((p) => p.player_name === playerName)?.total_score ?? guess.round_score,
-          distance_km: guess.distance_km,
-          date_diff_days: guess.date_diff_days,
           timed_out: guess.timed_out || false,
+          pinpoint: pp ? {
+            guessed_latitude: pp.guessed_latitude,
+            guessed_longitude: pp.guessed_longitude,
+            guessed_year: pp.guessed_year,
+            guessed_month: pp.guessed_month,
+            distance_km: pp.distance_km,
+            date_diff_days: pp.date_diff_days,
+            date_diff_months: pp.date_diff_months,
+            location_score: guess.location_points,
+            date_score: guess.date_points,
+          } : null,
           album_shuffle_guesses: null,
         };
       }
@@ -279,6 +284,7 @@ export const challengeReveal = {
 
     if (newOpponents.length > 0) {
       challengeSession.currentRevealData.results = updatedResults;
+      state.lastReveal = challengeSession.currentRevealData;
       const activeMode = getActiveMode();
       if (typeof activeMode.addOpponentReveal === "function") {
         activeMode.addOpponentReveal(el.revealUi, challengeSession.currentRevealData, newOpponents);
@@ -304,6 +310,7 @@ export const challengeReveal = {
     }
 
     // 3. Live status pill update (Option 3)
+    this.ensureLivePill(roundIndex);
     this.updateLivePill(leaderboardData, roundIndex, isInitial);
   },
 
@@ -312,23 +319,32 @@ export const challengeReveal = {
    * @param {number} roundIndex
    */
   ensureLivePill(roundIndex) {
+    const metaPills = el.roundMeta?.querySelector(".round-meta-pills");
     const actualRow = el.revealUi?.querySelector(".reveal-actual-row");
-    if (!actualRow) return;
+    const container = metaPills || actualRow;
+    if (!container) return;
 
     let pill = document.getElementById("challenge-round-live-pill");
-    if (!pill) {
+    if (!pill || !pill.isConnected) {
+      if (pill && !pill.isConnected) {
+        pill.remove();
+      }
       pill = document.createElement("span");
       pill.id = "challenge-round-live-pill";
-      pill.className = "challenge-live-pill";
+      pill.className = metaPills ? "challenge-live-pill round-meta-pill" : "challenge-live-pill";
       pill.innerHTML = `
         <span class="live-poll-dot" aria-hidden="true"></span>
         <span id="challenge-round-live-status"></span>
       `;
-      const reportBtn = actualRow.querySelector("#reveal-report-btn");
-      if (reportBtn) {
-        actualRow.insertBefore(pill, reportBtn);
+      if (metaPills) {
+        metaPills.appendChild(pill);
       } else {
-        actualRow.appendChild(pill);
+        const reportBtn = actualRow.querySelector("#reveal-report-btn");
+        if (reportBtn) {
+          actualRow.insertBefore(pill, reportBtn);
+        } else {
+          actualRow.appendChild(pill);
+        }
       }
     }
     this.updateLivePill(challengeSession.cachedLeaderboardData, roundIndex, true);
@@ -341,9 +357,14 @@ export const challengeReveal = {
    * @param {boolean} [isInitial=false]
    */
   updateLivePill(leaderboardData, roundIndex, isInitial = false) {
-    const statusEl = document.getElementById("challenge-round-live-status");
-    const pill = document.getElementById("challenge-round-live-pill");
-    if (!statusEl || !pill) return;
+    let statusEl = document.getElementById("challenge-round-live-status");
+    let pill = document.getElementById("challenge-round-live-pill");
+    if (!statusEl || !pill || !pill.isConnected) {
+      this.ensureLivePill(roundIndex);
+      statusEl = document.getElementById("challenge-round-live-status");
+      pill = document.getElementById("challenge-round-live-pill");
+      if (!statusEl || !pill) return;
+    }
 
     const participants = leaderboardData?.leaderboard || challengeSession.challengeData?.participants || [];
     const totalCount = Math.max(participants.length, 1);

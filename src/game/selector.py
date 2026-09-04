@@ -6,7 +6,7 @@ This module provides the core asset selection engine for the quiz game, includin
 - **Smart Map Bounds**: Calculating match-wide geographic bounding boxes with anti-spoiler guards.
 - **Photo Diversity Engine**: Preventing near-duplicate burst photos or tightly clustered locations
   through spatial (Haversine distance) and temporal (capture time delta) constraints.
-- **Round Selection Algorithms**: Single-photo selection (`select_round_asset`) and batch selection
+- **Round Selection Algorithms**: Single-photo selection (`select_pinpoint_round_asset`) and batch selection
   (`select_batch_round_assets`) with multi-pass diversity prioritization and graceful fallback.
 - **Pin Labeling**: Generating randomized pin identifiers ('A', 'B', 'C'...) for multi-photo and
   pin-matching game modes.
@@ -431,7 +431,7 @@ async def _select_diverse_assets(
     return selected_assets
 
 
-async def select_round_asset(
+async def select_pinpoint_round_asset(
     state: MatchState,
     immich: ImmichClient,
     client_excluded: set[str],
@@ -442,7 +442,7 @@ async def select_round_asset(
     metadata_store: MetadataStore | None = None,
     settings: Any | None = None,
 ) -> RoundAsset | None:
-    """Draw an unplayed asset, prioritizing diverse assets but falling back to any unplayed candidate.
+    """Draw an unplayed asset for a Pinpoint round, prioritizing diverse assets.
 
     Delegates to `_select_diverse_assets` with `count=1`.
 

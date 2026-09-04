@@ -137,7 +137,7 @@ def test_index_html_contains_accordion_and_filter_containers() -> None:
     # Preflight count is nested inside filters accordion
     content_idx = content.find('id="filters-accordion-content"')
     assert content_idx != -1, 'filters-accordion-content div not found'
-    next_group_idx = content.find('class="form-group mode-selection-group"', content_idx)
+    next_group_idx = content.find('class="setup-actions-group"', content_idx)
     accordion_section = content[content_idx:next_group_idx]
     assert 'id="preflight-count"' in accordion_section, (
         'preflight-count element must be inside filters-accordion-content'

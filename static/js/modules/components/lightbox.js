@@ -41,3 +41,22 @@ export function openPhotoLightbox(src) {
   if (imgEl) imgEl.src = src;
   lightbox.classList.add("active");
 }
+
+/**
+ * Close fullscreen photo lightbox overlay if open.
+ */
+export function closePhotoLightbox() {
+  const lightbox = document.getElementById("photo-lightbox");
+  if (lightbox) {
+    lightbox.classList.remove("active");
+  }
+}
+
+/**
+ * Check if fullscreen photo lightbox overlay is currently open.
+ * @returns {boolean}
+ */
+export function isPhotoLightboxOpen() {
+  const lightbox = document.getElementById("photo-lightbox");
+  return Boolean(lightbox && lightbox.classList.contains("active"));
+}

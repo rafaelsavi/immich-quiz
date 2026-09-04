@@ -23,6 +23,9 @@ from src.models import (
     ChallengeQuestionResponse,
     GameMode,
     MapBounds,
+    PinpointAnswerItem,
+    PinpointDeviation,
+    PinpointReveal,
     RoundLength,
 )
 from src.scoring import (
@@ -32,6 +35,8 @@ from src.scoring import (
     calculate_date_decay,
     calculate_location_decay,
     haversine_km,
+    pinpoint_date_score,
+    pinpoint_location_score,
 )
 from src.storage.challenge import ChallengeStore
 from src.storage.leaderboard import LeaderboardStore
@@ -357,6 +362,8 @@ class ChallengeService:
         if not asset:
             raise HTTPException(status_code=404, detail='Photo asset not found.')
 
+        g = body.pinpoint or PinpointAnswerItem()
+
         # Location scoring: 100 * e^(-distance_km / decay_km)
         distance_km: float | None = None
         location_points: int = 0
@@ -364,18 +371,18 @@ class ChallengeService:
             location_mode
             and location_decay_km
             and location_decay_km > 0
-            and body.guessed_latitude is not None
-            and body.guessed_longitude is not None
+            and g.guessed_latitude is not None
+            and g.guessed_longitude is not None
             and asset.latitude is not None
             and asset.longitude is not None
         ):
             distance_km = haversine_km(
                 asset.latitude,
                 asset.longitude,
-                body.guessed_latitude,
-                body.guessed_longitude,
+                g.guessed_latitude,
+                g.guessed_longitude,
             )
-            location_points = round(SCORE_MAX_POINTS * math.exp(-distance_km / location_decay_km))
+            location_points = pinpoint_location_score(distance_km, decay_km=location_decay_km)
 
         # Date scoring: 100 * e^(-date_diff_days / decay_days)
         date_diff: int | None = None
@@ -385,17 +392,17 @@ class ChallengeService:
             date_mode
             and date_decay_days
             and date_decay_days > 0
-            and body.guessed_year is not None
-            and body.guessed_month is not None
+            and g.guessed_year is not None
+            and g.guessed_month is not None
             and asset.capture_date is not None
         ):
-            guess_date = date(body.guessed_year, body.guessed_month, 1)
+            guess_date = date(g.guessed_year, g.guessed_month, 1)
             actual_mid = date(asset.capture_date.year, asset.capture_date.month, 15)
             date_diff = abs((guess_date - actual_mid).days)
             date_diff_months = abs(
-                (body.guessed_year - asset.capture_date.year) * 12 + (body.guessed_month - asset.capture_date.month)
+                (g.guessed_year - asset.capture_date.year) * 12 + (g.guessed_month - asset.capture_date.month)
             )
-            date_points = round(SCORE_MAX_POINTS * math.exp(-date_diff / date_decay_days))
+            date_points = pinpoint_date_score(date_diff, decay_days=date_decay_days)
 
         round_score = location_points + date_points
         total_rounds = get_challenge_total_rounds(challenge)
@@ -403,8 +410,8 @@ class ChallengeService:
 
         # Persist round guess using existing leaderboard schema
         guess_date_str = (
-            f'{body.guessed_year:04d}-{body.guessed_month:02d}-01'
-            if body.guessed_year is not None and body.guessed_month is not None
+            f'{g.guessed_year:04d}-{g.guessed_month:02d}-01'
+            if g.guessed_year is not None and g.guessed_month is not None
             else None
         )
         self.leaderboard_store.record_challenge_round_guess(
@@ -415,8 +422,8 @@ class ChallengeService:
             photo_index=0,
             game_mode='pinpoint',
             asset_id=target_asset_id,
-            guess_latitude=body.guessed_latitude,
-            guess_longitude=body.guessed_longitude,
+            guess_latitude=g.guessed_latitude,
+            guess_longitude=g.guessed_longitude,
             actual_latitude=asset.latitude,
             actual_longitude=asset.longitude,
             actual_city=asset.city,
@@ -456,14 +463,9 @@ class ChallengeService:
 
         updated = self.challenge_store.get_player_session(session['session_token'])
 
-        return ChallengeAnswerResponse(
-            round_index=body.round_index,
-            round_score=round_score,
-            location_score=location_points if location_mode else None,
-            date_score=date_points if date_mode else None,
-            distance_km=distance_km,
-            date_diff_days=date_diff,
-            date_diff_months=date_diff_months,
+        pinpoint_reveal = PinpointReveal(
+            asset_id=target_asset_id,
+            media_url=f'/api/media/{target_asset_id}',
             actual_latitude=asset.latitude,
             actual_longitude=asset.longitude,
             actual_date=asset.capture_date,
@@ -471,6 +473,21 @@ class ChallengeService:
             actual_month=asset.capture_date.month if asset.capture_date else None,
             actual_city=asset.city,
             actual_country=asset.country,
+        )
+        pinpoint_deviation = PinpointDeviation(
+            distance_km=distance_km,
+            date_diff_days=date_diff,
+            date_diff_months=date_diff_months,
+        )
+
+        return ChallengeAnswerResponse(
+            round_index=body.round_index,
+            round_score=round_score,
+            location_score=location_points if location_mode else None,
+            date_score=date_points if date_mode else None,
+            pinpoint_reveal=pinpoint_reveal,
+            pinpoint_deviation=pinpoint_deviation,
+            batch_reveal=None,
             game_mode=GameMode.pinpoint,
             is_game_over=is_final,
             total_score=updated['total_score'] if updated else round_score,
@@ -508,7 +525,7 @@ class ChallengeService:
             batch_assets.append(RoundAsset(asset_id=aid, answer=ans))
 
         raw_pins = config.get('batch_pins', {}).get(str(body.round_index), [])
-        answers = body.album_shuffle_answers or []
+        answers = body.album_shuffle or []
         assigned_pins = {ans.photo_id: ans.assigned_pin_id for ans in answers}
         assigned_timeline = {ans.photo_id: ans.assigned_timeline_index for ans in answers}
 

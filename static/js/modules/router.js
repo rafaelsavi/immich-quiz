@@ -14,6 +14,7 @@ export const RouteType = {
   CHALLENGE: "CHALLENGE",
   CHALLENGE_SUMMARY: "CHALLENGE_SUMMARY",
   CHALLENGES: "CHALLENGES",
+  REPORTED: "REPORTED",
   UNKNOWN: "UNKNOWN",
 };
 
@@ -27,6 +28,11 @@ const ROUTE_DEFINITIONS = [
     type: RouteType.CHALLENGES,
     pattern: /^\/challenges\/?$/,
     canonicalPath: () => "/challenges",
+  },
+  {
+    type: RouteType.REPORTED,
+    pattern: /^\/(reported)\/?$/,
+    canonicalPath: () => "/reported",
   },
   {
     type: RouteType.GAME_SUMMARY,

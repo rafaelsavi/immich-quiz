@@ -232,6 +232,25 @@ class MetadataStore:
             with self._db.connection() as conn:
                 conn.execute('ALTER TABLE flagged_assets ADD COLUMN reported_by TEXT')
 
+        # Safeguard: Reset erroneously latched is_shared flags for assets
+        # that are associated with albums but not in any shared album for their library
+        with self._db.connection() as conn:
+            conn.execute(
+                """
+                UPDATE assets SET is_shared = 0
+                WHERE is_shared = 1
+                  AND EXISTS (
+                    SELECT 1 FROM asset_albums aa
+                    WHERE aa.asset_id = assets.id AND aa.library_name = assets.library_name
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1 FROM asset_albums aa
+                    JOIN albums alb ON aa.album_id = alb.id AND aa.library_name = alb.library_name
+                    WHERE aa.asset_id = assets.id AND aa.library_name = assets.library_name AND alb.is_shared = 1
+                  )
+                """
+            )
+
     def has_synced_assets(self, libraries: list[str] | tuple[str, ...] | None = None) -> bool:
         """Check if any photo assets are indexed for the given libraries (or across all if None)."""
         if not libraries:
@@ -484,6 +503,7 @@ class MetadataStore:
         library_name: str,
         junction_inserts: list[tuple[str, str]],
         shared_asset_updates: list[tuple[str,]] | None = None,
+        unshared_asset_updates: list[tuple[str,]] | None = None,
         *,
         clear_album_ids: set[str] | None = None,
     ) -> None:
@@ -508,6 +528,11 @@ class MetadataStore:
                 conn.executemany(
                     'UPDATE assets SET is_shared = 1, is_partner = 0 WHERE id = ? AND library_name = ?',
                     [(aid[0], library_name) for aid in shared_asset_updates],
+                )
+            if unshared_asset_updates:
+                conn.executemany(
+                    'UPDATE assets SET is_shared = 0 WHERE id = ? AND library_name = ?',
+                    [(aid[0], library_name) for aid in unshared_asset_updates],
                 )
 
     def count_library_assets(self, library_name: str) -> int:
@@ -554,8 +579,8 @@ class MetadataStore:
                 (
                     aid,
                     library_name,
-                    a['is_shared'],
-                    a['is_partner'],
+                    a.get('is_shared', 0),
+                    a.get('is_partner', 0),
                     a.get('file_type', 'IMAGE'),
                     a.get('latitude'),
                     a.get('longitude'),

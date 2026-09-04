@@ -1,5 +1,6 @@
 import re
 from collections import Counter
+from html.parser import HTMLParser
 from pathlib import Path
 
 # Elements created at runtime by JS.
@@ -23,6 +24,7 @@ DYNAMIC_IDS = frozenset(
         'challenge-error-home-btn',
         'challenge-finisher-count',
         'challenge-invite-link-box',
+        'challenge-invite-native-btn',
         'challenge-invite-qr-btn',
         'challenge-invite-qr-code',
         'challenge-invite-qr-container',
@@ -63,6 +65,7 @@ DYNAMIC_IDS = frozenset(
         'scatter-map',
         'scatter-map-shell',
         'shuffle-cards-list',
+        'shuffle-map',
         'shuffle-map-shell',
     }
 )
@@ -596,8 +599,8 @@ def test_unknown_route_displays_404_card() -> None:
     index_html = INDEX_HTML.read_text(encoding='utf-8')
     # 1. HTML defines game-ended-icon and does not have static data-i18n attributes on dynamic title/msg
     assert 'id="game-ended-icon"' in index_html
-    assert '<h2 id="game-ended-title">Match Ended</h2>' in index_html
-    assert '<p id="game-ended-msg" class="ended-card-msg">This match session is no longer active.</p>' in index_html
+    assert '<h2 id="game-ended-title">Game Ended</h2>' in index_html
+    assert '<p id="game-ended-msg" class="ended-card-msg">This game session is no longer active.</p>' in index_html
 
     # 2. Locale files define 404 title and message strings for both unknown routes and non-existent matches
     assert '"game_ended.not_found_title"' in en_us
@@ -704,11 +707,11 @@ def test_challenge_share_qr_code_regression() -> None:
     pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
     modals_css = (STATIC_DIR / 'css' / 'components' / 'modals.css').read_text(encoding='utf-8')
 
+    share_box_js = (JS_DIR / 'modules' / 'components' / 'share_box.js').read_text(encoding='utf-8')
+
     # 1. QR Code button is positioned alongside Copy Link button in share-url-container
     assert 'id="challenge-copy-link-btn"' in index_html
-    assert 'class="copy-btn-text"' in index_html
     assert 'id="challenge-qr-btn"' in index_html
-    assert 'class="qr-btn-text"' in index_html
     assert 'id="challenge-qr-container"' in index_html
     assert 'id="challenge-qr-code"' in index_html
 
@@ -716,13 +719,16 @@ def test_challenge_share_qr_code_regression() -> None:
     assert 'export function createQRCodeSvg' in qrcode_js
     assert 'export function renderQRCode' in qrcode_js
 
-    # 3. admin.js imports and uses renderQRCode
-    assert 'import { renderQRCode } from "./components/qrcode.js"' in admin_js
-    assert 'renderQRCode(_qrCodeEl, playUrl' in admin_js
+    # 3. share_box.js and admin.js standardize and reuse the share box component
+    assert 'import { renderQRCode } from "./qrcode.js"' in share_box_js
+    assert 'renderQRCode(qrDisplay' in share_box_js
+    assert 'urlInput.value = currentUrl' in share_box_js
+    assert 'setupShareBox' in admin_js
+    assert 'setupShareBox' in challenge_js
 
-    # 4. challenge module imports and uses renderQRCode
-    assert 'renderQRCode' in challenge_js and 'qrcode.js' in challenge_js
-    assert 'renderQRCode(inviteQrCode, playUrl' in challenge_js
+    # 4. challenge module uses standardized share component
+    assert 'renderShareUrlContainerHtml' in challenge_js
+    assert 'setupShareBox' in challenge_js
 
     # 5. Locales define QR code keys
     for locale in (en_us, pt_br):
@@ -735,11 +741,14 @@ def test_challenge_share_qr_code_regression() -> None:
     assert '.challenge-qr-container' in modals_css
     assert '.challenge-qr-display' in modals_css
 
+    # 7. QR button contains vector QR SVG icon
+    assert '<rect width="5" height="5" x="3" y="3" rx="1"' in index_html
+    assert '📱' not in index_html
+
 
 def test_challenge_mode_disallows_game_restart() -> None:
     """Verify that restart buttons and actions are disallowed during non-local / challenge matches."""
     challenge_js = read_challenge_bundle_js()
-    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
     setup_js = (JS_DIR / 'modules' / 'screens' / 'setup.js').read_text(encoding='utf-8')
     common_js = (JS_DIR / 'modules' / 'screens' / 'common.js').read_text(encoding='utf-8')
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
@@ -750,10 +759,9 @@ def test_challenge_mode_disallows_game_restart() -> None:
     assert 'if (el.gameRestartBtn) el.gameRestartBtn.classList.remove("hidden");' in challenge_js
     assert 'if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");' in challenge_js
 
-    # 2. album_shuffle.js does not append restartBtn when challenge is active
-    assert 'if (!challenge || !challenge.isActive()) {' in album_shuffle_js
-    assert 'actionsDiv.append(restartBtn, exitBtn);' in album_shuffle_js
-    assert 'actionsDiv.append(exitBtn);' in album_shuffle_js
+    # 2. Unified reveal actions in #reveal-ui share el.revealRestartBtn across all game modes
+    assert 'el.revealRestartBtn' in challenge_js
+    assert 'el.revealRestartBtn' in common_js
 
     # 3. setup.js guards restartSameGame and handleAbandonGame
     assert 'state.startingMatch || (challenge && challenge.isActive())' in setup_js
@@ -813,13 +821,17 @@ def test_challenges_ui_streamlining_and_minimal_refresh_buttons() -> None:
     assert 'id="challenges-page-total-badge"' in toolbar_section
     assert '_totalBadgeEl.textContent =' in challenges_page_js
 
-    # 3. Detailed challenge card restructured (top-bar removed, status pill before title, card-time-status in host row)
+    # 3. Detailed challenge card restructured (top-bar removed, status pill before title with
+    # remaining time if active, card-time-status removed)
     assert 'detailed-card-top-bar' not in challenges_page_js
     assert 'card-header-row' in challenges_page_js
     assert 'card-title-wrap' in challenges_page_js
     assert '${statusPillHtml}' in challenges_page_js
     assert 'card-host-row' in challenges_page_js
-    assert '${timeStatusHtml}' in challenges_page_js
+    assert 'card-time-status' not in challenges_page_js
+    assert 'timeStatusHtml' not in challenges_page_js
+    assert 'card-time-status' not in challenge_css
+    assert '${t("admin.status_active")} • ${formatRelativeTime(diffMs, false)}' in challenges_page_js
 
     # 4. Filter pill prevents line breaking
     assert 'white-space: nowrap;' in challenge_css
@@ -1004,9 +1016,9 @@ def test_challenges_page_share_drawer_and_results_button() -> None:
     en_us = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
     pt_br = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
 
-    # 1. Imports and invokes renderQRCode for zero-dependency client-side QR generation
-    assert 'renderQRCode' in challenges_page_js and 'qrcode.js' in challenges_page_js
-    assert 'renderQRCode(' in challenges_page_js
+    # 1. Imports and invokes renderShareUrlContainerHtml and setupShareBox from share_box.js
+    assert 'renderShareUrlContainerHtml' in challenges_page_js and 'share_box.js' in challenges_page_js
+    assert 'setupShareBox(' in challenges_page_js
 
     # 2. Intuitive share button in header with SVG icon & state tracking
     assert 'btn-share-challenge-hub' in challenges_page_js
@@ -1014,11 +1026,10 @@ def test_challenges_page_share_drawer_and_results_button() -> None:
     assert 'toggleChallengeShare' in challenges_page_js
     assert '_expandedShareDrawers' in challenges_page_js
 
-    # 3. Expandable Share Drawer with QR code display and direct link copying
+    # 3. Expandable Share Drawer with standardized share-url-container
     assert 'challenge-hub-share-drawer' in challenges_page_js
     assert '.challenge-hub-share-drawer' in challenge_css
-    assert 'share-qr-display' in challenges_page_js
-    assert 'btn-copy-share-url' in challenges_page_js
+    assert 'renderShareUrlContainerHtml(ch.play_url' in challenges_page_js
 
     # 4. Challenge cards render Results button (both active & inactive) deep linking to /play/:token/summary
     assert 'btn-results-challenge' in challenges_page_js
@@ -1206,8 +1217,8 @@ def test_challenge_gameplay_flow_and_label_integrity() -> None:
     # 4. Translations for true_date and challenges_hub exist in both locales
     assert '"challenge.true_date": "Actual Date"' in en_us_js
     assert '"challenge.true_date": "Data Real"' in pt_br_js
-    assert '"challenge.challenges_hub": "Challenges Hub"' in en_us_js
-    assert '"challenge.challenges_hub": "Central de Desafios"' in pt_br_js
+    assert '"challenge.challenges_hub": "Challenges"' in en_us_js
+    assert '"challenge.challenges_hub": "Desafios"' in pt_br_js
 
 
 def test_leaderboard_hidden_during_round_reviews() -> None:
@@ -1290,6 +1301,26 @@ def test_past_opponent_submissions_do_not_trigger_notifications() -> None:
     assert 'if (!isInitial) {' in summary_js
 
 
+def test_challenge_summary_carousel_map_preserves_view_and_avoids_zoom_resets() -> None:
+    """Verify carousel round map reuses active instance and preserves zoom view during background polling."""
+    summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
+    session_js = (JS_DIR / 'modules' / 'challenge' / 'session.js').read_text(encoding='utf-8')
+
+    # 1. session.js maintains carouselLayers tracking
+    assert 'carouselLayers: [],' in session_js
+    assert 'carouselMap.removeLayer(layer)' in session_js or 'carouselMap.removeLayer(l)' in session_js
+
+    # 2. summary.js renderCarouselRound accepts preserveView option and reuses map instance
+    assert 'renderCarouselRound(data, roundIdx, { preserveView = false } = {})' in summary_js
+    assert 'needsNewMap' in summary_js
+    assert 'fitMapToBounds(challengeSession.carouselMap, bounds, { padding: [50, 50], maxZoom: 15 });' in summary_js
+    assert 'if (bounds.isValid() && !preserveView) {' in summary_js
+
+    # 3. updateSummaryLive only re-renders carousel round if guesses changed, passing preserveView: true
+    assert 'hasRoundGuessesChanged' in summary_js
+    assert 'this.renderCarouselRound(data, activeRoundIdx, { preserveView: true });' in summary_js
+
+
 def test_page_buttons_are_standard_links_and_not_toggles() -> None:
     """Verify home and challenges buttons act as normal links with hrefs, allowing open in new tab and not toggling."""
     index_html = INDEX_HTML.read_text(encoding='utf-8')
@@ -1345,12 +1376,12 @@ def test_challenge_pinpoint_opponent_guesses_display() -> None:
     assert 'g.assigned_pin_id !== undefined' not in reveal_js
 
     # 2. Pinpoint opponent result extracts distance_km, guessed coordinates, and dates
-    assert 'distance_km: guess.distance_km,' in reveal_js
-    assert 'guessed_latitude: guess.guessed_latitude,' in reveal_js
-    assert 'guessed_longitude: guess.guessed_longitude,' in reveal_js
-    assert 'guessed_year: guess.guessed_year,' in reveal_js
-    assert 'guessed_month: guess.guessed_month,' in reveal_js
-    assert 'date_diff_days: guess.date_diff_days,' in reveal_js
+    assert 'distance_km: pp.distance_km,' in reveal_js
+    assert 'guessed_latitude: pp.guessed_latitude,' in reveal_js
+    assert 'guessed_longitude: pp.guessed_longitude,' in reveal_js
+    assert 'guessed_year: pp.guessed_year,' in reveal_js
+    assert 'guessed_month: pp.guessed_month,' in reveal_js
+    assert 'date_diff_days: pp.date_diff_days,' in reveal_js
     assert 'answeredPlayers.size' in reveal_js
 
 
@@ -1370,17 +1401,17 @@ def test_format_month_error_derives_year_month_diff() -> None:
     """Verify that formatMonthError calculates year and month diffs when part breakdown is omitted."""
     formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
 
-    assert '(years === undefined || months === undefined) && result.guessed_year' in formatters_js
-    assert 'Math.abs((result.guessed_year - actYear) * 12' in formatters_js
-    assert 'if (result.date_diff_days >= 30)' in formatters_js
+    assert '(years === undefined || months === undefined) && p.guessed_year' in formatters_js
+    assert 'Math.abs((p.guessed_year - actYear) * 12' in formatters_js
+    assert 'if (p.date_diff_days >= 30)' in formatters_js
 
 
 def test_summary_build_player_stats_supports_batch_modes_and_correct_flags() -> None:
     """Verify that summary.js evaluates perfect rounds across batch guesses using correctness flags."""
     summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
 
-    assert 'g.is_correct_location ||' in summary_js
-    assert 'g.is_correct_date_order ||' in summary_js
+    assert 'ash?.is_correct_location ||' in summary_js
+    assert 'ash?.is_correct_date_order ||' in summary_js
     assert 'const playerRoundGuesses = new Map();' in summary_js
     assert 'allLocPerfect && allDatePerfect && (isLocationEnabled || isDateEnabled)' in summary_js
 
@@ -1413,7 +1444,7 @@ def test_challenge_carousel_round_date_comparison_table() -> None:
     assert 'date-comp-truth' in summary_js
     assert 'formatMonthError(guessWithActual)' in summary_js
     assert 'formatPlayerCellHtml(g.player_name' in summary_js
-    assert 'sort((a, b) => (b.date_points || 0) - (a.date_points || 0)' in summary_js
+    assert '(b.date_points || 0) - (a.date_points || 0)' in summary_js
 
     # Verify CSS rules exist for table and mobile responsiveness
     assert '.round-date-table {' in challenge_css
@@ -1475,3 +1506,316 @@ def test_focus_trap_and_dynamic_version_stamping_regression() -> None:
     # 3. Service Worker dynamic version template and ignoreSearch option
     assert "const CACHE_NAME = 'immich-quiz-v{{APP_VERSION}}';" in sw_js
     assert 'ignoreSearch: true' in sw_js
+
+
+def test_html_data_i18n_elements_do_not_contain_child_elements() -> None:
+    """Verify that elements with data-i18n in static/index.html do not have child element tags,
+    except for sort-arrow spans which applyLanguage explicitly preserves.
+
+    applyLanguage() sets element.textContent = translation, which wipes all child DOM nodes.
+    If an element has child spans/icons (such as <span class="btn-icon">🎮</span>), data-i18n
+    must be placed on the child text span, never on the parent container/button.
+    """
+    html_content = INDEX_HTML.read_text(encoding='utf-8')
+
+    class I18nNestingValidator(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.stack: list[dict[str, object]] = []
+            self.violations: list[dict[str, object]] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            attr_dict = dict(attrs)
+            child_entry = {'tag': tag, 'attrs': attr_dict}
+            for ancestor in self.stack:
+                ancestor['child_tags'].append(child_entry)
+            self.stack.append(
+                {
+                    'tag': tag,
+                    'attrs': attr_dict,
+                    'child_tags': [],
+                    'data_i18n': attr_dict.get('data-i18n'),
+                }
+            )
+
+        def handle_endtag(self, tag: str) -> None:
+            if self.stack:
+                el_info = self.stack.pop()
+                if el_info.get('data_i18n'):
+                    # Allow sort-arrow since applyLanguage specifically preserves .sort-arrow
+                    non_arrow_children = [
+                        c
+                        for c in el_info.get('child_tags', [])
+                        if 'sort-arrow' not in c.get('attrs', {}).get('class', '')
+                    ]
+                    if non_arrow_children:
+                        self.violations.append(el_info)
+
+    validator = I18nNestingValidator()
+    validator.feed(html_content)
+
+    assert not validator.violations, (
+        'Found elements with data-i18n that contain child element tags (which will be destroyed upon translation):\n'
+        + '\n'.join(
+            f"<{v['tag']} id='{v['attrs'].get('id')}' class='{v['attrs'].get('class')}' data-i18n='{v['data_i18n']}'>"
+            for v in validator.violations
+        )
+    )
+
+
+def test_i18n_dictionary_symmetry_and_html_keys() -> None:
+    """Verify that frontend locale dictionaries (en_US.js, pt_BR.js) are strictly symmetric,
+    and that all data-i18n keys referenced in static/index.html exist in both locales.
+    """
+    en_text = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_text = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    en_keys = set(re.findall(r'["\']([a-zA-Z0-9_.]+)["\']\s*:', en_text))
+    pt_keys = set(re.findall(r'["\']([a-zA-Z0-9_.]+)["\']\s*:', pt_text))
+
+    missing_in_pt = en_keys - pt_keys
+    missing_in_en = pt_keys - en_keys
+    assert not missing_in_pt, f'Keys defined in en_US.js but missing in pt_BR.js: {sorted(missing_in_pt)}'
+    assert not missing_in_en, f'Keys defined in pt_BR.js but missing in en_US.js: {sorted(missing_in_en)}'
+
+    # Check all data-i18n* keys in index.html exist in dictionary
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    referenced_keys = set(
+        re.findall(
+            r'data-i18n(?:-placeholder|-title|-aria-label)?=["\']([a-zA-Z0-9_.]+)["\']',
+            index_html,
+        )
+    )
+
+    missing_referenced = referenced_keys - en_keys
+    assert not missing_referenced, f'Keys in static/index.html missing from locales: {sorted(missing_referenced)}'
+
+
+def test_all_modals_have_localized_close_buttons() -> None:
+    """Verify that modal dialog close buttons have data-i18n-title and data-i18n-aria-label attributes."""
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+    close_buttons = re.findall(
+        r'<button[^>]+class=["\'][^"\']*modal-close-btn[^"\']*["\'][^>]*>',
+        index_html,
+    )
+    assert close_buttons, 'Expected modal close buttons in static/index.html'
+    for btn in close_buttons:
+        assert 'data-i18n-title="modal.close"' in btn, f'Modal close button missing data-i18n-title: {btn}'
+        assert 'data-i18n-aria-label="modal.close"' in btn, f'Modal close button missing data-i18n-aria-label: {btn}'
+
+
+def test_dynamic_language_refresh_wiring() -> None:
+    """Verify that dynamic language refresh hooks are properly wired across components and controllers."""
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    multi_select_js = (JS_DIR / 'modules' / 'components' / 'multi_select.js').read_text(encoding='utf-8')
+    range_slider_js = (JS_DIR / 'modules' / 'components' / 'range_slider.js').read_text(encoding='utf-8')
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+    game_js = (JS_DIR / 'modules' / 'screens' / 'game.js').read_text(encoding='utf-8')
+    reveal_js = (JS_DIR / 'modules' / 'screens' / 'reveal.js').read_text(encoding='utf-8')
+    timer_js = (JS_DIR / 'modules' / 'timer.js').read_text(encoding='utf-8')
+    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+
+    # 1. MultiSelect has updateLanguage method that updates placeholder & clear buttons
+    assert 'updateLanguage()' in multi_select_js
+    assert 'this.searchInputEl.placeholder = t(this.searchPlaceholderKey);' in multi_select_js
+
+    # 2. DateRangeSlider re-formats boundMinEl and boundMaxEl in updateVisuals
+    assert 'this.boundMinEl.textContent = this._formatMonth(this.allMonths[0]);' in range_slider_js
+    assert (
+        'this.boundMaxEl.textContent = this._formatMonth(this.allMonths[this.allMonths.length - 1]);'
+    ) in range_slider_js
+
+    # 3. setup_filters refreshFilterComponentsLanguage calls updateLanguage on multi-selects and renderLeaderboard
+    assert 'libraryMultiSelect.updateLanguage()' in setup_filters_js
+    assert 'renderLeaderboard()' in setup_filters_js
+    assert 'activeMode.renderSettings(container)' in setup_filters_js
+
+    # 4. Album Shuffle mode implements refreshQuestionLanguage and localizes up/down buttons
+    assert 'refreshQuestionLanguage(questionData)' in album_shuffle_js
+    assert 'upBtn.title = t("game.move_up");' in album_shuffle_js
+    assert 'downBtn.title = t("game.move_down");' in album_shuffle_js
+
+    # 5. Timer exports refreshTimerLanguage
+    assert 'export function refreshTimerLanguage()' in timer_js
+
+    # 6. Screens export refresh handlers
+    assert 'export function refreshGameLanguage()' in game_js
+    assert 'export function refreshRevealLanguage()' in reveal_js
+
+    # 7. app.js refreshActiveScreenLanguage wires all components
+    assert 'updateAudioUi();' in app_js
+    assert 'renderSyncStatus(getLastSyncStatus());' in app_js
+    assert 'renderLeaderboard();' in app_js
+    assert 'refreshRoundMeta();' in app_js
+    assert 'refreshMapsLanguage();' in app_js
+    assert 'refreshTimerLanguage();' in app_js
+    assert 'refreshGameLanguage();' in app_js
+    assert 'refreshRevealLanguage();' in app_js
+    assert 'renderPolaroidGallery(state.roundHistory);' in app_js
+
+
+def test_all_missing_components_have_dynamic_language_support():
+    """Verify all 9 components identified by user have dynamic language conversion wired:
+    reveal-actual, pinpoint-actual, round-meta, reveal-table, leaflet-control-layers-list,
+    timeout-notice, shuffle-help-btn, shuffle-card-meta, shuffle-reveal-table, timer-head.
+    """
+    html = (STATIC_DIR / 'index.html').read_text(encoding='utf-8')
+    i18n_js = (JS_DIR / 'modules' / 'i18n.js').read_text(encoding='utf-8')
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
+    timer_js = (JS_DIR / 'modules' / 'timer.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+
+    # 1. applyLanguage supports data-i18n-args
+    assert 'element.dataset.i18nArgs' in i18n_js
+
+    # 2. round-meta & shuffle-help-btn: renderRoundMeta tags data-i18n and exports refreshRoundMeta
+    assert 'container._lastMetaOptions = options;' in formatters_js
+    assert 'roundText.setAttribute("data-i18n", "game.round_label");' in formatters_js
+    assert 'roundText.dataset.i18nArgs' in formatters_js
+    assert 'helpBtn.setAttribute("data-i18n", "game.help_btn");' in formatters_js
+    assert 'export function refreshRoundMeta' in formatters_js
+    assert 'refreshRoundMeta()' in app_js
+
+    # 3. timer-head & timeout-notice: index.html has data-i18n and timer.js synchronizes fullscreen timers
+    assert 'data-i18n="game.timer_time_left"' in html
+    assert 'data-i18n="game.timer_time_up_notice"' in html
+    assert 'export function refreshMapsLanguage()' in maps_js
+    assert 'export function refreshTimerLanguage()' in timer_js
+    assert 'refreshMapsLanguage()' in app_js
+    assert 'refreshTimerLanguage()' in app_js
+
+    # 4. leaflet-control-layers-list: maps.js registers layer switcher dynamic update
+    assert 'data-i18n", "map.layer_streets"' in maps_js
+    assert 'data-i18n", "map.layer_satellite"' in maps_js
+    assert 'export function refreshMapsLanguage()' in maps_js
+
+    # 5. reveal-actual & pinpoint-actual: pinpoint.js tags actual date and location chips
+    assert 'data-i18n", "reveal.actual_date"' in pinpoint_js
+    assert 'data-i18n", "reveal.actual_location"' in pinpoint_js
+
+    # 6. reveal-table: pinpoint.js tags table headers with data-i18n
+    assert 'data-i18n", "reveal.col_player"' in pinpoint_js
+    assert 'data-i18n", col.key' in pinpoint_js
+
+    # 7. shuffle-reveal-table & shuffle-card-meta: album_shuffle.js tags table headers & card actions
+    assert 'data-i18n", "reveal.col_player"' in shuffle_js
+    assert 'reportPhotoBtn.setAttribute("data-i18n-title", "report.btn_label");' in shuffle_js
+    assert 'reportPhotoBtn.setAttribute("data-i18n-aria-label", "report.btn_label");' in shuffle_js
+    assert 'refreshQuestionLanguage(questionData)' in shuffle_js
+    assert 'refreshQuestionLanguage(questionData)' in pinpoint_js
+
+
+def test_pinpoint_help_modal_architecture():
+    """Verify Pinpoint help modal markup, state getters, mode logic, and styling integration."""
+    html = (STATIC_DIR / 'index.html').read_text(encoding='utf-8')
+    state_js = (JS_DIR / 'modules' / 'state.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    modals_css = (STATIC_DIR / 'css' / 'components' / 'modals.css').read_text(encoding='utf-8')
+    en_us_js = (JS_DIR / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_br_js = (JS_DIR / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Markup verification
+    assert 'id="pinpoint-help-modal"' in html
+    assert 'id="pinpoint-help-title"' in html
+    assert 'id="pinpoint-help-close-btn"' in html
+    assert 'class="modal-card mode-help-card pinpoint-help-card"' in html
+    assert 'class="modal-body mode-help-body pinpoint-help-body"' in html
+    assert 'data-i18n="game.pinpoint_help_title"' in html
+
+    # 2. State getters
+    assert 'get pinpointHelpModal()' in state_js
+    assert 'get pinpointHelpCloseBtn()' in state_js
+
+    # 3. Strategy method implementations
+    assert 'openPinpointHelpModal(questionData)' in pinpoint_js
+    assert 'openHelp(questionData)' in pinpoint_js
+    assert 'refreshHelpModal(questionData)' in pinpoint_js
+    assert 'game.pinpoint_help_location_title' in pinpoint_js
+    assert 'game.pinpoint_help_date_title' in pinpoint_js
+    assert 'game.pinpoint_help_photo_title' in pinpoint_js
+
+    # 4. Formatters button & icon modernization
+    assert 'round-meta-help-btn mode-help-btn shuffle-help-btn' in formatters_js
+    assert 'meta-pill-icon' in formatters_js
+
+    # 5. Shared modal styling
+    assert '.round-meta .round-meta-help-btn' in modals_css
+    assert '.mode-help-card' in modals_css
+    assert '.pinpoint-help-card' in modals_css
+
+    # 6. Locale keys coverage
+    for key in [
+        'game.pinpoint_help_title',
+        'game.pinpoint_help_location_title',
+        'game.pinpoint_help_location_item1',
+        'game.pinpoint_help_location_item2',
+        'game.pinpoint_help_location_item3',
+        'game.pinpoint_help_date_title',
+        'game.pinpoint_help_date_item1',
+        'game.pinpoint_help_date_item2',
+        'game.pinpoint_help_date_item3',
+        'game.pinpoint_help_photo_title',
+        'game.pinpoint_help_photo_item1',
+    ]:
+        assert f'"{key}"' in en_us_js, f'Missing {key} in en_US.js'
+        assert f'"{key}"' in pt_br_js, f'Missing {key} in pt_BR.js'
+
+
+def test_multi_select_mode_btn_two_lines_wrap() -> None:
+    """Verify that multi-select mode buttons wrap text in mode-text-wrap and have distinct icons."""
+    common_js = (JS_DIR / 'modules' / 'modes' / 'common.js').read_text(encoding='utf-8')
+    cards_css = (STATIC_DIR / 'css' / 'components' / 'cards.css').read_text(encoding='utf-8')
+    index_html = INDEX_HTML.read_text(encoding='utf-8')
+
+    # 1. index.html uses 🎯 for Pinpoint mode
+    assert '🎯' in index_html
+    assert '🔀' in index_html
+
+    # 2. common.js creates and attaches mode-icon-wrap and mode-text-wrap to both location and date cards
+    assert 'locIcon.textContent = "🗺️"' in common_js
+    assert 'locTextWrap.className = "mode-text-wrap"' in common_js
+    assert 'locTextWrap.append(locTitle, locDesc)' in common_js
+    assert 'locCard.append(locCheckbox, locIcon, locTextWrap)' in common_js
+
+    assert 'dateIcon.textContent = "📅"' in common_js
+    assert 'dateTextWrap.className = "mode-text-wrap"' in common_js
+    assert 'dateTextWrap.append(dateTitle, dateDesc)' in common_js
+    assert 'dateCard.append(dateCheckbox, dateIcon, dateTextWrap)' in common_js
+
+    # 3. cards.css defines column layout for mode-text-wrap and fallback for multi-select
+    assert '.mode-text-wrap {' in cards_css
+    assert 'flex-direction: column;' in cards_css
+    assert '.mode-btn.multi-select:not(:has(.mode-text-wrap))' in cards_css
+
+
+def test_local_game_round_review_no_player_pill() -> None:
+    """Verify that during round review in local games, activePlayer is null and player pill is omitted."""
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+
+    expected_pattern = (
+        'const activePlayer = challenge && challenge.isActive() ? challenge.challengeSession?.sessionPlayerName : null;'
+    )
+    assert expected_pattern in pinpoint_js
+    assert expected_pattern in shuffle_js
+
+
+def test_filters_accordion_header_full_clickability() -> None:
+    """Verify that the entire filters-accordion-header is clickable to toggle open/close,
+    has cursor: pointer styling, and excludes sync-library-btn clicks.
+    """
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+    filters_css = (STATIC_DIR / 'css' / 'components' / 'filters.css').read_text(encoding='utf-8')
+
+    # 1. Event listener is attached to headerEl rather than only toggleBtn
+    assert 'headerEl.addEventListener("click", (e) => {' in setup_filters_js
+    assert 'e.target.closest("#sync-library-btn")' in setup_filters_js
+
+    # 2. CSS sets cursor: pointer on .filters-accordion-header
+    assert '.filters-accordion-header {' in filters_css
+    header_block = filters_css.split('.filters-accordion-header {')[1].split('}')[0]
+    assert 'cursor: pointer;' in header_block

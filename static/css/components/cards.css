@@ -4,6 +4,7 @@
   border-radius: 18px;
   box-shadow: var(--shadow);
   padding: 1rem;
+  overflow: hidden;
 }
 
 .card h2 {
@@ -25,16 +26,17 @@ html.route-non-lobby #leaderboard-card {
   width: 100%;
   max-height: var(--quiz-image-max-height);
   object-fit: contain;
-  border-radius: 14px;
+  border-radius: var(--radius-lg, 14px);
   border: 1px solid #d5dcec;
   background: #eef2fb;
+  cursor: pointer;
 }
 
 .media-frame {
   position: relative;
   width: 100%;
   min-height: 260px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg, 14px);
   border: 1px solid #d5dcec;
   background: #eef2fb;
   display: grid;
@@ -255,3 +257,287 @@ html.route-non-lobby #leaderboard-card {
     border-radius: 14px;
   }
 }
+
+/* ==========================================================================
+   Game Mode Selection & Match Setup Groups
+   ========================================================================== */
+.mode-selection-group,
+.game-settings-group,
+.match-settings-group {
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.field-hint-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--accent, #0f7c7f);
+  background: rgba(15, 124, 127, 0.08);
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
+.mode-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.mode-option {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.mode-option .mode-btn {
+  width: 100%;
+  height: 100%;
+  padding-right: 2.75rem;
+}
+
+.mode-help-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 2;
+  padding: 0;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mode-help-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #f0fdfa;
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(15, 124, 127, 0.2);
+}
+
+.mode-help-btn:active {
+  transform: scale(0.95);
+}
+
+.mode-help-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mode-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  border: 2px solid #e2e8f0;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 72px;
+  box-sizing: border-box;
+}
+
+.mode-icon-wrap {
+  font-size: 1.35rem;
+  line-height: 1.1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.mode-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.mode-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.mode-btn.active {
+  border-color: var(--accent);
+  background: #f0fdfa;
+  box-shadow: 0 4px 14px rgba(15, 124, 127, 0.18);
+}
+
+.mode-btn .mode-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.mode-btn.active .mode-title {
+  color: var(--accent);
+}
+
+.mode-btn .mode-desc {
+  font-size: 0.8rem;
+  opacity: 0.8;
+  line-height: 1.35;
+}
+
+.game-settings-container {
+  margin-top: 0.35rem;
+}
+
+.mode-btn.multi-select,
+.mode-btn.is-checkbox {
+  position: relative;
+  padding-right: 2.5rem;
+}
+
+.mode-btn.multi-select:not(:has(.mode-text-wrap)),
+.mode-btn.is-checkbox:not(:has(.mode-text-wrap)) {
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mode-btn.multi-select input[type="checkbox"],
+.mode-btn.is-checkbox input[type="checkbox"] {
+  display: none !important;
+}
+
+.mode-btn.multi-select::after,
+.mode-btn.is-checkbox::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 2px solid #cbd5e1;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.mode-btn.multi-select.active::after,
+.mode-btn.is-checkbox.active::after {
+  border-color: var(--accent);
+  background: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+  background-size: 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Tactile Segmented Controls for Match Cadence */
+.segmented-control {
+  display: flex;
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 3px;
+  gap: 3px;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 0;
+}
+
+.segmented-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.65rem;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.segmented-btn:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.segmented-btn.active {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  font-weight: 700;
+}
+
+@keyframes shakeWarning {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+
+.mode-btn.shake-warning {
+  animation: shakeWarning 0.35s ease-in-out;
+  border-color: #ef4444 !important;
+}
+
+@media (max-width: 520px) {
+  .mode-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-btn {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .segmented-btn {
+    white-space: normal;
+    word-break: break-word;
+    padding: 0.45rem 0.35rem;
+    font-size: 0.82rem;
+    line-height: 1.15;
+  }
+
+  .field-head-inline {
+    flex-wrap: wrap;
+    gap: 0.2rem 0.5rem;
+  }
+
+  .field-hint-badge {
+    font-size: 0.7rem;
+  }
+}
+

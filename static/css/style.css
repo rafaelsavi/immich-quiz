@@ -15,6 +15,7 @@
 @import "./components/player_input.css";
 @import "./components/timer.css";
 @import "./components/challenge.css";
+@import "./components/reported.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";

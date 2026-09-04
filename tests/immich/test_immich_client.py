@@ -719,3 +719,34 @@ def test_extract_answer_includes_state() -> None:
     assert ans.city == 'Los Angeles'
     assert ans.state == 'California'
     assert ans.country == 'United States'
+
+
+def test_is_shared_album_ownership_checks() -> None:
+    # 1. User is owner in albumUsers -> False
+    alb_owner = {
+        'id': 'alb-1',
+        'shared': True,
+        'albumUsers': [
+            {'user': {'id': 'user-1'}, 'role': 'owner'},
+            {'user': {'id': 'user-2'}, 'role': 'viewer'},
+        ],
+    }
+    assert ImmichClient._is_shared_album(alb_owner, current_user_id='user-1') is False
+
+    # 2. User is viewer in albumUsers -> True
+    assert ImmichClient._is_shared_album(alb_owner, current_user_id='user-2') is True
+
+    # 3. User is not in albumUsers, another user is owner -> True
+    assert ImmichClient._is_shared_album(alb_owner, current_user_id='user-3') is True
+
+    # 4. Unknown current_user_id -> False (safe default, not treated as foreign shared)
+    assert ImmichClient._is_shared_album(alb_owner, current_user_id=None) is False
+
+    # 5. Top-level ownerId matches current_user_id -> False
+    alb_top_owner = {'id': 'alb-2', 'ownerId': 'user-1', 'isShared': True}
+    assert ImmichClient._is_shared_album(alb_top_owner, current_user_id='user-1') is False
+    assert ImmichClient._is_shared_album(alb_top_owner, current_user_id='user-2') is True
+
+    # 6. Album explicitly not shared -> False
+    alb_unshared = {'id': 'alb-3', 'shared': False}
+    assert ImmichClient._is_shared_album(alb_unshared, current_user_id='user-1') is False

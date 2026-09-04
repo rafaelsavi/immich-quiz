@@ -179,6 +179,13 @@ export class DateRangeSlider {
       this.fillEl.style.width = `${maxPct - minPct}%`;
     }
 
+    if (this.boundMinEl && this.allMonths.length > 0) {
+      this.boundMinEl.textContent = this._formatMonth(this.allMonths[0]);
+    }
+    if (this.boundMaxEl && this.allMonths.length > 0) {
+      this.boundMaxEl.textContent = this._formatMonth(this.allMonths[this.allMonths.length - 1]);
+    }
+
     if (this.readoutEl) {
       if (minVal === 0 && maxVal === this.allMonths.length - 1) {
         this.readoutEl.textContent = t("setup.all_dates");

@@ -361,13 +361,13 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return earth_radius_km * c
 
 
-def location_score(
+def pinpoint_location_score(
     distance_km: float,
     *,
     decay_km: float = LOCATION_MAX_DECAY_KM,
     max_points: int = SCORE_MAX_POINTS,
 ) -> int:
-    """Calculate location score using exponential distance decay."""
+    """Calculate Pinpoint location score using exponential distance decay."""
     return max(0, round(max_points * math.exp(-distance_km / decay_km)))
 
 
@@ -469,13 +469,13 @@ def date_diff_parts(guessed_year: int, guessed_month: int, actual: date) -> tupl
     return years_part, months_part, days_part
 
 
-def date_score(
+def pinpoint_date_score(
     delta_days: int,
     *,
     decay_days: float = DATE_MAX_DECAY_DAYS,
     max_points: int = SCORE_MAX_POINTS,
 ) -> int:
-    """Calculate date score using exponential day-difference decay."""
+    """Calculate Pinpoint date score using exponential day-difference decay."""
     return max(0, round(max_points * math.exp(-delta_days / decay_days)))
 
 

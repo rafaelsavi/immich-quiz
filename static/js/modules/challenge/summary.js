@@ -158,7 +158,7 @@ export const challengeSummary = {
             <div class="field-head" id="challenge-journey-map-head">
               <label>${t("summary.journey_map_heading")}</label>
             </div>
-            <div id="challenge-journey-map-shell" class="map-shell" style="height: 450px;">
+            <div id="challenge-journey-map-shell" class="map-shell">
               <div id="challenge-journey-map"></div>
             </div>
           `
@@ -355,8 +355,10 @@ export const challengeSummary = {
    * Render a specific round inside the Grand Reveal Carousel with scatter map and date comparisons.
    * @param {object} data
    * @param {number} roundIdx
+   * @param {object} [options]
+   * @param {boolean} [options.preserveView=false]
    */
-  renderCarouselRound(data, roundIdx) {
+  renderCarouselRound(data, roundIdx, { preserveView = false } = {}) {
     const totalRoundsCount = data.total_rounds || challengeSession.totalRounds;
     const indicatorEl = document.getElementById("carousel-indicator");
     if (indicatorEl) {
@@ -384,7 +386,9 @@ export const challengeSummary = {
 
     if (photoShell && photoImg) {
       if (mediaUrl) {
-        photoImg.src = mediaUrl;
+        if (photoImg.src !== mediaUrl) {
+          photoImg.src = mediaUrl;
+        }
         photoShell.classList.remove("hidden");
         photoImg.onclick = () => openPhotoLightbox(mediaUrl);
         if (photoZoomBtn) {
@@ -416,67 +420,106 @@ export const challengeSummary = {
         } catch (_) {}
         challengeSession.carouselMap = null;
       }
+      challengeSession.carouselLayers = [];
+      challengeSession.carouselMarkers = {};
     } else {
       if (mapShell) {
         mapShell.classList.remove("hidden");
       }
-      if (mapShell && window.L) {
+      const mapContainer = document.getElementById("scatter-map");
+      if (mapShell && mapContainer && window.L) {
+        const needsNewMap =
+          !challengeSession.carouselMap ||
+          !challengeSession.carouselMap.getContainer ||
+          challengeSession.carouselMap.getContainer() !== mapContainer;
+
+        if (needsNewMap) {
+          challengeSession.carouselMap = createStandardMap("scatter-map", {
+            existingMap: challengeSession.carouselMap,
+            titleKey: "game.fullscreen_map_title",
+          });
+          challengeSession.carouselLayers = [];
+        } else {
+          // Clear previous layers from existing map instance without re-instantiating Leaflet
+          (challengeSession.carouselLayers || []).forEach((layer) => {
+            try {
+              challengeSession.carouselMap.removeLayer(layer);
+            } catch (_) {}
+          });
+          challengeSession.carouselLayers = [];
+        }
+
         challengeSession.carouselMarkers = {};
         challengeSession.carouselSpiderLines = {};
         challengeSession.carouselTrueCoords = {};
 
-        challengeSession.carouselMap = createStandardMap("scatter-map", {
-          existingMap: challengeSession.carouselMap,
-          titleKey: "game.fullscreen_map_title",
-        });
-
         const bounds = L.latLngBounds();
 
         // Find first guess with actual coordinates
-        const sampleGuess = roundGuesses.find((g) => g.actual_latitude !== null && g.actual_longitude !== null);
+        const sampleGuess = roundGuesses.find((g) => {
+          const p = g.pinpoint || g;
+          return (
+            p &&
+            Number.isFinite(Number(p.actual_latitude)) &&
+            Number.isFinite(Number(p.actual_longitude))
+          );
+        });
         if (sampleGuess) {
-          const trueLatLng = L.latLng(sampleGuess.actual_latitude, sampleGuess.actual_longitude);
+          const sampleP = sampleGuess.pinpoint || sampleGuess;
+          const aLat = Number(sampleP.actual_latitude);
+          const aLng = Number(sampleP.actual_longitude);
+          const trueLatLng = L.latLng(aLat, aLng);
           bounds.extend(trueLatLng);
-          challengeSession.carouselTrueCoords["__true__"] = { lat: sampleGuess.actual_latitude, lng: sampleGuess.actual_longitude };
+          challengeSession.carouselTrueCoords["__true__"] = { lat: aLat, lng: aLng };
 
           const trueMarker = L.marker(trueLatLng, {
             icon: createPinIcon("\u2605", ACTUAL_COLOR),
             zIndexOffset: 1000,
           })
-            .bindPopup(`<b>${t("challenge.true_location")}</b><br>${formatPlace(sampleGuess)}`)
+            .bindPopup(`<b>${t("challenge.true_location")}</b><br>${formatPlace(sampleP)}`)
             .addTo(challengeSession.carouselMap);
           challengeSession.carouselMarkers["__true__"] = trueMarker;
+          challengeSession.carouselLayers.push(trueMarker);
 
           // Add all player pins and connect dashed lines to true location
           roundGuesses.forEach((g) => {
-            if (g.guessed_latitude !== null && g.guessed_longitude !== null) {
-              const latlng = L.latLng(g.guessed_latitude, g.guessed_longitude);
+            const gp = g.pinpoint || g;
+            if (
+              gp &&
+              Number.isFinite(Number(gp.guessed_latitude)) &&
+              Number.isFinite(Number(gp.guessed_longitude))
+            ) {
+              const gLat = Number(gp.guessed_latitude);
+              const gLng = Number(gp.guessed_longitude);
+              const latlng = L.latLng(gLat, gLng);
               bounds.extend(latlng);
               const pKey = `player_${g.player_name}`;
-              challengeSession.carouselTrueCoords[pKey] = { lat: g.guessed_latitude, lng: g.guessed_longitude };
+              challengeSession.carouselTrueCoords[pKey] = { lat: gLat, lng: gLng };
 
               const color = playerColor(g.player_name);
               const initial = playerInitial(g.player_name);
               const icon = createPinIcon(initial, color);
 
               // Dashed connector polyline
-              L.polyline([trueLatLng, latlng], {
+              const line = L.polyline([trueLatLng, latlng], {
                 color,
                 weight: 3,
                 dashArray: "8, 8",
                 opacity: 0.85,
               }).addTo(challengeSession.carouselMap);
+              challengeSession.carouselLayers.push(line);
 
-              const distStr = g.distance_km !== null ? ` (${formatDistance(g.distance_km)})` : "";
+              const distStr = gp.distance_km !== null && gp.distance_km !== undefined ? ` (${formatDistance(gp.distance_km)})` : "";
               const marker = L.marker(latlng, { icon })
                 .bindPopup(`<b>${g.player_name}</b><br>${g.round_score} pts${distStr}`)
                 .addTo(challengeSession.carouselMap);
               challengeSession.carouselMarkers[pKey] = marker;
+              challengeSession.carouselLayers.push(marker);
             }
           });
         }
 
-        if (bounds.isValid()) {
+        if (bounds.isValid() && !preserveView) {
           fitMapToBounds(challengeSession.carouselMap, bounds, { padding: [50, 50], maxZoom: 15 });
         }
       }
@@ -489,15 +532,26 @@ export const challengeSummary = {
         extraEl.classList.add("hidden");
       } else {
         extraEl.classList.remove("hidden");
-        const sampleWithDate = roundGuesses.find((g) => g.actual_date || g.actual_year);
+        const sampleWithDate = roundGuesses.find((g) => {
+          const p = g.pinpoint || g;
+          return p.actual_date || p.actual_year;
+        });
         if (sampleWithDate) {
-          const actualDateStr = sampleWithDate.actual_date
-            ? formatDate(sampleWithDate.actual_date, { year: "numeric", month: "short", day: "numeric" })
-            : formatMonth(sampleWithDate.actual_year, sampleWithDate.actual_month);
+          const sampleP = sampleWithDate.pinpoint || sampleWithDate;
+          const actualDateStr = sampleP.actual_date
+            ? formatDate(sampleP.actual_date, { year: "numeric", month: "short", day: "numeric" })
+            : formatMonth(sampleP.actual_year, sampleP.actual_month);
 
           const validGuesses = roundGuesses
-            .filter((g) => g.guessed_year && g.guessed_month)
-            .sort((a, b) => (b.date_points || 0) - (a.date_points || 0) || (a.date_diff_days ?? 999999) - (b.date_diff_days ?? 999999));
+            .filter((g) => {
+              const p = g.pinpoint || g;
+              return p.guessed_year && p.guessed_month;
+            })
+            .sort((a, b) => {
+              const ap = a.pinpoint || a;
+              const bp = b.pinpoint || b;
+              return (b.date_points || 0) - (a.date_points || 0) || (ap.date_diff_days ?? 999999) - (bp.date_diff_days ?? 999999);
+            });
 
           const topScore = validGuesses.length > 0 ? (validGuesses[0].date_points || 0) : 0;
 
@@ -529,11 +583,13 @@ export const challengeSummary = {
                         ? `<tr><td colspan="4" class="text-center text-muted py-2">${t("fmt.no_guess")}</td></tr>`
                         : validGuesses
                             .map((g, idx) => {
-                              const pDateStr = formatMonth(g.guessed_year, g.guessed_month);
+                              const pp = g.pinpoint || g;
+                              const pDateStr = formatMonth(pp.guessed_year, pp.guessed_month);
                               const guessWithActual = {
-                                ...g,
-                                actual_year: g.actual_year ?? sampleWithDate.actual_year,
-                                actual_month: g.actual_month ?? sampleWithDate.actual_month,
+                                ...pp,
+                                player_name: g.player_name,
+                                actual_year: pp.actual_year ?? sampleP.actual_year,
+                                actual_month: pp.actual_month ?? sampleP.actual_month,
                               };
                               const errStr = formatMonthError(guessWithActual);
                               const isCurrent = g.player_name === challengeSession.sessionPlayerName;
@@ -598,29 +654,36 @@ export const challengeSummary = {
       const pStats = stats[g.player_name];
       if (!pStats) return;
 
+      const pp = g.pinpoint;
+      const ash = g.album_shuffle;
+
       const isLocPerfect = Boolean(
-        g.is_correct_location ||
-        (g.distance_km !== null && (g.distance_km < 1 || g.location_points === 100))
+        ash?.is_correct_location ||
+        (pp?.distance_km !== null && pp?.distance_km !== undefined && (pp.distance_km < 1 || g.location_points === 100))
       );
       const isDatePerfect = Boolean(
-        g.is_correct_date_order ||
-        (g.date_diff_days !== null && (g.date_diff_days === 0 || g.date_points === 100))
+        ash?.is_correct_date_order ||
+        (pp?.date_diff_days !== null && pp?.date_diff_days !== undefined && (pp.date_diff_days === 0 || g.date_points === 100))
       );
 
-      if (g.distance_km != null) {
-        pStats.totalDistanceKm += g.distance_km;
+      if (pp?.distance_km != null) {
+        pStats.totalDistanceKm += pp.distance_km;
         pStats.distanceCount++;
         if (isLocPerfect) {
           pStats.perfectLocationCount++;
         }
+      } else if (ash && isLocPerfect) {
+        pStats.perfectLocationCount++;
       }
 
-      if (g.date_diff_days != null) {
-        pStats.totalDateDiffDays += g.date_diff_days;
+      if (pp?.date_diff_days != null) {
+        pStats.totalDateDiffDays += pp.date_diff_days;
         pStats.dateCount++;
         if (isDatePerfect) {
           pStats.perfectDateCount++;
         }
+      } else if (ash && isDatePerfect) {
+        pStats.perfectDateCount++;
       }
 
       const roundKey = `${g.player_name}_${g.round_index}`;
@@ -892,10 +955,29 @@ export const challengeSummary = {
       }
     }
 
-    // 5. Update cached data and carousel scatter map
+    // 5. Update cached data and carousel scatter map if active round data changed
+    const activeRoundIdx = challengeSession.carouselRoundIndex;
+    const prevGuesses = (prevData?.round_guesses || []).filter((g) => g.round_index === activeRoundIdx);
+    const newGuesses = (data.round_guesses || []).filter((g) => g.round_index === activeRoundIdx);
+
     challengeSession.cachedLeaderboardData = data;
-    if (data.game_mode !== "album_shuffle" && challengeSession.carouselRoundIndex !== undefined) {
-      this.renderCarouselRound(data, challengeSession.carouselRoundIndex);
+
+    if (data.game_mode !== "album_shuffle" && activeRoundIdx !== undefined) {
+      const hasRoundGuessesChanged =
+        prevGuesses.length !== newGuesses.length ||
+        newGuesses.some((ng) => {
+          const pg = prevGuesses.find((g) => g.player_name === ng.player_name);
+          if (!pg) return true;
+          return (
+            pg.round_score !== ng.round_score ||
+            pg.location_points !== ng.location_points ||
+            pg.date_points !== ng.date_points
+          );
+        });
+
+      if (hasRoundGuessesChanged) {
+        this.renderCarouselRound(data, activeRoundIdx, { preserveView: true });
+      }
     }
 
     // 6. Stop polling if all players have completed and match is settled

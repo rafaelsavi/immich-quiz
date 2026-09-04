@@ -23,7 +23,7 @@ import {
 } from "./setup_filters.js";
 import { loadChallengesList } from "./screens/challenges.js";
 import { getActiveMode } from "./modes/index.js";
-import { renderQRCode } from "./components/qrcode.js";
+import { setupShareBox, SHARE_ICONS } from "./components/share_box.js";
 import { activateFocusTrap, deactivateFocusTrap } from "./components/focus_trap.js";
 
 const CREATOR_NAME_STORAGE_KEY = "immich_challenge_creator_name";
@@ -55,12 +55,12 @@ let _createdTitleEl = null;
 let _createdUrlInput = null;
 let _createdTimeBadge = null;
 let _createdExpBadge = null;
-let _createdModeBadge = null;
 let _copyLinkBtn = null;
 let _qrBtn = null;
 let _qrContainer = null;
 let _qrCodeEl = null;
 let _openLinkBtn = null;
+let _shareBoxController = null;
 
 /**
  * Generate smart automatic challenge title based on active configuration.
@@ -118,7 +118,6 @@ export function initAdminModal() {
   _createdUrlInput = document.getElementById("challenge-created-url");
   _createdTimeBadge = document.getElementById("challenge-created-time-badge");
   _createdExpBadge = document.getElementById("challenge-created-exp-badge");
-  _createdModeBadge = document.getElementById("challenge-created-mode-badge");
   _copyLinkBtn = document.getElementById("challenge-copy-link-btn");
   _qrBtn = document.getElementById("challenge-qr-btn");
   _qrContainer = document.getElementById("challenge-qr-container");
@@ -164,25 +163,7 @@ export function initAdminModal() {
   // Generate challenge button
   if (_generateBtn) _generateBtn.addEventListener("click", handleGenerateChallenge);
 
-  // Share box buttons
-  if (_copyLinkBtn) _copyLinkBtn.addEventListener("click", copyCreatedUrl);
-  const linkBox = document.getElementById("challenge-share-link-box");
-  if (linkBox) {
-    linkBox.addEventListener("click", (e) => {
-      if (e.target !== _copyLinkBtn && !_copyLinkBtn?.contains(e.target)) {
-        copyCreatedUrl();
-      }
-    });
-  }
-  if (_qrBtn) {
-    _qrBtn.addEventListener("click", () => {
-      if (!_qrContainer) return;
-      const isHidden = _qrContainer.classList.toggle("hidden");
-      _qrBtn.classList.toggle("active", !isHidden);
-      _qrBtn.setAttribute("aria-expanded", String(!isHidden));
-      _qrContainer.setAttribute("aria-hidden", String(isHidden));
-    });
-  }
+  // Play Now button
   if (_openLinkBtn) {
     _openLinkBtn.addEventListener("click", () => {
       const url = _createdUrlInput?.value;
@@ -357,10 +338,6 @@ function displayShareResult(challengeData) {
   _createdUrlInput = _createdUrlInput || document.getElementById("challenge-created-url");
   _createdTimeBadge = _createdTimeBadge || document.getElementById("challenge-created-time-badge");
   _createdExpBadge = _createdExpBadge || document.getElementById("challenge-created-exp-badge");
-  _createdModeBadge = _createdModeBadge || document.getElementById("challenge-created-mode-badge");
-  _qrBtn = _qrBtn || document.getElementById("challenge-qr-btn");
-  _qrContainer = _qrContainer || document.getElementById("challenge-qr-container");
-  _qrCodeEl = _qrCodeEl || document.getElementById("challenge-qr-code");
 
   if (!_formViewEl || !_shareBoxEl) return;
 
@@ -384,17 +361,18 @@ function displayShareResult(challengeData) {
     _createdUrlInput.setAttribute("value", playUrl);
   }
 
-  if (_qrCodeEl) {
-    renderQRCode(_qrCodeEl, playUrl, { size: 180 });
-  }
-  if (_qrContainer) {
-    _qrContainer.classList.add("hidden");
-    _qrContainer.setAttribute("aria-hidden", "true");
-  }
-  if (_qrBtn) {
-    _qrBtn.classList.remove("active");
-    _qrBtn.setAttribute("aria-expanded", "false");
-  }
+  // Initialize standardized share box component
+  _shareBoxController = setupShareBox(_shareBoxEl, playUrl, {
+    linkBoxId: "challenge-share-link-box",
+    urlInputId: "challenge-created-url",
+    copyBtnId: "challenge-copy-link-btn",
+    nativeBtnId: "challenge-share-native-btn",
+    qrBtnId: "challenge-qr-btn",
+    qrContainerId: "challenge-qr-container",
+    qrDisplayId: "challenge-qr-code",
+    title: challengeData?.title || "Immich Quiz Challenge",
+    qrSize: 180,
+  });
 
   if (_createdTimeBadge) {
     const createdDate = challengeData?.created_at || new Date();
@@ -421,13 +399,6 @@ function displayShareResult(challengeData) {
     }
   }
 
-  if (_createdModeBadge) {
-    const modeEmoji = challengeData?.game_mode === "album_shuffle" ? "🔀" : "📍";
-    const modeName = challengeData?.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
-    const rounds = challengeData?.rounds || el.roundCount?.value || 5;
-    _createdModeBadge.textContent = `${modeEmoji} ${rounds} ${t("challenge.rounds")} (${modeName})`;
-  }
-
   // Refresh challenges list in hub if open
   try {
     loadChallengesList();
@@ -440,17 +411,21 @@ function displayShareResult(challengeData) {
 function resetCreateForm() {
   if (_formViewEl) _formViewEl.classList.remove("hidden");
   if (_shareBoxEl) _shareBoxEl.classList.add("hidden");
-  if (_qrContainer) {
-    _qrContainer.classList.add("hidden");
-    _qrContainer.setAttribute("aria-hidden", "true");
-  }
-  if (_qrBtn) {
-    _qrBtn.classList.remove("active");
-    _qrBtn.setAttribute("aria-expanded", "false");
+  if (_shareBoxController) {
+    _shareBoxController.toggleQr(false);
+  } else {
+    if (_qrContainer) {
+      _qrContainer.classList.add("hidden");
+      _qrContainer.setAttribute("aria-hidden", "true");
+    }
+    if (_qrBtn) {
+      _qrBtn.classList.remove("active");
+      _qrBtn.setAttribute("aria-expanded", "false");
+    }
   }
   if (_copyLinkBtn) {
     _copyLinkBtn.classList.remove("copied");
-    _copyLinkBtn.innerHTML = `<span class="btn-icon">📋</span> <span class="copy-btn-text" data-i18n="challenge.copy_link">${t("challenge.copy_link")}</span>`;
+    _copyLinkBtn.innerHTML = `<span class="btn-icon" aria-hidden="true">${SHARE_ICONS.COPY}</span>`;
   }
   if (_modalChallengeFooter && _tabChallengeBtn?.classList.contains("active")) {
     _modalChallengeFooter.classList.remove("hidden");
@@ -463,6 +438,9 @@ function resetCreateForm() {
  * Copy created capability URL to clipboard.
  */
 async function copyCreatedUrl() {
+  if (_shareBoxController) {
+    return await _shareBoxController.copy();
+  }
   const input = _createdUrlInput || document.getElementById("challenge-created-url");
   const url = input?.value || _lastCreatedUrl;
   if (!url) return;
@@ -473,7 +451,7 @@ async function copyCreatedUrl() {
 
   await copyToClipboard(url, {
     button: _copyLinkBtn,
-    copiedHtml: `<span>✅</span> <span class="copy-btn-text">${t("challenge.link_copied")}</span>`,
+    copiedHtml: `<span class="btn-icon" aria-hidden="true">${SHARE_ICONS.CHECKMARK}</span>`,
     successMessage: t("challenge.link_copied"),
   });
 }

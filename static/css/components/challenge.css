@@ -399,28 +399,6 @@
   line-height: 1.5;
 }
 
-.challenge-share-box {
-  display: flex;
-  gap: 0.6rem;
-  max-width: 500px;
-  margin: 0 auto 1.6rem;
-}
-
-.challenge-share-box input {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
-  border: 1.5px solid var(--border);
-  border-radius: 10px;
-  background: var(--bg-surface-secondary);
-  color: var(--ink);
-  font-family: monospace;
-  box-sizing: border-box;
-}
-
-.challenge-share-box button {
-  white-space: nowrap;
-}
 
 .challenge-invite-counter {
   display: inline-flex;
@@ -628,10 +606,10 @@
 
 .carousel-photo-shell {
   position: relative;
-  border-radius: 14px;
+  border-radius: var(--radius-lg, 14px);
   border: 1px solid #d5dcec;
   background: #eef2fb;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.06));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -665,10 +643,10 @@
   height: var(--quiz-map-height, 420px);
   min-height: var(--quiz-map-height, 420px);
   position: relative;
-  border-radius: 14px;
+  border-radius: var(--radius-lg, 14px);
   overflow: hidden;
   border: 1px solid #d5dcec;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.06));
 }
 
 .scatter-map-shell #scatter-map {
@@ -975,36 +953,44 @@ tr.highlight-player-row {
 
 .challenges-filter-pills {
   display: inline-flex;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 2px;
-  gap: 2px;
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
   flex-shrink: 0;
+  height: 38px;
+  box-sizing: border-box;
 }
 
 .filter-pill {
   background: transparent;
   border: none;
-  padding: 0.35rem 0.7rem;
-  font-size: 0.82rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.84rem;
   font-weight: 600;
-  color: var(--text-muted);
-  border-radius: 6px;
+  color: #64748b;
+  border-radius: 7px;
   cursor: pointer;
   white-space: nowrap;
   line-height: 1.2;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .filter-pill:hover {
   color: var(--ink);
+  background: rgba(255, 255, 255, 0.65);
 }
 
 .filter-pill.active {
-  background: var(--accent);
-  color: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 124, 127, 0.3);
+  background: #ffffff;
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .challenges-mode-select,
@@ -1182,24 +1168,6 @@ tr.highlight-player-row {
   100% { opacity: 1; transform: scale(1); }
 }
 
-
-.card-time-status {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.card-time-status.status-active {
-  color: #059669;
-}
-
-.card-time-status.status-expired {
-  color: #d97706;
-}
-
 .card-header-actions {
   display: inline-flex;
   align-items: center;
@@ -1301,107 +1269,6 @@ tr.highlight-player-row {
 
 .share-drawer-inner {
   padding: 0.95rem 1.15rem;
-}
-
-.share-drawer-grid {
-  display: flex;
-  align-items: center;
-  gap: 1.25rem;
-}
-
-.share-qr-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: #ffffff;
-  padding: 0.65rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-  flex-shrink: 0;
-}
-
-.share-qr-display {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 120px;
-  height: 120px;
-  background: #ffffff;
-}
-
-.share-qr-display svg {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
-
-.share-qr-hint {
-  margin: 0.35rem 0 0;
-  font-size: 0.72rem;
-  color: var(--text-muted, #64748b);
-  font-weight: 500;
-  text-align: center;
-}
-
-.share-info-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.share-card-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.share-card-desc {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  line-height: 1.35;
-}
-
-.share-url-box {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  margin-top: 0.25rem;
-}
-
-.share-url-input {
-  flex: 1;
-  min-width: 0;
-  padding: 0.48rem 0.75rem;
-  font-size: 0.82rem;
-  font-family: inherit;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--card);
-  color: var(--ink);
-  outline: none;
-}
-
-.share-url-input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(15, 124, 127, 0.15);
-}
-
-.btn-copy-share-url {
-  width: auto !important;
-  padding: 0.48rem 0.95rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  border-radius: 8px;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-shrink: 0;
 }
 
 /* Subtitle / Host Row */
@@ -1835,35 +1702,12 @@ tr.highlight-player-row {
     justify-content: center;
   }
 
-  .share-drawer-grid {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.85rem;
-  }
-
-  .share-qr-card {
-    align-self: center;
-  }
-
-  .share-url-box {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .btn-copy-share-url {
-    width: 100% !important;
-    justify-content: center;
-  }
-
   .btn-standings-toggle {
     width: 100% !important;
     justify-content: center;
   }
 
 
-  .challenge-share-box {
-    flex-direction: column;
-  }
 
   .challenge-landing h2 {
     font-size: 1.5rem;
@@ -2121,24 +1965,43 @@ tr.highlight-player-row {
 
   .match-meta-category {
     padding: 0.5rem 0.65rem;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 
   .match-meta-items {
     gap: 0.35rem;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .match-meta-item {
     padding: 0.25rem 0.5rem;
     font-size: 0.78rem;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+
+  .match-meta-item-body {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
   }
 
   .match-meta-item-label {
     font-size: 0.68rem;
+    flex-shrink: 0;
   }
 
   .match-meta-item-val {
     font-size: 0.8rem;
-    max-width: 180px;
+    max-width: 100%;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 

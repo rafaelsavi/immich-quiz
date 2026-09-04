@@ -5,123 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.0.0] - 2026-09-09
+## [3.0.0] - 2026-09-07
 
 ### Added
 
 - **Asynchronous Multiplayer Challenge Mode**:
-  - Seed-based deterministic challenges with shareable capability URLs, zero-dependency SVG QR codes, and 1-click clipboard sharing.
-  - Streamlined 2-tab **Prepare Game** modal on the lobby replacing separate launch buttons, featuring Local Match and Challenge Link tabs with smart auto-generated challenge titles and real-time preflight validation.
-  - Dedicated **Challenges Hub** (`/challenges`) with discovery metrics, search, status filters (Active, Expired), game mode selection, sortable table, and expandable standings drawer.
-  - Dual-path landing screen allowing returning users to seamlessly resume an active session or join as a new player.
-  - Real-time multiplayer feedback: live glassmorphic activity toasts ([`activity_toast.js`](static/js/modules/components/activity_toast.js)), pulsing header participation badges, animated standings updates, and dynamic provisional-to-podium transitions when opponents finish.
-  - Real-time opponent pin drops onto round reveal maps with dashed connector lines, pulse animations, and sound effects.
-  - Mode-tailored Grand Reveal summaries: interactive scatter-map carousel for Pinpoint challenges and World Journey Map + Polaroid Gallery for Album Shuffle challenges.
-  - Dedicated standalone summary route (`/play/:token/summary`) for direct standings sharing and inspection.
-  - Individual player identity: 16-color participant avatar palette with clash-free initials, maintained across map pins, round headers, and standings tables.
-  - Single-attempt match integrity preventing inadvertent game restarts during challenge play.
-  - Global home leaderboard integration with sortable **Mode** badges (`Local` 👥, `Challenge` 🌐, `Room` ⚡).
-- **Container Least-Privilege Hardening**:
-  - Enforced non-root user execution (`USER 1000:1000`) in [`Dockerfile`](Dockerfile), ensuring processes run without root privileges even outside Docker Compose.
-- **CI Formatting Validation**:
-  - Added `uv run ruff format --check` step to [`.github/workflows/ci.yml`](.github/workflows/ci.yml) to strictly enforce code formatting standards on remote pulls and pushes.
-- **Database Health Probe**:
-  - Added a lightweight SQLite connectivity check to `/api/health` in [`routes.py`](src/api/routes.py), returning database status and failing with 503 if database access fails.
-- **Accessible Modal Focus Trapping**:
-  - Created reusable focus trap utility [`focus_trap.js`](static/js/modules/components/focus_trap.js) to trap `Tab` and `Shift+Tab` navigation inside modal dialogs and restore previous focus upon closure. Integrated across Prepare Game ([`admin.js`](static/js/modules/admin.js)) and Report Issue ([`report_modal.js`](static/js/modules/components/report_modal.js)) modals.
-- **Graceful Background Sync Cancellation**:
-  - Added `cancel_all_syncs()` to [`SyncEngine`](src/storage/sync.py) with explicit `asyncio.CancelledError` state reset to `idle`, wired into FastAPI `lifespan` shutdown in [`main.py`](src/main.py).
-- **Periodic SQLite Maintenance & Checkpointing**:
-  - Added `DatabaseManager.checkpoint(mode)` and `DatabaseManager.optimize()` in [`db.py`](src/storage/db.py), automatically executed post-sync in [`SyncEngine`](src/storage/sync.py), every 6 hours in periodic background maintenance, and on FastAPI `lifespan` shutdown in [`main.py`](src/main.py) to truncate `-wal` journal files and refresh query planner statistics.
-- **Hardware Permissions Policy Header**:
-  - Added `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()` security header to all HTTP responses in [`main.py`](src/main.py), explicitly disabling unneeded device sensors.
-- **HTTP Media Caching & ETag**:
-  - Added HTTP `ETag` and `Cache-Control: public, max-age=86400, immutable` headers to `/api/media/{asset_id}`.
-  - Added `304 Not Modified` conditional request handling via `If-None-Match`, eliminating redundant image downloads during round transitions and grand reveal review.
-- **Frontend Locale Parity Automated Testing**:
-  - Added automated test in `tests/test_i18n.py` verifying 100% key parity across all frontend JavaScript locale files (`en_US.js` and `pt_BR.js`).
-- **Database Case-Insensitive Participant Collation & Auto-Migration**:
-  - Added `COLLATE NOCASE` to `player_name` and unique index `idx_challenge_sessions_unique_player`, preventing case-variant duplicate participation.
-  - Added automatic index recreation migration in `LeaderboardStore._migrate_db` for existing databases.
+  - Seed-based deterministic challenges with shareable capability URLs, vector QR codes, and native 1-click sharing.
+  - Dedicated **Challenges Hub** (`/challenges`) with discovery metrics, search, status filters (Active/Expired), and interactive standings drawer.
+  - Real-time multiplayer feedback: live activity toasts, animated opponent pin drops on reveal maps, pulsing header badges, and dynamic podium transitions.
+  - Standalone summary route (`/play/:token/summary`) with mode-tailored Grand Reveal scatter maps and photo journey galleries.
+  - 16-color clash-free participant avatar palette maintained across maps, round headers, and leaderboards.
+- **Reported Asset Moderation Dashboard (`/reported`)**:
+  - Dedicated admin dashboard to search, filter, and inspect flagged assets with direct Immich Web deep links.
+  - Resolution workflow to unflag assets and return them to the active photo pool in real time.
+- **Setup Controls & Interactive Help Modals**:
+  - Tactile segmented button controls for rounds and duration with responsive mobile bottom-sheet styling.
+  - Dedicated contextual help modals for Pinpoint and Album Shuffle accessible directly from the lobby and in-game headers.
+  - Accessible modal focus trapping and native Web Share API integration with SVG icons and animated copy feedback.
+- **Universal Dynamic Localization & Automated Verification**:
+  - Seamless runtime language switching across all screens without page reloads.
+  - Automated DOM scanner and E2E test suites verifying 100% translation key parity between English and Brazilian Portuguese.
+- **Performance & Infrastructure Hardening**:
+  - Authenticated media proxy with HTTP `ETag` / `304 Not Modified` caching for smooth photo transitions.
+  - Periodic SQLite checkpointing, thread-pool offloading via `asyncio.to_thread()`, and container least-privilege non-root execution (`1000:1000`).
 
 ### Changed
 
-- **Challenges Hub Actions**:
-  - Both active and inactive challenge cards now consistently display the Results button (`btn-results-challenge`), allowing quick standings review and summary inspection at any stage.
-- **Navigation & Ergonomics**:
-  - Replaced button navigation with standard semantic links (`<a href="/">`, `<a href="/challenges">`) supporting native middle-click, new tab, and browser history.
-  - Added dedicated Home navigation button (`#home-nav-btn`) in header controls with active route synchronization.
-  - Standardized fullscreen map controls (`f` keyboard shortcut and synchronized Leaflet container invalidation).
-- **Standings & Match Specifications**:
-  - Standardized rank formatting (`formatRank()`), rank badges, rounds completion pills, and player cell rendering across all standings tables.
-  - Standardized 2-category match specifications (Game Setup & Library Filters) across match summaries, challenge cards, and collapsed setup accordions.
-- **Summary Carousel & Mobile Optimization**:
-  - Aligned photo layout with `.media-frame` styling, crisp SVG zoom controls, and natural aspect ratio containment.
-  - Optimized Challenge Play Summary for mobile viewports (<=768px and <=480px) with fluid typography, compacted controls, and full-width thumb-friendly action buttons.
-  - Preserved full card contrast and legibility for inactive and expired challenges.
-- **Dynamic Frontend Version Stamping & Cache-Busting**:
-  - Replaced legacy hardcoded `?v=2.5.x` on `style.css` and `app.js` in [`index.html`](static/index.html) with dynamic `?v={{APP_VERSION}}` template interpolation.
-  - Dynamically inject application version (`immich-quiz-v{{APP_VERSION}}`) into Service Worker [`sw.js`](static/sw.js) via `_render_sw_js` in [`main.py`](src/main.py) with `no-cache, must-revalidate` headers, eliminating manual cache version bumps.
-  - Enabled `{ ignoreSearch: true }` in [`sw.js`](static/sw.js) for robust cache matching with versioned asset URLs.
-- **Static Asset Revalidation Caching**:
-  - Replaced `no-store` with `no-cache, must-revalidate` for `/static/` middleware headers in [`main.py`](src/main.py), enabling 304 revalidation and PWA Cache API persistence for UI assets.
-- **Database WAL Connection Optimization**:
-  - Enforced `PRAGMA synchronous=NORMAL;` per connection in [`DatabaseManager.connection()`](src/storage/db.py), eliminating default fallback to `FULL` disk syncs.
-- **Candidate Query Optimization**:
-  - Removed redundant `GROUP BY a.id` and `MIN()` aggregation in [`MetadataStore.fetch_candidate_assets`](src/storage/metadata.py), reducing query execution overhead on large photo libraries.
-- **Centralized Frontend HTML Escaping & XSS Protection**:
-  - Consolidated canonical `escapeHtml` utility into [`formatters.js`](static/js/modules/formatters.js), re-exported from [`match_meta.js`](static/js/modules/components/match_meta.js) for backward compatibility.
-  - Sanitized dynamic templates across challenge cards, grand reveal tables, activity toasts, participant cells, and challenge landing screens.
-- **FastAPI Event-Loop Async Offloading**:
-  - Offloaded synchronous SQLite operations in `challenge_routes.py` and asset lookups in `routes.py` to background worker threads via `asyncio.to_thread()`, preventing event-loop stalls under concurrent load.
-- **Challenges Hub Event Delegation**:
-  - Replaced repetitive per-item event listener binding with unified click delegation on the list container using `e.target.closest()`.
-- **Developer Tooling & Testing**:
-  - Restructured the `tests/` directory into dedicated functional domains mirroring `src/` (`tests/api/`, `tests/storage/`, `tests/game/`, `tests/frontend/`, etc.).
-
-- **Database & Query Efficiency**:
-  - Added batch participant count query (`LeaderboardStore.get_challenge_participant_counts`) eliminating N+1 database roundtrips when listing challenges.
-  - Added composite index `idx_match_round_guesses_match_round` on `match_round_guesses(match_id, round_index)`.
-  - Optimized `LeaderboardStore.get_challenge_standings` with SQL `COUNT(DISTINCT round_index)` aggregation per session.
-  - Enhanced `ChallengeStore.list_challenges` to automatically filter expired challenges when `include_inactive=False`.
-- **Question Security & Boundary Hardening**:
-  - Enforced round boundary checks in `get_challenge_question` and `submit_challenge_answer` returning `409 Conflict` if the player has already completed all challenge rounds.
-
-### Removed
-
-- **Dead Prototype Styles & Unused Code**:
-  - Removed ~500 lines of unused prototype styles (obsolete social intermission grid, unreferenced date chips, unused creator options, obsolete album shuffle breakdown/player cards, and redundant card badges) from `challenge.css`, `modals.css`, `album_shuffle.css`, `pinpoint.css`, and `layout.css`.
-  - Removed 21 unused imports and orphaned state variables across frontend modules (`app.js`, `admin.js`, `album_shuffle.js`, `reveal.js`, `player_input.js`, `report_modal.js`, `share.js`, `sync.js`, `setup_filters.js`, `session.js`).
-- **Redundant Podium Completion Notice**:
-  - Removed the `challenge.podium_finished_notice` disclaimer from the Grand Reveal summary and Challenges Hub mini-podium; round completion progress is already clearly communicated by table completion badges (`✓ 5/5` vs `⏳ 2/5`) and the live header status pill.
+- **Terminology Standardization & UI Copy Simplification**:
+  - Unified consistent, accessible naming in English and Portuguese across navigation, game setup, play styles, and awards (e.g., *"Solo"*, *"Pass & Play"*, *"Submit Guess"*, *"Photo Memories"*).
+  - Streamlined mode descriptions, scoring documentation, and help modal instructions.
+- **Symmetric Architecture & Decoupled Game Engines**:
+  - Symmetrically decoupled data models (`PinpointReveal`, `AlbumShuffleAnswerItem`), unified backend round state (`RoundData`), and cleanly scoped frontend state.
+  - Standardized round review layout, responsive map token heights, and full-resolution lightbox support across all game modes.
+- **Dynamic Asset Stamping & Caching**:
+  - Automatic version stamping in HTML templates and Service Worker (`sw.js`) eliminating stale cache issues on upgrades.
 
 ### Fixed
 
-- **Opponent Round Reveal Pin & Telemetry Bug**:
-  - Fixed a critical bug in `updateRoundReveal` ([`reveal.js`](static/js/modules/challenge/reveal.js)) where `isAlbumShuffle` evaluated to `true` for all Pinpoint opponents (due to `Boolean(g.asset_id)` and `g.assigned_pin_id !== undefined` matching every row). This stripped `distance_km`, `guessed_latitude`, `guessed_longitude`, `guessed_year`, `guessed_month`, and `date_diff_days` from opponent records, rendering `-` for distance error, `no guess` for date, and preventing opponent pins from dropping onto the reveal map.
-  - Fixed live answered tally pill in `updateLivePill` ([`reveal.js`](static/js/modules/challenge/reveal.js)) to count distinct player names (`answeredPlayers.size`) rather than total row count, preventing 3x overcounting in Album Shuffle matches.
-- **Round Timeout Flag Persistence & Opponent Telemetry**:
-  - Added `timed_out` column to `match_round_guesses` table, `ChallengeRoundGuessData`, and `ChallengeAnswerResponse` models with automatic SQLite migration.
-  - Ensures that when a player times out in Pinpoint or Album Shuffle, opponents properly see the `[⏰ Timed Out]` badge in the round reveal, unassigned photos/pins display `None ✗` and `no guess` gracefully, and partial credit answers are accurately preserved.
-- **Grand Reveal Transition Scope Error**:
-  - Fixed a dormant `ReferenceError: hasUnfinishedPlayers is not defined` in `updateGrandRevealStandings` ([`summary.js`](static/js/modules/challenge/summary.js)) during dynamic provisional-to-podium transitions, and corrected carousel photo `alt` translation key to `game.fullscreen_photo_alt`.
-- **Round Submission Race Condition**:
-  - Added optimistic locking (`WHERE session_token = ? AND current_round = ?`) to `advance_session` in `src/storage/challenge.py` and `409 Conflict` detection in `src/game/challenge_service.py`, preventing duplicate round submissions.
-- **Dockerfile Translations & Permissions**:
-  - Added `COPY locales ./locales` to `Dockerfile` ensuring backend translation catalogs are bundled in production containers.
-  - Added directory creation and ownership assignment (`1000:1000`) for the `/app/data` volume in production images.
-- **Windows & Non-UTF-8 Console Logging**:
-  - Reconfigured standard output/error streams to UTF-8 with `backslashreplace` fallback in `setup_logging()` ([`setup.py`](src/app_logging/setup.py)), preventing `UnicodeEncodeError: 'charmap'` crashes when logging emojis on Windows and non-UTF-8 terminal environments.
-- **Git Pre-Push Hook Format Check Parity**:
-  - Added `uv run ruff format --check` to [`.githooks/pre-push`](.githooks/pre-push) ensuring complete parity with GitHub Actions CI workflows.
-- **Dead CSS Removal**:
-  - Removed ~170 lines of orphaned legacy CSS classes in `modals.css`.
-- **Human-Readable People & Album Names**: Resolved person and album UUIDs to human-readable display names in match summaries via `MetadataStore`.
-- **Match Review Configuration**: Fixed an issue where `round_length` and match settings in game reviews fell back to defaults instead of reading nested configuration.
-- **Date Error Breakdown**: Accurately computes year and month deltas from guessed and actual dates instead of falling back to raw days.
-- **Player Cell Multi-Line Wrapping**: Enforced `white-space: nowrap` to prevent player avatar badges and names from wrapping into two lines in review and standings tables.
-- **Summary Photo Fit & Clipping**: Applied natural aspect ratio containment and removed hover scale transforms that clipped vertical portrait photo borders.
-- **Leaderboard Scope Pill**: Fixed blank badge placeholder rendering before content is populated on initial bootstrap.
+- **Opponent Round Reveal Telemetry & Pin Placement**: Fixed game-mode detection bug in round reveals, restoring opponent distance errors, dates, timeout badges, and live participant counts.
+- **Navigation & Submission Safety**: Added in-progress match notices for new tabs and optimistic locking to prevent duplicate round submissions.
+- **Cross-Platform & Environment Compatibility**: Resolved UTF-8 console emoji logging crashes on Windows and ensured backend translation files are bundled in Docker builds.
 
 ## [2.5.0] - 2026-08-29
 

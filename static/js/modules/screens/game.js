@@ -4,7 +4,7 @@ import { t, showAlert } from "../i18n.js";
 import { playSubmitTone } from "../audio.js";
 import { updateSubmitState } from "../maps.js";
 import { renderRoundMeta } from "../formatters.js";
-import { clearTimer, resetTimerBar, startTimer } from "../timer.js";
+import { clearTimer, resetTimerBar, startTimer, refreshTimerLanguage } from "../timer.js";
 import { markShortcutCooldown } from "../shortcuts.js";
 import { getActiveMode } from "../modes/index.js";
 import { showRoundReveal } from "./reveal.js";
@@ -21,7 +21,7 @@ export function updateRoundMeta() {
     totalPlayers: data.total_players,
     playerName: data.player_name,
     isReveal: false,
-    showHelp: state.gameMode === "album_shuffle",
+    showHelp: Boolean(getActiveMode()?.openHelp),
     onHelpClick: () => {
       const activeMode = getActiveMode();
       activeMode.openHelp?.(state.currentQuestion);
@@ -287,6 +287,41 @@ export async function submitAnswer(fromTimeout = false) {
     await loadQuestion();
   } finally {
     state.submitting = false;
+    updateSubmitState();
+  }
+}
+
+export function refreshGameLanguage() {
+  const data = state.currentQuestion;
+  if (!data) return;
+
+  if (state.currentScreen === "pass_device") {
+    if (el.overlayTitle) {
+      el.overlayTitle.textContent = t(
+        "game.pass_device_title",
+        data.player_name,
+        data.player_number,
+        data.total_players
+      );
+    }
+    if (el.overlaySubtitle) {
+      el.overlaySubtitle.textContent = t(
+        "game.pass_device_subtitle",
+        data.player_round_number,
+        data.total_rounds_per_player
+      );
+    }
+    return;
+  }
+
+  if (state.currentScreen === "guessing") {
+    updateRoundMeta();
+    refreshTimerLanguage();
+    if (!state.timedOut && el.submitAnswer) {
+      el.submitAnswer.textContent = t("game.submit_btn");
+    }
+    const activeMode = getActiveMode();
+    activeMode?.refreshQuestionLanguage?.(data);
     updateSubmitState();
   }
 }

@@ -203,7 +203,7 @@ export const challengeGame = {
         totalPlayers: 1,
         playerName: challengeSession.sessionPlayerName,
         isReveal: false,
-        showHelp: state.gameMode === "album_shuffle",
+        showHelp: Boolean(getActiveMode()?.openHelp),
         onHelpClick: () => {
           getActiveMode().openHelp?.(question);
         },
@@ -252,11 +252,8 @@ export const challengeGame = {
 
     const body = {
       round_index: challengeSession.currentRoundIndex,
-      guessed_latitude: guessPayload.guessed_latitude ?? null,
-      guessed_longitude: guessPayload.guessed_longitude ?? null,
-      guessed_year: guessPayload.guessed_year ?? null,
-      guessed_month: guessPayload.guessed_month ?? null,
-      album_shuffle_answers: guessPayload.album_shuffle_answers ?? null,
+      pinpoint: guessPayload.pinpoint ?? null,
+      album_shuffle: guessPayload.album_shuffle ?? null,
       time_taken_seconds: elapsedSeconds,
       timed_out: fromTimeout || state.timedOut || Boolean(guessPayload.timed_out),
     };

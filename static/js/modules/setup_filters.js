@@ -4,9 +4,10 @@ import { api } from "./api.js";
 import { MultiSelect } from "./components/multi_select.js";
 import { DateRangeSlider } from "./components/range_slider.js";
 import { PlayerInput } from "./components/player_input.js";
-import { loadLeaderboardDebounced } from "./leaderboard.js";
+import { loadLeaderboardDebounced, renderLeaderboard } from "./leaderboard.js";
 import { checkSyncStatus, triggerLibrarySync } from "./sync.js";
 import { getMatchMetaCategories, renderMatchMetaItemsHtml } from "./components/match_meta.js";
+import { GAME_MODES } from "./modes/index.js";
 
 /** @type {MultiSelect|null} */
 export let libraryMultiSelect = null;
@@ -205,13 +206,17 @@ export function initFilterComponents() {
   const contentEl = document.getElementById("filters-accordion-content");
   const accordionEl = document.getElementById("filters-accordion");
   const headerEl = document.getElementById("filters-accordion-header");
-  if (toggleBtn && contentEl) {
-    toggleBtn.addEventListener("click", () => {
-      const isExpanded = toggleBtn.getAttribute("aria-expanded") === "true";
-      toggleBtn.setAttribute("aria-expanded", String(!isExpanded));
-      contentEl.classList.toggle("hidden", isExpanded);
-      if (accordionEl) accordionEl.classList.toggle("expanded", !isExpanded);
-      if (headerEl) headerEl.setAttribute("data-expanded", String(!isExpanded));
+  if (headerEl && contentEl) {
+    headerEl.addEventListener("click", (e) => {
+      if (e.target.closest("#sync-library-btn") || e.target.closest(".sync-library-btn")) {
+        return;
+      }
+      const isExpanded = toggleBtn ? toggleBtn.getAttribute("aria-expanded") === "true" : false;
+      const nextExpanded = !isExpanded;
+      if (toggleBtn) toggleBtn.setAttribute("aria-expanded", String(nextExpanded));
+      contentEl.classList.toggle("hidden", !nextExpanded);
+      if (accordionEl) accordionEl.classList.toggle("expanded", nextExpanded);
+      headerEl.setAttribute("data-expanded", String(nextExpanded));
     });
   }
 
@@ -248,6 +253,48 @@ export function initFilterComponents() {
   }
 
   initModeSelector();
+  initSegmentedControls();
+}
+
+export function initSegmentedControls() {
+  const setupControl = (containerId, defaultValue) => {
+    const container = document.getElementById(containerId);
+    if (!container || container.dataset.initialized) return;
+    container.dataset.initialized = "true";
+
+    Object.defineProperty(container, "value", {
+      get() {
+        const activeBtn = container.querySelector(".segmented-btn.active");
+        return activeBtn ? activeBtn.getAttribute("data-value") : defaultValue;
+      },
+      set(newVal) {
+        const strVal = String(newVal);
+        const buttons = container.querySelectorAll(".segmented-btn");
+        let matched = false;
+        buttons.forEach((btn) => {
+          const isMatch = btn.getAttribute("data-value") === strVal;
+          btn.classList.toggle("active", isMatch);
+          if (isMatch) matched = true;
+        });
+        if (matched) {
+          container.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      },
+      configurable: true,
+    });
+
+    const buttons = container.querySelectorAll(".segmented-btn");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        container.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
+  };
+
+  setupControl("round-count", "10");
+  setupControl("round-length", "1m");
 }
 
 function initModeSelector() {
@@ -278,6 +325,26 @@ function initModeSelector() {
       });
     }
   });
+
+  const pinpointHelpBtn = document.getElementById("help-pinpoint-btn");
+  if (pinpointHelpBtn && !pinpointHelpBtn.dataset.bound) {
+    pinpointHelpBtn.dataset.bound = "true";
+    pinpointHelpBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      GAME_MODES.pinpoint?.openHelp?.();
+    });
+  }
+
+  const shuffleHelpBtn = document.getElementById("help-album-shuffle-btn");
+  if (shuffleHelpBtn && !shuffleHelpBtn.dataset.bound) {
+    shuffleHelpBtn.dataset.bound = "true";
+    shuffleHelpBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      GAME_MODES.album_shuffle?.openHelp?.();
+    });
+  }
 
   const activeMode = getActiveMode();
   if (activeMode && container) {
@@ -806,20 +873,56 @@ export function bindSelectWheelScroll(selectEl, invertScroll = false) {
   );
 }
 
+export function bindSegmentedWheelScroll(containerEl, invertScroll = false) {
+  if (!containerEl || containerEl.dataset.wheelBound) return;
+  containerEl.dataset.wheelBound = "true";
+
+  containerEl.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      const btns = Array.from(containerEl.querySelectorAll(".segmented-btn"));
+      if (!btns.length) return;
+      const activeIdx = btns.findIndex((b) => b.classList.contains("active"));
+      let direction = event.deltaY > 0 ? 1 : -1;
+      if (invertScroll) direction = -direction;
+      const nextIdx = Math.max(0, Math.min(btns.length - 1, (activeIdx >= 0 ? activeIdx : 0) + direction));
+      if (nextIdx !== activeIdx) {
+        btns[nextIdx].click();
+      }
+    },
+    { passive: false }
+  );
+}
+
 export function initWheelScrolls() {
-  bindSelectWheelScroll(el.roundCount, false);
-  bindSelectWheelScroll(el.roundLength, false);
+  bindSegmentedWheelScroll(el.roundCount || document.getElementById("round-count"), false);
+  bindSegmentedWheelScroll(el.roundLength || document.getElementById("round-length"), false);
 }
 
 export function refreshFilterComponentsLanguage() {
   if (playerInput) playerInput.updateLanguage();
-  if (libraryMultiSelect) libraryMultiSelect.updateTriggerUi();
-  if (albumMultiSelect) albumMultiSelect.updateTriggerUi();
-  if (countryMultiSelect) countryMultiSelect.updateTriggerUi();
-  if (cityMultiSelect) cityMultiSelect.updateTriggerUi();
-  if (peopleMultiSelect) peopleMultiSelect.updateTriggerUi();
+  if (libraryMultiSelect) libraryMultiSelect.updateLanguage();
+  if (albumMultiSelect) albumMultiSelect.updateLanguage();
+  if (countryMultiSelect) countryMultiSelect.updateLanguage();
+  if (cityMultiSelect) cityMultiSelect.updateLanguage();
+  if (peopleMultiSelect) peopleMultiSelect.updateLanguage();
   if (dateRangeSlider) dateRangeSlider.updateVisuals();
+  const container = document.getElementById("game-settings-container");
+  const activeMode = getActiveMode();
+  if (activeMode && container) {
+    activeMode.renderSettings(container);
+  }
+  renderLeaderboard();
   updateFiltersSummaryBadge();
+  const pinpointModal = document.getElementById("pinpoint-help-modal");
+  if (pinpointModal && !pinpointModal.classList.contains("hidden")) {
+    GAME_MODES.pinpoint?.refreshHelpModal?.();
+  }
+  const shuffleModal = document.getElementById("album-shuffle-help-modal");
+  if (shuffleModal && !shuffleModal.classList.contains("hidden")) {
+    GAME_MODES.album_shuffle?.refreshHelpModal?.();
+  }
   if (_lastPreflightData) {
     updatePreflightCount(_lastPreflightData);
     if (!_lastPreflightData.ok) {

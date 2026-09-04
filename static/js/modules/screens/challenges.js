@@ -19,7 +19,7 @@ import { showShareToast, copyToClipboard } from "../summary/share.js";
 import { openAdminModal } from "../admin.js";
 import { playerColor, playerInitial, registerPlayerColor, formatRank, formatRoundsBadge, formatPlayerCellHtml, formatRelativeTime, escapeHtml } from "../formatters.js";
 import { buildMatchMetaHtml } from "../components/match_meta.js";
-import { renderQRCode } from "../components/qrcode.js";
+import { renderShareUrlContainerHtml, setupShareBox } from "../components/share_box.js";
 
 let _challenges = [];
 let _searchQuery = "";
@@ -113,17 +113,6 @@ export function initChallengesPage() {
         const url = shareBtn.getAttribute("data-url");
         if (id && url) {
           toggleChallengeShare(id, url);
-        }
-        return;
-      }
-
-      // 2. Copy share URL button
-      const copyBtn = e.target.closest(".btn-copy-share-url");
-      if (copyBtn) {
-        e.stopPropagation();
-        const url = copyBtn.getAttribute("data-url");
-        if (url) {
-          await copyToClipboard(url, { successMessage: t("challenge.link_copied") });
         }
         return;
       }
@@ -423,30 +412,25 @@ export function renderChallenges() {
 
   filtered.forEach((ch) => {
     const isActive = isChallengeActive(ch);
-    const modeEmoji = ch.game_mode === "album_shuffle" ? "🔀" : "📍";
+    const modeEmoji = ch.game_mode === "album_shuffle" ? "🔀" : "🎯";
     const modeLabel = ch.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
     const modeDesc = ch.game_mode === "album_shuffle" ? t("admin.shuffle_desc") : t("admin.pinpoint_desc");
 
-    // Status pill and relative time
+    // Status pill
     let statusPillHtml = "";
-    let timeStatusHtml = "";
 
     if (!ch.is_active) {
       statusPillHtml = `<span class="challenge-status-pill status-deactivated"><span class="status-dot"></span>${t("admin.status_deactivated")}</span>`;
-      timeStatusHtml = `<span class="card-time-status text-muted">${t("admin.status_deactivated")}</span>`;
     } else if (ch.expires_at) {
       const expTime = new Date(ch.expires_at).getTime();
       const diffMs = expTime - now;
       if (diffMs > 0) {
-        statusPillHtml = `<span class="challenge-status-pill status-active"><span class="status-dot pulse"></span>${t("admin.status_active")}</span>`;
-        timeStatusHtml = `<span class="card-time-status status-active">⏳ ${formatRelativeTime(diffMs, false)}</span>`;
+        statusPillHtml = `<span class="challenge-status-pill status-active"><span class="status-dot pulse"></span>${t("admin.status_active")} • ${formatRelativeTime(diffMs, false)}</span>`;
       } else {
         statusPillHtml = `<span class="challenge-status-pill status-expired"><span class="status-dot"></span>${t("admin.status_expired")}</span>`;
-        timeStatusHtml = `<span class="card-time-status status-expired">⌛ ${formatRelativeTime(diffMs, true)}</span>`;
       }
     } else {
       statusPillHtml = `<span class="challenge-status-pill status-active"><span class="status-dot pulse"></span>${t("admin.status_active")}</span>`;
-      timeStatusHtml = `<span class="card-time-status status-active">♾️ ${t("challenges_page.never_expires")}</span>`;
     }
 
     const participantCount = ch.total_participants || 0;
@@ -498,33 +482,17 @@ export function renderChallenges() {
         <!-- Expandable Share & QR Drawer -->
         <div class="challenge-hub-share-drawer ${isShareExpanded ? "open" : "hidden"}" id="share-drawer-${escapeHtml(ch.challenge_id)}">
           <div class="share-drawer-inner">
-            <div class="share-drawer-grid">
-              <div class="share-qr-card">
-                <div class="share-qr-display" id="share-qr-${escapeHtml(ch.challenge_id)}"></div>
-                <p class="share-qr-hint">${t("challenges_page.scan_qr_hint")}</p>
-              </div>
-              <div class="share-info-card">
-                <h4 class="share-card-title">${t("challenges_page.share_drawer_title")}</h4>
-                <p class="share-card-desc">${t("challenges_page.share_drawer_desc")}</p>
-                <div class="share-url-box">
-                  <input type="text" readonly value="${escapeHtml(ch.play_url)}" id="share-url-${escapeHtml(ch.challenge_id)}" class="share-url-input" spellcheck="false" autocomplete="off" />
-                  <button type="button" class="btn-primary btn-copy-share-url" data-url="${escapeHtml(ch.play_url)}">
-                    <span class="btn-icon">📋</span>
-                    ${t("challenges_page.copy_btn")}
-                  </button>
-                </div>
-              </div>
-            </div>
+            ${renderShareUrlContainerHtml(ch.play_url, {
+              prefix: `hub-share-${ch.challenge_id}`,
+            })}
           </div>
         </div>
 
-        <!-- Card Subtitle: Host, Created Date, and Time Status -->
+        <!-- Card Subtitle: Host and Created Date -->
         <div class="card-host-row">
           <span class="host-name">${t("challenges_page.host_label", escapeHtml(ch.creator_name))}</span>
           <span class="host-dot">•</span>
           <span class="created-date">${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
-          <span class="host-dot">•</span>
-          ${timeStatusHtml}
         </div>
 
         <!-- Unified Match Meta: Game Setup & Library Filters -->
@@ -570,9 +538,12 @@ export function renderChallenges() {
   _expandedShareDrawers.forEach((chId) => {
     const ch = _challenges.find((c) => c.challenge_id === chId);
     if (ch) {
-      const qrEl = document.getElementById(`share-qr-${chId}`);
-      if (qrEl) {
-        renderQRCode(qrEl, ch.play_url, { size: 120 });
+      const drawerEl = document.getElementById(`share-drawer-${chId}`);
+      if (drawerEl) {
+        setupShareBox(drawerEl, ch.play_url, {
+          prefix: `hub-share-${chId}`,
+          title: ch.title || "Immich Quiz Challenge",
+        });
       }
     }
   });
@@ -612,15 +583,15 @@ export function toggleChallengeShare(challengeId, playUrl) {
   if (drawerEl) {
     drawerEl.classList.remove("hidden");
     drawerEl.classList.add("open");
+    const ch = _challenges.find((c) => c.challenge_id === challengeId);
+    setupShareBox(drawerEl, playUrl, {
+      prefix: `hub-share-${challengeId}`,
+      title: ch?.title || "Immich Quiz Challenge",
+    });
   }
   if (btn) {
     btn.classList.add("active");
     btn.setAttribute("aria-expanded", "true");
-  }
-
-  const qrEl = document.getElementById(`share-qr-${challengeId}`);
-  if (qrEl) {
-    renderQRCode(qrEl, playUrl, { size: 120 });
   }
 }
 

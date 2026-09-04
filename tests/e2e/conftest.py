@@ -86,6 +86,26 @@ def create_e2e_assets() -> list[dict[str, Any]]:
                 )
                 idx += 1
 
+    # Add assets without GPS metadata to simulate real-world libraries with GPS-less photos
+    for nogps_idx in range(1, 3):
+        dt_str = f'2021-05-{10 + nogps_idx:02d}T12:00:00Z'
+        assets.append(
+            {
+                'id': f'asset-nogps-{nogps_idx}',
+                'type': 'IMAGE',
+                'exifInfo': {
+                    'latitude': None,
+                    'longitude': None,
+                    'city': None,
+                    'country': None,
+                    'dateTimeOriginal': dt_str,
+                },
+                'fileCreatedAt': dt_str,
+                'people': [{'id': 'p1', 'name': 'Alice'}],
+                'albums': [{'id': 'album-1', 'name': 'Holidays'}],
+            }
+        )
+
     return assets
 
 
@@ -118,8 +138,8 @@ def seed_e2e_metadata(store: MetadataStore, library_name: str, assets: list[dict
                 'is_shared': 0,
                 'is_partner': 0,
                 'file_type': a.get('type', 'IMAGE'),
-                'latitude': float(exif['latitude']),
-                'longitude': float(exif['longitude']),
+                'latitude': float(exif['latitude']) if exif.get('latitude') is not None else None,
+                'longitude': float(exif['longitude']) if exif.get('longitude') is not None else None,
                 'country': exif.get('country'),
                 'city': exif.get('city'),
                 'capture_datetime': exif.get('dateTimeOriginal'),
@@ -237,9 +257,10 @@ async def page(e2e_server: str) -> AsyncIterator[Page]:
         )
         page_obj = await context.new_page()
 
-        # Track any uncaught client console errors
+        # Track any uncaught client console errors across all pages in the context
         errors: list[str] = []
-        page_obj.on('pageerror', lambda err: errors.append(str(err)))
+        page_obj.on('pageerror', lambda err: errors.append(f'[{page_obj.url}] {err}'))
+        context.on('page', lambda new_p: new_p.on('pageerror', lambda err: errors.append(f'[{new_p.url}] {err}')))
 
         yield page_obj
 
@@ -259,7 +280,7 @@ async def start_date_only_match(page: Page, rounds: int = 5, round_length: str |
     if 'active' not in (await date_card.get_attribute('class') or ''):
         await date_card.click()
     if round_length is not None:
-        await page.locator('#round-length').select_option(round_length)
-    await page.locator('#round-count').select_option(str(rounds))
+        await page.locator(f'#round-length button[data-value="{round_length}"]').click()
+    await page.locator(f'#round-count button[data-value="{rounds}"]').click()
     await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()

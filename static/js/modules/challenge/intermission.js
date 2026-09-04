@@ -9,8 +9,7 @@ import { api } from "../api.js";
 import { state, el } from "../state.js";
 import { t } from "../i18n.js";
 import { showCard } from "../screens/common.js";
-import { renderQRCode } from "../components/qrcode.js";
-import { copyToClipboard } from "../summary/share.js";
+import { renderShareUrlContainerHtml, setupShareBox } from "../components/share_box.js";
 import { challengeSession, POLL_INTERVAL_MS } from "./session.js";
 
 export const challengeIntermission = {
@@ -38,26 +37,8 @@ export const challengeIntermission = {
           <p>${t("challenge.invite_message")}</p>
         </div>
 
-        <div class="challenge-share-box" style="flex-direction: column; gap: 0.65rem;">
-          <div class="share-link-box" id="challenge-invite-link-box" title="Click to copy link">
-            <span class="share-link-icon" aria-hidden="true">🔗</span>
-            <input type="text" readonly value="${playUrl}" id="challenge-share-url" class="share-url-input" spellcheck="false" autocomplete="off" />
-          </div>
-          <div class="share-action-buttons" style="display: flex; gap: 0.65rem; width: 100%;">
-            <button type="button" class="btn-primary btn-copy-link" id="challenge-copy-btn">
-              📋 ${t("challenge.copy_link")}
-            </button>
-            <button type="button" class="btn-secondary btn-qr-code" id="challenge-invite-qr-btn" title="${t("challenge.qr_code_title")}" aria-expanded="false" aria-controls="challenge-invite-qr-container">
-              📱 ${t("challenge.qr_code")}
-            </button>
-          </div>
-        </div>
-
-        <div id="challenge-invite-qr-container" class="challenge-qr-container hidden" aria-hidden="true" style="margin-bottom: 1.5rem;">
-          <div class="challenge-qr-card">
-            <div id="challenge-invite-qr-code" class="challenge-qr-display"></div>
-            <p class="qr-scan-hint">${t("challenge.scan_qr_hint")}</p>
-          </div>
+        <div class="challenge-share-box">
+          ${renderShareUrlContainerHtml(playUrl, { prefix: "challenge-invite" })}
         </div>
 
         <div class="challenge-invite-counter" id="challenge-finisher-count">
@@ -71,37 +52,12 @@ export const challengeIntermission = {
       </div>
     `;
 
-    // QR code setup & handler
-    const inviteQrBtn = document.getElementById("challenge-invite-qr-btn");
-    const inviteQrContainer = document.getElementById("challenge-invite-qr-container");
-    const inviteQrCode = document.getElementById("challenge-invite-qr-code");
-
-    if (inviteQrCode) {
-      renderQRCode(inviteQrCode, playUrl, { size: 180 });
-    }
-
-    if (inviteQrBtn && inviteQrContainer) {
-      inviteQrBtn.addEventListener("click", () => {
-        const isHidden = inviteQrContainer.classList.toggle("hidden");
-        inviteQrBtn.classList.toggle("active", !isHidden);
-        inviteQrBtn.setAttribute("aria-expanded", String(!isHidden));
-        inviteQrContainer.setAttribute("aria-hidden", String(isHidden));
-      });
-    }
-
-    // Copy link handler
-    const copyAction = async () => {
-      const btn = document.getElementById("challenge-copy-btn");
-      const input = document.getElementById("challenge-share-url");
-      if (input) input.select();
-      await copyToClipboard(playUrl, {
-        button: btn,
-        copiedText: `✅ ${t("challenge.link_copied")}`,
-      });
-    };
-
-    document.getElementById("challenge-copy-btn")?.addEventListener("click", copyAction);
-    document.getElementById("challenge-invite-link-box")?.addEventListener("click", copyAction);
+    // Initialize standardized share box component
+    setupShareBox(el.challengeCard, playUrl, {
+      prefix: "challenge-invite",
+      title: t("challenge.invite_message"),
+      qrSize: 180,
+    });
 
     // See results handler
     document.getElementById("challenge-see-results-btn")?.addEventListener("click", () => {

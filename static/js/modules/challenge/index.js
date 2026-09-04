@@ -5,6 +5,7 @@
  * into a single cohesive facade matching the existing challenge singleton API.
  */
 
+import { el } from "../state.js";
 import { challengeSession } from "./session.js";
 import { renderLandingScreen, renderErrorScreen, refreshLanguage } from "./landing.js";
 import { challengeGame } from "./game.js";
@@ -45,6 +46,12 @@ export const challenge = {
       (name, color) => this.start(name, color),
       () => this.showGrandReveal()
     );
+    if (el.challengeCard && !el.challengeCard.classList.contains("hidden")) {
+      const grandRevealEl = el.challengeCard.querySelector(".challenge-grand-reveal");
+      if (grandRevealEl) {
+        this.showGrandReveal({ updateUrl: false });
+      }
+    }
   },
 
   /**
@@ -228,8 +235,8 @@ export const challenge = {
    * @param {object} data
    * @param {number} roundIdx
    */
-  renderCarouselRound(data, roundIdx) {
-    return challengeSummary.renderCarouselRound(data, roundIdx);
+  renderCarouselRound(data, roundIdx, options = {}) {
+    return challengeSummary.renderCarouselRound(data, roundIdx, options);
   },
 
   /**

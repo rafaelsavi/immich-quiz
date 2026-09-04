@@ -81,7 +81,8 @@ immich-quiz/
         │   ├── player_input.js Interactive player chip input with duplicate detection & colors.
         │   ├── qrcode.js    Zero-dependency SVG QR code generator for challenge links.
         │   ├── range_slider.js Dual-handle Year-Month range slider.
-        │   └── report_modal.js Photo issue reporting dialog with 3-field validation & Immich Web link.
+        │   ├── report_modal.js Photo issue reporting dialog with 3-field validation & Immich Web link.
+        │   └── share_box.js Reusable, standardized share URL box, icon-only action button row, and QR code component.
         ├── challenge/   Modular challenge play mode sub-package:
         │   ├── session.js   Challenge state store, localStorage keys, reset, and map cleanup.
         │   ├── landing.js   Lobby/landing screen, resume detection, join form, and error views.

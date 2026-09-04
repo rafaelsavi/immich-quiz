@@ -230,8 +230,9 @@ async def media(
     is_local = await asyncio.to_thread(store.is_asset_registered, asset_id)
     is_history = await asyncio.to_thread(leaderboard_store.is_asset_recorded, asset_id)
     is_challenge = await asyncio.to_thread(challenge_store.is_asset_in_active_challenge, asset_id)
+    is_flagged = await asyncio.to_thread(metadata_store.is_asset_flagged, asset_id)
 
-    if not is_local and not is_history and not is_challenge:
+    if not is_local and not is_history and not is_challenge and not is_flagged:
         raise HTTPException(status_code=404, detail='Unknown asset for any active game or challenge')
 
     target_library = await asyncio.to_thread(metadata_store.get_asset_library, asset_id)

@@ -1,0 +1,592 @@
+/* Reported Asset Moderation Screen Styles */
+
+/* ----------------------------------------------------------------- Header & Badges */
+.reported-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.reported-page-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.reported-title-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.badge-reported {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
+}
+
+.reported-page-header h2 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0.2rem 0;
+  line-height: 1.25;
+}
+
+.reported-page-desc {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin: 0;
+  max-width: 650px;
+}
+
+.reported-page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ----------------------------------------------------------------- Toolbar */
+.reported-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.reported-search-wrap {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 200px;
+  max-width: 380px;
+}
+
+.reported-search-wrap .search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.reported-search-input {
+  width: 100%;
+  padding: 0.6rem 0.9rem 0.6rem 2.3rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--border-light);
+  background: var(--bg-surface-secondary);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reported-search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(15, 124, 127, 0.15);
+}
+
+.reported-filters-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reported-filter-pills {
+  display: flex;
+  background: var(--bg-surface-secondary);
+  border: 1px solid var(--border-light);
+  padding: 0.25rem;
+  border-radius: 10px;
+  gap: 0.2rem;
+}
+
+.reported-filter-pills .filter-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.75rem;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.reported-filter-pills .filter-pill:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.reported-filter-pills .filter-pill.active {
+  color: #ffffff;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(15, 124, 127, 0.35);
+}
+
+.reported-sort-select {
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  min-width: 150px;
+}
+
+.reported-counter-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  background: rgba(225, 29, 72, 0.12);
+  color: #f43f5e;
+  border: 1px solid rgba(225, 29, 72, 0.25);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+/* ----------------------------------------------------------------- Master-Detail Grid Layout */
+.reported-moderation-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  min-height: 480px;
+}
+
+/* ----------------------------------------------------------------- Left Column: Items List */
+.reported-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: calc(100vh - 280px);
+  min-height: 200px;
+  overflow-y: auto;
+  padding-right: 0.4rem;
+}
+
+.reported-item-card {
+  display: flex;
+  gap: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: var(--bg-surface-secondary);
+  border: 1.5px solid var(--border-light);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  text-align: left;
+}
+
+.reported-item-card:hover {
+  border-color: rgba(225, 29, 72, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.reported-item-card.active {
+  border-color: #f43f5e;
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.08) 0%, rgba(225, 29, 72, 0.02) 100%), var(--bg-surface-secondary);
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.18);
+}
+
+.reported-item-thumb-wrap {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.reported-item-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.reported-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.reported-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.reported-item-id {
+  font-family: monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reported-item-time {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reported-item-badges {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.issue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.issue-badge-coords {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.issue-badge-date {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.issue-badge-notes {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.reported-item-footer {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ----------------------------------------------------------------- Right Column: Inspection Panel */
+.reported-inspection-panel {
+  background: var(--bg-surface-secondary);
+  border: 1.5px solid var(--border-light);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  text-align: left;
+}
+
+.inspection-main-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 360px) 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.inspection-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.inspection-image-container {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.3);
+  position: relative;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-light);
+}
+
+.inspection-image-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.inspection-details-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.inspection-header-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.inspection-asset-id-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.inspection-asset-id-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+}
+
+.inspection-asset-id-val {
+  font-family: monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.inspection-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.inspection-issues-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.inspection-section-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.inspection-issue-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--border-light);
+}
+
+.inspection-issue-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.inspection-issue-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.inspection-issue-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.inspection-issue-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.inspection-notes-text {
+  font-size: 0.88rem;
+  color: var(--ink);
+  background: var(--bg-surface-secondary);
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border-light);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+/* Actions footer */
+.inspection-actions-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.85rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+.btn-open-immich {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.15rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0f7c7f 0%, #16a085 100%);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(15, 124, 127, 0.25);
+}
+
+.btn-open-immich:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(15, 124, 127, 0.35);
+  color: #ffffff;
+}
+
+.btn-resolve-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-resolve-report:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+}
+
+/* ----------------------------------------------------------------- Empty & Loading States */
+.reported-empty-state,
+.reported-no-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+  gap: 0.75rem;
+  color: var(--text-muted);
+}
+
+.reported-empty-icon {
+  font-size: 2.8rem;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.reported-empty-state h3,
+.reported-no-selection h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+.reported-empty-state p,
+.reported-no-selection p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  max-width: 420px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.reported-loading {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* ----------------------------------------------------------------- Responsive Adjustments */
+@media (max-width: 768px) {
+  .reported-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reported-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reported-search-wrap {
+    max-width: 100%;
+  }
+
+  .reported-filters-group {
+    justify-content: space-between;
+  }
+
+  .reported-moderation-layout {
+    grid-template-columns: 1fr;
+    gap: 1.2rem;
+  }
+
+  .reported-items-list {
+    max-height: 280px;
+  }
+
+  .inspection-main-grid {
+    grid-template-columns: 1fr;
+    gap: 1.2rem;
+  }
+
+  .inspection-actions-footer {
+    justify-content: stretch;
+  }
+
+  .inspection-actions-footer a,
+  .inspection-actions-footer button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

@@ -77,6 +77,11 @@ async def test_pinpoint_two_tap_pin_placement_and_reveal(page: Page) -> None:
     await expect(reveal_table.locator('tbody tr')).to_have_count(1)
     await expect(reveal_table.locator('tbody tr')).to_contain_text(re.compile(r'km|pts|\d+'))
 
+    # Verify round meta in reveal shows round number and reveal badge, but no player chip in local match
+    await expect(page.locator('#round-meta .round-meta-number')).to_be_visible()
+    await expect(page.locator('#round-meta .round-meta-reveal-tag')).to_be_visible()
+    await expect(page.locator('#round-meta .round-meta-player')).to_have_count(0)
+
     # Verify Next Round button is ready
     next_round_btn = page.locator('#next-round')
     await expect(next_round_btn).to_be_visible()

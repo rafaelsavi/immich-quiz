@@ -1,97 +1,98 @@
 import { t, formatDate } from "../i18n.js";
 import { state, el } from "../state.js";
-import { createStandardMap, createBadgePinIcon, updateSubmitState, fitMapToBounds, createMapFullscreenButton, applySpiderfy, unregisterActiveMap } from "../maps.js";
+import { createStandardMap, createBadgePinIcon, updateSubmitState, fitMapToBounds, applySpiderfy, unregisterActiveMap, toggleMapFullscreen } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
 import { playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
 import { animateScoreRollup, createPerfectBadge } from "../effects.js";
 import { openReportModal } from "../components/report_modal.js";
-import { openPhotoLightbox } from "../components/lightbox.js";
+import { openPhotoLightbox, closePhotoLightbox, isPhotoLightboxOpen } from "../components/lightbox.js";
 import { challenge } from "../challenge/index.js";
 
-let shuffleMap = null;
-let revealShuffleMap = null;
 let shuffleMarkers = {}; // pinId -> Leaflet marker
 let spiderLines = {};    // pinId -> L.polyline connector line
 let truePinCoords = {};  // pinId -> { lat, lng } original coordinates
+let helpModalInitialized = false;
 
-function createShuffleHelpModal() {
-  let modal = document.getElementById("album-shuffle-help-modal");
-  if (modal) return modal;
+function ensureShuffleHelpModal() {
+  const modal = el.albumShuffleHelpModal || document.getElementById("album-shuffle-help-modal");
+  if (!modal) return null;
 
-  modal = document.createElement("div");
-  modal.id = "album-shuffle-help-modal";
-  modal.className = "shuffle-help-modal hidden";
-  modal.innerHTML = `
-    <div class="shuffle-help-dialog" role="dialog" aria-modal="true" aria-labelledby="shuffle-help-title">
-      <div class="shuffle-help-header">
-        <h3 id="shuffle-help-title" data-i18n="game.shuffle_help_title">Album Shuffle Help</h3>
-        <button type="button" class="shuffle-help-close" aria-label="Close help">×</button>
-      </div>
-      <div class="shuffle-help-body"></div>
-    </div>
-  `;
-
-  document.body.appendChild(modal);
-
-  const closeBtn = modal.querySelector(".shuffle-help-close");
-  closeBtn.addEventListener("click", () => modal.classList.add("hidden"));
-
-  modal.addEventListener("click", (event) => {
-    if (event.target === modal) {
-      modal.classList.add("hidden");
+  if (!helpModalInitialized) {
+    helpModalInitialized = true;
+    const closeBtn = el.shuffleHelpCloseBtn || modal.querySelector(".modal-close-btn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+      });
     }
-  });
 
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      modal.classList.add("hidden");
-    }
-  });
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.classList.contains("hidden")) {
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+      }
+    });
+  }
 
   return modal;
 }
 
 function openShuffleHelpModal(questionData) {
-  const modal = createShuffleHelpModal();
+  const modal = ensureShuffleHelpModal();
+  if (!modal) return;
 
-  // Always update the title to the current language (modal is created lazily and
-  // applyLanguage() may not have run since it was first inserted into the DOM).
   const titleEl = modal.querySelector("#shuffle-help-title");
   if (titleEl) titleEl.textContent = t("game.shuffle_help_title");
 
   const body = modal.querySelector(".shuffle-help-body");
+  if (!body) return;
+
   const locationMode = questionData?.location_mode !== false;
   const dateMode = questionData?.date_mode !== false;
 
   const sections = [];
   if (locationMode) {
+    const locItems = [
+      t("game.shuffle_help_location_item1"),
+      t("game.shuffle_help_location_item2"),
+      t("game.shuffle_help_location_item3"),
+    ].filter(s => s && s.trim());
     sections.push(`
       <div class="shuffle-help-section">
         <h4>${t("game.shuffle_help_location_title")}</h4>
         <ul>
-          <li>${t("game.shuffle_help_location_item1")}</li>
-          <li>${t("game.shuffle_help_location_item2")}</li>
-          <li>${t("game.shuffle_help_location_item3")}</li>
+          ${locItems.map(item => `<li>${item}</li>`).join("")}
         </ul>
       </div>
     `);
   }
 
   if (dateMode) {
+    const dateItems = [
+      t("game.shuffle_help_date_item1"),
+      t("game.shuffle_help_date_item2"),
+    ].filter(s => s && s.trim());
     sections.push(`
       <div class="shuffle-help-section">
         <h4>${t("game.shuffle_help_date_title")}</h4>
         <ul>
-          <li>${t("game.shuffle_help_date_item1")}</li>
-          <li>${t("game.shuffle_help_date_item2")}</li>
+          ${dateItems.map(item => `<li>${item}</li>`).join("")}
         </ul>
       </div>
     `);
   }
 
   body.innerHTML = sections.join("");
-
   modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
 }
 
 export const albumShuffleMode = {
@@ -106,6 +107,14 @@ export const albumShuffleMode = {
     const modal = document.getElementById("album-shuffle-help-modal");
     if (modal && !modal.classList.contains("hidden")) {
       openShuffleHelpModal(questionData);
+    }
+  },
+
+  refreshQuestionLanguage(questionData) {
+    this.refreshHelpModal(questionData);
+    const cardsCol = el.shuffleCardsList || document.getElementById("shuffle-cards-list");
+    if (cardsCol && questionData) {
+      renderPhotoCardsList(cardsCol, questionData);
     }
   },
 
@@ -168,30 +177,115 @@ export const albumShuffleMode = {
 
   unmount() {
     state.albumShuffleDisabled = false;
-    if (shuffleMap) {
-      try { unregisterActiveMap(shuffleMap); shuffleMap.remove(); } catch (_) { }
-      shuffleMap = null;
+    if (state.guessMap) {
+      try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) { }
+      state.guessMap = null;
     }
-    if (revealShuffleMap) {
-      try { unregisterActiveMap(revealShuffleMap); revealShuffleMap.remove(); } catch (_) { }
-      revealShuffleMap = null;
+    if (state.revealMap) {
+      try { unregisterActiveMap(state.revealMap); state.revealMap.remove(); } catch (_) { }
+      state.revealMap = null;
     }
     shuffleMarkers = {};
     spiderLines = {};
     truePinCoords = {};
     state.albumShuffleState = null;
-    const host = document.getElementById("mode-active-host");
-    if (host) {
-      host.replaceChildren();
+    if (el.modeActiveHost) {
+      el.modeActiveHost.replaceChildren();
     }
-    const shuffleReveal = document.getElementById("album-shuffle-reveal-ui");
-    if (shuffleReveal) {
-      shuffleReveal.classList.add("hidden");
-      shuffleReveal.replaceChildren();
+    if (el.albumShuffleRevealUi) {
+      el.albumShuffleRevealUi.classList.add("hidden");
+    }
+    if (el.shuffleBreakdownGrid) {
+      el.shuffleBreakdownGrid.replaceChildren();
+    }
+    if (el.shuffleRevealTableHead) {
+      el.shuffleRevealTableHead.replaceChildren();
+    }
+    if (el.shuffleRevealTableBody) {
+      el.shuffleRevealTableBody.replaceChildren();
     }
   },
 
   onReady(questionData) { },
+
+  toggleMapFullscreen() {
+    if (el.shuffleMapShell) {
+      toggleMapFullscreen(el.shuffleMapShell);
+    }
+  },
+
+  togglePhotoFullscreen() {
+    if (isPhotoLightboxOpen()) {
+      closePhotoLightbox();
+      return;
+    }
+    const photos = state.currentQuestion?.batch_photos || [];
+    if (!photos.length) return;
+    const selectedPhotoId = state.albumShuffleState?.selectedPhotoId;
+    const photo = (selectedPhotoId && photos.find((p) => p.photo_id === selectedPhotoId)) || photos[0];
+    if (photo?.media_url) {
+      openPhotoLightbox(photo.media_url);
+    }
+  },
+
+  selectPhotoBySlotIndex(slotIndex) {
+    if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+    const orderedIds = state.albumShuffleState?.orderedPhotoIds || [];
+    if (slotIndex >= 0 && slotIndex < orderedIds.length) {
+      const photoId = orderedIds[slotIndex];
+      state.albumShuffleState.selectedPhotoId = photoId;
+      const cardsList = el.shuffleCardsList || document.getElementById("shuffle-cards-list");
+      if (cardsList && state.currentQuestion) {
+        renderPhotoCardsList(cardsList, state.currentQuestion);
+      }
+      const assignedPin = state.albumShuffleState.pinAssignments
+        ? state.albumShuffleState.pinAssignments[photoId]
+        : null;
+      highlightMapMarker(assignedPin || null);
+    }
+  },
+
+  assignPinToSelectedPhoto(pinLetter) {
+    if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+    if (!state.currentQuestion?.location_mode) return;
+    const selectedId = state.albumShuffleState?.selectedPhotoId;
+    if (!selectedId) return;
+    const pins = state.currentQuestion.batch_pins || [];
+    const targetPin = pins.find((p) => String(p.pin_id).toUpperCase() === String(pinLetter).toUpperCase());
+    if (!targetPin) return;
+
+    const pinAssignments = state.albumShuffleState.pinAssignments || {};
+    Object.keys(pinAssignments).forEach((pid) => {
+      if (pinAssignments[pid] === targetPin.pin_id) {
+        pinAssignments[pid] = null;
+      }
+    });
+    pinAssignments[selectedId] = targetPin.pin_id;
+    updateShuffleMapMarkers(pins);
+    const cardsList = el.shuffleCardsList || document.getElementById("shuffle-cards-list");
+    if (cardsList && state.currentQuestion) {
+      renderPhotoCardsList(cardsList, state.currentQuestion);
+    }
+    highlightMapMarker(targetPin.pin_id);
+    updateSubmitState();
+  },
+
+  assignTimelineRankToSelectedPhoto(rankIndex) {
+    if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+    if (!state.currentQuestion?.date_mode) return;
+    const selectedId = state.albumShuffleState?.selectedPhotoId;
+    if (!selectedId) return;
+    const orderedIds = state.albumShuffleState.orderedPhotoIds || [];
+    const currentIndex = orderedIds.indexOf(selectedId);
+    if (currentIndex === -1 || rankIndex < 0 || rankIndex >= orderedIds.length || currentIndex === rankIndex) return;
+
+    orderedIds.splice(currentIndex, 1);
+    orderedIds.splice(rankIndex, 0, selectedId);
+    const cardsList = el.shuffleCardsList || document.getElementById("shuffle-cards-list");
+    if (cardsList && state.currentQuestion) {
+      renderPhotoCardsList(cardsList, state.currentQuestion);
+    }
+  },
 
   renderQuestion(questionData) {
     state.albumShuffleDisabled = false;
@@ -199,14 +293,17 @@ export const albumShuffleMode = {
 
     let uiContainer = document.getElementById("album-shuffle-ui");
     if (!uiContainer) {
-      uiContainer = document.createElement("div");
-      uiContainer.id = "album-shuffle-ui";
-      const host = this.hostEl || el.guessingUi;
-      if (host) host.appendChild(uiContainer);
+      const host = document.getElementById("mode-active-host") || this.hostEl || el.guessingUi;
+      const tmpl = document.getElementById("tmpl-mode-album-shuffle");
+      if (tmpl && host) {
+        host.appendChild(tmpl.content.cloneNode(true));
+      }
+      uiContainer = document.getElementById("album-shuffle-ui");
     }
-    uiContainer.classList.remove("hidden");
-    uiContainer.classList.remove("shuffle-disabled");
-    uiContainer.replaceChildren();
+    if (uiContainer) {
+      uiContainer.classList.remove("hidden");
+      uiContainer.classList.remove("shuffle-disabled");
+    }
 
     // Initialize photo order & pin assignments
     const photos = questionData.batch_photos || [];
@@ -220,39 +317,34 @@ export const albumShuffleMode = {
       state.albumShuffleState.pinAssignments[p.photo_id] = null;
     });
 
-    const boardEl = document.createElement("div");
-    boardEl.className = "shuffle-board";
-
-    // Left Column: Map
-    const mapCol = document.createElement("div");
-    mapCol.className = "shuffle-map-column";
-    const mapShell = document.createElement("div");
-    mapShell.className = "map-shell";
-    mapShell.id = "shuffle-map-shell";
-
-    // Add Map Fullscreen Button
-    const mapFsBtn = createMapFullscreenButton(mapShell);
-    mapShell.appendChild(mapFsBtn);
-    mapCol.appendChild(mapShell);
-
-    // Right Column: Cards List with Sequence Info Banner, Rank Buttons
-    const cardsCol = document.createElement("div");
-    cardsCol.className = "shuffle-photo-column";
-    cardsCol.id = "shuffle-cards-list";
+    const boardEl = uiContainer ? uiContainer.querySelector(".shuffle-board") : null;
+    const mapCol = uiContainer ? uiContainer.querySelector(".shuffle-map-column") : null;
+    const mapShell = el.shuffleMapShell;
+    const cardsCol = el.shuffleCardsList;
 
     if (!questionData.location_mode) {
-      mapCol.style.display = "none";
-      boardEl.classList.add("no-map");
-      cardsCol.classList.add("no-map");
+      if (mapCol) mapCol.style.display = "none";
+      if (boardEl) boardEl.classList.add("no-map");
+      if (cardsCol) cardsCol.classList.add("no-map");
+    } else {
+      if (mapCol) mapCol.style.display = "";
+      if (boardEl) boardEl.classList.remove("no-map");
+      if (cardsCol) cardsCol.classList.remove("no-map");
     }
 
-    boardEl.append(mapCol, cardsCol);
-    uiContainer.appendChild(boardEl);
+    if (mapShell) {
+      mapShell.replaceChildren();
+    }
+    if (cardsCol) {
+      cardsCol.replaceChildren();
+    }
 
-    if (questionData.location_mode) {
+    if (questionData.location_mode && mapShell) {
       renderShuffleMap(mapShell, questionData.batch_pins, questionData);
     }
-    renderPhotoCardsList(cardsCol, questionData);
+    if (cardsCol) {
+      renderPhotoCardsList(cardsCol, questionData);
+    }
   },
 
   buildAnswerPayload(questionData, timedOut) {
@@ -270,42 +362,33 @@ export const albumShuffleMode = {
     return {
       match_id: state.matchId,
       question_id: questionData.question_id,
-      album_shuffle_answers: answers,
+      album_shuffle: answers,
       timed_out: timedOut,
     };
   },
 
   renderReveal(revealUi, revealData, skipEffects = false) {
-    const pinpointReveal = document.getElementById("pinpoint-reveal-ui");
-    if (pinpointReveal) pinpointReveal.classList.add("hidden");
+    if (el.pinpointRevealUi) el.pinpointRevealUi.classList.add("hidden");
     if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
-    let targetContainer = document.getElementById("album-shuffle-reveal-ui");
-    if (!targetContainer) {
-      targetContainer = document.createElement("div");
-      targetContainer.id = "album-shuffle-reveal-ui";
-      revealUi.appendChild(targetContainer);
-    }
-    targetContainer.classList.remove("hidden");
-    if (!skipEffects) {
-      targetContainer.replaceChildren();
-    } else {
-      targetContainer.replaceChildren();
-    }
+    const targetContainer = el.albumShuffleRevealUi;
+    if (targetContainer) targetContainer.classList.remove("hidden");
     revealUi.classList.remove("hidden");
 
+    const playerResults = revealData.results || [];
+    const batchReveal = revealData.batch_reveal || [];
+    const totalPhotos = batchReveal.length;
+
     // Standardize Round Meta header banner (matching Pinpoint mode)
+    const activePlayer = challenge && challenge.isActive() ? challenge.challengeSession?.sessionPlayerName : null;
     if (el.roundMeta) {
       renderRoundMeta(el.roundMeta, {
         roundNum: revealData.round_number,
         totalRounds: revealData.total_rounds,
         isReveal: true,
+        playerName: activePlayer,
       });
     }
-
-    const batchReveal = revealData.batch_reveal || [];
-    const playerResults = revealData.results || [];
-    const totalPhotos = batchReveal.length;
 
     // Sort batch items in TRUE chronological order (earliest #1 to latest #N)
     const sortedTrueBatch = [...batchReveal].sort((a, b) => {
@@ -344,51 +427,50 @@ export const albumShuffleMode = {
     });
 
     // --- SECTION 1: POINT SCORING RESULTS TABLE (PINPOINT STYLE) ---
-    const tableScroll = document.createElement("div");
-    tableScroll.className = "table-scroll";
-    const scoreTable = document.createElement("table");
-    scoreTable.id = "shuffle-reveal-table";
-    scoreTable.className = "reveal-table shuffle-reveal-table";
-    const thead = document.createElement("thead");
-    const tbody = document.createElement("tbody");
-    scoreTable.append(thead, tbody);
-    tableScroll.appendChild(scoreTable);
+    const thead = el.shuffleRevealTableHead;
+    const tbody = el.shuffleRevealTableBody;
+    if (tbody) tbody.replaceChildren();
 
     // Build Table Headers
     const groups = [];
     if (revealData.location_mode) {
       groups.push({
+        key: "reveal.col_location",
         label: t("reveal.col_location"),
         columns: [
-          { label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
-          { label: t("reveal.col_pins_correct"), class: "hide-on-mobile" },
+          { key: "reveal.col_points", mobileKey: "reveal.col_location", label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
+          { key: "reveal.col_pins_correct", label: t("reveal.col_pins_correct"), class: "hide-on-mobile" },
         ],
       });
     }
     if (revealData.date_mode) {
       groups.push({
+        key: "reveal.col_date",
         label: t("reveal.col_date"),
         columns: [
-          { label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
-          { label: t("reveal.col_order_correct"), class: "hide-on-mobile" },
+          { key: "reveal.col_points", mobileKey: "reveal.col_date", label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
+          { key: "reveal.col_order_correct", label: t("reveal.col_order_correct"), class: "hide-on-mobile" },
         ],
       });
     }
     groups.push({
+      key: "reveal.col_score",
       label: t("reveal.col_score"),
       columns: [
-        { label: t("reveal.col_round"), class: "hide-on-mobile" },
-        { label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
+        { key: "reveal.col_round", label: t("reveal.col_round"), class: "hide-on-mobile" },
+        { key: "reveal.col_total", mobileKey: "reveal.col_score", label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
       ],
     });
 
     const groupRow = document.createElement("tr");
     groupRow.className = "group-head-row";
     const playerHead = buildCell(t("reveal.col_player"), true);
+    playerHead.setAttribute("data-i18n", "reveal.col_player");
     playerHead.rowSpan = 2;
     groupRow.appendChild(playerHead);
     groups.forEach((group) => {
       const cell = buildCell(group.label, true);
+      if (group.key) cell.setAttribute("data-i18n", group.key);
       cell.colSpan = group.columns.length;
       cell.className = "group-head group-start";
       groupRow.appendChild(cell);
@@ -397,6 +479,7 @@ export const albumShuffleMode = {
     const columnRow = document.createElement("tr");
     columnRow.className = "column-head-row";
     const playerSubHead = buildCell(t("reveal.col_player"), true);
+    playerSubHead.setAttribute("data-i18n", "reveal.col_player");
     playerSubHead.className = "player-subhead hide-on-desktop";
     columnRow.appendChild(playerSubHead);
 
@@ -405,11 +488,13 @@ export const albumShuffleMode = {
         const cell = buildCell("", true);
         const labelSpan = document.createElement("span");
         labelSpan.className = "desktop-head-label";
+        if (col.key) labelSpan.setAttribute("data-i18n", col.key);
         labelSpan.textContent = col.label;
         cell.appendChild(labelSpan);
 
         if (col.mobileLabel) {
           cell.setAttribute("data-mobile-label", col.mobileLabel);
+          if (col.mobileKey) cell.setAttribute("data-mobile-key", col.mobileKey);
         }
 
         const classes = [];
@@ -530,82 +615,39 @@ export const albumShuffleMode = {
     });
 
     // --- SECTION 2: MAP LAYOUT (ONLY IF LOCATION MODE IS ACTIVE) ---
-    let mapHead = null;
-    let mapShell = null;
-    if (revealData.location_mode) {
-      mapHead = document.createElement("div");
-      mapHead.className = "field-head";
-      mapHead.style.marginTop = "0.25rem";
-      mapHead.innerHTML = `<label>${t("reveal.map_label")}</label>`;
-
-      mapShell = document.createElement("div");
-      mapShell.className = "map-shell";
-      mapShell.id = "reveal-shuffle-map-shell";
-      mapShell.style.height = "450px";
+    if (revealData.location_mode && el.revealShuffleMapShell) {
+      if (el.shuffleRevealMapHead) el.shuffleRevealMapHead.classList.remove("hidden");
+      el.revealShuffleMapShell.classList.remove("hidden");
+      renderBatchRevealMap(el.revealShuffleMapShell, batchReveal);
+    } else {
+      if (el.shuffleRevealMapHead) el.shuffleRevealMapHead.classList.add("hidden");
+      if (el.revealShuffleMapShell) el.revealShuffleMapShell.classList.add("hidden");
     }
 
     // --- SECTION 3: PHOTO BREAKDOWN VIEW ---
-    const breakdownHead = document.createElement("div");
-    breakdownHead.className = "field-head";
-    breakdownHead.style.marginTop = "1.5rem";
-    breakdownHead.innerHTML = `<label>${t("reveal.photo_breakdown_title")}</label>`;
-
-    const breakdownContainer = document.createElement("div");
-    breakdownContainer.className = "shuffle-breakdown-container";
-
-    renderPhotoCardsView(breakdownContainer, sortedTrueBatch, playerResults, revealData);
-
-    // --- SECTION 4: NEXT ROUND BUTTON & ACTIONS ---
-    const nextBtn = document.createElement("button");
-    nextBtn.className = "next-round-btn btn-primary";
-    nextBtn.style.marginTop = "1.5rem";
-    nextBtn.textContent = revealData.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
-
-    nextBtn.addEventListener("click", () => {
-      if (window.handleNextRoundClick) {
-        window.handleNextRoundClick(revealData.match_finished);
-      } else if (el.nextRound) {
-        el.nextRound.click();
-      }
-    });
-
-    const actionsDiv = document.createElement("div");
-    actionsDiv.className = "game-actions";
-    actionsDiv.style.marginTop = "1rem";
-    const restartBtn = document.createElement("button");
-    restartBtn.type = "button";
-    restartBtn.className = "btn-danger";
-    restartBtn.textContent = t("game.restart_btn");
-    restartBtn.addEventListener("click", () => {
-      if (el.revealRestartBtn) el.revealRestartBtn.click();
-    });
-    const exitBtn = document.createElement("button");
-    exitBtn.type = "button";
-    exitBtn.className = "btn-danger";
-    exitBtn.textContent = t("game.exit_btn");
-    exitBtn.addEventListener("click", () => {
-      if (el.revealExitBtn) el.revealExitBtn.click();
-    });
-    if (!challenge || !challenge.isActive()) {
-      actionsDiv.append(restartBtn, exitBtn);
-    } else {
-      actionsDiv.append(exitBtn);
+    if (el.shuffleBreakdownGrid) {
+      renderPhotoCardsView(el.shuffleBreakdownGrid, sortedTrueBatch, playerResults, revealData);
     }
 
-    tableScroll.style.marginTop = "1.5rem";
-
-    // Append everything to targetContainer: Map (if active) -> Photo Breakdown -> Scoring Results Table -> Next Round Button -> Actions
-    if (revealData.location_mode && mapHead && mapShell) {
-      targetContainer.append(mapHead, mapShell, breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
-      renderBatchRevealMap(mapShell, batchReveal);
-    } else {
-      targetContainer.append(breakdownHead, breakdownContainer, tableScroll, nextBtn, actionsDiv);
+    // Update shared reveal action controls
+    if (el.nextRound) {
+      el.nextRound.textContent = revealData.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
+    }
+    if (el.revealRestartBtn) {
+      el.revealRestartBtn.classList.toggle("hidden", Boolean(challenge && challenge.isActive()));
     }
   },
 
   refreshRevealText(revealUi, revealData) {
     // Re-render all reveal text without re-initializing the map or running animations.
     this.renderReveal(revealUi, revealData, true);
+  },
+
+  refreshQuestionLanguage(questionData) {
+    const cardsList = document.getElementById("shuffle-cards-list");
+    if (cardsList && questionData && state.currentQuestion) {
+      renderPhotoCardsList(cardsList, questionData);
+    }
   },
 
   addOpponentReveal(revealUi, revealData, newOpponents) {
@@ -634,8 +676,6 @@ export function getPinColor(pinId) {
 
 function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData) {
   container.replaceChildren();
-  const grid = document.createElement("div");
-  grid.className = "shuffle-breakdown-grid";
 
   sortedTrueBatch.forEach((item, trueRankIdx) => {
     const imgUrl = `/api/media/${item.photo_id}`;
@@ -670,6 +710,9 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
     reportPhotoBtn.type = "button";
     reportPhotoBtn.className = "btn-report-photo-mini";
     reportPhotoBtn.title = t("report.btn_label");
+    reportPhotoBtn.setAttribute("data-i18n-title", "report.btn_label");
+    reportPhotoBtn.setAttribute("aria-label", t("report.btn_label"));
+    reportPhotoBtn.setAttribute("data-i18n-aria-label", "report.btn_label");
     reportPhotoBtn.innerHTML = `<span aria-hidden="true">🚩</span>`;
     reportPhotoBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -771,10 +814,8 @@ function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealD
     });
 
     card.appendChild(guessesList);
-    grid.appendChild(card);
+    container.appendChild(card);
   });
-
-  container.appendChild(grid);
 }
 
 function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
@@ -865,6 +906,8 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     </svg>`;
     fsBtn.title = t("game.view_fullscreen_photo");
     fsBtn.setAttribute("data-i18n-title", "game.view_fullscreen_photo");
+    fsBtn.setAttribute("aria-label", t("game.view_fullscreen_photo"));
+    fsBtn.setAttribute("data-i18n-aria-label", "game.view_fullscreen_photo");
     fsBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       openPhotoLightbox(photo.media_url);
@@ -910,7 +953,10 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     upBtn.type = "button";
     upBtn.className = "shuffle-rank-btn";
     upBtn.textContent = "▲";
-    upBtn.title = "Move Up (Earlier)";
+    upBtn.title = t("game.move_up");
+    upBtn.setAttribute("data-i18n-title", "game.move_up");
+    upBtn.setAttribute("aria-label", t("game.move_up"));
+    upBtn.setAttribute("data-i18n-aria-label", "game.move_up");
     upBtn.disabled = index === 0 || isDisabled;
     upBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -927,7 +973,10 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     downBtn.type = "button";
     downBtn.className = "shuffle-rank-btn";
     downBtn.textContent = "▼";
-    downBtn.title = "Move Down (Later)";
+    downBtn.title = t("game.move_down");
+    downBtn.setAttribute("data-i18n-title", "game.move_down");
+    downBtn.setAttribute("aria-label", t("game.move_down"));
+    downBtn.setAttribute("data-i18n-aria-label", "game.move_down");
     downBtn.disabled = index === orderedIds.length - 1 || isDisabled;
     downBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1021,9 +1070,9 @@ function renderShuffleMap(containerEl, pins, questionData) {
   if (!window.L) return;
   shuffleMarkers = {};
 
-  const mapShell = containerEl.id ? containerEl : document.getElementById("shuffle-map-shell");
-  const map = createStandardMap(mapShell, { existingMap: shuffleMap, titleKey: "game.fullscreen_map_title" });
-  shuffleMap = map;
+  const mapShell = containerEl.id ? containerEl : (el.shuffleMapShell || document.getElementById("shuffle-map-shell"));
+  const map = createStandardMap(mapShell, { existingMap: state.guessMap, titleKey: "game.fullscreen_map_title" });
+  state.guessMap = map;
 
   if (!map) return;
 
@@ -1034,8 +1083,9 @@ function renderShuffleMap(containerEl, pins, questionData) {
   // Visual separation of overlapping pins is handled dynamically by applySpiderfy().
   truePinCoords = {};
   pins.forEach((pin) => {
-    const lat = pin.latitude;
-    const lon = pin.longitude;
+    const lat = pin && pin.latitude != null ? Number(pin.latitude) : NaN;
+    const lon = pin && pin.longitude != null ? Number(pin.longitude) : NaN;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
     truePinCoords[pin.pin_id] = { lat, lng: lon };
     bounds.extend([lat, lon]);
 
@@ -1130,14 +1180,12 @@ function highlightMapMarker(pinId) {
 function renderBatchRevealMap(containerEl, batchItems) {
   if (!window.L) return;
 
-  const validItems = (batchItems || []).filter(
-    (item) =>
-      item.actual_latitude !== null &&
-      item.actual_latitude !== undefined &&
-      item.actual_longitude !== null &&
-      item.actual_longitude !== undefined &&
-      !(Math.abs(item.actual_latitude) < 1e-6 && Math.abs(item.actual_longitude) < 1e-6)
-  );
+  const validItems = (batchItems || []).filter((item) => {
+    if (!item || item.actual_latitude == null || item.actual_longitude == null) return false;
+    const lat = Number(item.actual_latitude);
+    const lon = Number(item.actual_longitude);
+    return Number.isFinite(lat) && Number.isFinite(lon) && !(Math.abs(lat) < 1e-6 && Math.abs(lon) < 1e-6);
+  });
 
   if (validItems.length === 0) {
     if (containerEl) containerEl.style.display = "none";
@@ -1150,8 +1198,8 @@ function renderBatchRevealMap(containerEl, batchItems) {
 
   containerEl.style.display = "block";
 
-  const map = createStandardMap(containerEl, { existingMap: revealShuffleMap, titleKey: "game.fullscreen_map_title" });
-  revealShuffleMap = map;
+  const map = createStandardMap(containerEl, { existingMap: state.revealMap, titleKey: "game.fullscreen_map_title" });
+  state.revealMap = map;
 
   if (!map) return;
 
@@ -1164,8 +1212,8 @@ function renderBatchRevealMap(containerEl, batchItems) {
 
   validItems.forEach((item) => {
     const key = String(item.true_pin_id);
-    const lat = item.actual_latitude;
-    const lon = item.actual_longitude;
+    const lat = Number(item.actual_latitude);
+    const lon = Number(item.actual_longitude);
     bounds.extend([lat, lon]);
     revealTrueCoords[key] = { lat, lng: lon };
 
@@ -1192,6 +1240,6 @@ function renderBatchRevealMap(containerEl, batchItems) {
 }
 
 export function getShuffleMaps() {
-  return [shuffleMap, revealShuffleMap].filter(Boolean);
+  return [state.guessMap, state.revealMap].filter(Boolean);
 }
 

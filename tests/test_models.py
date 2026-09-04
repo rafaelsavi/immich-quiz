@@ -553,6 +553,7 @@ def test_gameplay_question_and_answer_validation() -> None:
         AnswerRequest,
         AnswerResponse,
         BatchPinItem,
+        PinpointAnswerItem,
         QuestionRequest,
         QuestionResponse,
         RoundLength,
@@ -634,33 +635,36 @@ def test_gameplay_question_and_answer_validation() -> None:
     ans_ok = AnswerRequest(
         match_id='m1',
         question_id='q1',
-        guessed_latitude=45.0,
-        guessed_longitude=10.0,
-        guessed_year=2023,
-        guessed_month=5,
+        pinpoint=PinpointAnswerItem(
+            guessed_latitude=45.0,
+            guessed_longitude=10.0,
+            guessed_year=2023,
+            guessed_month=5,
+        ),
         time_taken_seconds=4.5,
     )
-    assert ans_ok.guessed_latitude == 45.0
+    assert ans_ok.pinpoint is not None
+    assert ans_ok.pinpoint.guessed_latitude == 45.0
 
-    # Unpaired coordinates
+    # Unpaired coordinates on PinpointAnswerItem
     with pytest.raises(ValidationError):
-        AnswerRequest(match_id='m1', question_id='q1', guessed_latitude=45.0, guessed_longitude=None)
+        PinpointAnswerItem(guessed_latitude=45.0, guessed_longitude=None)
     with pytest.raises(ValidationError):
-        AnswerRequest(match_id='m1', question_id='q1', guessed_latitude=None, guessed_longitude=10.0)
+        PinpointAnswerItem(guessed_latitude=None, guessed_longitude=10.0)
 
-    # Unpaired dates
+    # Unpaired dates on PinpointAnswerItem
     with pytest.raises(ValidationError):
-        AnswerRequest(match_id='m1', question_id='q1', guessed_year=2023, guessed_month=None)
+        PinpointAnswerItem(guessed_year=2023, guessed_month=None)
     with pytest.raises(ValidationError):
-        AnswerRequest(match_id='m1', question_id='q1', guessed_year=None, guessed_month=5)
+        PinpointAnswerItem(guessed_year=None, guessed_month=5)
 
-    # Out-of-range coordinates / dates
+    # Out-of-range coordinates / dates on PinpointAnswerItem
     with pytest.raises(ValidationError):
-        AnswerRequest(match_id='m1', question_id='q1', guessed_latitude=-95.0, guessed_longitude=0.0)
+        PinpointAnswerItem(guessed_latitude=-95.0, guessed_longitude=0.0)
     with pytest.raises(ValidationError):
-        AnswerRequest(match_id='m1', question_id='q1', guessed_year=1800, guessed_month=1)
+        PinpointAnswerItem(guessed_year=1800, guessed_month=1)
     with pytest.raises(ValidationError):
-        AnswerRequest(match_id='m1', question_id='q1', guessed_year=2023, guessed_month=13)
+        PinpointAnswerItem(guessed_year=2023, guessed_month=13)
     with pytest.raises(ValidationError):
         AnswerRequest(match_id='m1', question_id='q1', time_taken_seconds=-1.0)
 
@@ -699,16 +703,16 @@ def test_results_and_summary_validation() -> None:
         BatchRevealItem,
         MatchSummaryPlayer,
         MatchSummaryResponse,
+        PinpointRoundResult,
         PlayerRoundResult,
         RoundResultRequest,
         RoundResultResponse,
     )
 
     # PlayerRoundResult
-    res_ok = PlayerRoundResult(
-        player_name='Alice',
-        round_score=80,
-        total_score=150,
+    pinpoint_res = PinpointRoundResult(
+        guessed_latitude=45.0,
+        guessed_longitude=10.0,
         distance_km=12.4,
         date_diff_days=3,
         date_diff_months=0,
@@ -716,14 +720,22 @@ def test_results_and_summary_validation() -> None:
         date_diff_months_part=0,
         date_diff_days_part=3,
     )
+    res_ok = PlayerRoundResult(
+        player_name='Alice',
+        round_score=80,
+        total_score=150,
+        pinpoint=pinpoint_res,
+    )
     assert res_ok.round_score == 80
+    assert res_ok.pinpoint is not None
+    assert res_ok.pinpoint.distance_km == 12.4
 
     with pytest.raises(ValidationError):
         PlayerRoundResult(player_name='Alice', round_score=-10, total_score=0)
     with pytest.raises(ValidationError):
-        PlayerRoundResult(player_name='Alice', round_score=0, total_score=0, distance_km=-5.0)
+        PinpointRoundResult(distance_km=-5.0)
     with pytest.raises(ValidationError):
-        PlayerRoundResult(player_name='Alice', round_score=0, total_score=0, date_diff_months_part=12)
+        PinpointRoundResult(date_diff_months_part=12)
 
     # RoundResultRequest
     req_ok = RoundResultRequest(match_id='m1', round_number=1)
@@ -933,3 +945,213 @@ def test_challenge_create_request_title_truncation() -> None:
     normal_title = 'Normal Title'
     req_normal = ChallengeCreateRequest(creator_name='Host', title=normal_title)
     assert req_normal.title == 'Normal Title'
+
+
+def test_reusable_base_models_and_pinpoint_structures() -> None:
+    from datetime import date
+
+    import pytest
+    from pydantic import ValidationError
+
+    from src.models import (
+        AlbumShuffleAnswerItem,
+        BaseAnswerSubmission,
+        BaseQuestionContent,
+        BatchPhotoItem,
+        BatchPinItem,
+        BatchRevealItem,
+        GameMode,
+        GroundTruthLocationDate,
+        PinpointAnswerItem,
+        PinpointDeviation,
+        PinpointGuessFields,
+        PinpointReveal,
+        PinpointRoundResult,
+        QuestionResponse,
+        RoundLength,
+        RoundResultResponse,
+        RoundScoreBreakdown,
+    )
+
+    # 1. GroundTruthLocationDate & BatchRevealItem & PinpointReveal
+    gt = GroundTruthLocationDate(
+        actual_latitude=48.8584,
+        actual_longitude=2.2945,
+        actual_date=date(2023, 7, 14),
+        actual_year=2023,
+        actual_month=7,
+        actual_city='Paris',
+        actual_country='France',
+    )
+    assert gt.actual_city == 'Paris'
+
+    pp_reveal = PinpointReveal(
+        asset_id='asset-1',
+        media_url='/api/media/asset-1',
+        actual_latitude=gt.actual_latitude,
+        actual_longitude=gt.actual_longitude,
+        actual_date=gt.actual_date,
+        actual_year=gt.actual_year,
+        actual_month=gt.actual_month,
+        actual_city=gt.actual_city,
+        actual_country=gt.actual_country,
+    )
+    assert pp_reveal.actual_city == 'Paris'
+
+    # RoundResultResponse with PinpointReveal
+    rr_resp = RoundResultResponse(
+        pinpoint_reveal=pp_reveal,
+        round_number=1,
+        total_rounds=5,
+        location_mode=True,
+        date_mode=True,
+        results=[],
+        match_finished=False,
+    )
+    assert rr_resp.pinpoint_reveal is not None
+    assert rr_resp.pinpoint_reveal.actual_city == 'Paris'
+    assert rr_resp.round_number == 1
+
+    reveal = BatchRevealItem(
+        photo_id='photo-1',
+        true_pin_id='A',
+        actual_latitude=gt.actual_latitude,
+        actual_longitude=gt.actual_longitude,
+        actual_date=gt.actual_date,
+        actual_year=gt.actual_year,
+        actual_month=gt.actual_month,
+        actual_city=gt.actual_city,
+        actual_country=gt.actual_country,
+    )
+    assert reveal.photo_id == 'photo-1'
+    assert reveal.true_pin_id == 'A'
+    assert reveal.actual_city == 'Paris'
+
+    # 2. PinpointGuessFields & PinpointAnswerItem
+    pgf = PinpointGuessFields(guessed_latitude=10.0, guessed_longitude=20.0)
+    assert pgf.guessed_latitude == 10.0
+
+    b_pin = BatchPinItem(pin_id='pin-1', latitude=12.0, longitude=34.0)
+    assert b_pin.pin_id == 'pin-1'
+
+    b_photo = BatchPhotoItem(photo_id='photo-1', media_url='/api/media/photo-1')
+    assert b_photo.photo_id == 'photo-1'
+
+    valid_guess = PinpointAnswerItem(
+        guessed_latitude=48.85,
+        guessed_longitude=2.29,
+        guessed_year=2023,
+        guessed_month=7,
+    )
+    assert valid_guess.guessed_latitude == 48.85
+    assert valid_guess.guessed_year == 2023
+    # Pair validation on PinpointAnswerItem
+    with pytest.raises(ValidationError, match='guessed_year and guessed_month must be provided together'):
+        PinpointAnswerItem(guessed_year=2023, guessed_month=None)
+
+    with pytest.raises(ValidationError, match='guessed_latitude and guessed_longitude must be provided together'):
+        PinpointAnswerItem(guessed_latitude=48.85, guessed_longitude=None)
+
+    # 3. PinpointDeviation & PinpointRoundResult
+    dev = PinpointDeviation(distance_km=1.2, date_diff_days=3, date_diff_months=0)
+    assert dev.distance_km == 1.2
+
+    prr = PinpointRoundResult(
+        guessed_latitude=48.85,
+        guessed_longitude=2.29,
+        distance_km=1.2,
+        date_diff_years_part=0,
+        date_diff_months_part=0,
+        date_diff_days_part=3,
+    )
+    assert prr.distance_km == 1.2
+    assert prr.date_diff_days_part == 3
+
+    # 4. RoundScoreBreakdown
+    scores = RoundScoreBreakdown(location_score=95, date_score=100, round_score=195, total_score=390)
+    assert scores.round_score == 195
+    assert scores.total_score == 390
+
+    # 5. BaseQuestionContent & QuestionResponse
+    qc = BaseQuestionContent(
+        asset_id='a1',
+        media_url='/api/media/a1',
+        location_mode=True,
+        date_mode=True,
+        game_mode=GameMode.pinpoint,
+        round_length=RoundLength.minute_1,
+    )
+    assert qc.asset_id == 'a1'
+
+    qr = QuestionResponse(
+        asset_id='a1',
+        media_url='/api/media/a1',
+        location_mode=True,
+        date_mode=True,
+        round_length=RoundLength.minute_1,
+        question_id='q1',
+        player_name='Alice',
+        player_number=1,
+        total_players=1,
+        player_round_number=1,
+        total_rounds_per_player=5,
+        turn_number=1,
+        total_turns=5,
+    )
+    assert qr.asset_id == 'a1'
+    assert qr.question_id == 'q1'
+
+    # 6. BaseAnswerSubmission
+    sub_pinpoint = BaseAnswerSubmission(
+        pinpoint=PinpointAnswerItem(
+            guessed_latitude=10.0,
+            guessed_longitude=20.0,
+            guessed_year=2020,
+            guessed_month=5,
+        ),
+        time_taken_seconds=12.5,
+    )
+    assert sub_pinpoint.pinpoint is not None
+    assert sub_pinpoint.pinpoint.guessed_latitude == 10.0
+    assert sub_pinpoint.time_taken_seconds == 12.5
+
+    sub_shuffle = BaseAnswerSubmission(
+        album_shuffle=[AlbumShuffleAnswerItem(photo_id='p1', assigned_pin_id='B', assigned_timeline_index=0)],
+        time_taken_seconds=15.0,
+    )
+    assert sub_shuffle.album_shuffle is not None
+    assert len(sub_shuffle.album_shuffle) == 1
+
+
+def test_round_data_and_question_state_delegation() -> None:
+    from datetime import date, datetime, timezone
+
+    from src.immich.client import AssetAnswer
+    from src.storage.session import QuestionState, RoundAsset, RoundData
+
+    ans = AssetAnswer(
+        latitude=45.0,
+        longitude=9.0,
+        capture_datetime=datetime(2023, 5, 1, 12, 0, tzinfo=timezone.utc),
+        city='Milan',
+        country='Italy',
+    )
+    ra = RoundAsset(asset_id='a1', answer=ans)
+    rd = RoundData(assets=[ra], pins=[{'pin_id': 'A', 'latitude': 45.0, 'longitude': 9.0}])
+
+    q = QuestionState(
+        question_id='q1',
+        player_name='Alice',
+        round_index=0,
+        round_data=rd,
+    )
+
+    assert q.round_data.assets[0].asset_id == 'a1'
+    assert q.round_data.assets[0].answer.latitude == 45.0
+    assert q.round_data.assets[0].answer.longitude == 9.0
+    assert q.round_data.assets[0].answer.capture_datetime.date() == date(2023, 5, 1)
+    assert q.round_data.assets[0].answer.city == 'Milan'
+    assert q.round_data.assets[0].answer.country == 'Italy'
+    assert q.round_data.assets == [ra]
+    assert len(q.round_data.pins) == 1
+    assert q.round_data.pins[0]['pin_id'] == 'A'

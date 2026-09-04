@@ -245,10 +245,12 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
-            'guessed_latitude': asset.latitude,
-            'guessed_longitude': asset.longitude,
-            'guessed_year': asset.capture_date.year,
-            'guessed_month': asset.capture_date.month,
+            'pinpoint': {
+                'guessed_latitude': asset.latitude,
+                'guessed_longitude': asset.longitude,
+                'guessed_year': asset.capture_date.year,
+                'guessed_month': asset.capture_date.month,
+            },
             'time_taken_seconds': 9.2,
         },
     )
@@ -259,12 +261,14 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
     assert ans0['round_score'] >= 180
     assert ans0['location_score'] == 100
     assert ans0['date_score'] >= 80
-    assert ans0['distance_km'] == 0.0
+    assert ans0['pinpoint_deviation'] is not None
+    assert ans0['pinpoint_deviation']['distance_km'] == 0.0
 
     # Personal reveal returns true coordinates/dates
-    assert ans0['actual_latitude'] == asset.latitude
-    assert ans0['actual_longitude'] == asset.longitude
-    assert ans0['actual_year'] == asset.capture_date.year
+    assert ans0['pinpoint_reveal'] is not None
+    assert ans0['pinpoint_reveal']['actual_latitude'] == asset.latitude
+    assert ans0['pinpoint_reveal']['actual_longitude'] == asset.longitude
+    assert ans0['pinpoint_reveal']['actual_year'] == asset.capture_date.year
     assert ans0['is_game_over'] is False
 
     # Now round 1 question can be retrieved
@@ -281,10 +285,12 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
             headers={'X-Player-Token': p_token},
             json={
                 'round_index': r,
-                'guessed_latitude': 12.0,
-                'guessed_longitude': 22.0,
-                'guessed_year': 2021,
-                'guessed_month': 2,
+                'pinpoint': {
+                    'guessed_latitude': 12.0,
+                    'guessed_longitude': 22.0,
+                    'guessed_year': 2021,
+                    'guessed_month': 2,
+                },
                 'time_taken_seconds': 7.0,
             },
         )
@@ -295,10 +301,12 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 4,
-            'guessed_latitude': 14.0,
-            'guessed_longitude': 24.0,
-            'guessed_year': 2022,
-            'guessed_month': 3,
+            'pinpoint': {
+                'guessed_latitude': 14.0,
+                'guessed_longitude': 24.0,
+                'guessed_year': 2022,
+                'guessed_month': 3,
+            },
             'time_taken_seconds': 6.5,
         },
     )
@@ -348,7 +356,7 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
-            'album_shuffle_answers': [
+            'album_shuffle': [
                 AlbumShuffleAnswerItem(
                     photo_id=p_ids[0],
                     assigned_pin_id=pin_ids[0],
@@ -820,7 +828,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
         headers={'X-Player-Token': host_token},
         json={
             'round_index': 0,
-            'album_shuffle_answers': [
+            'album_shuffle': [
                 {'photo_id': photo_ids[0], 'assigned_pin_id': pin_ids[0], 'assigned_timeline_index': 0},
                 {'photo_id': photo_ids[1], 'assigned_pin_id': pin_ids[1], 'assigned_timeline_index': 1},
                 {'photo_id': photo_ids[2], 'assigned_pin_id': pin_ids[2], 'assigned_timeline_index': 2},
@@ -836,7 +844,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
         headers={'X-Player-Token': bob_token},
         json={
             'round_index': 0,
-            'album_shuffle_answers': [
+            'album_shuffle': [
                 {'photo_id': photo_ids[0], 'assigned_pin_id': pin_ids[1], 'assigned_timeline_index': 2},
                 {'photo_id': photo_ids[1], 'assigned_pin_id': pin_ids[2], 'assigned_timeline_index': 0},
                 {'photo_id': photo_ids[2], 'assigned_pin_id': pin_ids[0], 'assigned_timeline_index': 1},
@@ -865,7 +873,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     assert len(bob_guesses) == 3
 
     # Check Host's assigned pins and timeline indexes are accurately preserved
-    host_map = {g['asset_id']: g for g in host_guesses}
+    host_map = {g['album_shuffle']['asset_id']: g['album_shuffle'] for g in host_guesses}
     assert host_map[photo_ids[0]]['assigned_pin_id'] == pin_ids[0]
     assert host_map[photo_ids[0]]['assigned_timeline_index'] == 0
     assert host_map[photo_ids[1]]['assigned_pin_id'] == pin_ids[1]
@@ -874,7 +882,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     assert host_map[photo_ids[2]]['assigned_timeline_index'] == 2
 
     # Check Bob's assigned pins and timeline indexes are accurately preserved
-    bob_map = {g['asset_id']: g for g in bob_guesses}
+    bob_map = {g['album_shuffle']['asset_id']: g['album_shuffle'] for g in bob_guesses}
     assert bob_map[photo_ids[0]]['assigned_pin_id'] == pin_ids[1]
     assert bob_map[photo_ids[0]]['assigned_timeline_index'] == 2
     assert bob_map[photo_ids[1]]['assigned_pin_id'] == pin_ids[2]

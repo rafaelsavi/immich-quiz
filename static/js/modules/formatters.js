@@ -120,20 +120,21 @@ export function formatPlace(reveal) {
   if (!reveal) {
     return t("fmt.unknown_place");
   }
+  const target = reveal.pinpoint_reveal || reveal;
   // Immich reverse-geocodes assets already, so reuse its labels.
-  const parts = [reveal.actual_city, reveal.actual_country].filter(Boolean);
+  const parts = [target.actual_city, target.actual_country].filter(Boolean);
   if (parts.length > 0) {
     return parts.join(", ");
   }
   if (
-    reveal.actual_latitude === null ||
-    reveal.actual_latitude === undefined ||
-    reveal.actual_longitude === null ||
-    reveal.actual_longitude === undefined
+    target.actual_latitude === null ||
+    target.actual_latitude === undefined ||
+    target.actual_longitude === null ||
+    target.actual_longitude === undefined
   ) {
     return t("fmt.unknown_place");
   }
-  return `${Number(reveal.actual_latitude).toFixed(4)}, ${Number(reveal.actual_longitude).toFixed(4)}`;
+  return `${Number(target.actual_latitude).toFixed(4)}, ${Number(target.actual_longitude).toFixed(4)}`;
 }
 
 /**
@@ -285,28 +286,30 @@ export function formatDistance(km) {
 }
 
 export function formatMonthError(result) {
-  if (result.date_diff_days === null || result.date_diff_days === undefined) {
+  if (!result) return "-";
+  const p = result.pinpoint || result;
+  if (p.date_diff_days === null || p.date_diff_days === undefined) {
     return "-";
   }
 
-  let years = result.date_diff_years_part;
-  let months = result.date_diff_months_part;
-  let days = result.date_diff_days_part;
+  let years = p.date_diff_years_part;
+  let months = p.date_diff_months_part;
+  let days = p.date_diff_days_part;
 
-  if ((years === undefined || months === undefined) && result.guessed_year && result.guessed_month) {
-    const actYear = result.actual_year ?? state.lastReveal?.actual_year;
-    const actMonth = result.actual_month ?? state.lastReveal?.actual_month;
+  if ((years === undefined || months === undefined) && p.guessed_year && p.guessed_month) {
+    const actYear = p.actual_year ?? state.lastReveal?.pinpoint_reveal?.actual_year ?? state.lastReveal?.actual_year;
+    const actMonth = p.actual_month ?? state.lastReveal?.pinpoint_reveal?.actual_month ?? state.lastReveal?.actual_month;
     if (actYear && actMonth) {
-      const diffTotalMonths = Math.abs((result.guessed_year - actYear) * 12 + (result.guessed_month - actMonth));
+      const diffTotalMonths = Math.abs((p.guessed_year - actYear) * 12 + (p.guessed_month - actMonth));
       years = Math.floor(diffTotalMonths / 12);
       months = diffTotalMonths % 12;
       days = 0;
     }
   }
 
-  if ((years === undefined || months === undefined) && result.date_diff_days !== null && result.date_diff_days !== undefined) {
-    if (result.date_diff_days >= 30) {
-      const totalMonthsApprox = Math.round(result.date_diff_days / 30.4375);
+  if ((years === undefined || months === undefined) && p.date_diff_days !== null && p.date_diff_days !== undefined) {
+    if (p.date_diff_days >= 30) {
+      const totalMonthsApprox = Math.round(p.date_diff_days / 30.4375);
       years = Math.floor(totalMonthsApprox / 12);
       months = totalMonthsApprox % 12;
       days = 0;
@@ -315,7 +318,7 @@ export function formatMonthError(result) {
 
   years = years ?? 0;
   months = months ?? 0;
-  days = days ?? result.date_diff_days ?? 0;
+  days = days ?? p.date_diff_days ?? 0;
 
   if (years === 0 && months === 0) {
     const dayWord = days === 1 ? t("fmt.day") : t("fmt.days");
@@ -384,6 +387,7 @@ export function renderRoundMeta(container, options = {}) {
     onHelpClick = null,
   } = options;
 
+  container._lastMetaOptions = options;
   container.replaceChildren();
 
   const pillsWrap = document.createElement("div");
@@ -400,6 +404,8 @@ export function renderRoundMeta(container, options = {}) {
 
     const roundText = document.createElement("span");
     roundText.className = "round-meta-text";
+    roundText.setAttribute("data-i18n", "game.round_label");
+    roundText.dataset.i18nArgs = JSON.stringify([roundNum, totalRounds]);
     roundText.textContent = t("game.round_label", roundNum, totalRounds);
 
     roundPill.append(flagSvgWrap.firstElementChild, roundText);
@@ -416,12 +422,15 @@ export function renderRoundMeta(container, options = {}) {
     starSvgWrap.innerHTML = `<svg class="meta-pill-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
 
     const revealText = document.createElement("span");
+    revealText.setAttribute("data-i18n", "reveal.badge");
     revealText.textContent = t("reveal.badge");
 
     revealPill.append(starSvgWrap.firstElementChild, revealText);
     pillsWrap.appendChild(revealPill);
-  } else if (playerName) {
-    // 2. Player Info Pill
+  }
+
+  if (playerName) {
+    // Player Info Pill
     const playerPill = document.createElement("span");
     playerPill.className = "round-meta-pill round-meta-player";
 
@@ -429,9 +438,12 @@ export function renderRoundMeta(container, options = {}) {
     playerPill.appendChild(badge);
 
     const playerSpan = document.createElement("span");
-    const labelText = totalPlayers > 1 ? t("game.player_label", playerNum, "") : "";
-    if (labelText) {
-      playerSpan.appendChild(document.createTextNode(labelText + " "));
+    if (!isReveal && totalPlayers > 1) {
+      const labelSpan = document.createElement("span");
+      labelSpan.setAttribute("data-i18n", "game.player_label");
+      labelSpan.dataset.i18nArgs = JSON.stringify([playerNum, ""]);
+      labelSpan.textContent = t("game.player_label", playerNum, "") + " ";
+      playerSpan.appendChild(labelSpan);
     }
     const strong = document.createElement("strong");
     strong.textContent = playerName;
@@ -446,13 +458,33 @@ export function renderRoundMeta(container, options = {}) {
   if (showHelp) {
     const helpBtn = document.createElement("button");
     helpBtn.type = "button";
-    helpBtn.className = "shuffle-help-btn";
-    helpBtn.textContent = t("game.help_btn");
+    helpBtn.className = "round-meta-help-btn mode-help-btn shuffle-help-btn";
+    helpBtn.setAttribute("data-i18n", "game.help_btn");
+
+    const helpIconWrap = document.createElement("span");
+    helpIconWrap.className = "meta-pill-icon-wrap";
+    helpIconWrap.innerHTML = `<svg class="meta-pill-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>`;
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "round-meta-text";
+    textSpan.textContent = t("game.help_btn");
+
+    helpBtn.append(helpIconWrap.firstElementChild, textSpan);
     if (onHelpClick) {
       helpBtn.addEventListener("click", onHelpClick);
     }
     container.appendChild(helpBtn);
   }
+}
+
+/**
+ * Dynamically refresh round meta text whenever language changes.
+ * @param {HTMLElement} [container]
+ */
+export function refreshRoundMeta(container = null) {
+  const target = container || document.getElementById("round-meta");
+  if (!target || !target._lastMetaOptions) return;
+  renderRoundMeta(target, target._lastMetaOptions);
 }
 
 /**

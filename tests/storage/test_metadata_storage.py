@@ -2005,3 +2005,223 @@ def test_database_manager_checkpoint_and_optimize(tmp_path: Path) -> None:
 
     val = db_mgr.fetch_val('SELECT val FROM items WHERE id = 1')
     assert val == 'hello'
+
+
+def test_init_schema_resets_stale_is_shared_flags_not_in_shared_albums(tmp_path: Path) -> None:
+    """Verify init_schema self-healing safeguard resets spurious is_shared flags for non-shared album assets."""
+    db_file = tmp_path / 'test_repair.db'
+    db_mgr = DatabaseManager(db_file)
+    store = MetadataStore(db_mgr)
+
+    # Setup: 1 shared album and 1 non-shared album in lib1, 1 non-shared album in lib2
+    store.upsert_albums(
+        'lib1',
+        [
+            {'id': 'alb-shared', 'name': 'Shared Album', 'isShared': 1},
+            {'id': 'alb-private', 'name': 'Private Album', 'isShared': 0},
+        ],
+    )
+    store.upsert_albums(
+        'lib2',
+        [
+            {'id': 'alb-lib2', 'name': 'Lib2 Album', 'isShared': 0},
+        ],
+    )
+
+    # Insert assets directly with is_shared = 1
+    store.upsert_assets_batch(
+        'lib1',
+        [
+            {'id': 'asset-truly-shared', 'is_shared': 1, 'file_type': 'IMAGE'},
+            {'id': 'asset-falsely-shared', 'is_shared': 1, 'file_type': 'IMAGE'},
+            {'id': 'asset-no-album', 'is_shared': 1, 'file_type': 'IMAGE'},
+        ],
+        [],
+        [
+            ('asset-truly-shared', 'alb-shared'),
+            ('asset-falsely-shared', 'alb-private'),
+        ],
+    )
+    store.upsert_assets_batch(
+        'lib2',
+        [
+            {'id': 'asset-lib2-falsely-shared', 'is_shared': 1, 'file_type': 'IMAGE'},
+        ],
+        [],
+        [
+            ('asset-lib2-falsely-shared', 'alb-lib2'),
+        ],
+    )
+
+    # Re-run init_schema to trigger the repair query
+    store.init_schema()
+
+    # Verify: Truly shared asset stays is_shared = 1
+    val1 = db_mgr.fetch_val("SELECT is_shared FROM assets WHERE id = 'asset-truly-shared' AND library_name = 'lib1'")
+    assert val1 == 1
+
+    # Verify: Shared asset without any albums stays is_shared = 1
+    val_no_album = db_mgr.fetch_val(
+        "SELECT is_shared FROM assets WHERE id = 'asset-no-album' AND library_name = 'lib1'"
+    )
+    assert val_no_album == 1
+
+    # Falsely shared assets in private albums get reset to is_shared = 0
+    val2 = db_mgr.fetch_val("SELECT is_shared FROM assets WHERE id = 'asset-falsely-shared' AND library_name = 'lib1'")
+    assert val2 == 0
+
+    val3 = db_mgr.fetch_val(
+        "SELECT is_shared FROM assets WHERE id = 'asset-lib2-falsely-shared' AND library_name = 'lib2'"
+    )
+    assert val3 == 0
+
+
+def test_link_album_assets_unshared_updates(meta_store: MetadataStore) -> None:
+    """Verify link_album_assets can clear is_shared via unshared_asset_updates."""
+    meta_store.upsert_assets_batch(
+        'lib1',
+        [{'id': 'asset-flip', 'is_shared': 1, 'is_partner': 0, 'file_type': 'IMAGE'}],
+        [],
+        [],
+    )
+    sql = "SELECT is_shared FROM assets WHERE id = 'asset-flip' AND library_name = 'lib1'"
+    assert meta_store.db.fetch_val(sql) == 1
+
+    meta_store.link_album_assets(
+        'lib1',
+        junction_inserts=[],
+        unshared_asset_updates=[('asset-flip',)],
+    )
+    assert meta_store.db.fetch_val(sql) == 0
+
+
+@pytest.mark.asyncio
+async def test_sync_engine_end_to_end_album_sharing_and_multi_library_isolation(tmp_path: Path) -> None:
+    """Verify that SyncEngine accurately classifies albums with viewers as owned for the owner library,
+
+    shared for foreign viewer libraries, and maintains per-library preflight eligibility counts.
+    """
+    from unittest.mock import AsyncMock
+
+    from src.immich.client import ImmichClient
+
+    db_mgr = DatabaseManager(tmp_path / 'sync_test.db')
+    meta_store = MetadataStore(db_mgr)
+
+    mock_immich = AsyncMock(spec=ImmichClient)
+    mock_immich._library_key.side_effect = lambda lib: f'key-{lib}'
+    mock_immich.get_asset_count.return_value = 1
+    mock_immich._extract_asset_items.side_effect = ImmichClient._extract_asset_items
+    mock_immich._extract_total_assets.side_effect = ImmichClient._extract_total_assets
+
+    # User IDs for each library
+    user_ids = {
+        'key-Familia Savi': 'user-savi',
+        'key-Rafael': 'user-rafael',
+    }
+    mock_immich._current_user_id.side_effect = lambda key: user_ids.get(key)
+
+    # Album: "Favoritas", created/owned by Familia Savi, shared with Rafael (viewer)
+    album_data = {
+        'id': 'alb-fav',
+        'albumName': 'Favoritas',
+        'shared': True,
+        'assetCount': 1,
+        'albumUsers': [
+            {'user': {'id': 'user-savi'}, 'role': 'owner'},
+            {'user': {'id': 'user-rafael'}, 'role': 'viewer'},
+        ],
+    }
+
+    # Asset in album
+    asset_data = {
+        'id': 'photo-1',
+        'type': 'IMAGE',
+        'exifInfo': {
+            'latitude': 10.0,
+            'longitude': 20.0,
+            'dateTimeOriginal': '2023-01-01T12:00:00Z',
+        },
+        'fileCreatedAt': '2023-01-01T12:00:00Z',
+        'updatedAt': '2023-01-02T12:00:00Z',
+    }
+
+    async def fake_request_json(method: str, path: str, key: str, **kwargs: Any) -> Any:
+        if path == '/people':
+            return []
+        if path == '/albums':
+            return [album_data]
+        if path == '/albums/alb-fav':
+            return {'assets': [{'id': 'photo-1'}]}
+        if path == '/tags':
+            return []
+        if path == '/search/metadata':
+            page = kwargs.get('json', {}).get('page', 1)
+            if page == 1:
+                return {'assets': {'items': [asset_data], 'total': 1}}
+            return {'assets': {'items': [], 'total': 1}}
+        return {}
+
+    mock_immich._request_json.side_effect = fake_request_json
+
+    sync_engine = SyncEngine(mock_immich, meta_store)
+
+    # 1. Sync Familia Savi (the owner of the album)
+    await sync_engine.sync_library('Familia Savi', force_full=True)
+
+    # Assert Familia Savi album is marked NOT shared (isShared = 0)
+    alb_savi = db_mgr.fetch_one("SELECT is_shared FROM albums WHERE id = 'alb-fav' AND library_name = 'Familia Savi'")
+    assert alb_savi is not None
+    assert alb_savi['is_shared'] == 0
+
+    # Assert Familia Savi asset is marked NOT shared (is_shared = 0)
+    asset_savi = db_mgr.fetch_one("SELECT is_shared FROM assets WHERE id = 'photo-1' AND library_name = 'Familia Savi'")
+    assert asset_savi is not None
+    assert asset_savi['is_shared'] == 0
+
+    # Criteria with include_shared = False must find 1 eligible photo!
+    crit_savi = AssetFilterCriteria(
+        library_names=('Familia Savi',),
+        location_mode=True,
+        date_mode=True,
+        include_shared=False,
+    )
+    assert meta_store.count_eligible_assets(crit_savi) == 1
+
+    # 2. Sync Rafael (viewer of the album)
+    await sync_engine.sync_library('Rafael', force_full=True)
+
+    # Assert Rafael album is marked SHARED (isShared = 1)
+    alb_rafael = db_mgr.fetch_one("SELECT is_shared FROM albums WHERE id = 'alb-fav' AND library_name = 'Rafael'")
+    assert alb_rafael is not None
+    assert alb_rafael['is_shared'] == 1
+
+    # Assert Rafael asset is marked SHARED (is_shared = 1)
+    asset_rafael = db_mgr.fetch_one("SELECT is_shared FROM assets WHERE id = 'photo-1' AND library_name = 'Rafael'")
+    assert asset_rafael is not None
+    assert asset_rafael['is_shared'] == 1
+
+    # Assert Familia Savi asset was NOT touched (still is_shared = 0)
+    asset_savi_recheck = db_mgr.fetch_one(
+        "SELECT is_shared FROM assets WHERE id = 'photo-1' AND library_name = 'Familia Savi'"
+    )
+    assert asset_savi_recheck is not None
+    assert asset_savi_recheck['is_shared'] == 0
+
+    # Querying Rafael with include_shared = False returns 0
+    crit_rafael_noshared = AssetFilterCriteria(
+        library_names=('Rafael',),
+        location_mode=True,
+        date_mode=True,
+        include_shared=False,
+    )
+    assert meta_store.count_eligible_assets(crit_rafael_noshared) == 0
+
+    # Querying Rafael with include_shared = True returns 1
+    crit_rafael_shared = AssetFilterCriteria(
+        library_names=('Rafael',),
+        location_mode=True,
+        date_mode=True,
+        include_shared=True,
+    )
+    assert meta_store.count_eligible_assets(crit_rafael_shared) == 1

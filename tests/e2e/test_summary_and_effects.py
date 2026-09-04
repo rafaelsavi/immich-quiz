@@ -83,7 +83,7 @@ async def test_multiplayer_podium_and_winner_resolution(page: Page) -> None:
         await loc_card.click()
     if 'active' not in (await date_card.get_attribute('class') or ''):
         await date_card.click()
-    await page.locator('#round-count').select_option('5')
+    await page.locator('#round-count button[data-value="5"]').click()
 
     # Open modal, add second player Bob, start match
     await page.locator('#prepare-game-btn').click()

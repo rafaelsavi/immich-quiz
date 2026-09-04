@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
 from src.immich.client import AssetAnswer
-from src.models import GameSetupRequest
+from src.models import GameSetupRequest, PinpointAnswerItem, PinpointDeviation
 from src.scoring import DATE_MAX_DECAY_DAYS, LOCATION_MAX_DECAY_KM
 
 
@@ -26,33 +26,31 @@ class RoundAsset:
 
 
 @dataclass
+class RoundData:
+    """Server-selected round assets and prompt data drawn once per match round."""
+
+    assets: list[RoundAsset]
+    pins: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class QuestionState:
     """Turn-specific question instance, candidate asset(s), and submitted player response."""
 
     question_id: str
-    asset_id: str
     player_name: str
     round_index: int
-    actual_latitude: float | None
-    actual_longitude: float | None
-    actual_date: date | None
-    actual_city: str | None = None
-    actual_country: str | None = None
+    round_data: RoundData
     answered: bool = False
-    guessed_latitude: float | None = None
-    guessed_longitude: float | None = None
-    guessed_year: int | None = None
-    guessed_month: int | None = None
     location_points: int = 0
     date_points: int = 0
-    distance_km: float | None = None
-    date_diff_days: int | None = None
-    date_diff_months: int | None = None
     timed_out: bool = False
     time_taken_seconds: float | None = None
     submitted_at: str | None = None
-    batch_assets: list[RoundAsset] | None = None
-    batch_pins: list[dict[str, Any]] | None = None
+
+    # Mode-specific player answers and evaluations
+    pinpoint_guess: PinpointAnswerItem | None = None
+    pinpoint_deviation: PinpointDeviation | None = None
     album_shuffle_guesses: list[dict[str, Any]] | None = None
 
 
@@ -71,9 +69,7 @@ class MatchState:
     asset_pool: dict[str, AssetAnswer] = field(default_factory=dict)
     location_decay_km: float = LOCATION_MAX_DECAY_KM
     date_decay_days: float = DATE_MAX_DECAY_DAYS
-    round_assets: dict[int, RoundAsset] = field(default_factory=dict)
-    batch_round_assets: dict[int, list[RoundAsset]] = field(default_factory=dict)
-    batch_round_pins: dict[int, list[dict[str, object]]] = field(default_factory=dict)
+    rounds: dict[int, RoundData] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     last_activity_at: float = field(default_factory=time.time)
 
@@ -162,37 +158,20 @@ class SessionStore:
     def register_question(
         self,
         match_id: str,
-        asset_id: str,
-        actual_latitude: float | None,
-        actual_longitude: float | None,
-        actual_date: date | None,
-        actual_city: str | None = None,
-        actual_country: str | None = None,
-        batch_assets: list[RoundAsset] | None = None,
-        batch_pins: list[dict[str, object]] | None = None,
+        round_data: RoundData,
     ) -> QuestionState:
         """Create and record a new question turn state for the active player."""
         state = self.get_match(match_id)
         question = QuestionState(
             question_id=str(uuid4()),
-            asset_id=asset_id,
             player_name=state.current_player_name(),
             round_index=state.current_round_index,
-            actual_latitude=actual_latitude,
-            actual_longitude=actual_longitude,
-            actual_date=actual_date,
-            actual_city=actual_city,
-            actual_country=actual_country,
-            batch_assets=batch_assets,
-            batch_pins=batch_pins,
+            round_data=round_data,
         )
         state.questions[question.question_id] = question
         state.active_question_id = question.question_id
-        if batch_assets:
-            for ba in batch_assets:
-                state.played_asset_ids.add(ba.asset_id)
-        else:
-            state.played_asset_ids.add(asset_id)
+        for ba in round_data.assets:
+            state.played_asset_ids.add(ba.asset_id)
         state.touch()
         return question
 
@@ -200,47 +179,23 @@ class SessionStore:
         """Return True when the asset was served as a question in some live match."""
         return any(asset_id in match.played_asset_ids for match in self._matches.values())
 
-    def apply_score(
+    def _finalize_question_score(
         self,
-        match_id: str,
-        question_id: str,
+        state: MatchState,
+        question: QuestionState,
         location_points: int,
         date_points: int,
-        guessed_latitude: float | None = None,
-        guessed_longitude: float | None = None,
-        guessed_year: int | None = None,
-        guessed_month: int | None = None,
-        distance_km: float | None = None,
-        diff_days: int | None = None,
-        diff_months: int | None = None,
-        timed_out: bool = False,
-        time_taken_seconds: float | None = None,
-        album_shuffle_guesses: list[dict[str, Any]] | None = None,
+        timed_out: bool,
+        time_taken_seconds: float | None,
     ) -> MatchState:
-        """Apply points and player submission details to an active question and match."""
-        state = self.get_match(match_id)
-        question = state.questions.get(question_id)
-        if question is None:
-            raise KeyError(f'Unknown question_id: {question_id}')
-        if question.answered:
-            raise QuestionAlreadyAnsweredError(f'Question already answered: {question_id}')
-
         question.answered = True
-        question.guessed_latitude = guessed_latitude
-        question.guessed_longitude = guessed_longitude
-        question.guessed_year = guessed_year
-        question.guessed_month = guessed_month
         question.location_points = location_points
         question.date_points = date_points
-        question.distance_km = distance_km
-        question.date_diff_days = diff_days
-        question.date_diff_months = diff_months
         question.timed_out = timed_out
         question.time_taken_seconds = time_taken_seconds
         question.submitted_at = datetime.now(timezone.utc).isoformat()
-        question.album_shuffle_guesses = album_shuffle_guesses
 
-        if state.active_question_id == question_id:
+        if state.active_question_id == question.question_id:
             state.active_question_id = None
 
         bucket = state.scores[question.player_name]
@@ -253,6 +208,54 @@ class SessionStore:
             state.finished = True
         state.touch()
         return state
+
+    def apply_pinpoint_score(
+        self,
+        match_id: str,
+        question_id: str,
+        location_points: int,
+        date_points: int,
+        guess: PinpointAnswerItem,
+        deviation: PinpointDeviation,
+        timed_out: bool = False,
+        time_taken_seconds: float | None = None,
+    ) -> MatchState:
+        """Apply points and pinpoint guess/deviation metrics to an active question."""
+        state = self.get_match(match_id)
+        question = state.questions.get(question_id)
+        if question is None:
+            raise KeyError(f'Unknown question_id: {question_id}')
+        if question.answered:
+            raise QuestionAlreadyAnsweredError(f'Question already answered: {question_id}')
+
+        question.pinpoint_guess = guess
+        question.pinpoint_deviation = deviation
+        return self._finalize_question_score(
+            state, question, location_points, date_points, timed_out, time_taken_seconds
+        )
+
+    def apply_album_shuffle_score(
+        self,
+        match_id: str,
+        question_id: str,
+        location_points: int,
+        date_points: int,
+        album_shuffle_guesses: list[dict[str, Any]],
+        timed_out: bool = False,
+        time_taken_seconds: float | None = None,
+    ) -> MatchState:
+        """Apply points and album shuffle assignments to an active question."""
+        state = self.get_match(match_id)
+        question = state.questions.get(question_id)
+        if question is None:
+            raise KeyError(f'Unknown question_id: {question_id}')
+        if question.answered:
+            raise QuestionAlreadyAnsweredError(f'Question already answered: {question_id}')
+
+        question.album_shuffle_guesses = album_shuffle_guesses
+        return self._finalize_question_score(
+            state, question, location_points, date_points, timed_out, time_taken_seconds
+        )
 
     def cleanup_expired_matches(self, ttl_seconds: int = 7200) -> int:
         """Prune inactive matches older than ttl_seconds (default 2 hours)."""

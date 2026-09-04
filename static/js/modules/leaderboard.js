@@ -13,7 +13,7 @@ export function formatAccuracy(pct) {
 export function updateLeaderboardScope() {
   if (!el.leaderboardScopePill) return;
 
-  const lengthVal = el.roundLength ? el.roundLength.value : "1m";
+  const lengthVal = (el.roundLength && el.roundLength.value) || "1m";
   const lengthKey = `setup.round_${lengthVal}`;
   const lengthText = t(lengthKey) !== lengthKey ? t(lengthKey) : lengthVal;
 

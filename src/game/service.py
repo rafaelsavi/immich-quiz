@@ -27,6 +27,7 @@ from src.models import (
     MatchSummaryPlayer,
     MatchSummaryResponse,
     PeopleMode,
+    PinpointReveal,
     PlayMode,
     PreflightRequest,
     PreflightResponse,
@@ -61,20 +62,20 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
     for q in ordered_questions:
         if not q.answered:
             continue
-        if state.setup.game_mode == GameMode.album_shuffle and q.batch_assets:
+        if state.setup.game_mode == GameMode.album_shuffle and q.round_data.assets:
             guess_map = {g['photo_id']: g for g in (q.album_shuffle_guesses or [])}
-            pin_by_id = {bp['pin_id']: bp for bp in (q.batch_pins or [])}
-            true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in (q.batch_pins or [])}
-            sorted_by_date = sorted(q.batch_assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
+            pin_by_id = {bp['pin_id']: bp for bp in q.round_data.pins}
+            true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in q.round_data.pins}
+            sorted_by_date = sorted(q.round_data.assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
             true_rank_map = {a.asset_id: idx for idx, a in enumerate(sorted_by_date)}
             slot_target_dates = [a.answer.capture_date or date.min for a in sorted_by_date]
-            total_photos = len(q.batch_assets)
+            total_photos = len(q.round_data.assets)
             per_photo_pts = (SCORE_MAX_POINTS / total_photos) if total_photos > 0 else 0.0
 
-            decay_km = calculate_location_decay(q.batch_assets) if state.setup.location_mode else None
-            decay_days = calculate_date_decay(q.batch_assets) if state.setup.date_mode else None
+            decay_km = calculate_location_decay(q.round_data.assets) if state.setup.location_mode else None
+            decay_days = calculate_date_decay(q.round_data.assets) if state.setup.date_mode else None
 
-            for idx, ba in enumerate(q.batch_assets):
+            for idx, ba in enumerate(q.round_data.assets):
                 guessed_item = guess_map.get(ba.asset_id, {})
                 assigned_pin_id = guessed_item.get('assigned_pin_id')
                 assigned_timeline_index = guessed_item.get('assigned_timeline_index')
@@ -172,12 +173,16 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     }
                 )
         else:
+            primary_asset = q.round_data.assets[0] if q.round_data.assets else None
+            g = q.pinpoint_guess
+            dev = q.pinpoint_deviation
             guess_date_str = (
-                f'{q.guessed_year:04d}-{q.guessed_month:02d}-01'
-                if q.guessed_year is not None and q.guessed_month is not None
+                f'{g.guessed_year:04d}-{g.guessed_month:02d}-01'
+                if g and g.guessed_year is not None and g.guessed_month is not None
                 else None
             )
-            actual_date_str = q.actual_date.isoformat() if q.actual_date else None
+            act_date = primary_asset.answer.capture_date if primary_asset else None
+            actual_date_str = act_date.isoformat() if act_date else None
             guesses.append(
                 {
                     'match_id': state.match_id,
@@ -185,18 +190,18 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     'round_index': q.round_index,
                     'photo_index': 0,
                     'game_mode': state.setup.game_mode.value,
-                    'asset_id': q.asset_id,
-                    'guess_latitude': q.guessed_latitude,
-                    'guess_longitude': q.guessed_longitude,
-                    'actual_latitude': q.actual_latitude,
-                    'actual_longitude': q.actual_longitude,
-                    'actual_city': q.actual_city,
-                    'actual_country': q.actual_country,
-                    'distance_km': q.distance_km,
+                    'asset_id': primary_asset.asset_id if primary_asset else '',
+                    'guess_latitude': g.guessed_latitude if g else None,
+                    'guess_longitude': g.guessed_longitude if g else None,
+                    'actual_latitude': primary_asset.answer.latitude if primary_asset else None,
+                    'actual_longitude': primary_asset.answer.longitude if primary_asset else None,
+                    'actual_city': primary_asset.answer.city if primary_asset else None,
+                    'actual_country': primary_asset.answer.country if primary_asset else None,
+                    'distance_km': dev.distance_km if dev else None,
                     'location_points': q.location_points if state.setup.location_mode else None,
                     'guess_date': guess_date_str,
                     'actual_date': actual_date_str,
-                    'date_diff_days': q.date_diff_days,
+                    'date_diff_days': dev.date_diff_days if dev else None,
                     'date_points': q.date_points if state.setup.date_mode else None,
                     'round_score': (q.location_points or 0) + (q.date_points or 0),
                     'is_correct_location': None,
@@ -389,10 +394,7 @@ class GameService:
         if active is not None:
             active_failed = False
             round_has_answers = (state.turn_index % len(state.setup.players)) > 0
-            if not round_has_answers and (
-                active.asset_id in payload.played_asset_ids
-                or (active.batch_assets and any(ba.asset_id in payload.played_asset_ids for ba in active.batch_assets))
-            ):
+            if not round_has_answers and any(a.asset_id in payload.played_asset_ids for a in active.round_data.assets):
                 active_failed = True
 
             if active_failed:
@@ -403,19 +405,12 @@ class GameService:
                     state.current_round_index,
                 )
                 state.active_question_id = None
-                state.round_assets.pop(state.current_round_index, None)
-                state.batch_round_assets.pop(state.current_round_index, None)
-                state.batch_round_pins.pop(state.current_round_index, None)
-                if active.batch_assets:
-                    for ba in active.batch_assets:
-                        if ba.asset_id in payload.played_asset_ids:
-                            state.played_asset_ids.add(ba.asset_id)
-                            if self.metadata_store is not None:
-                                self.metadata_store.mark_asset_invalid(ba.asset_id)
-                else:
-                    state.played_asset_ids.add(active.asset_id)
-                    if self.metadata_store is not None:
-                        self.metadata_store.mark_asset_invalid(active.asset_id)
+                state.rounds.pop(state.current_round_index, None)
+                for a in active.round_data.assets:
+                    if a.asset_id in payload.played_asset_ids:
+                        state.played_asset_ids.add(a.asset_id)
+                        if self.metadata_store is not None:
+                            self.metadata_store.mark_asset_invalid(a.asset_id)
                 active = None
             else:
                 return engine.build_question_response(state, active)
@@ -514,21 +509,28 @@ class GameService:
         engine = self.registry.get(state.setup.game_mode)
         batch_reveal, results = engine.format_round_reveal(state, reference, questions, round_index)
 
+        pinpoint_reveal = None
+        if state.setup.game_mode == GameMode.pinpoint and reference.round_data.assets:
+            pa = reference.round_data.assets[0]
+            pinpoint_reveal = PinpointReveal(
+                asset_id=pa.asset_id,
+                media_url=f'/api/media/{pa.asset_id}',
+                actual_latitude=pa.answer.latitude,
+                actual_longitude=pa.answer.longitude,
+                actual_date=pa.answer.capture_date,
+                actual_year=pa.answer.capture_date.year if pa.answer.capture_date else None,
+                actual_month=pa.answer.capture_date.month if pa.answer.capture_date else None,
+                actual_city=pa.answer.city,
+                actual_country=pa.answer.country,
+            )
+
         return RoundResultResponse(
             round_number=round_index + 1,
             total_rounds=total_rounds,
             location_mode=state.setup.location_mode,
             date_mode=state.setup.date_mode,
             game_mode=state.setup.game_mode,
-            asset_id=reference.asset_id,
-            media_url=f'/api/media/{reference.asset_id}' if reference.asset_id else None,
-            actual_latitude=reference.actual_latitude,
-            actual_longitude=reference.actual_longitude,
-            actual_date=reference.actual_date,
-            actual_year=reference.actual_date.year if reference.actual_date else None,
-            actual_month=reference.actual_date.month if reference.actual_date else None,
-            actual_city=reference.actual_city,
-            actual_country=reference.actual_country,
+            pinpoint_reveal=pinpoint_reveal,
             batch_reveal=batch_reveal,
             results=results,
             match_finished=state.finished,

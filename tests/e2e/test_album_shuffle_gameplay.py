@@ -85,6 +85,21 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
     await expect(reveal_table).to_be_visible()
     await expect(reveal_table.locator('tbody tr')).to_have_count(1)
 
+    # Verify photo breakdown cards rendered and positioned side-by-side on wide viewport
+    breakdown_cards = page.locator('#shuffle-breakdown-grid .shuffle-photo-card')
+    await expect(breakdown_cards).to_have_count(3)
+    card0_offset_left = await breakdown_cards.nth(0).evaluate('el => el.offsetLeft')
+    card1_offset_left = await breakdown_cards.nth(1).evaluate('el => el.offsetLeft')
+    card0_offset_top = await breakdown_cards.nth(0).evaluate('el => el.offsetTop')
+    card1_offset_top = await breakdown_cards.nth(1).evaluate('el => el.offsetTop')
+    assert card0_offset_left < card1_offset_left, 'Cards should be laid out horizontally side-by-side'
+    assert card0_offset_top == card1_offset_top, 'Cards should be on the same row on desktop viewports'
+
+    # Verify round meta in reveal shows round number and reveal badge, but no player chip in local match
+    await expect(page.locator('#round-meta .round-meta-number')).to_be_visible()
+    await expect(page.locator('#round-meta .round-meta-reveal-tag')).to_be_visible()
+    await expect(page.locator('#round-meta .round-meta-player')).to_have_count(0)
+
     # Verify next round button is present
-    next_btn = page.locator('#album-shuffle-reveal-ui .next-round-btn')
+    next_btn = page.locator('#next-round')
     await expect(next_btn).to_be_visible()

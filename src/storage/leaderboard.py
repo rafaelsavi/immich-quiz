@@ -11,7 +11,9 @@ from typing import Any
 from src.app_logging import LOGGER_STORAGE, get_logger
 from src.models import (
     BaseGameConfig,
+    ChallengeAlbumShuffleGuessData,
     ChallengeLeaderboardEntry,
+    ChallengePinpointGuessData,
     ChallengeRoundGuessData,
     GameMode,
     GameSetupRequest,
@@ -1365,23 +1367,38 @@ class LeaderboardStore:
         guesses: list[ChallengeRoundGuessData] = []
 
         for row in rows:
-            act_date = _parse_iso_date(row.get('actual_date'))
-            guess_date_str = row.get('guess_date')
-            g_year: int | None = None
-            g_month: int | None = None
-            if guess_date_str:
-                parts = guess_date_str.split('-')
-                if len(parts) >= 2:
-                    with contextlib.suppress(Exception):
-                        g_year = int(parts[0])
-                        g_month = int(parts[1])
+            g_mode = GameMode(row.get('game_mode', 'pinpoint'))
+            pinpoint_data = None
+            album_shuffle_data = None
 
-            guesses.append(
-                ChallengeRoundGuessData(
-                    player_name=row['player_name'],
-                    player_color=player_colors.get(row['player_name']),
-                    round_index=int(row['round_index']),
-                    game_mode=GameMode(row.get('game_mode', 'pinpoint')),
+            if g_mode == GameMode.album_shuffle:
+                album_shuffle_data = ChallengeAlbumShuffleGuessData(
+                    photo_index=int(row['photo_index']) if row.get('photo_index') is not None else 0,
+                    asset_id=row.get('asset_id'),
+                    assigned_pin_id=row.get('assigned_pin_id'),
+                    assigned_timeline_index=(
+                        int(row['assigned_timeline_index']) if row.get('assigned_timeline_index') is not None else None
+                    ),
+                    is_correct_location=(
+                        bool(row['is_correct_location']) if row.get('is_correct_location') is not None else None
+                    ),
+                    is_correct_date_order=(
+                        bool(row['is_correct_date_order']) if row.get('is_correct_date_order') is not None else None
+                    ),
+                )
+            else:
+                act_date = _parse_iso_date(row.get('actual_date'))
+                guess_date_str = row.get('guess_date')
+                g_year: int | None = None
+                g_month: int | None = None
+                if guess_date_str:
+                    parts = guess_date_str.split('-')
+                    if len(parts) >= 2:
+                        with contextlib.suppress(Exception):
+                            g_year = int(parts[0])
+                            g_month = int(parts[1])
+
+                pinpoint_data = ChallengePinpointGuessData(
                     guessed_latitude=row.get('guess_latitude'),
                     guessed_longitude=row.get('guess_longitude'),
                     actual_latitude=row.get('actual_latitude'),
@@ -1389,27 +1406,25 @@ class LeaderboardStore:
                     actual_city=row.get('actual_city'),
                     actual_country=row.get('actual_country'),
                     distance_km=row.get('distance_km'),
-                    location_points=row.get('location_points'),
                     guessed_year=g_year,
                     guessed_month=g_month,
                     actual_date=act_date,
                     date_diff_days=row.get('date_diff_days'),
+                )
+
+            guesses.append(
+                ChallengeRoundGuessData(
+                    player_name=row['player_name'],
+                    player_color=player_colors.get(row['player_name']),
+                    round_index=int(row['round_index']),
+                    game_mode=g_mode,
+                    location_points=row.get('location_points'),
                     date_points=row.get('date_points'),
                     round_score=int(row['round_score']),
                     time_taken_seconds=float(row.get('time_taken_seconds') or 0.0),
                     timed_out=bool(row.get('timed_out', 0)),
-                    is_correct_location=(
-                        bool(row['is_correct_location']) if row.get('is_correct_location') is not None else None
-                    ),
-                    is_correct_date_order=(
-                        bool(row['is_correct_date_order']) if row.get('is_correct_date_order') is not None else None
-                    ),
-                    photo_index=int(row['photo_index']) if row.get('photo_index') is not None else 0,
-                    asset_id=row.get('asset_id'),
-                    assigned_pin_id=row.get('assigned_pin_id'),
-                    assigned_timeline_index=(
-                        int(row['assigned_timeline_index']) if row.get('assigned_timeline_index') is not None else None
-                    ),
+                    pinpoint=pinpoint_data,
+                    album_shuffle=album_shuffle_data,
                 )
             )
 

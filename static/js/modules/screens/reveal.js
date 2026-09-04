@@ -1,7 +1,7 @@
 import { state, el, saveActiveMatchSession, clearActiveMatchSession } from "../state.js";
 import { api } from "../api.js";
 import { t } from "../i18n.js";
-import { formatPlace } from "../formatters.js";
+import { formatPlace, refreshRoundMeta } from "../formatters.js";
 import { updateSubmitState } from "../maps.js";
 import { markShortcutCooldown } from "../shortcuts.js";
 import { navigate } from "../router.js";
@@ -17,19 +17,21 @@ export async function showRoundReveal(roundNumber) {
   });
 
   const existingIdx = state.roundHistory.findIndex((r) => r.round_number === reveal.round_number);
+  const pr = reveal.pinpoint_reveal;
   const entry = {
     round_number: reveal.round_number,
-    asset_id: reveal.asset_id || (state.currentQuestion ? state.currentQuestion.asset_id : null),
-    media_url: reveal.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null),
-    actual_latitude: reveal.actual_latitude,
-    actual_longitude: reveal.actual_longitude,
-    actual_date: reveal.actual_date,
-    actual_year: reveal.actual_year,
-    actual_month: reveal.actual_month,
-    actual_city: reveal.actual_city,
-    actual_country: reveal.actual_country,
-    location_string: formatPlace(reveal),
+    asset_id: pr?.asset_id || (state.currentQuestion ? state.currentQuestion.asset_id : null),
+    media_url: pr?.media_url || reveal.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null),
+    actual_latitude: pr?.actual_latitude ?? null,
+    actual_longitude: pr?.actual_longitude ?? null,
+    actual_date: pr?.actual_date ?? null,
+    actual_year: pr?.actual_year ?? null,
+    actual_month: pr?.actual_month ?? null,
+    actual_city: pr?.actual_city ?? null,
+    actual_country: pr?.actual_country ?? null,
+    location_string: formatPlace(pr || reveal),
     results: reveal.results,
+    pinpoint_reveal: pr || null,
     batch_reveal: reveal.batch_reveal || null,
     location_mode: reveal.location_mode,
   };
@@ -64,6 +66,9 @@ export async function showRoundReveal(roundNumber) {
   el.guessingUi.classList.add("hidden");
   el.revealUi.classList.remove("hidden");
 
+  if (reveal.game_mode) {
+    state.gameMode = reveal.game_mode;
+  }
   const activeMode = getActiveMode();
   activeMode.renderReveal(el.revealUi, reveal);
 
@@ -71,8 +76,11 @@ export async function showRoundReveal(roundNumber) {
     el.nextRound.textContent = reveal.match_finished ? t("reveal.see_results_btn") : t("reveal.next_round_btn");
   }
 
-  const targetScrollEl = reveal.location_mode ? el.revealMapShell : el.nextRound;
-  if (targetScrollEl) {
+  const targetScrollEl =
+    reveal.game_mode === "album_shuffle"
+      ? (document.querySelector(".shuffle-breakdown-container") || el.nextRound)
+      : (reveal.location_mode ? el.revealMapShell : el.nextRound);
+  if (targetScrollEl && targetScrollEl.offsetParent !== null) {
     targetScrollEl.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   saveActiveMatchSession();
@@ -110,5 +118,20 @@ export async function handleNextRound() {
   } finally {
     state.submitting = false;
     updateSubmitState();
+  }
+}
+
+export function refreshRevealLanguage() {
+  const isRevealVisible = el.revealUi && !el.revealUi.classList.contains("hidden");
+  const revealData = state.lastReveal || (challenge && challenge.challengeSession?.currentRevealData);
+  if ((state.currentScreen === "reveal" || isRevealVisible) && revealData) {
+    const activeMode = getActiveMode();
+    activeMode?.refreshRevealText?.(el.revealUi, revealData);
+    refreshRoundMeta(el.roundMeta);
+    if (el.nextRound) {
+      el.nextRound.textContent = revealData.match_finished || revealData.is_game_over
+        ? t("reveal.see_results_btn")
+        : t("reveal.next_round_btn");
+    }
   }
 }

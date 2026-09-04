@@ -794,6 +794,7 @@ Response (`200 OK`):
 Fetches the sanitized question payload for round `round_index`. Requires `X-Player-Token` header. Sequential progression is strictly enforced (players cannot skip ahead).
 
 Headers:
+
 * `X-Player-Token`: Player session token.
 
 Response (`200 OK`):
@@ -817,6 +818,7 @@ Response (`200 OK`):
 Submits a guess for the specified round and returns immediate personal reveal scores.
 
 Headers:
+
 * `X-Player-Token`: Player session token.
 
 Request (Pinpoint Mode):
@@ -864,9 +866,11 @@ Response (`200 OK`):
 Retrieves challenge standings, overall scores, and Fog of War filtered round guesses. Polled every 3 seconds during round reviews.
 
 Headers:
+
 * `X-Player-Token`: (Optional) Player session token.
 
 **Fog of War Rules**:
+
 * Unauthenticated callers on active matches receive overall player standings (`leaderboard`), but `round_guesses` and `round_history` are strictly redacted (`[]`) to prevent inspecting future round coordinates or dates.
 * Players who supply `X-Player-Token` only see round guesses and history for rounds they have already completed ($\le \text{completed\_round}$).
 * Once the challenge concludes (or for players who have finished all rounds), full round history and guesses are visible.
@@ -954,27 +958,92 @@ Response (`200 OK`):
 
 ---
 
+## Asset Flagging & Moderation
+
+### POST /api/assets/flag
+
+Flags an asset with metadata inconsistencies (inaccurate GPS, incorrect date, or custom notes) to exclude it from future games.
+
+Form Data:
+
+* `asset_id`: String (UUID)
+* `flag_coordinates`: Boolean (optional, default `false`)
+* `flag_date`: Boolean (optional, default `false`)
+* `other`: String (optional)
+* `reported_by`: String (optional)
+
+Response (`200 OK`):
+
+```json
+{
+  "status": "flagged",
+  "asset_id": "asset-uuid-101"
+}
+```
+
+### GET /api/assets/flagged
+
+Returns a list of all currently flagged/reported assets for moderation inspection.
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "asset_id": "asset-uuid-101",
+    "flag_coordinates": true,
+    "flag_date": false,
+    "other": "GPS location is in the ocean",
+    "reported_by": "Alice",
+    "created_at": "2026-09-07T14:30:00Z"
+  }
+]
+```
+
+### DELETE /api/assets/flagged/{asset_id}
+
+Resolves a flagged asset report, unflagging the photo and re-enabling it for future game selection.
+
+Response (`200 OK`):
+
+```json
+{
+  "status": "unflagged",
+  "asset_id": "asset-uuid-101"
+}
+```
+
+---
+
 ## Anti-Cheat & Security Model
 
 Immich Quiz implements multi-layered security controls across both Local and Challenge modes:
 
 ### 1. Sanitized Question Payloads
+
 Question endpoints (`POST /api/question`, `GET /api/challenge/{token}/question/{round}`) never expose answer metadata:
+
 * No EXIF metadata, camera models, or timestamps
 * No GPS coordinates (latitude / longitude)
 * No reverse-geocoded place, city, or country names
 
 ### 2. EXIF & GPS Metadata Stripping on Image Proxies
+
 The media proxy (`GET /api/media/{asset_id}`) reads raw image bytes from Immich and scrubs all EXIF headers, GPS location tags, and creation dates in-memory before streaming bytes to the browser. Inspecting image requests in browser DevTools reveals zero geographic or temporal metadata.
 
 ### 3. Capability-Based Asset Authorization
+
 The media proxy verifies that requested assets belong to an authorized context:
+
 * In Local mode, the asset must belong to the active in-memory match session.
 * In Challenge mode, the asset must belong to a valid, registered challenge seed.
+* In Moderation mode, the asset must currently be in the flagged asset registry.
 * Arbitrary asset ID probing returns HTTP `404 Not Found`.
 
 ### 4. Server-Enforced Fog of War
+
 In Challenge mode, opponent guesses and true round coordinates are withheld until the caller has submitted their own guess for that round. Unauthenticated requests on active matches receive redacted history (`[]`).
 
 ### 5. Server-Side Timer Grace Window
+
 Turn durations (`time_taken_seconds`) are tracked on the client and validated on the backend against `round_length_seconds + 5.0s` (grace period for network latency). Excessively delayed submissions are scored with zero points.

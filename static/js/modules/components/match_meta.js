@@ -49,7 +49,7 @@ export function getMatchMetaCategories(data) {
   const filterConfig = data.config || data;
 
   const isShuffle = (data.game_mode || filterConfig.game_mode) === "album_shuffle";
-  const modeEmoji = isShuffle ? "🔀" : "📍";
+  const modeEmoji = isShuffle ? "🔀" : "🎯";
   const modeLabel = isShuffle ? t("mode.album_shuffle") : t("mode.pinpoint");
   const modeDesc = isShuffle ? t("mode.album_shuffle_desc") : t("mode.pinpoint_desc");
 

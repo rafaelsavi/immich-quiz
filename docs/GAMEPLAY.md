@@ -4,37 +4,37 @@ Immich Quiz turns your personal Immich photo collection into an engaging trivia 
 
 The game supports two distinct play modes:
 
-1. **👥 Local Match (Pass & Play)**: Gather around a single computer, tablet, or living room TV and take turns passing the device between rounds.
-2. **🌐 Multiplayer Challenges (Async & Hybrid)**: Generate a capability link or QR code so friends can play from their own phones or computers—either asynchronously at their own pace or socially in a group voice call.
+1. **👥 Local Game (Pass & Play)**: Gather around a single computer, tablet, or living room TV and take turns passing the device between rounds.
+2. **🌐 Challenges**: Generate a challenge link or QR code so friends and family can play from their own phones or computers at their own pace.
 
 ---
 
-## Setting Up a Match
+## Setting Up a Game
 
-All games begin on the main setup screen. Once configured, clicking **🎮 Prepare Game** opens a dialog allowing you to choose between launching a **Local Match** or creating a **Challenge Link**.
+All games begin on the main setup screen. Once configured, clicking **🎮 Prepare Game** opens a dialog allowing you to choose between launching a **Local Game** or creating a **Challenge Link**.
 
 ### 1. Game Mode
 
-- **🎯 Pinpoint**: 1 photo per round. Players place a pin on an interactive Leaflet map and/or guess the month and year of capture.
+- **🎯 Pinpoint**: 1 photo per round. Players click the interactive Leaflet map to place their pin and/or guess the month and year of capture.
 - **🔀 Album Shuffle**: 3 photos per round. Players match photos to lettered map pins (**A**, **B**, **C**) and/or arrange the photos in chronological sequence along a timeline.
 
-### 2. What to Guess (Targets)
+### 2. What to Guess
 
 - **Location only**: Guess where the photo was taken on the world map.
 - **Date only**: Guess the month and year the photo was captured.
 - **Location & Date**: Score points for both geographical proximity and temporal accuracy.
 
-### 3. Match Parameters
+### 3. Game Settings
 
-- **Rounds**: Choose **5**, **10**, or **20** rounds per match.
-- **Round Length**: Set a turn timer: **30s**, **1 min**, **2 min**, **5 min**, or **Unlimited**.
+- **Rounds**: Choose **5**, **10**, or **20** rounds per game.
+- **Time per Round**: Set a turn timer: **30s**, **1 min**, **2 min**, **5 min**, or **Unlimited**.
   - Timers feature silky-smooth 60 FPS transitions, adaptive formatting (`2:00` → `1:15` → `59s` → `5s`), and shifting color gradients (teal → amber → crimson).
   - Subtle audio ticks play at 10s and accelerate smoothly as time expires.
   - On timeout, inputs freeze, a yellow time-up banner appears, and zero points are scored cleanly.
 
-### 4. Library & Photo Filters (Optional)
+### 4. Photo Filters (Optional)
 
-Expand the **Library & Photo Filters** accordion to tailor your photo candidate pool:
+Expand the **Photo Filters** accordion to tailor your photo candidate pool:
 
 - **Libraries**: Select one or more Immich media libraries, or select all.
 - **Albums**: Search and select specific albums (e.g. *"Summer Vacation 2024"*).
@@ -47,19 +47,19 @@ Expand the **Library & Photo Filters** accordion to tailor your photo candidate 
 
 ### 5. Live Preflight Validation
 
-As you adjust filters, a live preflight indicator validates your library in real-time, verifying that enough diverse, geotagged, and dated photos exist to satisfy your match requirements.
+As you adjust filters, a live preflight indicator validates your library in real-time, verifying that enough diverse, geotagged, and dated photos exist to satisfy your game requirements.
 
 ---
 
-## Play Mode 1: 👥 Local Match (Pass & Play)
+## Play Style 1: 👥 Local Game (Pass & Play)
 
 Designed for parties, family gatherings, or solo play on a single screen.
 
 ### 1. Setup & Player Roster
 
-- In the **Local Match** tab of the Prepare Game modal, add players using the tag input (type a name and press **Enter** or **,**).
+- In the **Local Game** tab of the Prepare Game modal, add players using the tag input (type a name and press **Enter** or **,**).
 - Each player receives an assigned avatar badge color and distinct marker style.
-- Click **Start Match** to launch the game.
+- Click **Start Game** to launch the game.
 
 ### 2. Pass the Device
 
@@ -69,8 +69,8 @@ Designed for parties, family gatherings, or solo play on a single screen.
 ### 3. Making Your Guess
 
 - **Inspect Photo**: Click the photo or the fullscreen expand icon (`⛶`) to inspect details in high resolution with the modal lightbox.
-- **Pinpoint Location**: Click or drag your pin on the world map. Use the **Focus region** button to snap back to the album's auto-framed bounding box.
-- **Pinpoint Date**: Pick the month and year using the scroll-wheel-enabled date selectors.
+- **Pinpoint Location**: Click on the world map to place or adjust your pin. Use the **Focus region** button to snap back to the album's auto-framed bounding box.
+- **Pinpoint Date**: Pick the month and year using the date selectors.
 - **Album Shuffle Matching**: Tap a photo card to select it, then tap its matching pin on the map.
 - **Album Shuffle Timeline**: Reorder photo cards chronologically using the ▲ and ▼ buttons.
 - Click **Submit Guess** when finished.
@@ -83,22 +83,22 @@ Designed for parties, family gatherings, or solo play on a single screen.
   - Point breakdown and celebratory badges for spot-on guesses.
 - Click **Next Round** to continue to the next turn.
 
-### 5. Match Summary & Podium
+### 5. Game Summary & Podium
 
 - When all rounds conclude, celebrate with confetti, fanfare audio, and the 3D winner's podium.
-- Review the match summary table, performance awards (e.g. 🎯 *Sniper*, ⏳ *Time Traveler*, ⚡ *Speed Demon*), interactive **World Journey Map**, and the **Match Memory Cards** polaroid gallery.
+- Review the game summary table, performance awards (e.g. 🎯 *Sniper*, ⏳ *Time Traveler*, ⚡ *Speed Demon*), interactive **World Journey Map**, and the **Photo Memories** polaroid gallery.
 
 ---
 
-## Play Mode 2: 🌐 Multiplayer Challenges (Async & Hybrid)
+## Play Style 2: 🌐 Challenges
 
 Allows anyone with a browser to join a shared game on their own device.
 
 ### 1. Generating a Challenge
 
-- In the **Challenge Link** tab of the Prepare Game modal, choose an expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`) and enter the host name.
-- Click **Create Challenge** to generate an unguessable capability URL and an instant SVG QR code.
-- Share the link or QR code via chat, messaging, or email.
+- In the **Challenge Link** tab of the Prepare Game modal, choose an expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`) and enter an optional challenge title.
+- Click **Create Challenge Link** to generate an unguessable capability URL and an instant SVG QR code.
+- Share the link via the standardized share box (1-click copy, native Web Share, or expandable vector QR code).
 
 ### 2. Joining a Challenge (`/play/:token`)
 
@@ -121,25 +121,25 @@ Allows anyone with a browser to join a shared game on their own device.
 ### 5. Post-Game "Invite Friends" Intermission
 
 - Shown to **all players** upon completing the final round.
-- Provides a direct link copy button, expandable SVG QR code for friends nearby, and a live tally:
+- Features a celebratory header, standardized share box with icon-only actions (copy link, native share, collapsible vector QR code), and a live tally:
   > *"You + 2 friends have finished"*
 - Players click **🏆 See Results** when ready to view the podium.
 
 ### 6. Grand Reveal Summary (`/play/:token/summary`)
 
 - Features gold confetti, fanfare audio, and a 3D podium:
-  - **Provisional Standings**: Displayed if only 1 player has completed the match.
+  - **Provisional Standings**: Displayed if only 1 player has completed the game.
   - **Settled Podium**: Displays ranks, crowns, medals, and completed round counts (`5/5`).
 - **Mode-Specific Review**:
   - *Pinpoint*: Interactive **Round Carousel** with photo preview, lightbox zoom, multi-player scatter map with connector lines, and date comparison chips.
-  - *Album Shuffle*: Full **World Journey Map** with spiderfy clustering and **Match Memory Cards** polaroid gallery.
-- **Quick Actions**: Buttons to *Copy Invite Link*, *Copy Summary Link*, open the *Challenges Hub*, or return *Home*.
+  - *Album Shuffle*: Full **World Journey Map** with spiderfy clustering and **Photo Memories** polaroid gallery.
+- **Quick Actions**: Buttons to *Copy Invite Link*, *Copy Summary Link*, open *Challenges*, or return *Home*.
 
 ---
 
-## The Challenges Hub (`/challenges`)
+## Challenges (`/challenges`)
 
-Navigate to the **Challenges Hub** via the header navbar to track and manage all multiplayer matches:
+Navigate to **Challenges** via the header navbar to track and manage all multiplayer games:
 
 - **Search & Filter**: Search by title, host, album, or tagged person. Filter by status (**All**, **Active**, **Expired**) or game mode (**Pinpoint**, **Album Shuffle**).
 - **Share Drawer**: Expand any challenge card's header share button (`🔗`) to view the direct URL and scan the SVG QR code.

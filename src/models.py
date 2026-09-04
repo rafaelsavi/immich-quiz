@@ -571,14 +571,25 @@ class BatchPinItem(BaseModel):
     longitude: float = Field(ge=-180.0, le=180.0)
 
 
-class QuestionResponse(BaseModel):
-    """Turn and question payload delivered to the active player."""
+class BaseQuestionContent(BaseModel):
+    """Core visual and mode content delivered for a turn across game modes."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    question_id: str = Field(min_length=1)
     asset_id: str = Field(min_length=1)
     media_url: str = Field(min_length=1)
+    location_mode: bool
+    date_mode: bool
+    game_mode: GameMode = GameMode.pinpoint
+    round_length: RoundLength
+    batch_photos: list[BatchPhotoItem] | None = None
+    batch_pins: list[BatchPinItem] | None = None
+
+
+class QuestionResponse(BaseQuestionContent):
+    """Turn and question payload delivered to the active player."""
+
+    question_id: str = Field(min_length=1)
     player_name: str = Field(min_length=1)
     player_number: int = Field(ge=1)
     total_players: int = Field(ge=1)
@@ -586,12 +597,6 @@ class QuestionResponse(BaseModel):
     total_rounds_per_player: int = Field(ge=1)
     turn_number: int = Field(ge=1)
     total_turns: int = Field(ge=1)
-    location_mode: bool
-    date_mode: bool
-    game_mode: GameMode = GameMode.pinpoint
-    round_length: RoundLength
-    batch_photos: list[BatchPhotoItem] | None = None
-    batch_pins: list[BatchPinItem] | None = None
 
     @model_validator(mode='after')
     def validate_turn_and_round_numbers(self) -> QuestionResponse:
@@ -609,6 +614,72 @@ class QuestionResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class GroundTruthLocationDate(BaseModel):
+    """Actual geographic coordinates, capture date, and place details for an asset."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    actual_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
+    actual_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+    actual_date: date | None = None
+    actual_year: int | None = Field(default=None, ge=1826, le=2200)
+    actual_month: int | None = Field(default=None, ge=1, le=12)
+    actual_city: str | None = None
+    actual_country: str | None = None
+
+
+class PinpointGuessFields(BaseModel):
+    """Guessed coordinates and date fields for a pinpoint round."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    guessed_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
+    guessed_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
+    guessed_year: int | None = Field(default=None, ge=1826, le=2200)
+    guessed_month: int | None = Field(default=None, ge=1, le=12)
+
+
+class PinpointAnswerItem(PinpointGuessFields):
+    """Individual pinpoint guess payload containing location and date coordinates."""
+
+    @model_validator(mode='after')
+    def validate_pairs(self) -> PinpointAnswerItem:
+        if (self.guessed_year is None) != (self.guessed_month is None):
+            raise ValueError('guessed_year and guessed_month must be provided together')
+        if (self.guessed_latitude is None) != (self.guessed_longitude is None):
+            raise ValueError('guessed_latitude and guessed_longitude must be provided together')
+        return self
+
+
+class PinpointDeviation(BaseModel):
+    """Spatial and temporal distance deviations for a pinpoint guess."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    distance_km: float | None = Field(default=None, ge=0.0)
+    date_diff_days: int | None = Field(default=None, ge=0)
+    date_diff_months: int | None = Field(default=None, ge=0)
+
+
+class PinpointRoundResult(PinpointGuessFields, PinpointDeviation):
+    """Pinpoint guess and deviation breakdown metrics for a completed round."""
+
+    date_diff_years_part: int | None = Field(default=None, ge=0)
+    date_diff_months_part: int | None = Field(default=None, ge=0, le=11)
+    date_diff_days_part: int | None = Field(default=None, ge=0, le=31)
+
+
+class RoundScoreBreakdown(BaseModel):
+    """Location, date, round, and cumulative running total score breakdown."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    location_score: int | None = Field(default=None, ge=0)
+    date_score: int | None = Field(default=None, ge=0)
+    round_score: int = Field(ge=0)
+    total_score: int = Field(ge=0)
+
+
 class AlbumShuffleAnswerItem(BaseModel):
     """Individual photo mapping assignment submitted during an album shuffle round."""
 
@@ -619,29 +690,22 @@ class AlbumShuffleAnswerItem(BaseModel):
     assigned_timeline_index: int | None = Field(default=None, ge=0)
 
 
-class AnswerRequest(BaseModel):
-    """Player guess submission payload containing location, date, or batch shuffle assignments."""
+class BaseAnswerSubmission(BaseModel):
+    """Common timing, timeout, and mode guess fields for turn submissions."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    match_id: str = Field(min_length=1)
-    question_id: str = Field(min_length=1)
-    guessed_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
-    guessed_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
-    guessed_year: int | None = Field(default=None, ge=1826, le=2200)
-    guessed_month: int | None = Field(default=None, ge=1, le=12)
-    album_shuffle_answers: list[AlbumShuffleAnswerItem] | None = None
+    pinpoint: PinpointAnswerItem | None = None
+    album_shuffle: list[AlbumShuffleAnswerItem] | None = None
     timed_out: bool = False
     time_taken_seconds: float | None = Field(default=None, ge=0.0)
 
-    @model_validator(mode='after')
-    def validate_answer_pairs(self) -> AnswerRequest:
-        if self.album_shuffle_answers is None:
-            if (self.guessed_year is None) != (self.guessed_month is None):
-                raise ValueError('guessed_year and guessed_month must be provided together')
-            if (self.guessed_latitude is None) != (self.guessed_longitude is None):
-                raise ValueError('guessed_latitude and guessed_longitude must be provided together')
-        return self
+
+class AnswerRequest(BaseAnswerSubmission):
+    """Player guess submission payload containing location, date, or batch shuffle assignments."""
+
+    match_id: str = Field(min_length=1)
+    question_id: str = Field(min_length=1)
 
 
 class AnswerResponse(BaseModel):
@@ -670,27 +734,14 @@ class AnswerResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class PlayerRoundResult(BaseModel):
-    """Individual player result, score breakdown, and deviation metrics for a completed round."""
+class PlayerRoundResult(RoundScoreBreakdown):
+    """Individual player result, score breakdown, and mode metrics for a completed round."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
     player_name: str = Field(min_length=1)
-    guessed_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
-    guessed_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
-    guessed_year: int | None = Field(default=None, ge=1826, le=2200)
-    guessed_month: int | None = Field(default=None, ge=1, le=12)
-    location_score: int | None = Field(default=None, ge=0)
-    date_score: int | None = Field(default=None, ge=0)
-    round_score: int = Field(ge=0)
-    total_score: int = Field(ge=0)
-    distance_km: float | None = Field(default=None, ge=0.0)
-    date_diff_days: int | None = Field(default=None, ge=0)
-    date_diff_months: int | None = Field(default=None, ge=0)
-    date_diff_years_part: int | None = Field(default=None, ge=0)
-    date_diff_months_part: int | None = Field(default=None, ge=0, le=11)
-    date_diff_days_part: int | None = Field(default=None, ge=0, le=31)
     timed_out: bool = False
+    pinpoint: PinpointRoundResult | None = None
     album_shuffle_guesses: list[AlbumShuffleAnswerItem] | None = None
 
 
@@ -703,39 +754,31 @@ class RoundResultRequest(BaseModel):
     round_number: int = Field(ge=1)
 
 
-class BatchRevealItem(BaseModel):
+class BatchRevealItem(GroundTruthLocationDate):
     """Ground truth location and date details for a photo in an album shuffle batch reveal."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
 
     photo_id: str = Field(min_length=1)
     true_pin_id: str | None = None
-    actual_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
-    actual_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
-    actual_date: date | None = None
-    actual_year: int | None = Field(default=None, ge=1826, le=2200)
-    actual_month: int | None = Field(default=None, ge=1, le=12)
-    actual_city: str | None = None
-    actual_country: str | None = None
+
+
+class PinpointReveal(GroundTruthLocationDate):
+    """Ground truth location and date details for a single photo in a pinpoint reveal."""
+
+    asset_id: str = Field(min_length=1)
+    media_url: str = Field(min_length=1)
 
 
 class RoundResultResponse(BaseModel):
     """Full round result reveal containing true answers, player scores, and deviations."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     round_number: int = Field(ge=1)
     total_rounds: int = Field(ge=1)
     location_mode: bool
     date_mode: bool
     game_mode: GameMode = GameMode.pinpoint
-    asset_id: str | None = None
-    media_url: str | None = None
-    actual_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
-    actual_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
-    actual_date: date | None = None
-    actual_year: int | None = Field(default=None, ge=1826, le=2200)
-    actual_month: int | None = Field(default=None, ge=1, le=12)
-    actual_city: str | None = None
-    actual_country: str | None = None
+    pinpoint_reveal: PinpointReveal | None = None
     batch_reveal: list[BatchRevealItem] | None = None
     results: list[PlayerRoundResult]
     match_finished: bool
@@ -975,51 +1018,23 @@ class ChallengeStartResponse(BaseModel):
     participants: list[str] = Field(default_factory=list)
 
 
-class ChallengeQuestionResponse(BaseModel):
+class ChallengeQuestionResponse(BaseQuestionContent):
     """Round question payload without answer coordinates/dates (server-enforced)."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
 
     round_index: int
     total_rounds: int
-    asset_id: str
-    media_url: str
-    game_mode: GameMode
-    location_mode: bool
-    date_mode: bool
-    round_length: RoundLength
     map_bounds: MapBounds | None = None
-    # Album Shuffle batch data (None for Pinpoint mode)
-    batch_photos: list[BatchPhotoItem] | None = None
-    batch_pins: list[BatchPinItem] | None = None
 
 
-class ChallengeAnswerRequest(BaseModel):
+class ChallengeAnswerRequest(BaseAnswerSubmission):
     """Player guess submission for a challenge round.
 
     Uses guessed_year/guessed_month (not a date string) to match AnswerRequest convention.
     Supports both Pinpoint (lat/lng + year/month) and Album Shuffle (batch assignments).
     """
 
-    model_config = ConfigDict(str_strip_whitespace=True)
-
     round_index: int = Field(ge=0)
-    guessed_latitude: float | None = Field(default=None, ge=-90.0, le=90.0)
-    guessed_longitude: float | None = Field(default=None, ge=-180.0, le=180.0)
-    guessed_year: int | None = Field(default=None, ge=1826, le=2200)
-    guessed_month: int | None = Field(default=None, ge=1, le=12)
-    album_shuffle_answers: list[AlbumShuffleAnswerItem] | None = None
     time_taken_seconds: float = Field(ge=0.0)
-    timed_out: bool = False
-
-    @model_validator(mode='after')
-    def validate_answer_pairs(self) -> ChallengeAnswerRequest:
-        if self.album_shuffle_answers is None:
-            if (self.guessed_year is None) != (self.guessed_month is None):
-                raise ValueError('guessed_year and guessed_month must be provided together')
-            if (self.guessed_latitude is None) != (self.guessed_longitude is None):
-                raise ValueError('guessed_latitude and guessed_longitude must be provided together')
-        return self
 
 
 class ChallengeAnswerResponse(BaseModel):
@@ -1031,24 +1046,34 @@ class ChallengeAnswerResponse(BaseModel):
     round_score: int
     location_score: int | None = None
     date_score: int | None = None
-    distance_km: float | None = None
-    date_diff_days: int | None = None
-    date_diff_months: int | None = None
-    actual_latitude: float | None = None
-    actual_longitude: float | None = None
-    actual_date: date | None = None
-    actual_year: int | None = None
-    actual_month: int | None = None
-    actual_city: str | None = None
-    actual_country: str | None = None
     game_mode: GameMode
-    # Album Shuffle batch reveal (None for Pinpoint)
+    pinpoint_reveal: PinpointReveal | None = None
+    pinpoint_deviation: PinpointDeviation | None = None
     batch_reveal: list[BatchRevealItem] | None = None
     is_game_over: bool
     total_score: int  # Running total across all completed rounds
     total_time_seconds: float
     timed_out: bool = False
     player_color: str | None = None
+
+
+class ChallengePinpointGuessData(GroundTruthLocationDate, PinpointGuessFields, PinpointDeviation):
+    """Ground truth, guess coordinates, and deviation metrics for a pinpoint challenge round."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+class ChallengeAlbumShuffleGuessData(BaseModel):
+    """Album Shuffle photo assignment and correctness metrics for a challenge round photo."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    photo_index: int = 0
+    asset_id: str | None = None
+    assigned_pin_id: str | None = None
+    assigned_timeline_index: int | None = None
+    is_correct_location: bool | None = None
+    is_correct_date_order: bool | None = None
 
 
 class ChallengeRoundGuessData(BaseModel):
@@ -1060,29 +1085,13 @@ class ChallengeRoundGuessData(BaseModel):
     player_color: str | None = None
     round_index: int
     game_mode: GameMode
-    guessed_latitude: float | None = None
-    guessed_longitude: float | None = None
-    actual_latitude: float | None = None
-    actual_longitude: float | None = None
-    actual_city: str | None = None
-    actual_country: str | None = None
-    distance_km: float | None = None
     location_points: int | None = None
-    guessed_year: int | None = None
-    guessed_month: int | None = None
-    actual_date: date | None = None
-    date_diff_days: int | None = None
     date_points: int | None = None
     round_score: int
     time_taken_seconds: float
     timed_out: bool = False
-    # Album Shuffle batch data
-    is_correct_location: bool | None = None
-    is_correct_date_order: bool | None = None
-    photo_index: int = 0
-    asset_id: str | None = None
-    assigned_pin_id: str | None = None
-    assigned_timeline_index: int | None = None
+    pinpoint: ChallengePinpointGuessData | None = None
+    album_shuffle: ChallengeAlbumShuffleGuessData | None = None
 
 
 class ChallengeLeaderboardEntry(BaseModel):

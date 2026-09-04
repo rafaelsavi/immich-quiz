@@ -345,6 +345,12 @@ class SyncEngine:
             self._sync_warnings.pop(library_name, None)
             key = self._immich._library_key(library_name)
             current_user_id = await self._immich._current_user_id(key)
+            if not current_user_id:
+                logger.warning(
+                    'Could not resolve current authenticated user ID for library %s. '
+                    'Album ownership detection may fall back to default behavior.',
+                    library_name,
+                )
 
             # 1. Fetch & store people
             raw_people = await self._immich._request_json('GET', '/people', key)
@@ -609,6 +615,7 @@ class SyncEngine:
             if album_asset_map:
                 junction_inserts: list[tuple[str, str]] = []
                 shared_asset_updates: list[tuple[str,]] = []
+                unshared_asset_updates: list[tuple[str,]] = []
 
                 for asset_id, album_ids in album_asset_map.items():
                     for album_id in album_ids:
@@ -616,12 +623,15 @@ class SyncEngine:
                             junction_inserts.append((asset_id, album_id))
                     if album_ids & shared_album_ids:
                         shared_asset_updates.append((asset_id,))
+                    else:
+                        unshared_asset_updates.append((asset_id,))
 
-                if junction_inserts or shared_asset_updates:
+                if junction_inserts or shared_asset_updates or unshared_asset_updates:
                     self._metadata_store.link_album_assets(
                         library_name,
                         junction_inserts,
                         shared_asset_updates=shared_asset_updates,
+                        unshared_asset_updates=unshared_asset_updates,
                     )
 
             # 6. Prune missing assets (only in full sync)

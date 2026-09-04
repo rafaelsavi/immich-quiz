@@ -9,6 +9,7 @@ from src.models import (
     ChallengeAnswerRequest,
     ChallengeCreateRequest,
     ChallengeExpirationOption,
+    PinpointAnswerItem,
     RoundLength,
 )
 from src.storage.challenge import PLAYER_COLORS, ChallengeStore
@@ -393,43 +394,43 @@ def test_challenge_models_validation() -> None:
     # Valid pinpoint answer
     ans_pin = ChallengeAnswerRequest(
         round_index=0,
-        guessed_latitude=48.85,
-        guessed_longitude=2.29,
-        guessed_year=2023,
-        guessed_month=6,
+        pinpoint=PinpointAnswerItem(
+            guessed_latitude=48.85,
+            guessed_longitude=2.29,
+            guessed_year=2023,
+            guessed_month=6,
+        ),
         time_taken_seconds=8.5,
     )
-    assert ans_pin.guessed_latitude == 48.85
-    assert ans_pin.guessed_month == 6
+    assert ans_pin.pinpoint is not None
+    assert ans_pin.pinpoint.guessed_latitude == 48.85
+    assert ans_pin.pinpoint.guessed_month == 6
 
-    # Incomplete coordinate pair raises ValidationError
+    # Incomplete coordinate pair raises ValidationError on PinpointAnswerItem
     with pytest.raises(ValidationError):
-        ChallengeAnswerRequest(
-            round_index=0,
+        PinpointAnswerItem(
             guessed_latitude=48.85,
             guessed_longitude=None,
-            time_taken_seconds=5.0,
         )
 
-    # Incomplete date pair raises ValidationError
+    # Incomplete date pair raises ValidationError on PinpointAnswerItem
     with pytest.raises(ValidationError):
-        ChallengeAnswerRequest(
-            round_index=0,
+        PinpointAnswerItem(
             guessed_year=2023,
             guessed_month=None,
-            time_taken_seconds=5.0,
         )
 
     # Valid album shuffle answer
     ans_shuffle = ChallengeAnswerRequest(
         round_index=0,
-        album_shuffle_answers=[
+        album_shuffle=[
             AlbumShuffleAnswerItem(photo_id='p1', assigned_pin_id='A', assigned_timeline_index=0),
             AlbumShuffleAnswerItem(photo_id='p2', assigned_pin_id='B', assigned_timeline_index=1),
         ],
         time_taken_seconds=15.0,
     )
-    assert len(ans_shuffle.album_shuffle_answers) == 2
+    assert ans_shuffle.album_shuffle is not None
+    assert len(ans_shuffle.album_shuffle) == 2
 
     # 3. Expiration Enum
     assert ChallengeExpirationOption.TWENTY_FOUR_HOURS.value == '24h'

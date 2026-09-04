@@ -29,16 +29,19 @@ import {
   syncFullscreenButtons,
   updateMapLayerControls,
   refitAllMaps,
+  refreshMapsLanguage,
   initMapFullscreenControls,
 } from "./modules/maps.js";
-import { loadLeaderboard, handleSortClick, updateLeaderboardScope } from "./modules/leaderboard.js";
-import { clearTimer, startTimer } from "./modules/timer.js";
+import { loadLeaderboard, handleSortClick, updateLeaderboardScope, renderLeaderboard } from "./modules/leaderboard.js";
+import { clearTimer, startTimer, refreshTimerLanguage } from "./modules/timer.js";
+import { refreshRoundMeta } from "./modules/formatters.js";
 import { bindGlobalShortcuts, markShortcutCooldown } from "./modules/shortcuts.js";
 import { shareMatchSummary } from "./modules/summary/share.js";
 import {
   initPlayerInput,
   initLibraries,
   initWheelScrolls,
+  initSegmentedControls,
   refreshFilterComponentsLanguage,
   setGetActiveModeFn,
 } from "./modules/setup_filters.js";
@@ -54,15 +57,18 @@ import {
   handleAbandonGame,
   setEnsureLobbyInitializedFn,
 } from "./modules/screens/setup.js";
-import { loadQuestion, submitAnswer } from "./modules/screens/game.js";
-import { handleNextRound } from "./modules/screens/reveal.js";
+import { loadQuestion, submitAnswer, refreshGameLanguage } from "./modules/screens/game.js";
+import { handleNextRound, refreshRevealLanguage } from "./modules/screens/reveal.js";
 import { initReportModal, openReportModal } from "./modules/components/report_modal.js";
 import { initAdminModal, openAdminModal } from "./modules/admin.js";
 import {
   showMatchSummaryByMatchId,
   showGameEndedCard,
   renderSummaryContent,
+  refreshSummaryLanguage,
 } from "./modules/screens/summary.js";
+import { renderPolaroidGallery } from "./modules/summary/polaroids.js";
+import { renderSyncStatus, getLastSyncStatus } from "./modules/sync.js";
 import { challenge } from "./modules/challenge/index.js";
 import {
   initChallengesPage,
@@ -71,6 +77,11 @@ import {
   loadChallengesList,
   refreshChallengesPageLanguage,
 } from "./modules/screens/challenges.js";
+import {
+  initReportedPage,
+  openReportedPage,
+  refreshReportedPageLanguage,
+} from "./modules/screens/reported.js";
 
 // Re-export / configure global mode accessor
 
@@ -128,8 +139,17 @@ async function routeToActiveGame(matchId) {
     const summary = await api(
       `/api/match/${encodeURIComponent(matchId)}/summary?lang=${encodeURIComponent(lang)}`
     );
-    if (summary) {
+    if (summary && summary.finished) {
       navigate(`/game/${encodeURIComponent(matchId)}/summary`, { replace: true, force: true });
+      return;
+    }
+    if (summary && !summary.finished) {
+      showGameEndedCard(
+        null,
+        t("game_ended.match_in_progress_msg"),
+        t("game_ended.match_in_progress_title"),
+        "🎮"
+      );
       return;
     }
   } catch (_) {}
@@ -184,6 +204,13 @@ async function handleRoute(route) {
       challenge.reset();
       clearActiveMatchSession();
       await openChallengesPage();
+      break;
+    }
+
+    case RouteType.REPORTED: {
+      challenge.reset();
+      clearActiveMatchSession();
+      await openReportedPage();
       break;
     }
 
@@ -373,15 +400,17 @@ bindGlobalShortcuts({
       return;
     }
     if (state.currentScreen === "reveal") {
-      toggleMapFullscreen(el.revealMapShell);
+      if (el.revealShuffleMapShell && !el.revealShuffleMapShell.classList.contains("hidden")) {
+        toggleMapFullscreen(el.revealShuffleMapShell);
+      } else {
+        toggleMapFullscreen(el.revealMapShell);
+      }
     } else if (state.currentScreen === "summary") {
       toggleMapFullscreen(el.journeyMapShell);
     } else if (state.currentScreen === "guessing") {
       const mode = getActiveMode();
       if (mode?.toggleMapFullscreen) {
         mode.toggleMapFullscreen();
-      } else if (mode?.toggleShuffleMapFullscreen && mode?.isShuffleMapFullscreenActive?.()) {
-        mode.toggleShuffleMapFullscreen();
       } else {
         toggleMapFullscreen();
       }
@@ -449,18 +478,33 @@ bindGlobalShortcuts({
 function refreshActiveScreenLanguage() {
   applyLanguage();
   updateLanguageUi();
+  updateAudioUi();
+  renderSyncStatus(getLastSyncStatus());
   refreshFilterComponentsLanguage();
   updateLeaderboardScope();
+  renderLeaderboard();
+  refreshRoundMeta();
+  refreshMapsLanguage();
+  refreshTimerLanguage();
+  refreshGameLanguage();
+  refreshRevealLanguage();
   refreshChallengesPageLanguage();
+  refreshReportedPageLanguage();
   challenge.refreshLanguage?.();
+  const activeMode = getActiveMode();
+  activeMode?.refreshHelpModal?.(state.currentQuestion);
   if (state.lastSummary && !el.summaryCard.classList.contains("hidden")) {
     const lang = getLocale();
     api(`/api/match/${encodeURIComponent(state.matchId)}/summary?lang=${encodeURIComponent(lang)}`)
       .then((summary) => {
         state.lastSummary = summary;
         renderSummaryContent(summary);
+        renderPolaroidGallery(state.roundHistory);
       })
-      .catch((err) => console.warn("Failed to refresh summary language:", err));
+      .catch((err) => {
+        console.warn("Failed to refresh summary language:", err);
+        refreshSummaryLanguage();
+      });
   }
 }
 
@@ -516,9 +560,11 @@ async function ensureLobbyInitialized() {
 setEnsureLobbyInitializedFn(ensureLobbyInitialized);
 
 (async function bootstrap() {
+  initSegmentedControls();
   initReportModal();
   initAdminModal();
   initChallengesPage();
+  initReportedPage();
   initMapFullscreenControls();
   updateHeaderChallengeBadge();
   refreshActiveScreenLanguage();

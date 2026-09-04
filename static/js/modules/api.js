@@ -69,7 +69,7 @@ export function setupFilterParams() {
     ? state.filters.libraryMultiSelect.getSelectedIds()
     : [];
   const params = new URLSearchParams({
-    round_length: el.roundLength ? el.roundLength.value : "1m",
+    round_length: (el.roundLength && el.roundLength.value) || "1m",
     location_mode: String(locationMode),
     date_mode: String(dateMode),
     game_mode: gameMode,

@@ -44,7 +44,7 @@ are computed **once** at challenge creation time from the selected photo pool an
      - `Never` — Permanent link
    - **Host Name**: Enter your player name.
 4. Click **Create Challenge**. The server pre-selects the photo pool, computes frozen decay constants, stores the challenge, and returns the capability link and an instant SVG QR code.
-5. Click **📋 Copy Link** or scan the QR code to share with friends.
+5. Use the standardized share box to copy the URL, share via the native Web Share API on mobile, or scan the vector QR code with friends.
 
 ### The Challenges Hub (`/challenges`)
 
@@ -108,7 +108,7 @@ Grand Reveal Summary (/play/:token/summary)
 ### 4. Post-Game "Invite Friends" Intermission
 
 - Shown to **all players** upon completing the final round.
-- Features celebratory header, direct challenge URL copy button, collapsible SVG QR code, and a live finisher tally:
+- Features a celebratory header, standardized share box with icon-only actions (copy link, native share, collapsible vector QR code), and a live finisher tally:
   > *"You + 2 friends have finished"*
 - Players click **🏆 See Results** when ready to view the podium.
 

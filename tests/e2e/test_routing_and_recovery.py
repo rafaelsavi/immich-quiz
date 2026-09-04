@@ -120,6 +120,45 @@ async def test_active_match_reload_recovery(page: Page) -> None:
     await expect(page.locator('#leaderboard-card')).to_be_hidden()
 
 
+async def test_active_match_opened_in_new_tab_shows_in_progress_notice(page: Page) -> None:
+    """Verify reopening an in-progress local game link in a new tab displays the Match in Progress card."""
+    await page.goto('/')
+    await start_date_only_match(page, rounds=5)
+
+    await expect(page).to_have_url(re.compile(r'/game/[^/]+$'))
+    match_url = page.url
+
+    # Ready up to enter guessing screen (if pass overlay shown)
+    if await page.locator('#pass-overlay').is_visible():
+        await page.locator('#ready-btn').click()
+    await expect(page.locator('#guessing-ui')).to_be_visible()
+
+    # Open a new tab in the same browser context (isolated sessionStorage)
+    new_tab = await page.context.new_page()
+    await new_tab.goto(match_url)
+
+    # Verify new tab does NOT prematurely redirect to /summary and shows game-ended-card
+    await expect(new_tab).to_have_url(match_url)
+    await expect(new_tab.locator('#game-ended-card')).to_be_visible()
+    await expect(new_tab.locator('#summary-card')).to_be_hidden()
+    await expect(new_tab.locator('#game-ended-title')).to_contain_text(
+        re.compile(r'In Progress|Em Andamento', re.IGNORECASE)
+    )
+    await expect(new_tab.locator('#game-ended-msg')).to_contain_text(
+        re.compile(r'active in another|ativa em outra', re.IGNORECASE)
+    )
+
+    # Clicking Return to Lobby in new tab navigates to /
+    await new_tab.locator('#game-ended-lobby-btn').click()
+    await expect(new_tab).to_have_url(re.compile(r'/$'))
+    await expect(new_tab.locator('#setup-card')).to_be_visible()
+    await new_tab.close()
+
+    # Verify original tab is completely unaffected and still in active guessing phase
+    await expect(page).to_have_url(match_url)
+    await expect(page.locator('#guessing-ui')).to_be_visible()
+
+
 async def test_expired_or_invalid_match_url_navigation(page: Page) -> None:
     """Verify navigating to an unknown or expired match ID shows the Match Ended card."""
     await page.goto('/game/nonexistent-match-9999')
@@ -179,7 +218,7 @@ async def test_pass_and_play_multiplayer_ready_overlay_flow(page: Page) -> None:
         await date_card.click()
 
     # Configure 5 rounds for test
-    await page.locator('#round-count').select_option('5')
+    await page.locator('#round-count button[data-value="5"]').click()
 
     # Open prepare game modal and add a second player
     await page.locator('#prepare-game-btn').click()

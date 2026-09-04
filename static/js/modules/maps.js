@@ -53,6 +53,12 @@ export function addLayerControl(map, baseLayers) {
       toggleBtn.setAttribute("aria-label", titleText);
     }
 
+    const spans = control._container.querySelectorAll(".leaflet-control-layers-base label span");
+    if (spans.length >= 2) {
+      spans[0].setAttribute("data-i18n", "map.layer_streets");
+      spans[1].setAttribute("data-i18n", "map.layer_satellite");
+    }
+
     const updateActiveLabels = () => {
       const labels = control._container.querySelectorAll(".leaflet-control-layers-expanded label");
       labels.forEach((label) => {
@@ -78,13 +84,12 @@ export function addLayerControl(map, baseLayers) {
  * and current question answering progress.
  */
 export function updateSubmitState() {
-  const nextRoundBtns = document.querySelectorAll("#next-round, button.next-round-btn");
   if (state.submitting) {
     if (el.submitAnswer) el.submitAnswer.disabled = true;
-    nextRoundBtns.forEach((btn) => (btn.disabled = true));
+    if (el.nextRound) el.nextRound.disabled = true;
     return;
   }
-  nextRoundBtns.forEach((btn) => (btn.disabled = false));
+  if (el.nextRound) el.nextRound.disabled = false;
 
   // After a timeout the answers are frozen, but the player still has to
   // acknowledge the reveal before the screen moves on.
@@ -253,6 +258,48 @@ export function getActiveMaps() {
 export function refitAllMaps() {
   getActiveMaps().forEach((map) => {
     refitMap(map);
+  });
+}
+
+/**
+ * Dynamically refresh layer switcher controls across all active Leaflet maps.
+ */
+export function refreshMapsLanguage() {
+  const mapsToRefresh = new Set(activeMapRegistry);
+  if (state.guessMap) mapsToRefresh.add(state.guessMap);
+  if (state.revealMap) mapsToRefresh.add(state.revealMap);
+  if (state.journeyMap) mapsToRefresh.add(state.journeyMap);
+
+  mapsToRefresh.forEach((map) => {
+    if (!map) return;
+    if (map._baseLayers) {
+      addLayerControl(map, map._baseLayers);
+    } else if (map._layerControl && map._layerControl._container) {
+      const toggleBtn = map._layerControl._container.querySelector(".leaflet-control-layers-toggle");
+      if (toggleBtn) {
+        const titleText = t("map.layer_control_title");
+        toggleBtn.title = titleText;
+        toggleBtn.setAttribute("aria-label", titleText);
+      }
+      const spans = map._layerControl._container.querySelectorAll(".leaflet-control-layers-base label span");
+      if (spans.length >= 2) {
+        spans[0].textContent = ` ${t("map.layer_streets")}`;
+        spans[1].textContent = ` ${t("map.layer_satellite")}`;
+      }
+    }
+
+    const containerEl = map.getContainer ? map.getContainer() : null;
+    const shell = containerEl ? containerEl.closest(".map-shell") || containerEl : null;
+    if (shell) {
+      const resetBtn = shell.querySelector(".map-reset-zoom-btn");
+      if (resetBtn) {
+        const titleKey = map._regionalBounds ? "map.focus_region_title" : "map.reset_zoom_title";
+        resetBtn.title = t(titleKey);
+        resetBtn.setAttribute("data-i18n-title", titleKey);
+        resetBtn.setAttribute("aria-label", t(titleKey));
+        resetBtn.setAttribute("data-i18n-aria-label", titleKey);
+      }
+    }
   });
 }
 
@@ -509,9 +556,16 @@ export function applySpiderfy(
   map, trueCoords, markerByKey, spiderLines, getColor,
   overlapThreshold = 18, spiderRadius = 30,
 ) {
-  if (!map) return;
+  if (!map || !trueCoords) return;
 
-  const pinEntries = Object.entries(trueCoords);
+  const pinEntries = Object.entries(trueCoords).filter(
+    ([, coord]) =>
+      coord &&
+      typeof coord.lat === "number" &&
+      typeof coord.lng === "number" &&
+      Number.isFinite(coord.lat) &&
+      Number.isFinite(coord.lng)
+  );
   if (pinEntries.length === 0) return;
 
   // Convert every pin's true coordinate to screen pixels.
@@ -625,12 +679,12 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
   (roundHistory || []).forEach((r) => {
     if (r.batch_reveal && Array.isArray(r.batch_reveal) && r.batch_reveal.length > 0) {
       r.batch_reveal.forEach((item) => {
+        const lat = Number(item.actual_latitude);
+        const lon = Number(item.actual_longitude);
         if (
-          item.actual_latitude !== null &&
-          item.actual_latitude !== undefined &&
-          item.actual_longitude !== null &&
-          item.actual_longitude !== undefined &&
-          !(Math.abs(item.actual_latitude) < 1e-6 && Math.abs(item.actual_longitude) < 1e-6)
+          Number.isFinite(lat) &&
+          Number.isFinite(lon) &&
+          !(Math.abs(lat) < 1e-6 && Math.abs(lon) < 1e-6)
         ) {
           const locStr = formatPlace(item);
           const dateStr = item.actual_date
@@ -638,29 +692,31 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
             : "";
           allPins.push({
             label: `${r.round_number}-${item.true_pin_id}`,
-            lat: item.actual_latitude,
-            lon: item.actual_longitude,
+            lat,
+            lon,
             popupText: `<b>${t("summary.journey_round", r.round_number)} - Pin ${item.true_pin_id}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
           });
         }
       });
-    } else if (
-      r.actual_latitude !== null &&
-      r.actual_latitude !== undefined &&
-      r.actual_longitude !== null &&
-      r.actual_longitude !== undefined &&
-      !(Math.abs(r.actual_latitude) < 1e-6 && Math.abs(r.actual_longitude) < 1e-6)
-    ) {
-      const locStr = formatPlace(r);
-      const dateStr = r.actual_date
-        ? formatDate(r.actual_date, { year: "numeric", month: "short", day: "numeric" })
-        : (r.actual_year && r.actual_month ? formatMonth(r.actual_year, r.actual_month) : "");
-      allPins.push({
-        label: String(r.round_number),
-        lat: r.actual_latitude,
-        lon: r.actual_longitude,
-        popupText: `<b>${t("summary.journey_round", r.round_number)}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
-      });
+    } else {
+      const lat = Number(r.actual_latitude);
+      const lon = Number(r.actual_longitude);
+      if (
+        Number.isFinite(lat) &&
+        Number.isFinite(lon) &&
+        !(Math.abs(lat) < 1e-6 && Math.abs(lon) < 1e-6)
+      ) {
+        const locStr = formatPlace(r);
+        const dateStr = r.actual_date
+          ? formatDate(r.actual_date, { year: "numeric", month: "short", day: "numeric" })
+          : (r.actual_year && r.actual_month ? formatMonth(r.actual_year, r.actual_month) : "");
+        allPins.push({
+          label: String(r.round_number),
+          lat,
+          lon,
+          popupText: `<b>${t("summary.journey_round", r.round_number)}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
+        });
+      }
     }
   });
 
@@ -777,7 +833,23 @@ export function fitMapToBounds(map, pointsOrBounds, options = {}) {
   let bounds;
   if (Array.isArray(pointsOrBounds)) {
     if (pointsOrBounds.length === 0) return;
-    bounds = L.latLngBounds(pointsOrBounds);
+    const validPoints = pointsOrBounds.filter((p) => {
+      if (!p) return false;
+      if (typeof p.lat === "number" && typeof p.lng === "number") {
+        return Number.isFinite(p.lat) && Number.isFinite(p.lng);
+      }
+      if (Array.isArray(p) && p.length >= 2) {
+        return (
+          typeof p[0] === "number" &&
+          typeof p[1] === "number" &&
+          Number.isFinite(p[0]) &&
+          Number.isFinite(p[1])
+        );
+      }
+      return false;
+    });
+    if (validPoints.length === 0) return;
+    bounds = L.latLngBounds(validPoints);
   } else if (
     pointsOrBounds instanceof L.LatLngBounds ||
     (typeof pointsOrBounds.isValid === "function" && pointsOrBounds.isValid())
@@ -812,9 +884,17 @@ export function toggleMapFullscreen(shell) {
   const targetShell =
     shell ||
     document.fullscreenElement ||
-    (state.currentScreen === "reveal" ? el.revealMapShell : null) ||
+    (state.currentScreen === "reveal"
+      ? (el.revealShuffleMapShell && !el.revealShuffleMapShell.classList.contains("hidden")
+          ? el.revealShuffleMapShell
+          : el.revealMapShell)
+      : null) ||
     (state.currentScreen === "summary" ? el.journeyMapShell : null) ||
-    (state.currentScreen === "guessing" ? el.guessMapShell : null) ||
+    (state.currentScreen === "guessing"
+      ? (el.shuffleMapShell && !el.shuffleMapShell.classList.contains("hidden")
+          ? el.shuffleMapShell
+          : el.guessMapShell)
+      : null) ||
     document.querySelector(".map-shell:not(.hidden)");
 
   if (!targetShell && !document.fullscreenElement) return;
@@ -977,6 +1057,7 @@ export function createMapResetZoomButton(map) {
   btn.title = t(titleKey);
   btn.setAttribute("data-i18n-title", titleKey);
   btn.setAttribute("aria-label", t(titleKey));
+  btn.setAttribute("data-i18n-aria-label", titleKey);
   btn.innerHTML = RESET_ZOOM_SVG;
   if (window.L && L.DomEvent) {
     L.DomEvent.disableClickPropagation(btn);

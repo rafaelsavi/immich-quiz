@@ -29,6 +29,7 @@ export const challengeSession = {
   placedPinIds: new Set(),
 
   carouselMap: null,
+  carouselLayers: [],
   carouselMarkers: {},
   carouselSpiderLines: {},
   carouselTrueCoords: {},
@@ -205,6 +206,18 @@ export const challengeSession = {
    * Cleanup any active Leaflet maps.
    */
   cleanupMaps() {
+    if (this.carouselLayers && Array.isArray(this.carouselLayers)) {
+      this.carouselLayers.forEach((layer) => {
+        try {
+          if (this.carouselMap) this.carouselMap.removeLayer(layer);
+        } catch (_) {}
+      });
+      this.carouselLayers = [];
+    }
+    this.carouselMarkers = {};
+    this.carouselSpiderLines = {};
+    this.carouselTrueCoords = {};
+
     if (this.carouselMap) {
       try {
         unregisterActiveMap(this.carouselMap);
@@ -241,5 +254,9 @@ export const challengeSession = {
     this.cachedLeaderboardData = null;
     this.currentError = null;
     this.placedPinIds.clear();
+    this.carouselLayers = [];
+    this.carouselMarkers = {};
+    this.carouselSpiderLines = {};
+    this.carouselTrueCoords = {};
   },
 };

@@ -17,7 +17,7 @@ from src.scoring import (
     calculate_date_decay,
     calculate_location_decay,
     haversine_km,
-    location_score,
+    pinpoint_location_score,
 )
 
 
@@ -177,14 +177,14 @@ def test_scoring_rewards_city_accuracy() -> None:
     global_decay = 200.0
 
     # 5 km error in a city gives 37 points, while in global it gives 98 points
-    city_score_5km = location_score(5.0, decay_km=city_decay)
-    global_score_5km = location_score(5.0, decay_km=global_decay)
+    city_score_5km = pinpoint_location_score(5.0, decay_km=city_decay)
+    global_score_5km = pinpoint_location_score(5.0, decay_km=global_decay)
 
     assert city_score_5km == 37
     assert global_score_5km == 98
 
     # 500m (0.5 km) error in a city still gives 90 points
-    city_score_500m = location_score(0.5, decay_km=city_decay)
+    city_score_500m = pinpoint_location_score(0.5, decay_km=city_decay)
     assert city_score_500m == 90
 
 
