@@ -9,7 +9,7 @@ import pytest
 from cachetools import TTLCache
 
 from src.api.routes import FILTERS_CACHE_TTL_SECONDS, _filters_cache, invalidate_filters_cache
-from src.game.selector import load_asset_pool, select_round_asset
+from src.game.selector import load_asset_pool, select_pinpoint_round_asset
 from src.immich.client import ImmichClient
 from src.models import (
     GameSetupRequest,
@@ -376,7 +376,7 @@ async def test_selector_respects_diversity_on_round_selection() -> None:
         'a3': ImmichClient.extract_answer(asset3_far),
     }
 
-    round_asset = await select_round_asset(
+    round_asset = await select_pinpoint_round_asset(
         state,
         cast(ImmichClient, immich),
         client_excluded=set(),

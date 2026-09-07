@@ -15,13 +15,60 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await page.goto('/')
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#leaderboard-card')).to_be_visible()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
     # 2. /stats route
     await page.goto('/stats')
     await expect(page.locator('#setup-card')).to_be_visible()
     await expect(page.locator('#leaderboard-card')).to_be_visible()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
-    # 3. Unknown route
+    # 3. /challenges route
+    await page.goto('/challenges')
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+    await expect(page.locator('#challenges-nav-btn')).to_have_class(re.compile(r'active'))
+
+    # Verify both nav items are standard links with href attributes
+    await expect(page.locator('#home-nav-btn')).to_have_attribute('href', '/')
+    await expect(page.locator('#challenges-nav-btn')).to_have_attribute('href', '/challenges')
+
+    # Click home navigation link to return to lobby
+    await page.locator('#home-nav-btn').click()
+    await expect(page.locator('#setup-card')).to_be_visible()
+    await expect(page.locator('#challenges-page-card')).to_be_hidden()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
+
+    # Go back to challenges via link
+    await page.locator('#challenges-nav-btn').click()
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+
+    # Click header navigation link again: it must ALWAYS navigate to /challenges (not toggle back to lobby)
+    await page.locator('#challenges-nav-btn').click()
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+    await expect(page.locator('#challenges-nav-btn')).to_have_class(re.compile(r'active'))
+
+    # Verify opening challenges link in new tab (middle click)
+    async with page.context.expect_page() as new_tab_info:
+        await page.locator('#challenges-nav-btn').click(button='middle')
+    new_tab = await new_tab_info.value
+    await expect(new_tab).to_have_url(re.compile(r'/challenges$'))
+    await expect(new_tab.locator('#challenges-page-card')).to_be_visible()
+    await new_tab.close()
+
+    # Return to lobby via home navigation link and verify history entry navigation
+    await page.locator('#home-nav-btn').click()
+    await expect(page.locator('#setup-card')).to_be_visible()
+    await expect(page.locator('#challenges-page-card')).to_be_hidden()
+    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
+
+    await page.go_back()
+    await expect(page.locator('#challenges-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+
+    # 4. Unknown route
     await page.goto('/unknown/nested/page')
     await expect(page.locator('#game-ended-card')).to_be_visible()
     await expect(page.locator('#game-ended-title')).to_contain_text(re.compile(r'Not Found|Ended', re.IGNORECASE))
@@ -60,6 +107,7 @@ async def test_active_match_reload_recovery(page: Page) -> None:
     # 2. Submit answer to reach Reveal screen
     await page.locator('#submit-answer').click()
     await expect(page.locator('#reveal-ui')).to_be_visible()
+    await expect(page.locator('#leaderboard-card')).to_be_hidden()
 
     # 3. Reload while on Reveal screen
     await page.reload()
@@ -69,6 +117,46 @@ async def test_active_match_reload_recovery(page: Page) -> None:
     await expect(page.locator('#reveal-ui')).to_be_visible()
     await expect(page.locator('#reveal-table')).to_be_visible()
     await expect(page.locator('#next-round')).to_be_visible()
+    await expect(page.locator('#leaderboard-card')).to_be_hidden()
+
+
+async def test_active_match_opened_in_new_tab_shows_in_progress_notice(page: Page) -> None:
+    """Verify reopening an in-progress local game link in a new tab displays the Match in Progress card."""
+    await page.goto('/')
+    await start_date_only_match(page, rounds=5)
+
+    await expect(page).to_have_url(re.compile(r'/game/[^/]+$'))
+    match_url = page.url
+
+    # Ready up to enter guessing screen (if pass overlay shown)
+    if await page.locator('#pass-overlay').is_visible():
+        await page.locator('#ready-btn').click()
+    await expect(page.locator('#guessing-ui')).to_be_visible()
+
+    # Open a new tab in the same browser context (isolated sessionStorage)
+    new_tab = await page.context.new_page()
+    await new_tab.goto(match_url)
+
+    # Verify new tab does NOT prematurely redirect to /summary and shows game-ended-card
+    await expect(new_tab).to_have_url(match_url)
+    await expect(new_tab.locator('#game-ended-card')).to_be_visible()
+    await expect(new_tab.locator('#summary-card')).to_be_hidden()
+    await expect(new_tab.locator('#game-ended-title')).to_contain_text(
+        re.compile(r'In Progress|Em Andamento', re.IGNORECASE)
+    )
+    await expect(new_tab.locator('#game-ended-msg')).to_contain_text(
+        re.compile(r'active in another|ativa em outra', re.IGNORECASE)
+    )
+
+    # Clicking Return to Lobby in new tab navigates to /
+    await new_tab.locator('#game-ended-lobby-btn').click()
+    await expect(new_tab).to_have_url(re.compile(r'/$'))
+    await expect(new_tab.locator('#setup-card')).to_be_visible()
+    await new_tab.close()
+
+    # Verify original tab is completely unaffected and still in active guessing phase
+    await expect(page).to_have_url(match_url)
+    await expect(page.locator('#guessing-ui')).to_be_visible()
 
 
 async def test_expired_or_invalid_match_url_navigation(page: Page) -> None:
@@ -121,12 +209,6 @@ async def test_pass_and_play_multiplayer_ready_overlay_flow(page: Page) -> None:
     """
     await page.goto('/')
 
-    # Add a second player
-    player_input = page.locator('#player-text-input')
-    if await player_input.is_visible():
-        await player_input.fill('Bob')
-        await page.keyboard.press('Enter')
-
     # Configure date mode only
     loc_card = page.locator('#card-goal-location')
     date_card = page.locator('#card-goal-date')
@@ -136,7 +218,15 @@ async def test_pass_and_play_multiplayer_ready_overlay_flow(page: Page) -> None:
         await date_card.click()
 
     # Configure 5 rounds for test
-    await page.locator('#round-count').select_option('5')
+    await page.locator('#round-count button[data-value="5"]').click()
+
+    # Open prepare game modal and add a second player
+    await page.locator('#prepare-game-btn').click()
+    player_input = page.locator('#player-text-input')
+    if await player_input.is_visible():
+        await player_input.fill('Bob')
+        await page.keyboard.press('Enter')
+
     await page.locator('#start-match-btn').click()
     await expect(page.locator('#game-card')).to_be_visible()
 

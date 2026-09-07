@@ -9,7 +9,7 @@ from src.game.selector import (
     filter_diverse_asset_answers,
     is_asset_valid_for_batch,
     select_batch_round_assets,
-    select_round_asset,
+    select_pinpoint_round_asset,
 )
 from src.immich.client import AssetAnswer
 from src.models import GameSetupRequest, RoundLength
@@ -125,19 +125,21 @@ async def test_selector_prioritizes_diversity_with_graceful_fallback() -> None:
         latitude=48.8584, longitude=2.2945, capture_datetime=datetime(2022, 5, 1, 12, 0, 0, tzinfo=timezone.utc)
     )
     a2_clustered = AssetAnswer(
-        latitude=48.85841, longitude=2.29451, capture_datetime=datetime(2022, 5, 1, 14, 0, 0, tzinfo=timezone.utc)
+        latitude=48.8585, longitude=2.2946, capture_datetime=datetime(2022, 5, 1, 12, 0, 5, tzinfo=timezone.utc)
     )
     a3_diverse = AssetAnswer(
-        latitude=45.7640, longitude=4.8357, capture_datetime=datetime(2022, 5, 1, 16, 0, 0, tzinfo=timezone.utc)
+        latitude=40.7128, longitude=-74.0060, capture_datetime=datetime(2022, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
     )
 
+    store = SessionStore()
+    state = store.create_match(GameSetupRequest(players=['Alice'], round_count=3, round_length=RoundLength.minute_1))
     state.asset_pool = {'id-1': a1, 'id-2': a2_clustered, 'id-3': a3_diverse}
     state.played_asset_ids = {'id-1'}
 
     immich = FakeImmichClient([])
 
     # 1. When a diverse asset exists (id-3), it must be prioritized over the clustered id-2
-    selected = await select_round_asset(
+    selected = await select_pinpoint_round_asset(
         state,
         immich,
         client_excluded=set(),
@@ -149,7 +151,7 @@ async def test_selector_prioritizes_diversity_with_graceful_fallback() -> None:
 
     # 2. When only non-diverse id-2 remains unplayed, selector must gracefully fall back to id-2
     state.played_asset_ids = {'id-1', 'id-3'}
-    selected_fallback = await select_round_asset(
+    selected_fallback = await select_pinpoint_round_asset(
         state,
         immich,
         client_excluded=set(),
@@ -161,7 +163,7 @@ async def test_selector_prioritizes_diversity_with_graceful_fallback() -> None:
 
     # 3. When all assets have been played, selector returns None
     state.played_asset_ids = {'id-1', 'id-2', 'id-3'}
-    selected_empty = await select_round_asset(
+    selected_empty = await select_pinpoint_round_asset(
         state,
         immich,
         client_excluded=set(),

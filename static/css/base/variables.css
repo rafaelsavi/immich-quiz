@@ -16,6 +16,18 @@
   --border: #cbd5e1;
   --border-light: #e2e8f0;
   --bg-surface-secondary: #f8fafc;
+
+  /* Border Radius Tokens */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* Shadow Tokens */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 @media (min-width: 1200px) {

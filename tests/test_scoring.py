@@ -10,10 +10,10 @@ from src.scoring import (
     date_diff_days,
     date_diff_months,
     date_diff_parts,
-    date_score,
     haversine_km,
-    location_score,
     max_possible_score,
+    pinpoint_date_score,
+    pinpoint_location_score,
 )
 
 
@@ -29,30 +29,30 @@ def test_haversine_one_degree_of_longitude_at_equator() -> None:
     assert haversine_km(0.0, 0.0, 0.0, 1.0) == pytest.approx(111.19, abs=0.01)
 
 
-def test_location_score_formula() -> None:
-    assert location_score(0.0, decay_km=500.0) == 100
-    assert location_score(0.0, decay_km=500.0, max_points=100) == 100
-    assert location_score(0.05, decay_km=500.0, max_points=100) == 100
-    assert location_score(1.0, decay_km=500.0, max_points=100) == 100
-    assert location_score(700, decay_km=500.0, max_points=100) == 25
-    assert location_score(20000, decay_km=500.0, max_points=100) == 0
+def test_pinpoint_location_score_formula() -> None:
+    assert pinpoint_location_score(0.0, decay_km=500.0) == 100
+    assert pinpoint_location_score(0.0, decay_km=500.0, max_points=100) == 100
+    assert pinpoint_location_score(0.05, decay_km=500.0, max_points=100) == 100
+    assert pinpoint_location_score(1.0, decay_km=500.0, max_points=100) == 100
+    assert pinpoint_location_score(700, decay_km=500.0, max_points=100) == 25
+    assert pinpoint_location_score(20000, decay_km=500.0, max_points=100) == 0
 
 
-def test_location_score_supports_custom_parameters() -> None:
-    assert location_score(0.0, decay_km=500, max_points=80) == 80
-    assert location_score(500, decay_km=500, max_points=80) == 29
+def test_pinpoint_location_score_supports_custom_parameters() -> None:
+    assert pinpoint_location_score(0.0, decay_km=500, max_points=80) == 80
+    assert pinpoint_location_score(500, decay_km=500, max_points=80) == 29
 
 
-def test_date_score_formula() -> None:
-    assert date_score(0, decay_days=500.0) == 100
-    assert date_score(0, decay_days=500.0, max_points=100) == 100
-    assert date_score(500, decay_days=500.0, max_points=100) == 37
-    assert date_score(4500, decay_days=500.0, max_points=100) == 0
+def test_pinpoint_date_score_formula() -> None:
+    assert pinpoint_date_score(0, decay_days=500.0) == 100
+    assert pinpoint_date_score(0, decay_days=500.0, max_points=100) == 100
+    assert pinpoint_date_score(500, decay_days=500.0, max_points=100) == 37
+    assert pinpoint_date_score(4500, decay_days=500.0, max_points=100) == 0
 
 
-def test_date_score_supports_custom_parameters() -> None:
-    assert date_score(0, decay_days=300, max_points=75) == 75
-    assert date_score(300, decay_days=300, max_points=75) == 28
+def test_pinpoint_date_score_supports_custom_parameters() -> None:
+    assert pinpoint_date_score(0, decay_days=300, max_points=75) == 75
+    assert pinpoint_date_score(300, decay_days=300, max_points=75) == 28
 
 
 def test_date_difference_is_zero_anywhere_inside_the_guessed_month() -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -11,12 +12,15 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.api.challenge_routes import challenge_router
 from src.api.routes import invalidate_filters_cache, router
 from src.app_logging import LoggingContextMiddleware, get_logger, setup_logging
 from src.config import AppSettings, ConfigError, load_settings
+from src.game.challenge_service import ChallengeService
 from src.game.service import GameService
 from src.i18n import SupportedLanguage, parse_accept_language
 from src.immich.client import ImmichClient, ImmichClientError
+from src.storage.challenge import ChallengeStore
 from src.storage.db import DatabaseManager
 from src.storage.leaderboard import LeaderboardStore
 from src.storage.metadata import MetadataStore
@@ -47,6 +51,16 @@ def _render_index_html(
     )
 
 
+def _render_sw_js(static_path: Path) -> str:
+    """Interpolate dynamic version information into the service worker script."""
+    sw_path = static_path / 'sw.js'
+    if not sw_path.exists():
+        return ''
+    template = sw_path.read_text(encoding='utf-8')
+    version = APP_VERSION or 'dev'
+    return template.replace('{{APP_VERSION}}', version)
+
+
 def create_app(settings: AppSettings | None = None) -> FastAPI:
     """Application factory initializing storage managers, Immich client, sync engine, and FastAPI app."""
     if settings is None:
@@ -63,12 +77,19 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         metadata_store,
         on_sync_complete=invalidate_filters_cache,
     )
-    leaderboard_store = LeaderboardStore(leaderboard_db_manager)
+    leaderboard_store = LeaderboardStore(leaderboard_db_manager, metadata_store=metadata_store)
+    challenge_store = ChallengeStore(leaderboard_db_manager)
     session_store = SessionStore()
     game_service = GameService(
         session_store=session_store,
         metadata_store=metadata_store,
         immich_client=immich_client,
+        leaderboard_store=leaderboard_store,
+        settings=settings,
+    )
+    challenge_service = ChallengeService(
+        challenge_store=challenge_store,
+        metadata_store=metadata_store,
         leaderboard_store=leaderboard_store,
         settings=settings,
     )
@@ -107,11 +128,19 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         periodic_tasks: list[asyncio.Task[None]] = []
 
         async def _periodic_cleanup() -> None:
+            last_db_maintenance = time.monotonic()
+            maintenance_interval_sec = 3600 * 6  # 6 hours
             while True:
                 await asyncio.sleep(900)
                 cleaned = app.state.session_store.cleanup_expired_matches(ttl_seconds=7200)
                 if cleaned > 0:
                     logger.info('🧹 Cleaned up %d expired match session(s)', cleaned)
+                if time.monotonic() - last_db_maintenance >= maintenance_interval_sec:
+                    last_db_maintenance = time.monotonic()
+                    metadata_db_manager.checkpoint(mode='PASSIVE')
+                    metadata_db_manager.optimize()
+                    leaderboard_db_manager.checkpoint(mode='PASSIVE')
+                    leaderboard_db_manager.optimize()
 
         periodic_tasks.append(asyncio.create_task(_periodic_cleanup()))
 
@@ -135,9 +164,20 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             logger.info('🛑 Immich Quiz server shutting down')
             for t in periodic_tasks:
                 t.cancel()
+            active_sync_engine = getattr(app.state, 'sync_engine', None)
+            if active_sync_engine is not None:
+                active_sync_engine.cancel_all_syncs()
             close = getattr(app.state.immich_client, 'aclose', None)
             if close is not None:
                 await close()
+            metadata_db = getattr(app.state, 'metadata_db_manager', None)
+            if metadata_db is not None:
+                metadata_db.checkpoint(mode='TRUNCATE')
+                metadata_db.optimize()
+            leaderboard_db = getattr(app.state, 'leaderboard_db_manager', None)
+            if leaderboard_db is not None:
+                leaderboard_db.checkpoint(mode='TRUNCATE')
+                leaderboard_db.optimize()
 
     app = FastAPI(title='Immich Quiz', version=APP_VERSION, lifespan=lifespan)
     app.state.settings = settings
@@ -148,7 +188,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
     app.state.metadata_store = metadata_store
     app.state.sync_engine = sync_engine
     app.state.leaderboard_store = leaderboard_store
+    app.state.challenge_store = challenge_store
     app.state.game_service = game_service
+    app.state.challenge_service = challenge_service
     app.state.available_libraries = None
     app.state.unavailable_libraries = {}
 
@@ -160,8 +202,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=(), payment=()'
         if request.url.path.startswith('/static/'):
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response.headers['Cache-Control'] = 'no-cache, must-revalidate'
         return response
 
     static_path = Path(__file__).parent.parent / 'static'
@@ -194,14 +237,18 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         return FileResponse(static_path / 'favicons' / 'manifest.json', media_type='application/manifest+json')
 
     @app.get('/sw.js')
-    async def service_worker() -> FileResponse:
-        return FileResponse(
-            static_path / 'sw.js',
+    async def service_worker() -> Response:
+        return Response(
+            content=_render_sw_js(static_path),
             media_type='application/javascript',
-            headers={'Service-Worker-Allowed': '/'},
+            headers={
+                'Service-Worker-Allowed': '/',
+                'Cache-Control': 'no-cache, must-revalidate',
+            },
         )
 
     app.include_router(router)
+    app.include_router(challenge_router)
 
     @app.get('/{full_path:path}')
     async def spa_catch_all(request: Request, full_path: str) -> HTMLResponse:

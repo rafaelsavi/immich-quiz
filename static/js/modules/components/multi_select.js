@@ -454,6 +454,24 @@ export class MultiSelect {
     });
   }
 
+  updateLanguage() {
+    if (this.searchInputEl) {
+      this.searchInputEl.placeholder = t(this.searchPlaceholderKey);
+    }
+    if (this.clearBtnEl) {
+      this.clearBtnEl.title = t("setup.multi_select_clear");
+      this.clearBtnEl.setAttribute("aria-label", t("setup.multi_select_clear"));
+    }
+    if (this.searchClearBtnEl) {
+      this.searchClearBtnEl.title = t("setup.clear_search");
+      this.searchClearBtnEl.setAttribute("aria-label", t("setup.clear_search"));
+    }
+    this.updateTriggerUi();
+    if (this.isOpen) {
+      this.renderOptions();
+    }
+  }
+
   _notifyChange() {
     this.onChange(this.getSelectedIds(), this.getSelectedItems());
   }

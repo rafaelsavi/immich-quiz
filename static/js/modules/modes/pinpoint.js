@@ -1,7 +1,8 @@
 import { t } from "../i18n.js";
 import { el, state } from "../state.js";
-import { ensureGuessMap, ensureRevealMap, createPinIcon, createPopPinIcon, toggleMapFullscreen, fitMapToBounds, unregisterActiveMap } from "../maps.js";
+import { ensureGuessMap, ensureRevealMap, createPinIcon, createPopPinIcon, toggleMapFullscreen, fitMapToBounds, spawnPinPulseEffect, unregisterActiveMap } from "../maps.js";
 import { renderGuessingModeSettings } from "./common.js";
+import { openPhotoLightbox } from "../components/lightbox.js";
 import {
   ACTUAL_COLOR,
   playerColor,
@@ -21,7 +22,8 @@ import {
   launchGoldConfetti,
   launchStarBurst,
 } from "../effects.js";
-import { playChime } from "../audio.js";
+import { playChime, playPinDropSound } from "../audio.js";
+import { challenge } from "../challenge/index.js";
 
 const EARLIEST_YEAR = 1930;
 const SMART_MAP_MAX_INITIAL_ZOOM = 13;
@@ -168,85 +170,100 @@ function clearRevealAnimation() {
 
 
 function renderRevealSummary(reveal, skipEffects = false) {
+  const activePlayer = challenge && challenge.isActive() ? challenge.challengeSession?.sessionPlayerName : null;
   renderRoundMeta(el.roundMeta, {
     roundNum: reveal.round_number,
     totalRounds: reveal.total_rounds,
     isReveal: true,
+    playerName: activePlayer,
   });
 
   el.revealActual.replaceChildren();
-  const heading = document.createElement("div");
-  heading.textContent = t("reveal.correct_answer");
-  el.revealActual.appendChild(heading);
 
-  if (reveal.date_mode) {
-    const dateLine = document.createElement("span");
-    dateLine.textContent = `${t("reveal.actual_date")} ${formatMonth(reveal.actual_year, reveal.actual_month)}`;
-    el.revealActual.appendChild(dateLine);
+  const pr = reveal.pinpoint_reveal;
+  if (reveal.date_mode && pr) {
+    const dateChip = document.createElement("span");
+    dateChip.className = "reveal-actual-chip reveal-chip-date";
+
+    const dateIcon = document.createElement("span");
+    dateIcon.className = "reveal-chip-icon";
+    dateIcon.setAttribute("aria-hidden", "true");
+    dateIcon.textContent = "📅";
+
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "reveal-chip-label";
+    labelSpan.setAttribute("data-i18n", "reveal.actual_date");
+    labelSpan.textContent = t("reveal.actual_date");
+
+    const valSpan = document.createElement("strong");
+    valSpan.className = "reveal-chip-val";
+    valSpan.textContent = ` ${formatMonth(pr.actual_year, pr.actual_month)}`;
+
+    dateChip.append(dateIcon, labelSpan, valSpan);
+    el.revealActual.appendChild(dateChip);
   }
-  if (reveal.location_mode) {
-    const locLine = document.createElement("span");
-    locLine.textContent = `${t("reveal.actual_location")} ${formatPlace(reveal)}`;
-    el.revealActual.appendChild(locLine);
-  }
+  if (reveal.location_mode && pr) {
+    const locChip = document.createElement("span");
+    locChip.className = "reveal-actual-chip reveal-chip-location";
 
-  el.revealLegend.replaceChildren();
-  if (reveal.location_mode) {
-    const actualItem = document.createElement("span");
-    actualItem.className = "legend-item";
-    const actualBadge = document.createElement("span");
-    actualBadge.className = "legend-badge";
-    actualBadge.style.background = ACTUAL_COLOR;
-    actualBadge.textContent = "\u2605";
-    actualItem.append(actualBadge, document.createTextNode(t("reveal.actual_location_legend")));
-    el.revealLegend.appendChild(actualItem);
+    const locIcon = document.createElement("span");
+    locIcon.className = "reveal-chip-icon";
+    locIcon.setAttribute("aria-hidden", "true");
+    locIcon.textContent = "🗺️";
 
-    reveal.results.forEach((result) => {
-      const item = document.createElement("span");
-      item.className = "legend-item";
-      item.append(
-        playerBadge(result.player_name),
-        document.createTextNode(`${playerInitial(result.player_name)} = ${result.player_name}`)
-      );
-      el.revealLegend.appendChild(item);
-    });
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "reveal-chip-label";
+    labelSpan.setAttribute("data-i18n", "reveal.actual_location");
+    labelSpan.textContent = t("reveal.actual_location");
+
+    const valSpan = document.createElement("strong");
+    valSpan.className = "reveal-chip-val";
+    valSpan.textContent = ` ${formatPlace(pr)}`;
+
+    locChip.append(locIcon, labelSpan, valSpan);
+    el.revealActual.appendChild(locChip);
   }
 
   const groups = [];
   if (reveal.location_mode) {
     groups.push({
+      key: "reveal.col_location",
       label: t("reveal.col_location"),
       columns: [
-        { label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
-        { label: t("reveal.col_distance_error"), class: "hide-on-mobile" },
+        { key: "reveal.col_points", mobileKey: "reveal.col_location", label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
+        { key: "reveal.col_distance_error", label: t("reveal.col_distance_error"), class: "hide-on-mobile" },
       ],
     });
   }
   if (reveal.date_mode) {
     groups.push({
+      key: "reveal.col_date",
       label: t("reveal.col_date"),
       columns: [
-        { label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
-        { label: t("reveal.col_guessed"), class: "hide-on-mobile" },
-        { label: t("reveal.col_date_error"), class: "hide-on-mobile" },
+        { key: "reveal.col_points", mobileKey: "reveal.col_date", label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
+        { key: "reveal.col_guessed", label: t("reveal.col_guessed"), class: "hide-on-mobile" },
+        { key: "reveal.col_date_error", label: t("reveal.col_date_error"), class: "hide-on-mobile" },
       ],
     });
   }
   groups.push({
+    key: "reveal.col_score",
     label: t("reveal.col_score"),
     columns: [
-      { label: t("reveal.col_round"), class: "hide-on-mobile" },
-      { label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
+      { key: "reveal.col_round", label: t("reveal.col_round"), class: "hide-on-mobile" },
+      { key: "reveal.col_total", mobileKey: "reveal.col_score", label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
     ],
   });
 
   const groupRow = document.createElement("tr");
   groupRow.className = "group-head-row";
   const playerHead = buildCell(t("reveal.col_player"), true);
+  playerHead.setAttribute("data-i18n", "reveal.col_player");
   playerHead.rowSpan = 2;
   groupRow.appendChild(playerHead);
   groups.forEach((group) => {
     const cell = buildCell(group.label, true);
+    if (group.key) cell.setAttribute("data-i18n", group.key);
     cell.colSpan = group.columns.length;
     cell.className = "group-head group-start";
     groupRow.appendChild(cell);
@@ -255,6 +272,7 @@ function renderRevealSummary(reveal, skipEffects = false) {
   const columnRow = document.createElement("tr");
   columnRow.className = "column-head-row";
   const playerSubHead = buildCell(t("reveal.col_player"), true);
+  playerSubHead.setAttribute("data-i18n", "reveal.col_player");
   playerSubHead.className = "player-subhead hide-on-desktop";
   columnRow.appendChild(playerSubHead);
 
@@ -263,11 +281,13 @@ function renderRevealSummary(reveal, skipEffects = false) {
       const cell = buildCell("", true);
       const labelSpan = document.createElement("span");
       labelSpan.className = "desktop-head-label";
+      if (col.key) labelSpan.setAttribute("data-i18n", col.key);
       labelSpan.textContent = col.label;
       cell.appendChild(labelSpan);
 
       if (col.mobileLabel) {
         cell.setAttribute("data-mobile-label", col.mobileLabel);
+        if (col.mobileKey) cell.setAttribute("data-mobile-key", col.mobileKey);
       }
 
       const classes = [];
@@ -277,7 +297,8 @@ function renderRevealSummary(reveal, skipEffects = false) {
       columnRow.appendChild(cell);
     });
   });
-  el.revealTableHead.replaceChildren(groupRow, columnRow);
+  const targetTableHead = el.revealTableHead || document.querySelector("#reveal-table thead");
+  if (targetTableHead) targetTableHead.replaceChildren(groupRow, columnRow);
 
   const maxPoints = reveal.score_max_points || state.scoreMaxPoints || 100;
   const maxRoundPoints = (reveal.location_mode ? maxPoints : 0) + (reveal.date_mode ? maxPoints : 0);
@@ -287,8 +308,9 @@ function renderRevealSummary(reveal, skipEffects = false) {
   el.revealTableBody.replaceChildren();
 
   ordered.forEach((result, rIdx) => {
-    const isPerfectLocation = reveal.location_mode && (result.location_score === maxPoints || result.distance_km === 0);
-    const isPerfectDate = reveal.date_mode && (result.date_score === maxPoints || result.date_diff_days === 0);
+    const p = result.pinpoint || result;
+    const isPerfectLocation = reveal.location_mode && (result.location_score === maxPoints || p.distance_km === 0);
+    const isPerfectDate = reveal.date_mode && (result.date_score === maxPoints || p.date_diff_days === 0);
     const isPerfectRound = maxRoundPoints > 0 && result.round_score === maxRoundPoints;
     const isPerfectPlayer = isPerfectLocation || isPerfectDate || isPerfectRound;
 
@@ -309,12 +331,12 @@ function renderRevealSummary(reveal, skipEffects = false) {
       };
     }
     const ps = state.playerStats[result.player_name];
-    if (result.distance_km !== null && result.distance_km !== undefined) {
-      ps.totalDistanceKm += result.distance_km;
+    if (p.distance_km !== null && p.distance_km !== undefined) {
+      ps.totalDistanceKm += p.distance_km;
       ps.distanceCount += 1;
     }
-    if (result.date_diff_days !== null && result.date_diff_days !== undefined) {
-      ps.totalDateDiffDays += result.date_diff_days;
+    if (p.date_diff_days !== null && p.date_diff_days !== undefined) {
+      ps.totalDateDiffDays += p.date_diff_days;
       ps.dateCount += 1;
     }
     if (isPerfectLocation) ps.perfectLocationCount += 1;
@@ -339,7 +361,7 @@ function renderRevealSummary(reveal, skipEffects = false) {
 
     const valueGroups = [];
     if (reveal.location_mode) {
-      const distStr = result.guessed_latitude === null ? t("fmt.no_guess") : formatDistance(result.distance_km);
+      const distStr = p.guessed_latitude === null || p.guessed_latitude === undefined ? t("fmt.no_guess") : formatDistance(p.distance_km);
       valueGroups.push({
         isPerfect: isPerfectLocation,
         items: [
@@ -360,7 +382,7 @@ function renderRevealSummary(reveal, skipEffects = false) {
     }
     if (reveal.date_mode) {
       const dateErrStr = formatMonthError(result);
-      const guessedDateStr = formatMonth(result.guessed_year, result.guessed_month);
+      const guessedDateStr = formatMonth(p.guessed_year, p.guessed_month);
       valueGroups.push({
         isPerfect: isPerfectDate,
         items: [
@@ -455,11 +477,18 @@ function renderRevealMap(reveal) {
   state.revealLayers.forEach((layer) => state.revealMap.removeLayer(layer));
   state.revealLayers = [];
 
-  if (reveal.actual_latitude === null || reveal.actual_longitude === null) {
+  const pr = reveal.pinpoint_reveal;
+  const actualLat = pr && pr.actual_latitude != null ? Number(pr.actual_latitude) : NaN;
+  const actualLng = pr && pr.actual_longitude != null ? Number(pr.actual_longitude) : NaN;
+  if (!pr || !Number.isFinite(actualLat) || !Number.isFinite(actualLng)) {
     return;
   }
 
-  const actual = L.latLng(reveal.actual_latitude, reveal.actual_longitude);
+  const actual = L.latLng(actualLat, actualLng);
+  if (!actual || typeof actual.lat !== "number" || typeof actual.lng !== "number" || isNaN(actual.lat) || isNaN(actual.lng)) {
+    return;
+  }
+
   const actualMarker = L.marker(actual, {
     icon: createPinIcon("\u2605", ACTUAL_COLOR),
     zIndexOffset: 1000,
@@ -471,13 +500,22 @@ function renderRevealMap(reveal) {
   const points = [actual];
   const playerGuesses = [];
 
-  reveal.results.forEach((result) => {
-    if (result.guessed_latitude === null || result.guessed_longitude === null) {
+  (reveal.results || []).forEach((result) => {
+    const p = result.pinpoint || result;
+    if (!p || p.guessed_latitude == null || p.guessed_longitude == null) {
       return;
     }
-    const guessed = L.latLng(result.guessed_latitude, result.guessed_longitude);
+    const gLat = Number(p.guessed_latitude);
+    const gLng = Number(p.guessed_longitude);
+    if (!Number.isFinite(gLat) || !Number.isFinite(gLng)) {
+      return;
+    }
+    const guessed = L.latLng(gLat, gLng);
+    if (!guessed || typeof guessed.lat !== "number" || typeof guessed.lng !== "number" || isNaN(guessed.lat) || isNaN(guessed.lng)) {
+      return;
+    }
     points.push(guessed);
-    playerGuesses.push({ result, guessed });
+    playerGuesses.push({ result, guessed, distance_km: p.distance_km });
   });
 
   fitMapToBounds(state.revealMap, points, { padding: [50, 50], maxZoom: 15 });
@@ -490,25 +528,33 @@ function renderRevealMap(reveal) {
 
   state.revealAnimationTimeoutId = window.setTimeout(() => {
     state.revealAnimationTimeoutId = null;
-    const lineEntries = playerGuesses.map(({ result, guessed }) => {
-      const color = playerColor(result.player_name);
-      const line = L.polyline([actual, actual], {
-        color,
-        weight: 3,
-        dashArray: "8, 8",
-        opacity: 0.85,
-      }).addTo(state.revealMap);
-      state.revealLayers.push(line);
-      return { result, guessed, color, line };
-    });
+    if (!state.revealMap) return;
+    const lineEntries = playerGuesses
+      .filter(({ guessed }) => guessed && typeof guessed.lat === "number" && typeof guessed.lng === "number")
+      .map(({ result, guessed, distance_km }) => {
+        const color = playerColor(result.player_name);
+        const line = L.polyline([actual, actual], {
+          color,
+          weight: 3,
+          dashArray: "8, 8",
+          opacity: 0.85,
+        }).addTo(state.revealMap);
+        state.revealLayers.push(line);
+        return { result, guessed, color, line, distance_km };
+      });
 
     const startTime = performance.now();
 
     function animateAllLines(now) {
+      if (!state.revealMap) {
+        state.revealAnimationFrameId = null;
+        return;
+      }
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / lineDuration);
 
       lineEntries.forEach(({ guessed, line }) => {
+        if (!line._map || !guessed || typeof guessed.lat !== "number" || typeof actual.lat !== "number") return;
         const curLat = actual.lat + (guessed.lat - actual.lat) * progress;
         const curLng = actual.lng + (guessed.lng - actual.lng) * progress;
         line.setLatLngs([actual, [curLat, curLng]]);
@@ -518,11 +564,13 @@ function renderRevealMap(reveal) {
         state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
       } else {
         state.revealAnimationFrameId = null;
-        lineEntries.forEach(({ result, guessed, color }) => {
+        if (!state.revealMap) return;
+        lineEntries.forEach(({ result, guessed, color, distance_km }) => {
+          if (!guessed || typeof guessed.lat !== "number" || typeof guessed.lng !== "number") return;
           const icon = createPopPinIcon(playerInitial(result.player_name), color);
           const marker = L.marker(guessed, { icon })
             .addTo(state.revealMap)
-            .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(result.distance_km)));
+            .bindPopup(t("reveal.popup_guess", result.player_name, formatDistance(distance_km)));
           state.revealLayers.push(marker);
         });
       }
@@ -530,6 +578,100 @@ function renderRevealMap(reveal) {
 
     state.revealAnimationFrameId = window.requestAnimationFrame(animateAllLines);
   }, 350);
+}
+
+let helpModalInitialized = false;
+
+function ensurePinpointHelpModal() {
+  const modal = el.pinpointHelpModal || document.getElementById("pinpoint-help-modal");
+  if (!modal) return null;
+
+  if (!helpModalInitialized) {
+    helpModalInitialized = true;
+    const closeBtn = el.pinpointHelpCloseBtn || modal.querySelector(".modal-close-btn");
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => {
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+      });
+    }
+
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !modal.classList.contains("hidden")) {
+        modal.classList.add("hidden");
+        modal.setAttribute("aria-hidden", "true");
+      }
+    });
+  }
+
+  return modal;
+}
+
+function openPinpointHelpModal(questionData) {
+  const modal = ensurePinpointHelpModal();
+  if (!modal) return;
+
+  const titleEl = modal.querySelector("#pinpoint-help-title");
+  if (titleEl) titleEl.textContent = t("game.pinpoint_help_title");
+
+  const body = modal.querySelector(".pinpoint-help-body, .mode-help-body");
+  if (!body) return;
+
+  const locationMode = questionData?.location_mode !== false;
+  const dateMode = questionData?.date_mode !== false;
+
+  const sections = [];
+  if (locationMode) {
+    const locItems = [
+      t("game.pinpoint_help_location_item1"),
+      t("game.pinpoint_help_location_item2"),
+      t("game.pinpoint_help_location_item3"),
+    ].filter(s => s && s.trim());
+    sections.push(`
+      <div class="mode-help-section pinpoint-help-section">
+        <h4>${t("game.pinpoint_help_location_title")}</h4>
+        <ul>
+          ${locItems.map(item => `<li>${item}</li>`).join("")}
+        </ul>
+      </div>
+    `);
+  }
+
+  if (dateMode) {
+    const dateItems = [
+      t("game.pinpoint_help_date_item1"),
+      t("game.pinpoint_help_date_item2"),
+      t("game.pinpoint_help_date_item3"),
+    ].filter(s => s && s.trim());
+    sections.push(`
+      <div class="mode-help-section pinpoint-help-section">
+        <h4>${t("game.pinpoint_help_date_title")}</h4>
+        <ul>
+          ${dateItems.map(item => `<li>${item}</li>`).join("")}
+        </ul>
+      </div>
+    `);
+  }
+
+  sections.push(`
+    <div class="mode-help-section pinpoint-help-section">
+      <h4>${t("game.pinpoint_help_photo_title")}</h4>
+      <ul>
+        <li>${t("game.pinpoint_help_photo_item1")}</li>
+      </ul>
+    </div>
+  `);
+
+  body.innerHTML = sections.join("");
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
 }
 
 export const pinpointMode = {
@@ -577,6 +719,14 @@ export const pinpointMode = {
 
     initDateDropdowns();
 
+    if (el.quizImage) {
+      el.quizImage.onclick = () => {
+        if (el.quizImage.src) {
+          openPhotoLightbox(el.quizImage.src);
+        }
+      };
+    }
+
     if (el.quizImageFullscreen) {
       el.quizImageFullscreen.onclick = (e) => {
         e.stopPropagation();
@@ -593,6 +743,26 @@ export const pinpointMode = {
         toggleMapFullscreen(el.guessMapShell);
       };
     }
+    if (el.revealMapFullscreen) {
+      if (window.L && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(el.revealMapFullscreen);
+        L.DomEvent.disableScrollPropagation(el.revealMapFullscreen);
+      }
+      el.revealMapFullscreen.onclick = (e) => {
+        e.stopPropagation();
+        toggleMapFullscreen(el.revealMapShell);
+      };
+    }
+  },
+
+  toggleMapFullscreen() {
+    toggleMapFullscreen(el.guessMapShell);
+  },
+
+  togglePhotoFullscreen() {
+    if (el.mediaFrame) {
+      toggleMapFullscreen(el.mediaFrame);
+    }
   },
 
   setDisabled(disabled) {
@@ -601,8 +771,12 @@ export const pinpointMode = {
   },
 
   unmount() {
+    clearRevealAnimation();
     if (el.mediaFrame) {
       el.mediaFrame.classList.add("hidden");
+    }
+    if (el.quizImage) {
+      el.quizImage.onclick = null;
     }
     if (el.quizImageFullscreen) {
       el.quizImageFullscreen.classList.add("hidden");
@@ -711,11 +885,13 @@ export const pinpointMode = {
     return {
       match_id: state.matchId,
       question_id: questionData.question_id,
-      guessed_latitude: state.guessedLatLng ? state.guessedLatLng.lat : null,
-      guessed_longitude: state.guessedLatLng ? state.guessedLatLng.lng : null,
-      guessed_year: questionData.date_mode && el.dateGuessYear ? Number(el.dateGuessYear.value) : null,
-      guessed_month: questionData.date_mode && el.dateGuessMonth ? Number(el.dateGuessMonth.value) : null,
       timed_out: timedOut,
+      pinpoint: {
+        guessed_latitude: state.guessedLatLng ? state.guessedLatLng.lat : null,
+        guessed_longitude: state.guessedLatLng ? state.guessedLatLng.lng : null,
+        guessed_year: questionData.date_mode && el.dateGuessYear ? Number(el.dateGuessYear.value) : null,
+        guessed_month: questionData.date_mode && el.dateGuessMonth ? Number(el.dateGuessMonth.value) : null,
+      },
     };
   },
 
@@ -727,7 +903,7 @@ export const pinpointMode = {
 
     if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
     if (el.quizImage) {
-      const mediaUrl = revealData?.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null);
+      const mediaUrl = revealData?.pinpoint_reveal?.media_url || revealData?.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null);
       if (mediaUrl) {
         el.quizImage.src = mediaUrl;
       }
@@ -744,5 +920,89 @@ export const pinpointMode = {
     renderRevealSummary(revealData, true);
   },
 
-  openHelp(questionData) { },
+  addOpponentReveal(revealUi, revealData, newOpponents) {
+    renderRevealSummary(revealData, true);
+
+    const pr = revealData.pinpoint_reveal;
+    const actualLat = pr && pr.actual_latitude != null ? Number(pr.actual_latitude) : NaN;
+    const actualLng = pr && pr.actual_longitude != null ? Number(pr.actual_longitude) : NaN;
+    if (
+      revealData.location_mode &&
+      state.revealMap &&
+      Number.isFinite(actualLat) &&
+      Number.isFinite(actualLng)
+    ) {
+      const actual = L.latLng(actualLat, actualLng);
+      if (!actual || typeof actual.lat !== "number" || typeof actual.lng !== "number") return;
+
+      (newOpponents || []).forEach((opponent) => {
+        const op = opponent.pinpoint || opponent;
+        if (!op || op.guessed_latitude == null || op.guessed_longitude == null) return;
+        const gLat = Number(op.guessed_latitude);
+        const gLng = Number(op.guessed_longitude);
+        if (!Number.isFinite(gLat) || !Number.isFinite(gLng)) return;
+
+        const guessed = L.latLng(gLat, gLng);
+        if (!guessed || typeof guessed.lat !== "number" || typeof guessed.lng !== "number") return;
+
+        const color = playerColor(opponent.player_name);
+        const line = L.polyline([actual, guessed], {
+          color,
+          weight: 3,
+          dashArray: "8, 8",
+          opacity: 0.85,
+        }).addTo(state.revealMap);
+        state.revealLayers.push(line);
+
+        const icon = createPopPinIcon(playerInitial(opponent.player_name), color);
+        const marker = L.marker(guessed, { icon })
+          .addTo(state.revealMap)
+          .bindPopup(t("reveal.popup_guess", opponent.player_name, formatDistance(op.distance_km)));
+        state.revealLayers.push(marker);
+
+        spawnPinPulseEffect(state.revealMap, guessed, color);
+        playPinDropSound();
+      });
+
+      const allPoints = [actual];
+      (revealData.results || []).forEach((r) => {
+        const rp = r.pinpoint || r;
+        if (!rp || rp.guessed_latitude == null || rp.guessed_longitude == null) return;
+        const rLat = Number(rp.guessed_latitude);
+        const rLng = Number(rp.guessed_longitude);
+        if (Number.isFinite(rLat) && Number.isFinite(rLng)) {
+          const pt = L.latLng(rLat, rLng);
+          if (pt && typeof pt.lat === "number" && typeof pt.lng === "number") {
+            allPoints.push(pt);
+          }
+        }
+      });
+      if (allPoints.length > 0) {
+        fitMapToBounds(state.revealMap, allPoints, { padding: [50, 50], maxZoom: 15 });
+      }
+    }
+  },
+
+  openHelp(questionData) {
+    openPinpointHelpModal(questionData);
+  },
+
+  refreshHelpModal(questionData) {
+    const modal = document.getElementById("pinpoint-help-modal");
+    if (modal && !modal.classList.contains("hidden")) {
+      openPinpointHelpModal(questionData);
+    }
+  },
+
+  refreshQuestionLanguage(questionData) {
+    this.refreshHelpModal(questionData);
+    if (el.mapGuessWrap) {
+      const label = el.mapGuessWrap.querySelector("label");
+      if (label) label.textContent = t("game.location_guess_label");
+    }
+    if (el.dateGuessWrap) {
+      const label = el.dateGuessWrap.querySelector("label");
+      if (label) label.textContent = t("game.date_guess_label");
+    }
+  },
 };

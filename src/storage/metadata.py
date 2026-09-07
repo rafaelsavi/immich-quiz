@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass, replace
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from typing import Any
 
 from src.app_logging import LOGGER_STORAGE, get_logger
@@ -218,6 +218,11 @@ class MetadataStore:
         self._db = db
         self.init_schema()
 
+    @property
+    def db(self) -> DatabaseManager:
+        """Return the underlying DatabaseManager instance."""
+        return self._db
+
     def init_schema(self) -> None:
         """Initialize metadata database schema tables and indices."""
         self._db.execute_script(SCHEMA_SQL)
@@ -226,6 +231,25 @@ class MetadataStore:
         if 'reported_by' not in columns:
             with self._db.connection() as conn:
                 conn.execute('ALTER TABLE flagged_assets ADD COLUMN reported_by TEXT')
+
+        # Safeguard: Reset erroneously latched is_shared flags for assets
+        # that are associated with albums but not in any shared album for their library
+        with self._db.connection() as conn:
+            conn.execute(
+                """
+                UPDATE assets SET is_shared = 0
+                WHERE is_shared = 1
+                  AND EXISTS (
+                    SELECT 1 FROM asset_albums aa
+                    WHERE aa.asset_id = assets.id AND aa.library_name = assets.library_name
+                  )
+                  AND NOT EXISTS (
+                    SELECT 1 FROM asset_albums aa
+                    JOIN albums alb ON aa.album_id = alb.id AND aa.library_name = alb.library_name
+                    WHERE aa.asset_id = assets.id AND aa.library_name = assets.library_name AND alb.is_shared = 1
+                  )
+                """
+            )
 
     def has_synced_assets(self, libraries: list[str] | tuple[str, ...] | None = None) -> bool:
         """Check if any photo assets are indexed for the given libraries (or across all if None)."""
@@ -243,6 +267,27 @@ class MetadataStore:
         """Look up a library_name that indexed a given asset ID."""
         row = self._db.fetch_one('SELECT library_name FROM assets WHERE id = ? LIMIT 1', (asset_id,))
         return str(row['library_name']) if row and row.get('library_name') else None
+
+    def get_asset_answer(self, asset_id: str) -> AssetAnswer | None:
+        """Look up location and date answer metadata for an asset ID."""
+        row = self._db.fetch_one(
+            'SELECT latitude, longitude, capture_datetime, city, state, country FROM assets WHERE id = ? LIMIT 1',
+            (asset_id,),
+        )
+        if not row:
+            return None
+        capture_dt: datetime | None = None
+        if row.get('capture_datetime'):
+            with contextlib.suppress(ValueError):
+                capture_dt = datetime.fromisoformat(str(row['capture_datetime']))
+        return AssetAnswer(
+            latitude=float(row['latitude']) if row.get('latitude') is not None else None,
+            longitude=float(row['longitude']) if row.get('longitude') is not None else None,
+            capture_datetime=capture_dt,
+            city=row.get('city'),
+            state=row.get('state'),
+            country=row.get('country'),
+        )
 
     def get_sync_state(self, library_name: str) -> dict[str, Any]:
         """Fetch current sync progress and state record for a library."""
@@ -458,6 +503,7 @@ class MetadataStore:
         library_name: str,
         junction_inserts: list[tuple[str, str]],
         shared_asset_updates: list[tuple[str,]] | None = None,
+        unshared_asset_updates: list[tuple[str,]] | None = None,
         *,
         clear_album_ids: set[str] | None = None,
     ) -> None:
@@ -482,6 +528,11 @@ class MetadataStore:
                 conn.executemany(
                     'UPDATE assets SET is_shared = 1, is_partner = 0 WHERE id = ? AND library_name = ?',
                     [(aid[0], library_name) for aid in shared_asset_updates],
+                )
+            if unshared_asset_updates:
+                conn.executemany(
+                    'UPDATE assets SET is_shared = 0 WHERE id = ? AND library_name = ?',
+                    [(aid[0], library_name) for aid in unshared_asset_updates],
                 )
 
     def count_library_assets(self, library_name: str) -> int:
@@ -528,8 +579,8 @@ class MetadataStore:
                 (
                     aid,
                     library_name,
-                    a['is_shared'],
-                    a['is_partner'],
+                    a.get('is_shared', 0),
+                    a.get('is_partner', 0),
                     a.get('file_type', 'IMAGE'),
                     a.get('latitude'),
                     a.get('longitude'),
@@ -916,8 +967,7 @@ class MetadataStore:
             SELECT a.id, a.latitude, a.longitude, a.capture_datetime, a.city, a.state, a.country
             FROM assets a
             WHERE {where_sql}
-            GROUP BY a.id
-            ORDER BY MIN(a.times_played) ASC, RANDOM()
+            ORDER BY a.times_played ASC, RANDOM()
             LIMIT ?
         """
         rows = self._db.fetch_all(sql, (*params, limit))
@@ -1176,6 +1226,17 @@ class MetadataStore:
         )
         return {str(r['id']).strip(): str(r['name']).strip() for r in rows if r.get('id') and r.get('name')}
 
+    def get_album_names(self, album_ids: list[str]) -> dict[str, str]:
+        """Look up album display names by ID from indexed metadata."""
+        if not album_ids:
+            return {}
+        placeholders = ', '.join('?' for _ in album_ids)
+        rows = self._db.fetch_all(
+            f'SELECT DISTINCT id, name FROM albums WHERE id IN ({placeholders})',
+            album_ids,
+        )
+        return {str(r['id']).strip(): str(r['name']).strip() for r in rows if r.get('id') and r.get('name')}
+
     def get_facet_counts(self, criteria: AssetFilterCriteria) -> FacetCounts:
         """Compute matching photo counts for each facet option under current criteria.
 
@@ -1348,7 +1409,7 @@ class MetadataStore:
         reported_at: str | None = None,
     ) -> dict[str, Any]:
         """Record or update an issue report for an asset."""
-        ts = reported_at or datetime.now(timezone.utc).isoformat()
+        ts = reported_at or datetime.now(UTC).isoformat()
         with self._db.connection() as conn:
             conn.execute(
                 """

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import time
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from src.app_logging import LOGGER_SYNC, get_logger
@@ -51,6 +51,13 @@ class SyncEngine:
     def is_any_syncing(self) -> bool:
         """Check whether any background synchronization task is actively running across all libraries."""
         return any(not t.done() for t in self._active_sync_tasks.values())
+
+    def cancel_all_syncs(self) -> None:
+        """Cancel all in-flight background synchronization tasks."""
+        for lib, task in list(self._active_sync_tasks.items()):
+            if not task.done():
+                logger.info('Cancelling active sync task for library: %s', lib)
+                task.cancel()
 
     def get_sync_status(self, available_libraries: list[str] | str | None = None) -> dict[str, Any]:
         """Fetch consolidated synchronization status dictionary for the given libraries."""
@@ -163,8 +170,8 @@ class SyncEngine:
         try:
             last_dt = datetime.fromisoformat(last_at_iso)
             if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=timezone.utc)
-            current_time = now or datetime.now(timezone.utc)
+                last_dt = last_dt.replace(tzinfo=UTC)
+            current_time = now or datetime.now(UTC)
             return (current_time - last_dt) >= timedelta(hours=interval_hours)
         except (ValueError, TypeError):
             return True
@@ -208,6 +215,9 @@ class SyncEngine:
 
         def _on_done(t: asyncio.Task[None]) -> None:
             self._active_sync_tasks.pop(library_name, None)
+            if t.cancelled():
+                logger.info('Background sync cancelled for library %s', library_name)
+                return
             try:
                 t.result()
             except Exception as exc:
@@ -335,6 +345,12 @@ class SyncEngine:
             self._sync_warnings.pop(library_name, None)
             key = self._immich._library_key(library_name)
             current_user_id = await self._immich._current_user_id(key)
+            if not current_user_id:
+                logger.warning(
+                    'Could not resolve current authenticated user ID for library %s. '
+                    'Album ownership detection may fall back to default behavior.',
+                    library_name,
+                )
 
             # 1. Fetch & store people
             raw_people = await self._immich._request_json('GET', '/people', key)
@@ -599,6 +615,7 @@ class SyncEngine:
             if album_asset_map:
                 junction_inserts: list[tuple[str, str]] = []
                 shared_asset_updates: list[tuple[str,]] = []
+                unshared_asset_updates: list[tuple[str,]] = []
 
                 for asset_id, album_ids in album_asset_map.items():
                     for album_id in album_ids:
@@ -606,12 +623,15 @@ class SyncEngine:
                             junction_inserts.append((asset_id, album_id))
                     if album_ids & shared_album_ids:
                         shared_asset_updates.append((asset_id,))
+                    else:
+                        unshared_asset_updates.append((asset_id,))
 
-                if junction_inserts or shared_asset_updates:
+                if junction_inserts or shared_asset_updates or unshared_asset_updates:
                     self._metadata_store.link_album_assets(
                         library_name,
                         junction_inserts,
                         shared_asset_updates=shared_asset_updates,
+                        unshared_asset_updates=unshared_asset_updates,
                     )
 
             # 6. Prune missing assets (only in full sync)
@@ -633,7 +653,7 @@ class SyncEngine:
                 sync_mode=sync_mode,
                 sync_stage=SyncStage.finalizing,
             )
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = datetime.now(UTC).isoformat()
             duration_sec = round(time.monotonic() - sync_start, 2)
             db_total = self._metadata_store.count_library_assets(library_name)
 
@@ -660,12 +680,25 @@ class SyncEngine:
                 duration_sec,
             )
 
+            # Flush WAL and optimize query planner statistics after batch metadata sync
+            self._metadata_store.db.checkpoint(mode='TRUNCATE')
+            self._metadata_store.db.optimize()
+
             if self._on_sync_complete is not None:
                 try:
                     self._on_sync_complete(library_name)
                 except Exception as cb_exc:
                     logger.warning('on_sync_complete callback failed for library %s: %s', library_name, cb_exc)
 
+        except asyncio.CancelledError:
+            logger.warning('Metadata sync for %s was cancelled', library_name)
+            self._metadata_store.set_sync_state(
+                library_name,
+                status=SyncStatus.idle,
+                sync_stage=SyncStage.idle,
+                error='Sync cancelled',
+            )
+            raise
         except Exception as exc:
             logger.error('Error during metadata sync for %s: %s', library_name, exc, exc_info=True)
             self._metadata_store.set_sync_state(

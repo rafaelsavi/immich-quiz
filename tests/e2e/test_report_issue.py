@@ -24,6 +24,7 @@ async def test_report_issue_modal_flow(page: Page) -> None:
         await date_card.click()
     await expect(loc_card).to_have_class(re.compile(r'active'))
 
+    await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()
 
     # 2. Handle pass overlay if shown

@@ -3,6 +3,8 @@ import { clearTimer } from "../timer.js";
 import { unregisterActiveMap } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { t } from "../i18n.js";
+import { challenge } from "../challenge/index.js";
+import { clearActivityToasts } from "../components/activity_toast.js";
 
 export function clearRevealAnimation() {
   if (state.revealAnimationFrameId !== null) {
@@ -17,11 +19,21 @@ export function clearRevealAnimation() {
 
 export function showCard(cardEl) {
   clearRevealAnimation();
-  [el.setupCard, el.gameCard, el.summaryCard, el.gameEndedCard].forEach((c) => {
+  [
+    el.setupCard,
+    el.gameCard,
+    el.summaryCard,
+    el.gameEndedCard,
+    el.challengeCard,
+    el.challengesPageCard,
+    el.reportedPageCard,
+    el.leaderboardCard,
+  ].forEach((c) => {
     if (c) c.classList.add("hidden");
   });
   if (cardEl) cardEl.classList.remove("hidden");
 }
+
 
 export function resetGameUi() {
   clearRevealAnimation();
@@ -49,6 +61,10 @@ export function resetGameUi() {
   if (el.passOverlay) el.passOverlay.classList.add("hidden");
   if (el.guessingUi) el.guessingUi.classList.add("hidden");
   if (el.revealUi) el.revealUi.classList.add("hidden");
+  document.getElementById("challenge-round-live-pill")?.remove();
+  clearActivityToasts();
+  if (el.gameRestartBtn) el.gameRestartBtn.classList.remove("hidden");
+  if (el.revealRestartBtn) el.revealRestartBtn.classList.remove("hidden");
   if (el.timeoutNotice) {
     el.timeoutNotice.classList.add("hidden");
     el.timeoutNotice.textContent = "";
@@ -66,11 +82,18 @@ export function resetGameUi() {
   if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
   if (el.revealActual) el.revealActual.replaceChildren();
-  if (el.revealLegend) el.revealLegend.replaceChildren();
   if (el.revealTableHead) el.revealTableHead.replaceChildren();
   if (el.revealTableBody) el.revealTableBody.replaceChildren();
   if (el.revealMapShell) el.revealMapShell.classList.add("hidden");
   if (el.revealMapHead) el.revealMapHead.classList.add("hidden");
+  if (el.pinpointRevealUi) el.pinpointRevealUi.classList.add("hidden");
+
+  if (el.albumShuffleRevealUi) el.albumShuffleRevealUi.classList.add("hidden");
+  if (el.shuffleBreakdownGrid) el.shuffleBreakdownGrid.replaceChildren();
+  if (el.shuffleRevealTableHead) el.shuffleRevealTableHead.replaceChildren();
+  if (el.shuffleRevealTableBody) el.shuffleRevealTableBody.replaceChildren();
+  if (el.revealShuffleMapShell) el.revealShuffleMapShell.classList.add("hidden");
+  if (el.shuffleRevealMapHead) el.shuffleRevealMapHead.classList.add("hidden");
 
   if (state.revealLayers && Array.isArray(state.revealLayers)) {
     state.revealLayers.forEach((l) => {
@@ -118,6 +141,9 @@ export function resetGameUi() {
 }
 
 export function isGameActive() {
+  if (challenge && typeof challenge.isActive === "function" && challenge.isActive()) {
+    return challenge.isGameActive();
+  }
   return Boolean(state.matchId && !state.matchFinished && !state.lastSummary);
 }
 
@@ -131,6 +157,9 @@ export function handleBeforeUnload(event) {
 
 export function confirmAbandonMatch(action = "exit") {
   if (state.startingMatch) return false;
+  if (action === "restart" && challenge && typeof challenge.isActive === "function" && challenge.isActive()) {
+    return false;
+  }
   if (!isGameActive()) return true;
 
   const label = action === "restart" ? t("game.abandon_restart") : t("game.abandon_exit");

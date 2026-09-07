@@ -19,6 +19,7 @@
       "command": "uv",
       "args": [
         "run",
+        "python",
         "-m",
         "src.main"
       ],
@@ -81,7 +82,7 @@
     {
       "label": "Run All CI Checks",
       "type": "shell",
-      "command": "uv run ruff check . ; uv run mypy src ; uv run pytest --cov=src --cov-report=term-missing",
+      "command": "uv run ruff check . ; uv run ruff format --check ; uv run mypy src ; uv run pytest --cov=src --cov-report=term-missing",
       "problemMatcher": []
     },
     {

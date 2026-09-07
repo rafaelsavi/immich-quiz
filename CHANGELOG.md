@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-09-07
+
+### Added
+
+- **Asynchronous Multiplayer Challenge Mode**:
+  - Seed-based deterministic challenges with shareable capability URLs, vector QR codes, and native 1-click sharing.
+  - Dedicated **Challenges Hub** (`/challenges`) with discovery metrics, search, status filters (Active/Expired), and interactive standings drawer.
+  - Real-time multiplayer feedback: live activity toasts, animated opponent pin drops on reveal maps, pulsing header badges, and dynamic podium transitions.
+  - Standalone summary route (`/play/:token/summary`) with mode-tailored Grand Reveal scatter maps and photo journey galleries.
+  - 16-color clash-free participant avatar palette maintained across maps, round headers, and leaderboards.
+- **Reported Asset Moderation Dashboard (`/reported`)**:
+  - Dedicated admin dashboard to search, filter, and inspect flagged assets with direct Immich Web deep links.
+  - Resolution workflow to unflag assets and return them to the active photo pool in real time.
+- **Setup Controls & Interactive Help Modals**:
+  - Tactile segmented button controls for rounds and duration with responsive mobile bottom-sheet styling.
+  - Dedicated contextual help modals for Pinpoint and Album Shuffle accessible directly from the lobby and in-game headers.
+  - Accessible modal focus trapping and native Web Share API integration with SVG icons and animated copy feedback.
+- **Universal Dynamic Localization & Automated Verification**:
+  - Seamless runtime language switching across all screens without page reloads.
+  - Automated DOM scanner and E2E test suites verifying 100% translation key parity between English and Brazilian Portuguese.
+- **Performance & Infrastructure Hardening**:
+  - Authenticated media proxy with HTTP `ETag` / `304 Not Modified` caching for smooth photo transitions.
+  - Periodic SQLite checkpointing, thread-pool offloading via `asyncio.to_thread()`, and container least-privilege non-root execution (`1000:1000`).
+  - Optimized CI/CD and release pipeline with automated changelog extraction in GitHub Releases, QEMU multi-arch Docker builds (`linux/amd64`, `linux/arm64`), and dedicated [Release Guidelines](docs/RELEASES.md).
+
+### Changed
+
+- **Terminology Standardization & UI Copy Simplification**:
+  - Unified consistent, accessible naming in English and Portuguese across navigation, game setup, play styles, and awards (e.g., *"Solo"*, *"Pass & Play"*, *"Submit Guess"*, *"Photo Memories"*).
+  - Streamlined mode descriptions, scoring documentation, and help modal instructions.
+- **Symmetric Architecture & Decoupled Game Engines**:
+  - Symmetrically decoupled data models (`PinpointReveal`, `AlbumShuffleAnswerItem`), unified backend round state (`RoundData`), and cleanly scoped frontend state.
+  - Standardized round review layout, responsive map token heights, and full-resolution lightbox support across all game modes.
+- **Dynamic Asset Stamping & Caching**:
+  - Automatic version stamping in HTML templates and Service Worker (`sw.js`) eliminating stale cache issues on upgrades.
+
+### Fixed
+
+- **Opponent Round Reveal Telemetry & Pin Placement**: Fixed game-mode detection bug in round reveals, restoring opponent distance errors, dates, timeout badges, and live participant counts.
+- **Navigation & Submission Safety**: Added in-progress match notices for new tabs and optimistic locking to prevent duplicate round submissions.
+- **Cross-Platform & Environment Compatibility**: Resolved UTF-8 console emoji logging crashes on Windows and ensured backend translation files are bundled in Docker builds.
+
 ## [2.5.0] - 2026-08-29
 
 ### Added

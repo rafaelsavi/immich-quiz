@@ -1,4 +1,4 @@
-import { state, el } from "./state.js";
+import { el } from "./state.js";
 import { t, formatDateTime, formatNumber, formatRelativeTime } from "./i18n.js";
 import { api } from "./api.js";
 

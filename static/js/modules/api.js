@@ -3,9 +3,13 @@ import { getSelectedPeopleMode } from "./setup_filters.js";
 import { getCollator } from "./i18n.js";
 
 export async function api(path, options = {}) {
+  const { headers, ...restOptions } = options;
   const response = await fetch(path, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(headers || {}),
+    },
+    ...restOptions,
   });
 
   if (!response.ok) {
@@ -65,7 +69,7 @@ export function setupFilterParams() {
     ? state.filters.libraryMultiSelect.getSelectedIds()
     : [];
   const params = new URLSearchParams({
-    round_length: el.roundLength ? el.roundLength.value : "1m",
+    round_length: (el.roundLength && el.roundLength.value) || "1m",
     location_mode: String(locationMode),
     date_mode: String(dateMode),
     game_mode: gameMode,

@@ -9,7 +9,7 @@ from fastapi import HTTPException
 
 from src.app_logging import LOGGER_MATCH, get_logger
 from src.config import AppSettings
-from src.game.selector import select_batch_round_assets, select_round_asset
+from src.game.selector import select_batch_round_assets, select_pinpoint_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     AlbumShuffleAnswerItem,
@@ -18,6 +18,9 @@ from src.models import (
     BatchPinItem,
     BatchRevealItem,
     GameMode,
+    PinpointAnswerItem,
+    PinpointDeviation,
+    PinpointRoundResult,
     PlayerRoundResult,
     QuestionResponse,
 )
@@ -29,15 +32,16 @@ from src.scoring import (
     date_diff_days,
     date_diff_months,
     date_diff_parts,
-    date_score,
     haversine_km,
-    location_score,
+    pinpoint_date_score,
+    pinpoint_location_score,
 )
 from src.storage.metadata import MetadataStore
 from src.storage.session import (
     MatchState,
     QuestionAlreadyAnsweredError,
     QuestionState,
+    RoundData,
     SessionStore,
 )
 
@@ -60,11 +64,14 @@ def build_common_question_response(
     """Construct standardized QuestionResponse payload with turn and player metadata."""
     players = state.setup.players
     player_index = players.index(question.player_name) if question.player_name in players else 0
+    if not question.round_data.assets:
+        raise ValueError(f'Question {question.question_id} has no assets in round_data')
+    primary_asset_id = question.round_data.assets[0].asset_id
 
     return QuestionResponse(
         question_id=question.question_id,
-        asset_id=question.asset_id,
-        media_url=f'/api/media/{question.asset_id}',
+        asset_id=primary_asset_id,
+        media_url=f'/api/media/{primary_asset_id}',
         player_name=question.player_name,
         player_number=player_index + 1,
         total_players=len(state.setup.players),
@@ -142,10 +149,10 @@ class PinpointEngine(BaseGameModeEngine):
         metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
         round_index = state.current_round_index
-        selection = state.round_assets.get(round_index)
-        if selection is None:
+        round_data = state.rounds.get(round_index)
+        if round_data is None:
             try:
-                selection = await select_round_asset(
+                selection = await select_pinpoint_round_asset(
                     state,
                     immich,
                     set(payload_played_asset_ids),
@@ -159,18 +166,14 @@ class PinpointEngine(BaseGameModeEngine):
 
             if selection is None:
                 raise HTTPException(status_code=404, detail='No eligible assets available')
-            state.round_assets[round_index] = selection
+            round_data = RoundData(assets=[selection])
+            state.rounds[round_index] = round_data
             if metadata_store is not None:
                 metadata_store.record_asset_played(selection.asset_id)
 
         return store.register_question(
             state.match_id,
-            asset_id=selection.asset_id,
-            actual_latitude=selection.answer.latitude,
-            actual_longitude=selection.answer.longitude,
-            actual_date=selection.answer.capture_date,
-            actual_city=selection.answer.city,
-            actual_country=selection.answer.country,
+            round_data=round_data,
         )
 
     def build_question_response(
@@ -193,36 +196,45 @@ class PinpointEngine(BaseGameModeEngine):
         delta_days: int | None = None
         delta_months: int | None = None
 
+        actual_asset = question_state.round_data.assets[0].answer
+        guess = payload.pinpoint or PinpointAnswerItem()
+
         if (
             state.setup.location_mode
-            and payload.guessed_latitude is not None
-            and payload.guessed_longitude is not None
-            and question_state.actual_latitude is not None
-            and question_state.actual_longitude is not None
+            and guess.guessed_latitude is not None
+            and guess.guessed_longitude is not None
+            and actual_asset.latitude is not None
+            and actual_asset.longitude is not None
         ):
             distance = haversine_km(
-                question_state.actual_latitude,
-                question_state.actual_longitude,
-                payload.guessed_latitude,
-                payload.guessed_longitude,
+                actual_asset.latitude,
+                actual_asset.longitude,
+                guess.guessed_latitude,
+                guess.guessed_longitude,
             )
-            location_points = location_score(
+            location_points = pinpoint_location_score(
                 distance,
                 decay_km=state.location_decay_km,
             )
 
         if (
             state.setup.date_mode
-            and payload.guessed_year is not None
-            and payload.guessed_month is not None
-            and question_state.actual_date is not None
+            and guess.guessed_year is not None
+            and guess.guessed_month is not None
+            and actual_asset.capture_date is not None
         ):
-            delta_days = date_diff_days(payload.guessed_year, payload.guessed_month, question_state.actual_date)
-            delta_months = date_diff_months(payload.guessed_year, payload.guessed_month, question_state.actual_date)
-            date_points = date_score(
+            delta_days = date_diff_days(guess.guessed_year, guess.guessed_month, actual_asset.capture_date)
+            delta_months = date_diff_months(guess.guessed_year, guess.guessed_month, actual_asset.capture_date)
+            date_points = pinpoint_date_score(
                 delta_days,
                 decay_days=state.date_decay_days,
             )
+
+        deviation = PinpointDeviation(
+            distance_km=distance,
+            date_diff_days=delta_days,
+            date_diff_months=delta_months,
+        )
 
         loc_desc = (
             f'{distance:.2f}km -> {location_points}pts (decay={state.location_decay_km:.1f}km)'
@@ -243,18 +255,13 @@ class PinpointEngine(BaseGameModeEngine):
         )
 
         try:
-            return store.apply_score(
+            return store.apply_pinpoint_score(
                 payload.match_id,
                 payload.question_id,
                 location_points,
                 date_points,
-                guessed_latitude=payload.guessed_latitude,
-                guessed_longitude=payload.guessed_longitude,
-                guessed_year=payload.guessed_year,
-                guessed_month=payload.guessed_month,
-                distance_km=distance,
-                diff_days=delta_days,
-                diff_months=delta_months,
+                guess=guess,
+                deviation=deviation,
                 timed_out=payload.timed_out,
                 time_taken_seconds=payload.time_taken_seconds,
             )
@@ -269,39 +276,45 @@ class PinpointEngine(BaseGameModeEngine):
         round_index: int,
     ) -> tuple[list[BatchRevealItem] | None, list[PlayerRoundResult]]:
         results: list[PlayerRoundResult] = []
+        actual_date = reference.round_data.assets[0].answer.capture_date
         for question in questions:
             cumulative = sum(
                 other.location_points + other.date_points
                 for other in state.questions.values()
                 if other.player_name == question.player_name and other.answered and other.round_index <= round_index
             )
+            g = question.pinpoint_guess or PinpointAnswerItem()
+            dev = question.pinpoint_deviation or PinpointDeviation()
+
             years_part, months_part, days_part = None, None, None
-            if question.date_diff_months is not None and question.date_diff_days is not None:
-                if reference.actual_date and question.guessed_year and question.guessed_month:
-                    years_part, months_part, days_part = date_diff_parts(
-                        question.guessed_year, question.guessed_month, reference.actual_date
-                    )
+            if dev.date_diff_months is not None and dev.date_diff_days is not None:
+                if actual_date and g.guessed_year and g.guessed_month:
+                    years_part, months_part, days_part = date_diff_parts(g.guessed_year, g.guessed_month, actual_date)
                 else:
-                    years_part, months_part = split_month_delta(question.date_diff_months)
-                    days_part = question.date_diff_days
+                    years_part, months_part = split_month_delta(dev.date_diff_months)
+                    days_part = dev.date_diff_days
+
+            pinpoint_result = PinpointRoundResult(
+                guessed_latitude=g.guessed_latitude,
+                guessed_longitude=g.guessed_longitude,
+                guessed_year=g.guessed_year,
+                guessed_month=g.guessed_month,
+                distance_km=dev.distance_km,
+                date_diff_days=dev.date_diff_days,
+                date_diff_months=dev.date_diff_months,
+                date_diff_years_part=years_part,
+                date_diff_months_part=months_part,
+                date_diff_days_part=days_part,
+            )
             results.append(
                 PlayerRoundResult(
                     player_name=question.player_name,
-                    guessed_latitude=question.guessed_latitude,
-                    guessed_longitude=question.guessed_longitude,
-                    guessed_year=question.guessed_year,
-                    guessed_month=question.guessed_month,
                     location_score=question.location_points if state.setup.location_mode else None,
                     date_score=question.date_points if state.setup.date_mode else None,
                     round_score=question.location_points + question.date_points,
                     total_score=cumulative,
-                    distance_km=question.distance_km,
-                    date_diff_days=question.date_diff_days,
-                    date_diff_months=question.date_diff_months,
-                    date_diff_years_part=years_part,
-                    date_diff_months_part=months_part,
-                    date_diff_days_part=days_part,
                     timed_out=question.timed_out,
+                    pinpoint=pinpoint_result,
                     album_shuffle_guesses=None,
                 )
             )
@@ -321,10 +334,9 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         metadata_store: MetadataStore | None = None,
     ) -> QuestionState:
         round_index = state.current_round_index
-        batch_selection = state.batch_round_assets.get(round_index)
-        batch_pins = state.batch_round_pins.get(round_index)
+        round_data = state.rounds.get(round_index)
 
-        if batch_selection is None or batch_pins is None:
+        if round_data is None:
             try:
                 res = await select_batch_round_assets(
                     state,
@@ -342,21 +354,14 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             if res is None:
                 raise HTTPException(status_code=404, detail='No eligible assets available')
             batch_selection, batch_pins = res
-            state.batch_round_assets[round_index] = batch_selection
-            state.batch_round_pins[round_index] = batch_pins
+            round_data = RoundData(assets=batch_selection, pins=batch_pins)
+            state.rounds[round_index] = round_data
             if metadata_store is not None:
                 metadata_store.record_assets_played([ra.asset_id for ra in batch_selection])
 
         return store.register_question(
             state.match_id,
-            asset_id=batch_selection[0].asset_id,
-            actual_latitude=batch_selection[0].answer.latitude,
-            actual_longitude=batch_selection[0].answer.longitude,
-            actual_date=batch_selection[0].answer.capture_date,
-            actual_city=batch_selection[0].answer.city,
-            actual_country=batch_selection[0].answer.country,
-            batch_assets=batch_selection,
-            batch_pins=batch_pins,
+            round_data=round_data,
         )
 
     def build_question_response(
@@ -367,22 +372,22 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         batch_photos = None
         batch_pins = None
 
-        if question.batch_assets:
+        if question.round_data.assets:
             batch_photos = [
                 BatchPhotoItem(
                     photo_id=ba.asset_id,
                     media_url=f'/api/media/{ba.asset_id}',
                 )
-                for ba in question.batch_assets
+                for ba in question.round_data.assets
             ]
-            if state.setup.location_mode and question.batch_pins:
+            if state.setup.location_mode and question.round_data.pins:
                 batch_pins = [
                     BatchPinItem(
                         pin_id=str(bp['pin_id']),
                         latitude=float(bp['latitude']),
                         longitude=float(bp['longitude']),
                     )
-                    for bp in question.batch_pins
+                    for bp in question.round_data.pins
                 ]
 
         return build_common_question_response(state, question, batch_photos=batch_photos, batch_pins=batch_pins)
@@ -396,9 +401,9 @@ class AlbumShuffleEngine(BaseGameModeEngine):
     ) -> MatchState:
         location_points = 0
         date_points = 0
-        answers = payload.album_shuffle_answers or []
-        batch_assets = question_state.batch_assets or []
-        batch_pins = question_state.batch_pins or []
+        answers = payload.album_shuffle or []
+        batch_assets = question_state.round_data.assets
+        batch_pins = question_state.round_data.pins
 
         true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in batch_pins}
         pin_coords = {
@@ -468,7 +473,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         )
 
         try:
-            return store.apply_score(
+            return store.apply_album_shuffle_score(
                 payload.match_id,
                 payload.question_id,
                 location_points,
@@ -488,8 +493,8 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         round_index: int,
     ) -> tuple[list[BatchRevealItem] | None, list[PlayerRoundResult]]:
         batch_reveal = None
-        if reference.batch_assets:
-            true_pin_map = {bp['true_asset_id']: bp['pin_id'] for bp in (reference.batch_pins or [])}
+        if reference.round_data.assets:
+            true_pin_map = {bp['true_asset_id']: bp['pin_id'] for bp in reference.round_data.pins}
             batch_reveal = [
                 BatchRevealItem(
                     photo_id=ba.asset_id,
@@ -502,7 +507,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     actual_city=ba.answer.city,
                     actual_country=ba.answer.country,
                 )
-                for ba in reference.batch_assets
+                for ba in reference.round_data.assets
             ]
 
         results: list[PlayerRoundResult] = []
@@ -512,15 +517,6 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 for other in state.questions.values()
                 if other.player_name == question.player_name and other.answered and other.round_index <= round_index
             )
-            years_part, months_part, days_part = None, None, None
-            if question.date_diff_months is not None and question.date_diff_days is not None:
-                if reference.actual_date and question.guessed_year and question.guessed_month:
-                    years_part, months_part, days_part = date_diff_parts(
-                        question.guessed_year, question.guessed_month, reference.actual_date
-                    )
-                else:
-                    years_part, months_part = split_month_delta(question.date_diff_months)
-                    days_part = question.date_diff_days
             shuffle_guesses = None
             if question.album_shuffle_guesses:
                 shuffle_guesses = [
@@ -536,21 +532,12 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             results.append(
                 PlayerRoundResult(
                     player_name=question.player_name,
-                    guessed_latitude=question.guessed_latitude,
-                    guessed_longitude=question.guessed_longitude,
-                    guessed_year=question.guessed_year,
-                    guessed_month=question.guessed_month,
                     location_score=question.location_points if state.setup.location_mode else None,
                     date_score=question.date_points if state.setup.date_mode else None,
                     round_score=question.location_points + question.date_points,
                     total_score=cumulative,
-                    distance_km=question.distance_km,
-                    date_diff_days=question.date_diff_days,
-                    date_diff_months=question.date_diff_months,
-                    date_diff_years_part=years_part,
-                    date_diff_months_part=months_part,
-                    date_diff_days_part=days_part,
                     timed_out=question.timed_out,
+                    pinpoint=None,
                     album_shuffle_guesses=shuffle_guesses,
                 )
             )

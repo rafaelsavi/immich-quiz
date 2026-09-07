@@ -18,10 +18,10 @@ Points drop off exponentially with distance ($d$) using the Haversine formula (g
 $$\text{Score} = \max\left(0, \text{round}\left(100 \times \exp\left(-\frac{d}{\text{decay\_km}}\right)\right)\right)$$
 
 - **Pool Decay ($\text{decay\_km}$)**: Dynamically calculated based on the geographic diagonal span ($D_{\text{span}}$) of candidate photos in the match pool, using **5th–95th percentile trimming** to filter out isolated airport layovers or GPS glitches:
-  $$\text{decay\_km} = \text{clamp}\left(\frac{D_{\text{span}}}{\text{LOCATION\_SPAN\_RATIO}},\; 5.0\text{ km},\; 200.0\text{ km}\right)$$
+  $$\text{decay\_km} = \text{clamp}\left(\frac{D_{\text{span}}}{\text{LOCATION\_SPAN\_RATIO}},\; 8.0\text{ km},\; 200.0\text{ km}\right)$$
   *(where $\text{LOCATION\_SPAN\_RATIO} = 10.0$ sets the decay unit to $\frac{1}{10}\text{th}$ of the map diagonal)*
 - **How it feels**:
-  - **Single City / Walking Tour** ($D_{\text{span}} \le 50\text{ km}$): Decay scales down to the floor of $\approx 5.0\text{ km}$. A $500\text{m}$ error earns $90$ points, while being $10\text{ km}$ away yields $14$ points.
+  - **Single City / Walking Tour** ($D_{\text{span}} \le 80\text{ km}$): Decay scales down to the floor of $\approx 8.0\text{ km}$. A $500\text{m}$ error earns $94$ points, while being $10\text{ km}$ away yields $29$ points.
   - **Regional / Country Match** ($D_{\text{span}} \approx 300\text{ km}$): Decay scales to $\approx 30.0\text{ km}$.
   - **Worldwide / Global Match** ($D_{\text{span}} \ge 2000\text{ km}$): Decay reaches the full $200.0\text{ km}$ ceiling.
 
@@ -68,7 +68,7 @@ $$\text{Round Score} = \max\left(0, \min\left(100, \text{round}\left(\frac{100}{
 ### 📍 Location Proximity Scoring
 
 - **Error ($d_i$)**: Physical distance (Haversine in km) between the photo's true location and the assigned map pin's location ($0\text{ km}$ if matched to its exact pin).
-- **Batch Spatial Decay ($\text{decay\_km}$)**: Dynamically calculated from the bounding box diagonal span of the active batch's 3 pins via `calculate_location_decay(batch_assets)`, clamped to $[5.0\text{ km},\; 200.0\text{ km}]$.
+- **Batch Spatial Decay ($\text{decay\_km}$)**: Dynamically calculated from the bounding box diagonal span of the active batch's 3 pins via `calculate_location_decay(batch_assets)`, clamped to $[8.0\text{ km},\; 200.0\text{ km}]$.
 - **How it feels**:
   - **Exact pin match** ($d = 0\text{ km}$): Earns the full $33.33\text{ pts}$ for that photo.
   - **Local pin swap in a worldwide match** (e.g., swapping two Paris pins $3\text{ km}$ apart when the round includes Paris, Rome, and Tokyo): In a $200\text{ km}$ decay pool, $\exp(-3/200) \approx 0.985 \rightarrow 32.8\text{ pts}$ each ($\approx 99\text{ pts}$ total round score).

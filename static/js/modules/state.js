@@ -29,7 +29,29 @@ export const state = {
   lastSummary: null,
   playedAssetIds: [],
   currentQuestion: null,
-  guessedLatLng: null,
+  // Pinpoint mode map guessing state
+  pinpointState: {
+    guessedLatLng: null,
+    guessMarker: null,
+  },
+  get guessedLatLng() {
+    return this.pinpointState?.guessedLatLng ?? null;
+  },
+  set guessedLatLng(val) {
+    if (!this.pinpointState) {
+      this.pinpointState = { guessedLatLng: null, guessMarker: null };
+    }
+    this.pinpointState.guessedLatLng = val;
+  },
+  get guessMarker() {
+    return this.pinpointState?.guessMarker ?? null;
+  },
+  set guessMarker(val) {
+    if (!this.pinpointState) {
+      this.pinpointState = { guessedLatLng: null, guessMarker: null };
+    }
+    this.pinpointState.guessMarker = val;
+  },
   mapBounds: null,
   filters: {
     albumMultiSelect: null,
@@ -38,6 +60,7 @@ export const state = {
     peopleMultiSelect: null,
     dateRangeSlider: null,
   },
+  // Album Shuffle mode batch assignment state
   albumShuffleState: {
     selectedPhotoId: null,
     assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
@@ -45,7 +68,6 @@ export const state = {
   guessMap: null,
   revealMap: null,
   journeyMap: null,
-  guessMarker: null,
   revealLayers: [],
   journeyLayers: [],
   roundHistory: [],
@@ -83,17 +105,39 @@ export const el = {
   langIcon: document.getElementById("lang-icon"),
   audioToggleBtn: document.getElementById("audio-toggle-btn"),
   audioIcon: document.getElementById("audio-icon"),
+  homeNavBtn: document.getElementById("home-nav-btn"),
+  challengesNavBtn: document.getElementById("challenges-nav-btn"),
+  headerChallengesBadge: document.getElementById("header-challenges-badge"),
   setupCard: document.getElementById("setup-card"),
   gameCard: document.getElementById("game-card"),
   summaryCard: document.getElementById("summary-card"),
+  challengeCard: document.getElementById("challenge-card"),
+  challengesPageCard: document.getElementById("challenges-page-card"),
+  reportedPageCard: document.getElementById("reported-page-card"),
   leaderboardCard: document.getElementById("leaderboard-card"),
   guessingUi: document.getElementById("guessing-ui"),
   revealUi: document.getElementById("reveal-ui"),
   setupForm: document.getElementById("setup-form"),
+  prepareGameBtn: document.getElementById("prepare-game-btn"),
+  prepareGameModal: document.getElementById("prepare-game-modal"),
   setupSubmitBtn: document.getElementById("start-match-btn"),
   players: document.getElementById("players"),
-  roundCount: document.getElementById("round-count"),
-  roundLength: document.getElementById("round-length"),
+  get roundCount() {
+    const node = document.getElementById("round-count");
+    if (node && node.value === undefined) {
+      const active = node.querySelector(".segmented-btn.active");
+      node.value = active ? active.getAttribute("data-value") : "10";
+    }
+    return node;
+  },
+  get roundLength() {
+    const node = document.getElementById("round-length");
+    if (node && node.value === undefined) {
+      const active = node.querySelector(".segmented-btn.active");
+      node.value = active ? active.getAttribute("data-value") : "1m";
+    }
+    return node;
+  },
   get goalLocation() {
     return document.getElementById("goal-location");
   },
@@ -133,6 +177,7 @@ export const el = {
   get mediaPlaceholder() {
     return document.getElementById("media-placeholder");
   },
+  modeActiveHost: document.getElementById("mode-active-host"),
   get mapGuessWrap() {
     return document.getElementById("map-guess-wrap");
   },
@@ -151,19 +196,78 @@ export const el = {
   get dateGuessMonth() {
     return document.getElementById("date-guess-month");
   },
+  get albumShuffleUi() {
+    return document.getElementById("album-shuffle-ui");
+  },
+  get shuffleCardsList() {
+    return document.getElementById("shuffle-cards-list");
+  },
+  get shuffleMap() {
+    return document.getElementById("shuffle-map");
+  },
+  get shuffleMapShell() {
+    return document.getElementById("shuffle-map-shell");
+  },
+  get albumShuffleRevealUi() {
+    return document.getElementById("album-shuffle-reveal-ui");
+  },
+  get shuffleBreakdownHead() {
+    return document.getElementById("shuffle-breakdown-head");
+  },
+  get shuffleBreakdownContainer() {
+    return document.getElementById("shuffle-breakdown-container");
+  },
+  get shuffleBreakdownGrid() {
+    return document.getElementById("shuffle-breakdown-grid");
+  },
+  get shuffleRevealMapHead() {
+    return document.getElementById("shuffle-reveal-map-head");
+  },
+  get revealShuffleMapShell() {
+    return document.getElementById("reveal-shuffle-map-shell");
+  },
+  get shuffleRevealTable() {
+    return document.getElementById("shuffle-reveal-table");
+  },
+  get shuffleRevealTableHead() {
+    return document.querySelector("#shuffle-reveal-table thead");
+  },
+  get shuffleRevealTableBody() {
+    return document.querySelector("#shuffle-reveal-table tbody");
+  },
+  get albumShuffleHelpModal() {
+    return document.getElementById("album-shuffle-help-modal");
+  },
+  get shuffleHelpCloseBtn() {
+    return document.getElementById("shuffle-help-close-btn");
+  },
+  get pinpointHelpModal() {
+    return document.getElementById("pinpoint-help-modal");
+  },
+  get pinpointHelpCloseBtn() {
+    return document.getElementById("pinpoint-help-close-btn");
+  },
   submitAnswer: document.getElementById("submit-answer"),
   timerLabel: document.getElementById("timer-label"),
   timerRemaining: document.getElementById("timer-remaining"),
   timerTrack: document.getElementById("timer-track"),
   timerFill: document.getElementById("timer-fill"),
   timeoutNotice: document.getElementById("timeout-notice"),
+  get pinpointRevealUi() {
+    return document.getElementById("pinpoint-reveal-ui");
+  },
   revealActual: document.getElementById("reveal-actual"),
-  revealLegend: document.getElementById("reveal-legend"),
   revealTableHead: document.querySelector("#reveal-table thead"),
   revealTableBody: document.querySelector("#reveal-table tbody"),
-  revealMapShell: document.getElementById("reveal-map-shell"),
-  revealMapHead: document.getElementById("reveal-map-head"),
-  revealMapFullscreen: document.getElementById("reveal-map-fullscreen"),
+  get revealMapShell() {
+    return document.getElementById("reveal-map-shell");
+  },
+  get revealMapHead() {
+    return document.getElementById("reveal-map-head");
+  },
+  get revealMapFullscreen() {
+    return document.getElementById("reveal-map-fullscreen");
+  },
   nextRound: document.getElementById("next-round"),
   summaryWinner: document.getElementById("summary-winner"),
   summaryMeta: document.getElementById("summary-meta"),
@@ -171,9 +275,15 @@ export const el = {
   summaryTableBody: document.querySelector("#summary-table tbody"),
   newMatch: document.getElementById("new-match"),
   shareSummaryBtn: document.getElementById("share-summary-btn"),
-  journeyMapShell: document.getElementById("journey-map-shell"),
-  journeyMapHead: document.getElementById("journey-map-head"),
-  journeyMapFullscreen: document.getElementById("journey-map-fullscreen"),
+  get journeyMapShell() {
+    return document.getElementById("journey-map-shell");
+  },
+  get journeyMapHead() {
+    return document.getElementById("journey-map-head");
+  },
+  get journeyMapFullscreen() {
+    return document.getElementById("journey-map-fullscreen");
+  },
   polaroidGallery: document.getElementById("polaroid-gallery"),
   gameRestartBtn: document.getElementById("game-restart-btn"),
   gameExitBtn: document.getElementById("game-exit-btn"),

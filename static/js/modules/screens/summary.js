@@ -30,6 +30,15 @@ export async function showMatchSummaryByMatchId(matchId, { playFanfare = false }
     const summary = await api(
       `/api/match/${encodeURIComponent(matchId)}/summary?lang=${encodeURIComponent(lang)}`
     );
+    if (summary && !summary.finished) {
+      showGameEndedCard(
+        null,
+        t("game_ended.match_in_progress_msg"),
+        t("game_ended.match_in_progress_title"),
+        "🎮"
+      );
+      return;
+    }
     state.matchId = matchId;
     state.lastSummary = summary;
     if (summary.round_history && (!state.roundHistory || state.roundHistory.length === 0)) {
@@ -97,5 +106,12 @@ export function showGameEndedCard(matchId = null, customMsg = null, customTitle 
     el.gameEndedLobbyBtn.onclick = () => {
       navigate("/");
     };
+  }
+}
+
+export function refreshSummaryLanguage() {
+  if (el.summaryCard && !el.summaryCard.classList.contains("hidden") && state.lastSummary) {
+    renderSummaryContent(state.lastSummary);
+    renderPolaroidGallery(state.roundHistory);
   }
 }

@@ -4,7 +4,9 @@
 [![GHCR Container](https://img.shields.io/badge/docker-ghcr.io%2Frafaelsavi%2Fimmich--quiz-blue?logo=docker)](https://github.com/rafaelsavi/immich-quiz/pkgs/container/immich-quiz)
 [![CI](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml)
 
-Immich Quiz is a pass-and-play trivia game that generates rounds from your Immich photos. Players take turns guessing where and when photos were taken in **Pinpoint** mode, or matching photo batches to map pins and timeline dates in **Album Shuffle** mode.
+Immich Quiz is a trivia game that generates quiz rounds directly from your Immich photo collection. Players guess where and when photos were taken in **Pinpoint** mode, or match photo batches to map pins and timeline dates in **Album Shuffle** mode.
+
+Play locally with friends on a single screen via **👥 Pass & Play**, or share **🌐 Multiplayer Challenge Links** (with unguessable capability URLs and instant QR codes) for multi-device asynchronous or hybrid competition!
 
 ![Immich Quiz Home Screen](docs/assets/home.webp)
 
@@ -12,13 +14,24 @@ Immich Quiz is a pass-and-play trivia game that generates rounds from your Immic
 
 ## Playing the Game
 
-- Start the app in your browser after launching the server.
-- Select players, choose a game mode (**Pinpoint** or **Album Shuffle**), rounds, round length, guess mode, and libraries.
-- Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching).
-- Take turns guessing photo locations, capture dates, or both.
-- Review end-of-match performance awards and the leaderboard when the game ends.
+### Game Modes & Targets
 
-See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough. For scoring details, see [docs/SCORING.md](docs/SCORING.md).
+- **🎯 Pinpoint**: 1 photo per round. Place a pin on the interactive Leaflet map and/or guess the capture month and year.
+- **🔀 Album Shuffle**: 3 photos per round. Match photos to lettered map pins and/or arrange them in chronological sequence along a timeline.
+- **Targets**: Guess **Location only**, **Date only**, or **Location & Date**.
+
+### Play Modes
+
+- **👥 Local Match (Pass & Play)**: Gather friends around a single device or TV. Players take turns passing the device between rounds with a privacy curtain protecting upcoming photos.
+- **🌐 Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
+- **Challenges Hub (`/challenges`)**: Browse, search, share, track active challenges, and view past match summaries.
+- **Reported Assets Dashboard (`/reported`)**: Review reported photo metadata inconsistencies (GPS, date, notes), open direct Immich Web edit links, and resolve reports in real time.
+
+### Library Filters & Preflight
+
+Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching). A live preflight indicator verifies that enough diverse, geotagged, and dated photos exist before the match starts.
+
+See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough, [docs/CHALLENGES.md](docs/CHALLENGES.md) for the multiplayer challenge guide, and [docs/SCORING.md](docs/SCORING.md) for mathematical scoring details.
 
 ---
 
@@ -30,12 +43,12 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 
 `ghcr.io/rafaelsavi/immich-quiz`
 
-| Tag                  | Description                       | Command                                             |
-|----------------------|-----------------------------------|-----------------------------------------------------|
-| `:latest`            | Latest build from `main` branch   | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
-| `:rc`                | Latest Release Candidate build    | `docker pull ghcr.io/rafaelsavi/immich-quiz:rc`     |
-| `:v1.0.0` / `:1.0.0` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v1.0.0` |
-| `:<sha>`             | Exact commit hash build           | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
+| Tag                  | Description                                                | Command                                             |
+|----------------------|------------------------------------------------------------|-----------------------------------------------------|
+| `:latest`            | Latest official stable release (multi-arch: amd64 / arm64) | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
+| `:rc`                | Latest Release Candidate build                             | `docker pull ghcr.io/rafaelsavi/immich-quiz:rc`     |
+| `:v3.0.0` / `:3.0.0` | Specific semantic release version                          | `docker pull ghcr.io/rafaelsavi/immich-quiz:v3.0.0` |
+| `:<sha>`             | Exact commit hash build                                    | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
 ### Starting the server
 
@@ -74,6 +87,7 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `PEOPLE_BLACKLIST`               | No       | —             | Comma-separated list of excluded people names or IDs in filters (case-insensitive)    |
 | `TAG_WHITELIST`                  | No       | —             | Comma-separated list of allowed asset tag names or IDs in filters (case-insensitive)  |
 | `TAG_BLACKLIST`                  | No       | —             | Comma-separated list of excluded asset tag names or IDs in filters (case-insensitive) |
+| `EXCLUDE_FLAGGED_ASSETS`         | No       | `true`        | Exclude reported photos with metadata inconsistencies from question pools (default: true) |
 | `DATA_PATH`                      | No       | `data`        | Directory for SQLite persistence (`metadata.db` and `leaderboard.db`)                 |
 | `AUTO_SYNC_ON_STARTUP`           | No       | `true`        | Auto-trigger metadata sync in the background on server startup                        |
 | `AUTO_DELTA_SYNC_INTERVAL_HOURS` | No       | `6`           | Interval in hours for periodic delta metadata sync (`0` disables)                     |
@@ -111,11 +125,11 @@ uv sync --extra dev
 uv run playwright install chromium
 ```
 
-2. Use `.env.example` to create a local `.env` file for local development.
-3. Start the app:
+1. Use `.env.example` to create a local `.env` file for local development.
+2. Start the app:
 
 ```bash
-uv run -m src.main
+uv run python -m src.main
 ```
 
 ### Tests and Quality Gates
@@ -139,6 +153,7 @@ uv run pytest tests/e2e
 
 # Run linters and type checkers
 uv run ruff check .
+uv run ruff format --check
 uv run mypy src
 
 # Run full test suite with coverage
@@ -164,6 +179,7 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 
 - [CHANGELOG.md](CHANGELOG.md) — release history and notable changes
 - [docs/GAMEPLAY.md](docs/GAMEPLAY.md) — gameplay rules, setup parameters, and UI walkthrough
+- [docs/CHALLENGES.md](docs/CHALLENGES.md) — multiplayer challenge mode guide, capability tokens, and architecture
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — module design, anti-cheat boundary, and data flow
 - [docs/FILTERS.md](docs/FILTERS.md) — setup filter architecture, cascading multi-selects, and live preflight validation
 - [docs/SYNC.md](docs/SYNC.md) — metadata synchronization engine, SQLite schema, and background worker architecture
@@ -171,4 +187,5 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 - [docs/SCORING.md](docs/SCORING.md) — mathematical scoring formulas and decay reference tables
 - [docs/AUDIO_PLAYGROUND.md](docs/AUDIO_PLAYGROUND.md) — Web Audio sound engine documentation and testing playground guide
 - [docs/AWARDS.md](docs/AWARDS.md) — guide to performance awards, criteria, and customization instructions
+- [docs/RELEASES.md](docs/RELEASES.md) — release workflow, semantic versioning rules, and CI/CD pipelines
 - [docs/TODO.md](docs/TODO.md) — project roadmap and backlog for planned features and technical tasks

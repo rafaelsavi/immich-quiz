@@ -12,6 +12,9 @@ export const RouteType = {
   GAME_ACTIVE: "GAME_ACTIVE",
   GAME_SUMMARY: "GAME_SUMMARY",
   CHALLENGE: "CHALLENGE",
+  CHALLENGE_SUMMARY: "CHALLENGE_SUMMARY",
+  CHALLENGES: "CHALLENGES",
+  REPORTED: "REPORTED",
   UNKNOWN: "UNKNOWN",
 };
 
@@ -22,6 +25,16 @@ const ROUTE_DEFINITIONS = [
     canonicalPath: () => "/",
   },
   {
+    type: RouteType.CHALLENGES,
+    pattern: /^\/challenges\/?$/,
+    canonicalPath: () => "/challenges",
+  },
+  {
+    type: RouteType.REPORTED,
+    pattern: /^\/(reported)\/?$/,
+    canonicalPath: () => "/reported",
+  },
+  {
     type: RouteType.GAME_SUMMARY,
     pattern: /^\/game\/([^/]+)\/summary$/,
     paramKeys: ["matchId"],
@@ -30,6 +43,11 @@ const ROUTE_DEFINITIONS = [
     type: RouteType.GAME_ACTIVE,
     pattern: /^\/game\/([^/]+)$/,
     paramKeys: ["matchId"],
+  },
+  {
+    type: RouteType.CHALLENGE_SUMMARY,
+    pattern: /^\/play\/([^/]+)\/summary$/,
+    paramKeys: ["token"],
   },
   {
     type: RouteType.CHALLENGE,

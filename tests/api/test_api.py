@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
 from conftest import FakeImmichClient, build_client, make_asset, setup_payload
 from fastapi.testclient import TestClient
 
@@ -24,10 +25,12 @@ def answer_question(client: TestClient, match_id: str, question_id: str) -> dict
         json={
             'match_id': match_id,
             'question_id': question_id,
-            'guessed_latitude': -27.5969,
-            'guessed_longitude': -48.5495,
-            'guessed_year': 2024,
-            'guessed_month': 1,
+            'pinpoint': {
+                'guessed_latitude': -27.5969,
+                'guessed_longitude': -48.5495,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
         },
     )
     return {'status': response.status_code, 'body': response.json()}
@@ -117,15 +120,16 @@ def test_round_result_reveals_every_player(tmp_path: Path) -> None:
     assert reveal.status_code == 200
     body = reveal.json()
 
-    assert body['actual_date'] == '2024-01-14'
-    assert body['actual_year'] == 2024
-    assert body['actual_month'] == 1
+    assert body['pinpoint_reveal'] is not None
+    assert body['pinpoint_reveal']['actual_date'] == '2024-01-14'
+    assert body['pinpoint_reveal']['actual_year'] == 2024
+    assert body['pinpoint_reveal']['actual_month'] == 1
     assert [result['player_name'] for result in body['results']] == ['Alice', 'Bob']
     assert all(result['location_score'] == 100 for result in body['results'])
     assert all(result['date_score'] == 100 for result in body['results'])
     assert all(result['round_score'] == 200 for result in body['results'])
-    assert all(result['date_diff_days'] == 0 for result in body['results'])
-    assert all(result['date_diff_months'] == 0 for result in body['results'])
+    assert all(result['pinpoint']['date_diff_days'] == 0 for result in body['results'])
+    assert all(result['pinpoint']['date_diff_months'] == 0 for result in body['results'])
 
 
 def test_round_result_is_blocked_until_every_player_answered(tmp_path: Path) -> None:
@@ -155,10 +159,12 @@ def test_timed_out_answers_are_flagged(client: TestClient) -> None:
         json={
             'match_id': match_id,
             'question_id': question['question_id'],
-            'guessed_latitude': None,
-            'guessed_longitude': None,
-            'guessed_year': 2024,
-            'guessed_month': 1,
+            'pinpoint': {
+                'guessed_latitude': None,
+                'guessed_longitude': None,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
             'timed_out': True,
         },
     )
@@ -167,7 +173,8 @@ def test_timed_out_answers_are_flagged(client: TestClient) -> None:
     entry = result['results'][0]
     assert entry['timed_out'] is True
     assert entry['location_score'] == 0
-    assert entry['distance_km'] is None
+    assert entry['pinpoint'] is not None
+    assert entry['pinpoint']['distance_km'] is None
 
 
 def test_month_guess_scores_days_from_the_month_boundary(client: TestClient) -> None:
@@ -179,21 +186,23 @@ def test_month_guess_scores_days_from_the_month_boundary(client: TestClient) -> 
         json={
             'match_id': match_id,
             'question_id': question['question_id'],
-            'guessed_latitude': -27.5969,
-            'guessed_longitude': -48.5495,
-            'guessed_year': 2023,
-            'guessed_month': 11,
+            'pinpoint': {
+                'guessed_latitude': -27.5969,
+                'guessed_longitude': -48.5495,
+                'guessed_year': 2023,
+                'guessed_month': 11,
+            },
         },
     )
 
     result = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
     entry = result['results'][0]
     # Actual date 2024-01-14 is after the guessed month, so the error runs from 2023-11-30.
-    assert entry['date_diff_days'] == 45
-    assert entry['date_diff_months'] == 2
-    assert entry['date_diff_years_part'] == 0
-    assert entry['date_diff_months_part'] == 1
-    assert entry['date_diff_days_part'] == 15
+    assert entry['pinpoint']['date_diff_days'] == 45
+    assert entry['pinpoint']['date_diff_months'] == 2
+    assert entry['pinpoint']['date_diff_years_part'] == 0
+    assert entry['pinpoint']['date_diff_months_part'] == 1
+    assert entry['pinpoint']['date_diff_days_part'] == 15
     assert entry['date_score'] == 91
 
 
@@ -206,16 +215,18 @@ def test_any_day_inside_the_guessed_month_is_a_perfect_date_score(client: TestCl
         json={
             'match_id': match_id,
             'question_id': question['question_id'],
-            'guessed_latitude': -27.5969,
-            'guessed_longitude': -48.5495,
-            'guessed_year': 2024,
-            'guessed_month': 1,
+            'pinpoint': {
+                'guessed_latitude': -27.5969,
+                'guessed_longitude': -48.5495,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
         },
     )
 
     result = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
     entry = result['results'][0]
-    assert entry['date_diff_days'] == 0
+    assert entry['pinpoint']['date_diff_days'] == 0
     assert entry['date_score'] == 100
 
 
@@ -233,10 +244,12 @@ def test_scoring_affects_round_and_summary(tmp_path: Path) -> None:
         json={
             'match_id': match_id,
             'question_id': question['question_id'],
-            'guessed_latitude': -27.5969,
-            'guessed_longitude': -48.5495,
-            'guessed_year': 2024,
-            'guessed_month': 1,
+            'pinpoint': {
+                'guessed_latitude': -27.5969,
+                'guessed_longitude': -48.5495,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
         },
     )
 
@@ -276,10 +289,12 @@ def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
                 json={
                     'match_id': match_id,
                     'question_id': question['question_id'],
-                    'guessed_latitude': asset['exifInfo']['latitude'],
-                    'guessed_longitude': asset['exifInfo']['longitude'],
-                    'guessed_year': 2024,
-                    'guessed_month': 1,
+                    'pinpoint': {
+                        'guessed_latitude': asset['exifInfo']['latitude'],
+                        'guessed_longitude': asset['exifInfo']['longitude'],
+                        'guessed_year': 2024,
+                        'guessed_month': 1,
+                    },
                 },
             )
         else:
@@ -288,10 +303,12 @@ def test_match_summary_ranks_players_and_names_a_winner(tmp_path: Path) -> None:
                 json={
                     'match_id': match_id,
                     'question_id': question['question_id'],
-                    'guessed_latitude': 48.85,
-                    'guessed_longitude': 2.35,
-                    'guessed_year': 2010,
-                    'guessed_month': 6,
+                    'pinpoint': {
+                        'guessed_latitude': 48.85,
+                        'guessed_longitude': 2.35,
+                        'guessed_year': 2010,
+                        'guessed_month': 6,
+                    },
                 },
             )
 
@@ -332,10 +349,12 @@ def test_match_summary_with_custom_filters(tmp_path: Path) -> None:
             json={
                 'match_id': match_id,
                 'question_id': q['question_id'],
-                'guessed_latitude': -27.59,
-                'guessed_longitude': -48.54,
-                'guessed_year': 2024,
-                'guessed_month': 1,
+                'pinpoint': {
+                    'guessed_latitude': -27.59,
+                    'guessed_longitude': -48.54,
+                    'guessed_year': 2024,
+                    'guessed_month': 1,
+                },
             },
         )
 
@@ -382,10 +401,12 @@ def test_answer_replay_is_rejected(tmp_path: Path) -> None:
             json={
                 'match_id': match_id,
                 'question_id': last_question_id,
-                'guessed_latitude': asset['exifInfo']['latitude'],
-                'guessed_longitude': asset['exifInfo']['longitude'],
-                'guessed_year': 2024,
-                'guessed_month': 1,
+                'pinpoint': {
+                    'guessed_latitude': asset['exifInfo']['latitude'],
+                    'guessed_longitude': asset['exifInfo']['longitude'],
+                    'guessed_year': 2024,
+                    'guessed_month': 1,
+                },
             },
         )
         assert res.status_code == 200
@@ -507,22 +528,55 @@ def test_media_serves_registered_asset(client: TestClient) -> None:
     match_id = start_match(client)
     question = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
 
-    response = client.get(f'/api/media/{question["asset_id"]}')
+    asset_id = question['asset_id']
+    response = client.get(f'/api/media/{asset_id}')
     assert response.status_code == 200
     assert response.headers['content-type'].startswith('image/jpeg')
     assert response.content == b'fake-jpg'
+    assert response.headers['etag'] == f'"{asset_id}"'
+    assert response.headers['cache-control'] == 'public, max-age=86400, immutable'
+
+    # Conditional request with matching If-None-Match should return 304 Not Modified
+    cached_response = client.get(f'/api/media/{asset_id}', headers={'If-None-Match': f'"{asset_id}"'})
+    assert cached_response.status_code == 304
+    assert cached_response.headers['etag'] == f'"{asset_id}"'
+    assert cached_response.headers['cache-control'] == 'public, max-age=86400, immutable'
+    assert cached_response.content == b''
+
+
+def test_media_serves_flagged_asset(client: TestClient) -> None:
+    # 1. Unflagged asset outside game -> 404
+    assert client.get('/api/media/asset-1').status_code == 404
+
+    # 2. Flag asset
+    flag_res = client.post(
+        '/api/assets/flag',
+        json={'asset_id': 'asset-1', 'flag_coordinates': True, 'reported_by': 'Tester'},
+    )
+    assert flag_res.status_code == 200
+
+    # 3. Media now accessible for flagged photo preview
+    media_res = client.get('/api/media/asset-1')
+    assert media_res.status_code == 200
+    assert media_res.headers['content-type'].startswith('image/jpeg')
+    assert media_res.content == b'fake-jpg'
+
+    # 4. Unflag asset -> 404 again
+    del_res = client.delete('/api/assets/flagged/asset-1')
+    assert del_res.status_code == 200
+    assert client.get('/api/media/asset-1').status_code == 404
 
 
 def test_album_names_are_resolved_server_side(client: TestClient) -> None:
     # 1. Resolving album by ID ('album-1')
     match_id_by_id = start_match(client, albums=['album-1'])
     summary_by_id = client.get(f'/api/match/{match_id_by_id}/summary').json()
-    assert summary_by_id['album_names'] == ['Holidays']
+    assert summary_by_id['config']['album_names'] == ['Holidays']
 
     # 2. Resolving album by Name ('Holidays')
     match_id_by_name = start_match(client, albums=['Holidays'])
     summary_by_name = client.get(f'/api/match/{match_id_by_name}/summary').json()
-    assert summary_by_name['album_names'] == ['Holidays']
+    assert summary_by_name['config']['album_names'] == ['Holidays']
 
 
 def test_unknown_album_id_is_rejected(client: TestClient) -> None:
@@ -608,6 +662,7 @@ def test_security_headers(client: TestClient) -> None:
     assert res.headers['X-Content-Type-Options'] == 'nosniff'
     assert res.headers['X-Frame-Options'] == 'DENY'
     assert res.headers['Referrer-Policy'] == 'strict-origin-when-cross-origin'
+    assert res.headers['Permissions-Policy'] == 'camera=(), microphone=(), geolocation=(), payment=()'
 
 
 def test_session_store_cleanup(client: TestClient) -> None:
@@ -663,7 +718,7 @@ def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
             json={
                 'match_id': match_id,
                 'question_id': q_data['question_id'],
-                'album_shuffle_answers': [
+                'album_shuffle': [
                     {'photo_id': p['photo_id'], 'assigned_pin_id': 'A', 'assigned_timeline_index': idx}
                     for idx, p in enumerate(q_data['batch_photos'])
                 ],
@@ -680,7 +735,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     sel_ans = AssetAnswer(
         latitude=48.8584,
         longitude=2.2945,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=UTC),
     )
     sel_asset = RoundAsset(asset_id='asset-1', answer=sel_ans)
 
@@ -688,7 +743,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     same_loc = AssetAnswer(
         latitude=48.85841,
         longitude=2.29451,
-        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(same_loc, [sel_asset], location_mode=True, date_mode=True) is False
 
@@ -696,7 +751,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     same_time = AssetAnswer(
         latitude=40.7128,
         longitude=-74.0060,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 30, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 30, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(same_time, [sel_asset], location_mode=True, date_mode=True) is False
 
@@ -704,7 +759,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     valid_cand = AssetAnswer(
         latitude=40.7128,
         longitude=-74.0060,
-        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 11, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(valid_cand, [sel_asset], location_mode=True, date_mode=True) is True
 
@@ -734,7 +789,7 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
         json={
             'match_id': match_id,
             'question_id': q_data['question_id'],
-            'album_shuffle_answers': [],
+            'album_shuffle': [],
             'timed_out': True,
         },
     )
@@ -788,7 +843,7 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
         json={
             'match_id': match_id,
             'question_id': q_data['question_id'],
-            'album_shuffle_answers': answers,
+            'album_shuffle': answers,
             'timed_out': True,
         },
     )
@@ -832,7 +887,7 @@ def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> No
     ]
     a_res = client.post(
         '/api/answer',
-        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle_answers': answers_perfect},
+        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle': answers_perfect},
     )
     assert a_res.status_code == 200
     res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
@@ -843,7 +898,7 @@ def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_locatio
     no_coords = AssetAnswer(
         latitude=None,
         longitude=None,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(no_coords, [], location_mode=True, date_mode=True) is False
     assert is_asset_valid_for_batch(no_coords, [], location_mode=False, date_mode=True) is True
@@ -851,7 +906,7 @@ def test_is_asset_valid_for_batch_rejects_missing_or_zero_coordinates_in_locatio
     zero_coords = AssetAnswer(
         latitude=0.0,
         longitude=0.0,
-        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=timezone.utc),
+        capture_datetime=datetime(2024, 5, 10, 14, 0, 0, tzinfo=UTC),
     )
     assert is_asset_valid_for_batch(zero_coords, [], location_mode=True, date_mode=True) is False
     assert is_asset_valid_for_batch(zero_coords, [], location_mode=False, date_mode=True) is True
@@ -885,7 +940,7 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
     ]
     a_res = client.post(
         '/api/answer',
-        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle_answers': answers},
+        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle': answers},
     )
     assert a_res.status_code == 200
     res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1})
@@ -1064,6 +1119,46 @@ def test_calculate_match_bounds_multiple_locations() -> None:
     assert bounds.max_lat == 48.8606
 
 
+def test_calculate_match_bounds_logging(caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    caplog.set_level(logging.INFO)
+
+    # 1. Empty coordinates
+    calculate_match_bounds([])
+    assert any(
+        'Smart map auto-zoom calibration: inputs=[pool_size=0, valid_coords=0]' in r.message
+        and 'output=[map_bounds=None' in r.message
+        for r in caplog.records
+    )
+
+    # 2. Regional calibrated bounds
+    caplog.clear()
+    answers = [
+        AssetAnswer(latitude=48.8584, longitude=2.2945),
+        AssetAnswer(latitude=48.8606, longitude=2.3376),
+    ]
+    calculate_match_bounds(answers, max_span_km=1000.0)
+    assert any(
+        'Smart map auto-zoom calibration: inputs=[pool_size=2, coords=2' in r.message
+        and 'output=[map_bounds=MapBounds' in r.message
+        for r in caplog.records
+    )
+
+    # 3. Global fallback
+    caplog.clear()
+    global_pool = [
+        AssetAnswer(latitude=48.8584, longitude=2.2945),
+        AssetAnswer(latitude=-33.8688, longitude=151.2093),
+    ]
+    calculate_match_bounds(global_pool, max_span_km=5000.0)
+    assert any(
+        'Smart map auto-zoom calibration: inputs=[pool_size=2, coords=2' in r.message
+        and 'output=[map_bounds=None (fallback:' in r.message
+        for r in caplog.records
+    )
+
+
 def test_ui_config_returns_runtime_metadata(tmp_path: Path) -> None:
     client = build_client(tmp_path, FakeImmichClient([]))
     res = client.get('/api/ui-config')
@@ -1213,10 +1308,12 @@ def test_finished_match_persists_four_table_relational_schema(tmp_path: Path) ->
                 json={
                     'match_id': match_id,
                     'question_id': q['question_id'],
-                    'guessed_latitude': 48.0 + r_idx,
-                    'guessed_longitude': 2.0 + r_idx,
-                    'guessed_year': 2023,
-                    'guessed_month': r_idx + 1,
+                    'pinpoint': {
+                        'guessed_latitude': 48.0 + r_idx,
+                        'guessed_longitude': 2.0 + r_idx,
+                        'guessed_year': 2023,
+                        'guessed_month': r_idx + 1,
+                    },
                     'time_taken_seconds': 10.0,
                 },
             )
@@ -1369,8 +1466,10 @@ def test_multiple_albums_across_libraries_gameplay(tmp_path: Path) -> None:
             json={
                 'match_id': match_id,
                 'question_id': q['question_id'],
-                'guessed_latitude': 10.0,
-                'guessed_longitude': 10.0,
+                'pinpoint': {
+                    'guessed_latitude': 10.0,
+                    'guessed_longitude': 10.0,
+                },
             },
         )
 
@@ -1395,10 +1494,14 @@ def test_webmanifest_endpoint(client: TestClient) -> None:
 
 
 def test_service_worker_endpoint(client: TestClient) -> None:
+    from src.version import APP_VERSION
+
     response = client.get('/sw.js')
     assert response.status_code == 200
     assert 'javascript' in response.headers['content-type']
     assert response.headers.get('service-worker-allowed') == '/'
+    assert response.headers.get('cache-control') == 'no-cache, must-revalidate'
+    assert f"const CACHE_NAME = 'immich-quiz-v{APP_VERSION}';" in response.text
 
 
 def test_index_accept_language_negotiation(client: TestClient) -> None:
@@ -1464,10 +1567,12 @@ def test_match_summary_persists_after_memory_session_pruned(tmp_path: Path) -> N
             json={
                 'match_id': match_id,
                 'question_id': question['question_id'],
-                'guessed_latitude': asset['exifInfo']['latitude'],
-                'guessed_longitude': asset['exifInfo']['longitude'],
-                'guessed_year': 2024,
-                'guessed_month': 1,
+                'pinpoint': {
+                    'guessed_latitude': asset['exifInfo']['latitude'],
+                    'guessed_longitude': asset['exifInfo']['longitude'],
+                    'guessed_year': 2024,
+                    'guessed_month': 1,
+                },
             },
         )
 
@@ -1510,10 +1615,12 @@ def test_multiplayer_same_round_same_asset_and_reload_persistence(tmp_path: Path
         json={
             'match_id': match_id,
             'question_id': q_alice_1['question_id'],
-            'guessed_latitude': 0.0,
-            'guessed_longitude': 0.0,
-            'guessed_year': 2024,
-            'guessed_month': 1,
+            'pinpoint': {
+                'guessed_latitude': 0.0,
+                'guessed_longitude': 0.0,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
         },
     ).json()
     assert ans_alice['round_complete'] is False
@@ -1540,10 +1647,12 @@ def test_multiplayer_same_round_same_asset_and_reload_persistence(tmp_path: Path
         json={
             'match_id': match_id,
             'question_id': q_bob_1['question_id'],
-            'guessed_latitude': 0.0,
-            'guessed_longitude': 0.0,
-            'guessed_year': 2024,
-            'guessed_month': 1,
+            'pinpoint': {
+                'guessed_latitude': 0.0,
+                'guessed_longitude': 0.0,
+                'guessed_year': 2024,
+                'guessed_month': 1,
+            },
         },
     ).json()
     assert ans_bob['round_complete'] is True
@@ -1551,7 +1660,8 @@ def test_multiplayer_same_round_same_asset_and_reload_persistence(tmp_path: Path
 
     # 7. Fetch round result -> must include media_url for renderReveal on reload
     round_res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
-    assert round_res['media_url'] == f'/api/media/{asset_id_round_1}'
+    assert round_res['pinpoint_reveal'] is not None
+    assert round_res['pinpoint_reveal']['media_url'] == f'/api/media/{asset_id_round_1}'
 
 
 def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) -> None:
@@ -1598,7 +1708,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
         json={
             'match_id': match_id,
             'question_id': q_alice['question_id'],
-            'album_shuffle_answers': [
+            'album_shuffle': [
                 {'photo_id': alice_photo_ids[0], 'assigned_pin_id': 'A', 'assigned_timeline_index': 0},
                 {'photo_id': alice_photo_ids[1], 'assigned_pin_id': 'B', 'assigned_timeline_index': 1},
                 {'photo_id': alice_photo_ids[2], 'assigned_pin_id': 'C', 'assigned_timeline_index': 2},
@@ -1624,7 +1734,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
         json={
             'match_id': match_id,
             'question_id': q_bob['question_id'],
-            'album_shuffle_answers': [
+            'album_shuffle': [
                 {'photo_id': alice_photo_ids[0], 'assigned_pin_id': 'A', 'assigned_timeline_index': 0},
                 {'photo_id': alice_photo_ids[1], 'assigned_pin_id': 'B', 'assigned_timeline_index': 1},
                 {'photo_id': alice_photo_ids[2], 'assigned_pin_id': 'C', 'assigned_timeline_index': 2},

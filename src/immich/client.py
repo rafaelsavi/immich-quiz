@@ -223,11 +223,15 @@ class ImmichClient:
                     if uid == current_user_id:
                         return u.get('role') != 'owner'
 
+            has_other_owner = any(isinstance(u, dict) and u.get('role') == 'owner' for u in album_users)
+            if has_other_owner:
+                return True
+
         if album.get('shared') is False or album.get('isShared') is False:
             return False
 
         if album.get('shared') is True or album.get('isShared') is True:
-            return True
+            return bool(current_user_id)
 
         return bool(album.get('sharedUsers') or album.get('sharedWith'))
 

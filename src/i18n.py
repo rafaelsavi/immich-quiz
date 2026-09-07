@@ -104,6 +104,18 @@ def translate(key: str, lang: str | SupportedLanguage | None = None, *args: Any,
 t = translate
 
 
+def t_or(
+    key: str,
+    fallback: str,
+    lang: SupportedLanguage | str | None = None,
+    *args: Any,
+    **kwargs: Any,
+) -> str:
+    """Translate a key, returning fallback if translation is missing (or equals key)."""
+    res = translate(key, lang, *args, **kwargs)
+    return res if res != key else fallback
+
+
 def parse_accept_language(
     header: str | None,
     default: str | SupportedLanguage | None = None,

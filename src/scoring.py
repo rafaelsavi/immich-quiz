@@ -18,6 +18,46 @@ logger = get_logger(LOGGER_SCORING)
 
 T = TypeVar('T', float, int, date)
 
+SCORE_MAX_POINTS: int = 100
+
+# ---------------------------------------------------------------------------
+# Spatial Scoring Constants
+# ---------------------------------------------------------------------------
+
+# Ratio connecting geographic bounding diagonal (span) to exponential distance decay.
+# A ratio of 10.0 means decay = span / 10.0 (10.0% of the total map width/diagonal).
+# At 10.0% map error, player earns 37 points (1/e).
+# At 5.0% map error, player earns 61 points.
+# At > 40% map error (almost halfway across the map), player score drops below 2 points (0 pts).
+LOCATION_SPAN_RATIO: float = 10.0
+
+# Minimum floor clamp for single-city or walking-tour albums (prevents overly punishing decay).
+LOCATION_MIN_DECAY_KM: float = 8.0
+
+# Maximum ceiling clamp for nationwide or worldwide matches.
+LOCATION_MAX_DECAY_KM: float = 200.0
+
+# ---------------------------------------------------------------------------
+# Temporal Scoring Constants
+# ---------------------------------------------------------------------------
+
+# Ratio connecting total album timespan in days to exponential date decay.
+# A ratio of 6.0 means decay = timespan / 6.0 (16.7% of the album's total date range).
+# Players guess by whole year/month, so a slightly wider 1/6th ratio keeps month guesses
+# competitive across multi-year and vacation archives.
+# At 16.7% date error, player earns 37 points (1/e).
+# At > 60% date error, player score drops below 4 points.
+DATE_SPAN_RATIO: float = 6.0
+
+# Minimum floor clamp for short weekend/vacation trips (30 days / 1 month).
+DATE_MIN_DECAY_DAYS: float = 30.0
+
+# Maximum ceiling clamp for multi-decade family archives (500 days / ~16 months).
+DATE_MAX_DECAY_DAYS: float = 500.0
+
+
+PoolItem: TypeAlias = 'AssetAnswer | HasAnswer | Any'
+
 
 class HasAnswer(Protocol):
     """Protocol for container objects (e.g. RoundAsset) wrapping an AssetAnswer."""
@@ -25,15 +65,13 @@ class HasAnswer(Protocol):
     answer: AssetAnswer
 
 
-PoolItem: TypeAlias = 'AssetAnswer | HasAnswer | Any'
-
-
 def _percentile_bounds(
     values: Sequence[T],
     low_pct: float = 0.05,
     high_pct: float = 0.95,
 ) -> tuple[T, T]:
-    """Calculate (low, high) bounds with 5th-95th percentile trimming for outlier robustness.
+    """
+    Calculate (low, high) bounds with 5th-95th percentile trimming for outlier robustness.
 
     For small datasets (< 10 points), returns the exact (min, max).
     For datasets with 10+ points, trims the lowest 5% and highest 5% of values to prevent
@@ -49,7 +87,8 @@ def _percentile_bounds(
 
 
 def _circular_percentile_lng_bounds(lngs: Sequence[float]) -> tuple[float, float, float]:
-    """Calculate circular longitude bounds (min_lng, max_lng, span_degrees) across antimeridian.
+    """
+    Calculate circular longitude bounds (min_lng, max_lng, span_degrees) across antimeridian.
 
     Finds the largest empty angular gap on the 360-degree circle, unwraps the longitudes
     relative to that gap, applies 5th-95th percentile trimming, and returns the bounded endpoints
@@ -94,44 +133,6 @@ def _circular_percentile_lng_bounds(lngs: Sequence[float]) -> tuple[float, float
     return min_lng, max_lng, span_deg
 
 
-SCORE_MAX_POINTS: int = 100
-
-# ---------------------------------------------------------------------------
-# Spatial Scoring Constants
-# ---------------------------------------------------------------------------
-
-# Ratio connecting geographic bounding diagonal (span) to exponential distance decay.
-# A ratio of 10.0 means decay = span / 10.0 (10.0% of the total map width/diagonal).
-# At 10.0% map error, player earns 37 points (1/e).
-# At 5.0% map error, player earns 61 points.
-# At > 40% map error (almost halfway across the map), player score drops below 2 points (0 pts).
-LOCATION_SPAN_RATIO: float = 10.0
-
-# Minimum floor clamp for single-city or walking-tour albums (prevents overly punishing decay).
-LOCATION_MIN_DECAY_KM: float = 5.0
-
-# Maximum ceiling clamp for nationwide or worldwide matches.
-LOCATION_MAX_DECAY_KM: float = 200.0
-
-# ---------------------------------------------------------------------------
-# Temporal Scoring Constants
-# ---------------------------------------------------------------------------
-
-# Ratio connecting total album timespan in days to exponential date decay.
-# A ratio of 6.0 means decay = timespan / 6.0 (16.7% of the album's total date range).
-# Players guess by whole year/month, so a slightly wider 1/6th ratio keeps month guesses
-# competitive across multi-year and vacation archives.
-# At 16.7% date error, player earns 37 points (1/e).
-# At > 60% date error, player score drops below 4 points.
-DATE_SPAN_RATIO: float = 6.0
-
-# Minimum floor clamp for short weekend/vacation trips (30 days / 1 month).
-DATE_MIN_DECAY_DAYS: float = 30.0
-
-# Maximum ceiling clamp for multi-decade family archives (500 days / ~16 months).
-DATE_MAX_DECAY_DAYS: float = 500.0
-
-
 def _extract_answer(item: PoolItem) -> Any:
     return getattr(item, 'answer', item)
 
@@ -143,7 +144,8 @@ def calculate_location_decay(
     min_decay_km: float = LOCATION_MIN_DECAY_KM,
     max_decay_km: float = LOCATION_MAX_DECAY_KM,
 ) -> float:
-    """Calculate dynamic geographic decay (km) adapted to the match pool's bounding box span.
+    """
+    Calculate dynamic geographic decay (km) adapted to the match pool's bounding box span.
 
     Uses 5th-95th percentile trimming on latitude and circular longitude to filter out airport
     layovers or single-photo GPS glitches while seamlessly handling +/-180 antimeridian crossings.
@@ -168,7 +170,14 @@ def calculate_location_decay(
 
     """
     if not pool:
-        logger.debug('Spatial decay: Empty pool, defaulting to max decay (%.1f km).', max_decay_km)
+        logger.info(
+            'Spatial decay calculation: inputs=[pool=empty, span_ratio=%.1f, bounds=(%.1f, %.1f) km] '
+            '-> output=[decay_km=%.1f km (default: empty pool)]',
+            span_ratio,
+            min_decay_km,
+            max_decay_km,
+            max_decay_km,
+        )
         return max_decay_km
 
     raw_items = pool.values() if isinstance(pool, Mapping) else pool
@@ -182,7 +191,17 @@ def calculate_location_decay(
     ]
 
     if len(coords) < 2:
-        logger.debug('Spatial decay: Less than 2 GPS coords, defaulting to max decay (%.1f km).', max_decay_km)
+        logger.info(
+            'Spatial decay calculation: '
+            'inputs=[pool_size=%d, valid_coords=%d, span_ratio=%.1f, bounds=(%.1f, %.1f) km] '
+            '-> output=[decay_km=%.1f km (default: < 2 coordinates)]',
+            len(answers),
+            len(coords),
+            span_ratio,
+            min_decay_km,
+            max_decay_km,
+            max_decay_km,
+        )
         return max_decay_km
 
     lats = [c[0] for c in coords]
@@ -194,9 +213,15 @@ def calculate_location_decay(
 
     if lat_span > 60.0 or lng_span > 90.0:
         logger.info(
-            'Spatial decay: Global span detected (lat_span=%.1f°, lng_span=%.1f°) -> defaulting to max decay (%.1f km)',
+            'Spatial decay calculation: inputs=[pool_size=%d, coords=%d, lat_span=%.1f°, lng_span=%.1f°, '
+            'span_ratio=%.1f, bounds=(%.1f, %.1f) km] -> output=[decay_km=%.1f km (default: global span)]',
+            len(answers),
+            len(coords),
             lat_span,
             lng_span,
+            span_ratio,
+            min_decay_km,
+            max_decay_km,
             max_decay_km,
         )
         return max_decay_km
@@ -205,13 +230,21 @@ def calculate_location_decay(
     scaled_decay = diagonal_km / span_ratio
     decay_km = max(min_decay_km, min(max_decay_km, round(scaled_decay, 2)))
     logger.info(
-        'Spatial decay: %d coords, diagonal span=%.1f km (ratio=%.1f) -> decay=%.1f km [bounds: %.1f-%.1f km]',
+        'Spatial decay calculation: inputs=[pool_size=%d, coords=%d, diagonal_span=%.2f km, '
+        'lat_range=(%.4f, %.4f), lng_range=(%.4f, %.4f), span_ratio=%.1f, bounds=(%.1f, %.1f) km] '
+        '-> output=[decay_km=%.2f km (scaled=%.2f km)]',
+        len(answers),
         len(coords),
         diagonal_km,
+        min_lat,
+        max_lat,
+        min_lng,
+        max_lng,
         span_ratio,
-        decay_km,
         min_decay_km,
         max_decay_km,
+        decay_km,
+        scaled_decay,
     )
     return decay_km
 
@@ -223,7 +256,8 @@ def calculate_date_decay(
     min_decay_days: float = DATE_MIN_DECAY_DAYS,
     max_decay_days: float = DATE_MAX_DECAY_DAYS,
 ) -> float:
-    """Calculate dynamic temporal decay (days) adapted to the match pool's date span.
+    """
+    Calculate dynamic temporal decay (days) adapted to the match pool's date span.
 
     Uses 5th-95th percentile trimming on capture dates to ignore isolated misdated scans
     or camera timestamp glitches.
@@ -248,7 +282,14 @@ def calculate_date_decay(
 
     """
     if not pool:
-        logger.debug('Temporal decay: Empty pool, defaulting to max decay (%.1f days).', max_decay_days)
+        logger.info(
+            'Temporal decay calculation: inputs=[pool=empty, span_ratio=%.1f, bounds=(%.1f, %.1f) d] '
+            '-> output=[decay_days=%.1f d (default: empty pool)]',
+            span_ratio,
+            min_decay_days,
+            max_decay_days,
+            max_decay_days,
+        )
         return max_decay_days
 
     raw_items = pool.values() if isinstance(pool, Mapping) else pool
@@ -256,30 +297,52 @@ def calculate_date_decay(
     dates = [ans.capture_date for ans in answers if getattr(ans, 'capture_date', None) is not None]
 
     if len(dates) < 2:
-        logger.debug('Temporal decay: Less than 2 dates, defaulting to max decay (%.1f days).', max_decay_days)
+        logger.info(
+            'Temporal decay calculation: inputs=[pool_size=%d, valid_dates=%d, span_ratio=%.1f, bounds=(%.1f, %.1f) d] '
+            '-> output=[decay_days=%.1f d (default: < 2 dates)]',
+            len(answers),
+            len(dates),
+            span_ratio,
+            min_decay_days,
+            max_decay_days,
+            max_decay_days,
+        )
         return max_decay_days
 
     min_date, max_date = _percentile_bounds(dates)
     delta_days = (max_date - min_date).days
 
     if delta_days <= 0:
-        logger.debug('Temporal decay: 0 days span, defaulting to min decay (%.1f days).', min_decay_days)
+        logger.info(
+            'Temporal decay calculation: inputs=[pool_size=%d, dates=%d, date_span=0 d (%s), '
+            'span_ratio=%.1f, bounds=(%.1f, %.1f) d] -> output=[decay_days=%.1f d (clamped: min decay)]',
+            len(answers),
+            len(dates),
+            min_date.isoformat(),
+            span_ratio,
+            min_decay_days,
+            max_decay_days,
+            min_decay_days,
+        )
         return min_decay_days
 
     scaled_decay = delta_days / span_ratio
     decay_days = max(min_decay_days, min(max_decay_days, round(scaled_decay, 2)))
     logger.info(
-        'Temporal decay: %d dates (%s to %s), span=%d days / ~%.1f yrs (ratio=%.1f) '
-        '-> decay=%.1f days [bounds: %.1f-%.1f d]',
+        'Temporal decay calculation: inputs=[pool_size=%d, dates=%d, date_range=(%s to %s), '
+        'span_days=%d (~%.1f yrs), span_ratio=%.1f, bounds=(%.1f, %.1f) d] '
+        '-> output=[decay_days=%.2f d (scaled=%.2f d)]',
+        len(answers),
         len(dates),
         min_date.isoformat(),
         max_date.isoformat(),
         delta_days,
         delta_days / 365.25,
         span_ratio,
-        decay_days,
         min_decay_days,
         max_decay_days,
+        decay_days,
+        scaled_decay,
     )
     return decay_days
 
@@ -298,13 +361,13 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return earth_radius_km * c
 
 
-def location_score(
+def pinpoint_location_score(
     distance_km: float,
     *,
     decay_km: float = LOCATION_MAX_DECAY_KM,
     max_points: int = SCORE_MAX_POINTS,
 ) -> int:
-    """Calculate location score using exponential distance decay."""
+    """Calculate Pinpoint location score using exponential distance decay."""
     return max(0, round(max_points * math.exp(-distance_km / decay_km)))
 
 
@@ -406,13 +469,13 @@ def date_diff_parts(guessed_year: int, guessed_month: int, actual: date) -> tupl
     return years_part, months_part, days_part
 
 
-def date_score(
+def pinpoint_date_score(
     delta_days: int,
     *,
     decay_days: float = DATE_MAX_DECAY_DAYS,
     max_points: int = SCORE_MAX_POINTS,
 ) -> int:
-    """Calculate date score using exponential day-difference decay."""
+    """Calculate Pinpoint date score using exponential day-difference decay."""
     return max(0, round(max_points * math.exp(-delta_days / decay_days)))
 
 

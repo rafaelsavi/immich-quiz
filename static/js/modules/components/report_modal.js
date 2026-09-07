@@ -3,10 +3,11 @@
  * Allows players to report map/GPS or date inconsistencies and open direct source links in Immich Web.
  */
 
-import { state, el } from "../state.js";
+import { state } from "../state.js";
 import { api } from "../api.js";
 import { t } from "../i18n.js";
 import { showShareToast } from "../summary/share.js";
+import { activateFocusTrap, deactivateFocusTrap } from "./focus_trap.js";
 
 let _currentAssetId = null;
 let _currentPlayerName = null;
@@ -105,12 +106,11 @@ export function openReportModal(assetId, previewUrl = null, playerName = null) {
   validateFormState();
   _modalEl.classList.remove("hidden");
   _modalEl.setAttribute("aria-hidden", "false");
-
-  // Focus the first actionable checkbox
-  _flagCoordsEl?.focus();
+  activateFocusTrap(_modalEl, _flagCoordsEl);
 }
 
 export function closeReportModal() {
+  deactivateFocusTrap();
   if (!_modalEl) return;
   _modalEl.classList.add("hidden");
   _modalEl.setAttribute("aria-hidden", "true");

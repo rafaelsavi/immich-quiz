@@ -14,7 +14,7 @@ async def test_score_rollup_animation_and_post_game_summary(page: Page) -> None:
     and memory cards render on match completion.
     """
     await page.goto('/')
-    await start_date_only_match(page, rounds=5)
+    await start_date_only_match(page, rounds=5, round_length='2m')
     await expect(page.locator('#game-card')).to_be_visible()
 
     # Play through 5 rounds quickly
@@ -47,6 +47,12 @@ async def test_score_rollup_animation_and_post_game_summary(page: Page) -> None:
     summary_card = page.locator('#summary-card')
     await expect(summary_card).to_be_visible()
 
+    # Verify Match Meta specifications panel (time limit, rounds, etc.)
+    summary_meta = page.locator('#summary-meta')
+    await expect(summary_meta).to_be_visible()
+    await expect(summary_meta.locator('.meta-timer .match-meta-item-val')).to_contain_text('2 min')
+    await expect(summary_meta.locator('.meta-rounds .match-meta-item-val')).to_contain_text('5')
+
     # Verify winner / podium section
     await expect(page.locator('#summary-winner')).to_be_visible()
 
@@ -69,14 +75,23 @@ async def test_multiplayer_podium_and_winner_resolution(page: Page) -> None:
     """Verify multiplayer match summary displays the 1st place podium avatar and ranks both players in results table."""
     await page.goto('/')
 
-    # Configure 2 players: Alice and Bob
-    player_input = page.locator('#player-text-input')
-    if await player_input.is_visible():
-        await player_input.fill('Bob')
-        await page.keyboard.press('Enter')
-
     # Date mode only, 5 rounds
-    await start_date_only_match(page, rounds=5)
+    await page.locator('#mode-pinpoint-btn').click()
+    loc_card = page.locator('#card-goal-location')
+    date_card = page.locator('#card-goal-date')
+    if 'active' in (await loc_card.get_attribute('class') or ''):
+        await loc_card.click()
+    if 'active' not in (await date_card.get_attribute('class') or ''):
+        await date_card.click()
+    await page.locator('#round-count button[data-value="5"]').click()
+
+    # Open modal, add second player Bob, start match
+    await page.locator('#prepare-game-btn').click()
+    player_input = page.locator('#player-text-input')
+    await expect(player_input).to_be_visible()
+    await player_input.fill('Bob')
+    await page.keyboard.press('Enter')
+    await page.locator('#start-match-btn').click()
 
     pass_overlay = page.locator('#pass-overlay')
 

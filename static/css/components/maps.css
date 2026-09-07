@@ -3,10 +3,10 @@
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  border-radius: 14px;
+  border-radius: var(--radius-lg, 14px);
   border: 1px solid #d5dcec;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.06));
 }
 
 #guess-map,

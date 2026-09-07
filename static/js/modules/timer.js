@@ -203,7 +203,15 @@ export function handleTimeout(activeMode = null) {
   }
   state.timedOut = true;
   clearTimer();
-  if (el.timerLabel) el.timerLabel.textContent = t("game.timer_time_up_label");
+  const timeUpLabel = t("game.timer_time_up_label");
+  if (el.timerLabel) {
+    el.timerLabel.textContent = timeUpLabel;
+    el.timerLabel.setAttribute("data-i18n", "game.timer_time_up_label");
+  }
+  document.querySelectorAll(".fullscreen-timer .fs-timer-label").forEach((lbl) => {
+    lbl.textContent = timeUpLabel;
+    lbl.setAttribute("data-i18n", "game.timer_time_up_label");
+  });
   if (el.timerRemaining) el.timerRemaining.textContent = "0s";
   if (el.timerFill) {
     el.timerFill.style.width = "0%";
@@ -222,6 +230,7 @@ export function handleTimeout(activeMode = null) {
 
   if (el.timeoutNotice) {
     el.timeoutNotice.textContent = t("game.timer_time_up_notice");
+    el.timeoutNotice.setAttribute("data-i18n", "game.timer_time_up_notice");
     el.timeoutNotice.classList.remove("hidden");
   }
 
@@ -384,7 +393,15 @@ export function startTimer(roundLength, getActiveModeFn = null, initialRemaining
 
   const total = parseRoundDurationSeconds(roundLength);
   if (total === null) {
-    if (el.timerLabel) el.timerLabel.textContent = t("game.timer_unlimited");
+    const unlimitedText = t("game.timer_unlimited");
+    if (el.timerLabel) {
+      el.timerLabel.textContent = unlimitedText;
+      el.timerLabel.setAttribute("data-i18n", "game.timer_unlimited");
+    }
+    document.querySelectorAll(".fullscreen-timer .fs-timer-label").forEach((lbl) => {
+      lbl.textContent = unlimitedText;
+      lbl.setAttribute("data-i18n", "game.timer_unlimited");
+    });
     return;
   }
 
@@ -399,8 +416,16 @@ export function startTimer(roundLength, getActiveModeFn = null, initialRemaining
   state.timerLastTickedSec = Math.ceil(remaining);
   state.timerEndTimeMs = Date.now() + remaining * 1000;
 
+  const timeLeftText = t("game.timer_time_left");
   if (el.timerTrack) el.timerTrack.classList.remove("is-idle");
-  if (el.timerLabel) el.timerLabel.textContent = t("game.timer_time_left");
+  if (el.timerLabel) {
+    el.timerLabel.textContent = timeLeftText;
+    el.timerLabel.setAttribute("data-i18n", "game.timer_time_left");
+  }
+  document.querySelectorAll(".fullscreen-timer .fs-timer-label").forEach((lbl) => {
+    lbl.textContent = timeLeftText;
+    lbl.setAttribute("data-i18n", "game.timer_time_left");
+  });
   if (el.timerRemaining) el.timerRemaining.textContent = formatTimeDisplay(remaining);
 
   const initialRatio = total > 0 ? remaining / total : 0;
@@ -412,4 +437,31 @@ export function startTimer(roundLength, getActiveModeFn = null, initialRemaining
   } else {
     startAnimationLoops();
   }
+}
+
+export function refreshTimerLanguage() {
+  let labelKey = "game.timer_time_left";
+  if (state.timedOut) {
+    labelKey = "game.timer_time_up_label";
+    if (el.timeoutNotice) {
+      el.timeoutNotice.textContent = t("game.timer_time_up_notice");
+      el.timeoutNotice.setAttribute("data-i18n", "game.timer_time_up_notice");
+    }
+    if (el.submitAnswer) el.submitAnswer.textContent = t("game.continue_btn");
+  } else if (!state.timerEndTimeMs) {
+    const total = parseRoundDurationSeconds(state.matchConfig?.round_length || el.roundLength?.value || "1m");
+    if (total === null) {
+      labelKey = "game.timer_unlimited";
+    }
+  }
+
+  const labelText = t(labelKey);
+  if (el.timerLabel) {
+    el.timerLabel.textContent = labelText;
+    el.timerLabel.setAttribute("data-i18n", labelKey);
+  }
+  document.querySelectorAll(".fullscreen-timer .fs-timer-label").forEach((lbl) => {
+    lbl.textContent = labelText;
+    lbl.setAttribute("data-i18n", labelKey);
+  });
 }

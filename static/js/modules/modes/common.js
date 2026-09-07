@@ -70,7 +70,16 @@ export function renderGuessingModeSettings(containerEl, modeName = "pinpoint") {
   locDesc.setAttribute("data-i18n", locI18nKey);
   locDesc.textContent = t(locI18nKey);
 
-  locCard.append(locCheckbox, locTitle, locDesc);
+  const locIcon = document.createElement("span");
+  locIcon.className = "mode-icon-wrap";
+  locIcon.setAttribute("aria-hidden", "true");
+  locIcon.textContent = "🗺️";
+
+  const locTextWrap = document.createElement("div");
+  locTextWrap.className = "mode-text-wrap";
+  locTextWrap.append(locTitle, locDesc);
+
+  locCard.append(locCheckbox, locIcon, locTextWrap);
 
   // Date Card
   const dateCard = document.createElement("button");
@@ -100,7 +109,16 @@ export function renderGuessingModeSettings(containerEl, modeName = "pinpoint") {
   dateDesc.setAttribute("data-i18n", dateI18nKey);
   dateDesc.textContent = t(dateI18nKey);
 
-  dateCard.append(dateCheckbox, dateTitle, dateDesc);
+  const dateIcon = document.createElement("span");
+  dateIcon.className = "mode-icon-wrap";
+  dateIcon.setAttribute("aria-hidden", "true");
+  dateIcon.textContent = "📅";
+
+  const dateTextWrap = document.createElement("div");
+  dateTextWrap.className = "mode-text-wrap";
+  dateTextWrap.append(dateTitle, dateDesc);
+
+  dateCard.append(dateCheckbox, dateIcon, dateTextWrap);
 
   // Toggle handler enforcing at least 1 selected mode
   const toggleCard = (card, checkbox, otherCheckbox) => {

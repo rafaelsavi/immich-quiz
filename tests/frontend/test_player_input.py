@@ -1,7 +1,7 @@
 import re
 from pathlib import Path
 
-STATIC_DIR = Path(__file__).parent.parent / 'static'
+STATIC_DIR = Path(__file__).resolve().parents[2] / 'static'
 PLAYER_INPUT_JS = STATIC_DIR / 'js' / 'modules' / 'components' / 'player_input.js'
 PLAYER_INPUT_CSS = STATIC_DIR / 'css' / 'components' / 'player_input.css'
 INDEX_HTML = STATIC_DIR / 'index.html'
