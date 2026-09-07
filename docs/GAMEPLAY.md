@@ -81,6 +81,7 @@ Designed for parties, family gatherings, or solo play on a single screen.
   - True photo location marked with a gold star, connected to player pins with colored dashed lines indicating distance error in kilometers.
   - Actual capture date compared to guessed dates, with day differences.
   - Point breakdown and celebratory badges for spot-on guesses.
+  - **🚩 Report Inconsistencies**: Click the flag button (🚩) to open the Report Issue modal and report inaccurate GPS coordinates, wrong capture dates, or notes, with a direct link to Immich Web for editing.
 - Click **Next Round** to continue to the next turn.
 
 ### 5. Game Summary & Podium
@@ -145,6 +146,16 @@ Navigate to **Challenges** via the header navbar to track and manage all multipl
 - **Share Drawer**: Expand any challenge card's header share button (`🔗`) to view the direct URL and scan the SVG QR code.
 - **Standings Drawer**: Click **View Standings** to inspect real-time participant progress, completed round counts, and scores without leaving the hub.
 - **Play / Results**: Direct action button to play active challenges or jump directly to the Grand Reveal summary for concluded matches.
+
+---
+
+## Reported Photos Moderation (`/reported`)
+
+Administrators and hosts can access the **Reported Assets Dashboard** at `/reported`:
+
+- **Inspection & Filtering**: Browse all flagged photos with report timestamps, reporting player names, and issue badges (Location, Date, Notes). Filter by issue type and sort by newest or oldest.
+- **Immich Web Integration**: Open the source photo directly in Immich Web to adjust location coordinates or EXIF capture timestamps.
+- **Resolve Reports**: Click **Resolve Issue** to unflag the photo, returning it to the active candidate pool in real time.
 
 ---
 

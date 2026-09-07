@@ -31,7 +31,7 @@ immich-quiz/
 │   ├── version.py       Semantic application version string (APP_VERSION).
 │   ├── api/
 │   │   ├── routes.py    Standard local match API endpoints (setup, question, answer, result).
-│   │   └── challenge_routes.py Async & hybrid multiplayer challenge endpoints (create, start, question, answer, leaderboard, stop).
+│   │   └── challenge_routes.py Async & hybrid multiplayer challenge endpoints (create, start, question, answer, leaderboard, deactivate).
 │   ├── game/            Modular game mode system and session orchestration.
 │   │   ├── modes.py     BaseGameModeEngine, PinpointEngine,
 │   │   │                AlbumShuffleEngine, and GameModeRegistry.
@@ -67,7 +67,7 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, filters.css, timer.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
@@ -102,7 +102,8 @@ immich-quiz/
         │   ├── game.js      Question fetching, media pre-verification, pass-device coordination, and answer submit.
         │   ├── reveal.js    Round results aggregation, reveal rendering, and turn progression.
         │   ├── summary.js   Replay loading from SQLite, podium/awards display, and 404/ended cards.
-        │   └── challenges.js Challenges Hub screen controller (#challenges-page-card, live timers, drawers).
+        │   ├── challenges.js Challenges Hub screen controller (#challenges-page-card, live timers, drawers).
+        │   └── reported.js  Reported Asset Moderation Dashboard screen controller (#reported-page-card).
         ├── summary/     Post-game summary rendering submodules:
         │   ├── podium.js    3D podium and winner banner.
         │   ├── awards.js    Client-side performance awards (Sniper, Time Traveler, Speed Demon).
@@ -134,9 +135,13 @@ immich-quiz/
     │   ├── test_album_shuffle_gameplay.py Photo card reordering and multi-pin placement.
     │   ├── test_challenge_gameplay.py Challenge lobby, rounds, polling, and Grand Reveal.
     │   ├── test_report_issue.py Report Issue modal dialog, form validation, and submission.
+    │   ├── test_reported_moderation.py Moderation dashboard list, search, filter, and resolve.
+    │   ├── test_language_switch.py Dynamic bilingual toggle and label reactivity.
+    │   ├── test_universal_language_switch.py Automated full-DOM translation parity scanner.
+    │   ├── test_filters_accordion.py Filter accordion expansion and preflight reactivity.
     │   ├── test_routing_and_recovery.py Deep links, SPA routing, and reload recovery.
     │   └── test_summary_and_effects.py Score rollup animations and post-game awards.
-    ├── frontend/        Frontend regression and component tests (test_frontend_regressions.py, test_multi_select.py, test_player_input.py, test_range_slider.py).
+    ├── frontend/        Frontend regression and component tests (test_frontend_regressions.py, test_setup_card_bento_regression.py, test_multi_select.py, test_player_input.py, test_range_slider.py).
     ├── game/            Match selection, candidate pools, and diversity tests (test_diversity.py).
     ├── immich/          Immich client adapter tests (test_immich_client.py).
     ├── storage/         Storage subsystem tests (test_challenge_storage.py, test_leaderboard.py, test_metadata_storage.py).

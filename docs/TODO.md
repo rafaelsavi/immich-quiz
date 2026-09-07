@@ -6,9 +6,6 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-still missing: reveal-actual pinpoint-actual, round-meta, reveal-table, leaflet-control-layers-list, timeout-notice, shuffle-help-btn, shuffle-card-meta, shuffle-reveal-table, timer-head
-you should find a smart way of checking simply all components of all pages for this dynamic language conversion, without having to name each one, so that you dont forget in the future.
-
 - [ ] v3.1.0 **Player Statistics & Match Replays**
   - [ ] Build dedicated player profile & stats dashboard querying relational data in `data/leaderboard.db`.
   - [ ] Visual accuracy analytics:
@@ -24,6 +21,9 @@ you should find a smart way of checking simply all components of all pages for t
   - [ ] Implement in-game video player UI with autoplay, seamless loop, mute/unmute toggle, and poster image fallback.
   - [ ] Update metadata sync and preflight filter to index video duration and ensure video GPS/date metadata validity.
   - [ ] Add library filter "Media Type" toggle (*Photos Only*, *Videos Only*, *Photos & Videos*).
+
+- [ ] v3.4.0 **Smart album filtering by person**
+  - [ ] Find an elegant way to allow to say "I want all albums where person X and Y appear in at least one photo"
 
 - [ ] v4.0.0 **Multiplayer Live Lounge (Real-Time Synchronous)**
   - [ ] Implement backend room coordinator and WebSocket manager (`src/room/manager.py`, `src/room/websocket.py`) supporting room codes, lobby state broadcasts, and host controls.

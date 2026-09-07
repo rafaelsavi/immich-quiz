@@ -71,6 +71,7 @@ The SQLite database is initialized with **Write-Ahead Logging (WAL)** mode, fore
 | **`asset_albums`** | `(asset_id, album_id, library_name)`  | Junction table mapping assets to album memberships (`ON DELETE CASCADE`).                                                                                          |
 | **`tags`**         | `(id, library_name)`                  | Immich custom tags (`library_name`, `name`).                                                                                                                       |
 | **`asset_tags`**   | `(asset_id, tag_id, library_name)`    | Junction table mapping assets to tags (`ON DELETE CASCADE`).                                                                                                       |
+| **`flagged_assets`**| `id (INTEGER AUTOINCREMENT)`          | Reported photo inconsistencies (`asset_id`, `flag_coordinates`, `flag_date`, `other`, `reported_by`, `reported_at`).                                                |
 
 ### 3.2 Schema Diagram
 
@@ -142,6 +143,16 @@ erDiagram
         string asset_id PK, FK
         string tag_id PK, FK
         string library_name PK, FK
+    }
+
+    flagged_assets {
+        int id PK
+        string asset_id
+        int flag_coordinates
+        int flag_date
+        string other
+        string reported_by
+        string reported_at
     }
 
     assets ||--o{ asset_people : "contains"

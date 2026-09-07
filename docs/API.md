@@ -319,12 +319,14 @@ Pinpoint Request:
 {
   "match_id": "match-uuid-1234",
   "question_id": "q-uuid-1",
-  "guessed_latitude": 48.8584,
-  "guessed_longitude": 2.2945,
-  "guessed_year": 2023,
-  "guessed_month": 7,
   "time_taken_seconds": 12.4,
-  "timed_out": false
+  "timed_out": false,
+  "pinpoint": {
+    "guessed_latitude": 48.8584,
+    "guessed_longitude": 2.2945,
+    "guessed_year": 2023,
+    "guessed_month": 7
+  }
 }
 ```
 
@@ -334,13 +336,13 @@ Album Shuffle Request:
 {
   "match_id": "match-uuid-1234",
   "question_id": "q-uuid-1",
-  "album_shuffle_answers": [
+  "time_taken_seconds": 18.6,
+  "timed_out": false,
+  "album_shuffle": [
     { "photo_id": "asset-uuid-101", "assigned_pin_id": "B", "assigned_timeline_index": 0 },
     { "photo_id": "asset-uuid-102", "assigned_pin_id": "A", "assigned_timeline_index": 1 },
     { "photo_id": "asset-uuid-103", "assigned_pin_id": "C", "assigned_timeline_index": 2 }
-  ],
-  "time_taken_seconds": 18.6,
-  "timed_out": false
+  ]
 }
 ```
 
@@ -374,101 +376,49 @@ Response Example:
 ```json
 {
   "round_number": 1,
-  "asset_id": "asset-uuid-101",
   "total_rounds": 10,
   "location_mode": true,
   "date_mode": true,
   "game_mode": "pinpoint",
-  "actual_latitude": 48.8584,
-  "actual_longitude": 2.2945,
-  "actual_date": "2023-07-14",
-  "actual_year": 2023,
-  "actual_month": 7,
-  "actual_city": "Paris",
-  "actual_country": "France",
+  "match_finished": false,
+  "score_max_points": 100,
+  "pinpoint_reveal": {
+    "asset_id": "asset-uuid-101",
+    "media_url": "/api/media/asset-uuid-101",
+    "actual_latitude": 48.8584,
+    "actual_longitude": 2.2945,
+    "actual_date": "2023-07-14",
+    "actual_year": 2023,
+    "actual_month": 7,
+    "actual_city": "Paris",
+    "actual_country": "France"
+  },
   "batch_reveal": null,
   "results": [
     {
       "player_name": "Alice",
-      "guessed_latitude": 48.8500,
-      "guessed_longitude": 2.3000,
-      "guessed_year": 2023,
-      "guessed_month": 7,
       "location_score": 98,
       "date_score": 100,
       "round_score": 198,
       "total_score": 198,
-      "distance_km": 1.02,
-      "date_diff_days": 0,
-      "date_diff_months": 0,
-      "date_diff_years_part": 0,
-      "date_diff_months_part": 0,
-      "date_diff_days_part": 0,
       "timed_out": false,
+      "pinpoint": {
+        "guessed_latitude": 48.8500,
+        "guessed_longitude": 2.3000,
+        "guessed_year": 2023,
+        "guessed_month": 7,
+        "distance_km": 1.02,
+        "date_diff_days": 0,
+        "date_diff_months": 0,
+        "date_diff_years_part": 0,
+        "date_diff_months_part": 0,
+        "date_diff_days_part": 0
+      },
       "album_shuffle_guesses": null
     }
-  ],
-  "match_finished": false,
-  "score_max_points": 100
+  ]
 }
 ```
-
----
-
-## Photo Issue Reporting
-
-### POST /api/assets/flag
-
-Flags an asset with coordinates, date, or other inconsistencies. When flagged, the asset is omitted from future match candidate pools (when `EXCLUDE_FLAGGED_ASSETS=true`).
-
-Request:
-
-```json
-{
-  "asset_id": "asset-uuid-101",
-  "flag_coordinates": true,
-  "flag_date": false,
-  "other": "GPS location is off by 15km"
-}
-```
-
-Response:
-
-```json
-{
-  "success": true,
-  "asset_id": "asset-uuid-101",
-  "flag_coordinates": true,
-  "flag_date": false,
-  "other": "GPS location is off by 15km",
-  "reported_at": "2026-08-29T18:00:00Z",
-  "immich_url": "https://immich.example.com/photos/asset-uuid-101"
-}
-```
-
-### GET /api/assets/flagged?limit={limit}
-
-Returns a list of all flagged assets with report timestamps and direct Immich Web URLs:
-
-Response:
-
-```json
-[
-  {
-    "id": 1,
-    "asset_id": "asset-uuid-101",
-    "flag_coordinates": true,
-    "flag_date": false,
-    "other": "GPS location is off by 15km",
-    "reported_at": "2026-08-29T18:00:00Z",
-    "immich_url": "https://immich.example.com/photos/asset-uuid-101"
-  }
-]
-```
-
-### DELETE /api/assets/flagged/{asset_id}
-
-Removes an asset from the flagged list, unblocking it for future matches. Returns `200` with `{"success": true}` or `404` if not found.
 
 ### GET /api/match/{match_id}/summary?lang={en|pt}
 
@@ -483,8 +433,6 @@ Response:
   "location_mode": true,
   "date_mode": true,
   "game_mode": "pinpoint",
-  "libraries": ["family_library"],
-  "album_names": ["Summer Vacation 2024"],
   "finished": true,
   "winners": ["Alice"],
   "players": [
@@ -514,7 +462,24 @@ Response:
   ],
   "filter_summary": "Paris • Summer Vacation 2024",
   "filter_tooltip": "Album: Summer Vacation 2024\nCities: Paris",
-  "is_custom_filtered": true
+  "is_custom_filtered": true,
+  "config": {
+    "round_count": 10,
+    "round_length": "1m",
+    "location_mode": true,
+    "date_mode": true,
+    "game_mode": "pinpoint",
+    "libraries": ["family_library"],
+    "album_names": ["Summer Vacation 2024"],
+    "album_ids": ["album-uuid-1"],
+    "person_ids": [],
+    "people_mode": "ANY",
+    "countries": ["France"],
+    "cities": ["Paris"],
+    "min_date": null,
+    "max_date": null,
+    "include_shared": false
+  }
 }
 ```
 
@@ -715,20 +680,24 @@ Lists created challenges for host management on the Challenges Hub page (`/chall
 Response (`200 OK`):
 
 ```json
-[
-  {
-    "challenge_id": "ch_uuid_12345",
-    "capability_token": "ch_9f8e2a1b3c4d5e6f",
-    "title": "Summer Vacation 2024",
-    "creator_name": "Alice",
-    "rounds": 10,
-    "game_mode": "pinpoint",
-    "created_at": "2026-09-03T12:00:00Z",
-    "expires_at": "2026-09-04T12:00:00Z",
-    "total_participants": 4,
-    "is_active": true
-  }
-]
+{
+  "challenges": [
+    {
+      "challenge_id": "ch_uuid_12345",
+      "capability_token": "ch_9f8e2a1b3c4d5e6f",
+      "play_url": "/play/ch_9f8e2a1b3c4d5e6f",
+      "title": "Summer Vacation 2024",
+      "creator_name": "Alice",
+      "rounds": 10,
+      "game_mode": "pinpoint",
+      "round_length": "1m",
+      "created_at": "2026-09-03T12:00:00Z",
+      "expires_at": "2026-09-04T12:00:00Z",
+      "total_participants": 4,
+      "is_active": true
+    }
+  ]
+}
 ```
 
 ### GET /api/challenge/{capability_token}
@@ -826,12 +795,29 @@ Request (Pinpoint Mode):
 ```json
 {
   "round_index": 0,
-  "guessed_latitude": -23.5505,
-  "guessed_longitude": -46.6333,
-  "guessed_year": 2023,
-  "guessed_month": 7,
   "time_taken_seconds": 14.2,
-  "timed_out": false
+  "timed_out": false,
+  "pinpoint": {
+    "guessed_latitude": -23.5505,
+    "guessed_longitude": -46.6333,
+    "guessed_year": 2023,
+    "guessed_month": 7
+  }
+}
+```
+
+Request (Album Shuffle Mode):
+
+```json
+{
+  "round_index": 0,
+  "time_taken_seconds": 18.5,
+  "timed_out": false,
+  "album_shuffle": [
+    { "photo_id": "asset-uuid-101", "assigned_pin_id": "B", "assigned_timeline_index": 0 },
+    { "photo_id": "asset-uuid-102", "assigned_pin_id": "A", "assigned_timeline_index": 1 },
+    { "photo_id": "asset-uuid-103", "assigned_pin_id": "C", "assigned_timeline_index": 2 }
+  ]
 }
 ```
 
@@ -843,21 +829,27 @@ Response (`200 OK`):
   "round_score": 94,
   "location_score": 48,
   "date_score": 46,
-  "distance_km": 1.25,
-  "date_diff_days": 15,
-  "date_diff_months": 0,
-  "actual_latitude": -23.5510,
-  "actual_longitude": -46.6340,
-  "actual_date": "2023-07-22",
-  "actual_year": 2023,
-  "actual_month": 7,
-  "actual_city": "São Paulo",
-  "actual_country": "Brazil",
   "game_mode": "pinpoint",
   "is_game_over": false,
   "total_score": 94,
   "total_time_seconds": 14.2,
-  "player_color": "#ff7043"
+  "pinpoint_reveal": {
+    "asset_id": "asset-uuid-101",
+    "media_url": "/api/media/asset-uuid-101",
+    "actual_latitude": -23.5510,
+    "actual_longitude": -46.6340,
+    "actual_date": "2023-07-22",
+    "actual_year": 2023,
+    "actual_month": 7,
+    "actual_city": "São Paulo",
+    "actual_country": "Brazil"
+  },
+  "pinpoint_deviation": {
+    "distance_km": 1.25,
+    "date_diff_days": 15,
+    "date_diff_months": 0
+  },
+  "batch_reveal": null
 }
 ```
 
@@ -911,19 +903,26 @@ Response (`200 OK`):
       "player_color": "#4caf50",
       "round_index": 0,
       "game_mode": "pinpoint",
-      "guessed_latitude": -23.5505,
-      "guessed_longitude": -46.6333,
-      "actual_latitude": -23.5510,
-      "actual_longitude": -46.6340,
-      "distance_km": 1.25,
-      "location_points": 48,
-      "guessed_year": 2023,
-      "guessed_month": 7,
-      "actual_date": "2023-07-22",
-      "date_diff_days": 15,
-      "date_points": 46,
       "round_score": 94,
-      "time_taken_seconds": 12.5
+      "time_taken_seconds": 12.5,
+      "timed_out": false,
+      "pinpoint": {
+        "guessed_latitude": -23.5505,
+        "guessed_longitude": -46.6333,
+        "guessed_year": 2023,
+        "guessed_month": 7,
+        "actual_latitude": -23.5510,
+        "actual_longitude": -46.6340,
+        "actual_date": "2023-07-22",
+        "actual_year": 2023,
+        "actual_month": 7,
+        "actual_city": "São Paulo",
+        "actual_country": "Brazil",
+        "distance_km": 1.25,
+        "date_diff_days": 15,
+        "date_diff_months": 0
+      },
+      "album_shuffle": null
     }
   ],
   "round_history": [
@@ -942,74 +941,16 @@ Response (`200 OK`):
 }
 ```
 
-### POST /api/challenge/{capability_token}/stop
+### POST /api/challenge/{challenge_id}/deactivate
 
-Terminates an active challenge immediately. Concluded challenges can no longer accept new attempts, while existing results remain accessible.
+Deactivates an active challenge immediately by its ID (host revocation). Deactivated challenges can no longer accept new attempts, while existing results and standings remain accessible.
 
 Response (`200 OK`):
 
 ```json
 {
   "success": true,
-  "challenge_id": "ch_uuid_12345",
-  "is_active": false
-}
-```
-
----
-
-## Asset Flagging & Moderation
-
-### POST /api/assets/flag
-
-Flags an asset with metadata inconsistencies (inaccurate GPS, incorrect date, or custom notes) to exclude it from future games.
-
-Form Data:
-
-* `asset_id`: String (UUID)
-* `flag_coordinates`: Boolean (optional, default `false`)
-* `flag_date`: Boolean (optional, default `false`)
-* `other`: String (optional)
-* `reported_by`: String (optional)
-
-Response (`200 OK`):
-
-```json
-{
-  "status": "flagged",
-  "asset_id": "asset-uuid-101"
-}
-```
-
-### GET /api/assets/flagged
-
-Returns a list of all currently flagged/reported assets for moderation inspection.
-
-Response (`200 OK`):
-
-```json
-[
-  {
-    "asset_id": "asset-uuid-101",
-    "flag_coordinates": true,
-    "flag_date": false,
-    "other": "GPS location is in the ocean",
-    "reported_by": "Alice",
-    "created_at": "2026-09-07T14:30:00Z"
-  }
-]
-```
-
-### DELETE /api/assets/flagged/{asset_id}
-
-Resolves a flagged asset report, unflagging the photo and re-enabling it for future game selection.
-
-Response (`200 OK`):
-
-```json
-{
-  "status": "unflagged",
-  "asset_id": "asset-uuid-101"
+  "challenge_id": "ch_uuid_12345"
 }
 ```
 

@@ -118,7 +118,7 @@ Grand Reveal Summary (/play/:token/summary)
 - **Provisional vs. Settled Podium**:
   - If only 1 player has completed the match: A *Provisional Standings* notice explains that rankings may shift as friends finish.
   - If $\ge 2$ players have finished: Displays a full 3D podium with medals (`🥇 1`, `🥈 2`, `🥉 3`).
-- **Awards Section**: Awards such as *Sharpshooter*, *Speed Demon*, and *Globetrotter*.
+- **Awards Section**: Awards such as 🎯 *Sniper*, ⏳ *Time Traveler*, and ⚡ *Speed Demon*.
 - **Visual Match Review**:
   - **Pinpoint Mode**: An interactive **Round Carousel** with photo preview, fullscreen SVG lightbox, scatter map of all players' guesses and connector lines, and date comparison chips.
   - **Album Shuffle Mode**: A **World Journey Map** with spiderfy pin clustering and a **Polaroid Gallery** of all round photos.
@@ -168,8 +168,10 @@ When hosting Immich Quiz behind Cloudflare Zero Trust, Traefik, Nginx, or Caddy,
 | `/api/media/*` | **Public** | Metadata-scrubbed thumbnail proxy (authorized by asset ID) |
 | `/static/*` | **Public** | Frontend assets (JS, CSS, audio, icons) |
 | `/api/challenge/create` | **Protected / Host** | Challenge creation (protect with Zero Trust / HTTP Basic Auth) |
-| `/api/challenge/*/stop` | **Protected / Host** | Challenge termination |
+| `/api/challenge/*/deactivate` | **Protected / Host** | Challenge deactivation |
 | `/challenges` | **Protected / Host** | Challenges Hub management page |
+| `/reported` | **Protected / Host** | Photo inconsistency moderation dashboard |
+| `/api/assets/*` | **Protected / Host** | Flagged photo management and moderation endpoints |
 | `/api/sync*` | **Protected / Admin** | Metadata synchronization triggers |
 
 ### Example Nginx Configuration
@@ -199,7 +201,22 @@ server {
         auth_basic_user_file /etc/nginx/.htpasswd;
         proxy_pass http://127.0.0.1:8010;
     }
+    location ~ ^/api/challenge/.+/deactivate$ {
+        auth_basic "Host Authorization";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        proxy_pass http://127.0.0.1:8010;
+    }
     location /challenges {
+        auth_basic "Host Authorization";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        proxy_pass http://127.0.0.1:8010;
+    }
+    location /reported {
+        auth_basic "Host Authorization";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+        proxy_pass http://127.0.0.1:8010;
+    }
+    location /api/assets/ {
         auth_basic "Host Authorization";
         auth_basic_user_file /etc/nginx/.htpasswd;
         proxy_pass http://127.0.0.1:8010;

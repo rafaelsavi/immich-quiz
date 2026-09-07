@@ -15,16 +15,20 @@ Play locally with friends on a single screen via **👥 Pass & Play**, or share 
 ## Playing the Game
 
 ### Game Modes & Targets
+
 - **🎯 Pinpoint**: 1 photo per round. Place a pin on the interactive Leaflet map and/or guess the capture month and year.
 - **🔀 Album Shuffle**: 3 photos per round. Match photos to lettered map pins and/or arrange them in chronological sequence along a timeline.
 - **Targets**: Guess **Location only**, **Date only**, or **Location & Date**.
 
 ### Play Modes
+
 - **👥 Local Match (Pass & Play)**: Gather friends around a single device or TV. Players take turns passing the device between rounds with a privacy curtain protecting upcoming photos.
 - **🌐 Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
 - **Challenges Hub (`/challenges`)**: Browse, search, share, track active challenges, and view past match summaries.
+- **Reported Assets Dashboard (`/reported`)**: Review reported photo metadata inconsistencies (GPS, date, notes), open direct Immich Web edit links, and resolve reports in real time.
 
 ### Library Filters & Preflight
+
 Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching). A live preflight indicator verifies that enough diverse, geotagged, and dated photos exist before the match starts.
 
 See [docs/GAMEPLAY.md](docs/GAMEPLAY.md) for the full gameplay walkthrough, [docs/CHALLENGES.md](docs/CHALLENGES.md) for the multiplayer challenge guide, and [docs/SCORING.md](docs/SCORING.md) for mathematical scoring details.
@@ -121,8 +125,8 @@ uv sync --extra dev
 uv run playwright install chromium
 ```
 
-2. Use `.env.example` to create a local `.env` file for local development.
-3. Start the app:
+1. Use `.env.example` to create a local `.env` file for local development.
+2. Start the app:
 
 ```bash
 uv run python -m src.main
