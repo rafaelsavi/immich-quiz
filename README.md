@@ -39,12 +39,12 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 
 `ghcr.io/rafaelsavi/immich-quiz`
 
-| Tag                  | Description                       | Command                                             |
-|----------------------|-----------------------------------|-----------------------------------------------------|
-| `:latest`            | Latest build from `main` branch   | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
-| `:rc`                | Latest Release Candidate build    | `docker pull ghcr.io/rafaelsavi/immich-quiz:rc`     |
-| `:v1.0.0` / `:1.0.0` | Specific semantic release version | `docker pull ghcr.io/rafaelsavi/immich-quiz:v1.0.0` |
-| `:<sha>`             | Exact commit hash build           | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
+| Tag                  | Description                                                | Command                                             |
+|----------------------|------------------------------------------------------------|-----------------------------------------------------|
+| `:latest`            | Latest official stable release (multi-arch: amd64 / arm64) | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
+| `:rc`                | Latest Release Candidate build                             | `docker pull ghcr.io/rafaelsavi/immich-quiz:rc`     |
+| `:v3.0.0` / `:3.0.0` | Specific semantic release version                          | `docker pull ghcr.io/rafaelsavi/immich-quiz:v3.0.0` |
+| `:<sha>`             | Exact commit hash build                                    | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
 ### Starting the server
 
@@ -183,4 +183,5 @@ An interactive playground is available at [`/audio-playground`](http://localhost
 - [docs/SCORING.md](docs/SCORING.md) — mathematical scoring formulas and decay reference tables
 - [docs/AUDIO_PLAYGROUND.md](docs/AUDIO_PLAYGROUND.md) — Web Audio sound engine documentation and testing playground guide
 - [docs/AWARDS.md](docs/AWARDS.md) — guide to performance awards, criteria, and customization instructions
+- [docs/RELEASES.md](docs/RELEASES.md) — release workflow, semantic versioning rules, and CI/CD pipelines
 - [docs/TODO.md](docs/TODO.md) — project roadmap and backlog for planned features and technical tasks

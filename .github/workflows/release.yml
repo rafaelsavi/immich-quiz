@@ -7,9 +7,6 @@ on:
       - rc
       - 'release/**'
       - 'rc/**'
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*-rc*'
     paths-ignore:
       - 'docs/**'
       - '*.md'
@@ -51,6 +48,18 @@ jobs:
             exit 1
           fi
 
+          # Extract curated changelog notes for this version from CHANGELOG.md
+          VERSION="$VERSION" python3 -c "
+          import re, os
+          from pathlib import Path
+          content = Path('CHANGELOG.md').read_text(encoding='utf-8')
+          version = os.environ['VERSION']
+          pattern = rf'##\s*\[?v?{re.escape(version)}\]?[^\n]*\n(.*?)(?=\n##\s*\[|\Z)'
+          match = re.search(pattern, content, re.DOTALL)
+          notes = match.group(1).strip() if match else ''
+          Path('release_notes.md').write_text(notes, encoding='utf-8')
+          "
+
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
@@ -78,6 +87,7 @@ jobs:
         with:
           tag_name: ${{ steps.get_version.outputs.tag }}
           name: ${{ steps.get_version.outputs.tag }}
+          body_path: release_notes.md
           prerelease: ${{ steps.get_version.outputs.is_official == 'false' }}
           make_latest: ${{ steps.get_version.outputs.is_official == 'true' }}
           generate_release_notes: true
