@@ -230,10 +230,38 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
         player_scores={'Bob': {'total': 400}},
     )
 
+    # Filtered Match with the same gameplay settings as the unfiltered match
+    store.append_match(
+        match_id='m3',
+        config=BaseGameConfig(
+            libraries=['family'],
+            album_names=['Holidays'],
+            albums=['alb-1'],
+            round_count=10,
+            round_length=RoundLength.minute_1,
+            location_mode=True,
+            date_mode=True,
+            game_mode=GameMode.pinpoint,
+        ),
+        player_scores={'Carol': {'total': 700}},
+    )
+
     # Filter by rounds and round_length
     res = store.list_entries(LeaderboardQuery(rounds=10, round_length=RoundLength.minute_1))
-    assert len(res) == 1
-    assert res[0].match_id == 'm1'
+    assert {entry.match_id for entry in res} == {'m1', 'm3'}
+
+    # An exact query with no active photo filters must exclude filtered matches.
+    res = store.list_entries(
+        LeaderboardQuery(
+            rounds=10,
+            round_length=RoundLength.minute_1,
+            location_mode=True,
+            date_mode=True,
+            game_mode=GameMode.pinpoint,
+            is_custom_filtered=False,
+        )
+    )
+    assert [entry.match_id for entry in res] == ['m1']
 
     # Filter by game_mode
     res = store.list_entries(LeaderboardQuery(game_mode=GameMode.album_shuffle))
@@ -247,8 +275,7 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
 
     # Filter by albums
     custom_entries = store.list_entries(LeaderboardQuery(albums=['alb-1'], exact_filter_match=False))
-    assert len(custom_entries) == 1
-    assert custom_entries[0].match_id == 'm2'
+    assert {entry.match_id for entry in custom_entries} == {'m2', 'm3'}
 
 
 def test_leaderboard_album_shuffle_round_guesses(tmp_path: Path) -> None:
