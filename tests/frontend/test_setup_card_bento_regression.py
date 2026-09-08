@@ -71,6 +71,8 @@ def test_css_and_js_layout_support():
     setup_filters = SETUP_FILTERS_JS.read_text(encoding='utf-8')
     admin = ADMIN_JS.read_text(encoding='utf-8')
 
+    assert '#setup-card' in cards_css
+    assert '#setup-card {\n  overflow: visible;\n}' in cards_css
     assert '.mode-buttons' in cards_css
     assert 'repeat(2, 1fr)' in cards_css
     assert '.segmented-control' in cards_css
