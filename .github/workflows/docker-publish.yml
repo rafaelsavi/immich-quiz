@@ -1,8 +1,6 @@
 name: Build & Publish Docker Image
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
