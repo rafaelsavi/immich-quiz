@@ -161,18 +161,18 @@ When hosting Immich Quiz behind Cloudflare Zero Trust, Traefik, Nginx, or Caddy,
 
 ### Path Protection Rules
 
-| Path | Access Level | Description |
-| :--- | :--- | :--- |
-| `/play/*` | **Public** | Challenge landing, participant join, and match summary |
-| `/api/challenge/*` | **Public** | Capability-token authenticated challenge endpoints |
-| `/api/media/*` | **Public** | Metadata-scrubbed thumbnail proxy (authorized by asset ID) |
-| `/static/*` | **Public** | Frontend assets (JS, CSS, audio, icons) |
-| `/api/challenge/create` | **Protected / Host** | Challenge creation (protect with Zero Trust / HTTP Basic Auth) |
-| `/api/challenge/*/deactivate` | **Protected / Host** | Challenge deactivation |
-| `/challenges` | **Protected / Host** | Challenges Hub management page |
-| `/reported` | **Protected / Host** | Photo inconsistency moderation dashboard |
-| `/api/assets/*` | **Protected / Host** | Flagged photo management and moderation endpoints |
-| `/api/sync*` | **Protected / Admin** | Metadata synchronization triggers |
+| Path                          | Access Level          | Description                                                    |
+|:------------------------------|:----------------------|:---------------------------------------------------------------|
+| `/play/*`                     | **Public**            | Challenge landing, participant join, and match summary         |
+| `/api/challenge/*`            | **Public**            | Capability-token authenticated challenge endpoints             |
+| `/api/media/*`                | **Public**            | Metadata-scrubbed thumbnail proxy (authorized by asset ID)     |
+| `/static/*`                   | **Public**            | Frontend assets (JS, CSS, audio, icons)                        |
+| `/api/challenge/create`       | **Protected / Host**  | Challenge creation (protect with Zero Trust / HTTP Basic Auth) |
+| `/api/challenge/*/deactivate` | **Protected / Host**  | Challenge deactivation                                         |
+| `/challenges`                 | **Protected / Host**  | Challenges Hub management page                                 |
+| `/reported`                   | **Protected / Host**  | Photo inconsistency moderation dashboard                       |
+| `/api/assets/*`               | **Protected / Host**  | Flagged photo management and moderation endpoints              |
+| `/api/sync*`                  | **Protected / Admin** | Metadata synchronization triggers                              |
 
 ### Example Nginx Configuration
 
