@@ -548,7 +548,7 @@ class LeaderboardStore:
         if q.played_before is not None:
             clauses.append('m.played_at <= ?')
             params.append(f'{q.played_before.isoformat()}T23:59:59.999')
-        if q.is_custom_filtered is not None:
+        if q.is_custom_filtered is not None and not q.exact_filter_match:
             clauses.append('m.is_custom_filtered = ?')
             params.append(1 if q.is_custom_filtered else 0)
 
@@ -620,6 +620,18 @@ class LeaderboardStore:
                 clauses.append('m.include_shared = 1')
             else:
                 clauses.append('(m.include_shared IS NULL OR m.include_shared = 0)')
+        elif q.exact_filter_match and q.is_custom_filtered is not None:
+            clauses.extend(
+                [
+                    'm.album_ids_json IS NULL',
+                    'm.countries_json IS NULL',
+                    'm.cities_json IS NULL',
+                    'm.person_ids_json IS NULL',
+                    'm.min_date IS NULL',
+                    'm.max_date IS NULL',
+                    '(m.include_shared IS NULL OR m.include_shared = 0)',
+                ]
+            )
         else:
             # Loose querying: only add conditions for explicitly provided filters
             libs_json = _canonicalize_filter_list(q.libraries)

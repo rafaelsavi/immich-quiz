@@ -123,13 +123,16 @@ Once CI passes and the PR is approved, merge it.
 
 Upon merge to `main`:
 
-1. **`release.yml`** triggers:
+**`release.yml`** executes two chained jobs sequentially:
+
+1. **Job 1 (`release`)**:
    - Validates the version format (`X.Y.Z`).
    - Checks if release tag `vX.Y.Z` already exists.
    - Extracts the release section from `CHANGELOG.md`.
    - Creates and pushes annotated Git tag `vX.Y.Z`.
    - Publishes the GitHub Release with the extracted changelog notes.
-2. **`docker-publish.yml`** triggers on release:
+2. **Job 2 (`docker`)** *(chained via `needs: release`)*:
+   - Executes automatically whenever Job 1 creates a new release.
    - Sets up QEMU and Docker Buildx.
    - Builds multi-architecture images for `linux/amd64` and `linux/arm64`.
    - Pushes images to GitHub Container Registry (`ghcr.io/rafaelsavi/immich-quiz`) with tags:
@@ -152,36 +155,27 @@ Upon merge to `main`:
   4. Run static linting (`uv run ruff check .`).
   5. Run static type checking (`uv run mypy src`).
   6. Execute unit, integration, and E2E tests with coverage report (`uv run pytest --cov=src`).
-  7. **Version Bump Check (PRs only)**:
+  7. **Version Bump Gate (PRs only)**:
      - Detects code changes comparing against the merge-base (`git diff origin/main...HEAD`).
      - Bypasses check if changes only affect markdown files, documentation (`docs/**`), VS Code configs (`.vscode/**`), or hooks (`.githooks/**`).
      - Verifies `pyproject.toml` version is strictly bumped using semantic version comparison.
      - Rejects pre-release suffixes (`rc`, `beta`, `dev`) targeting `main`.
      - Confirms matching header entry `## [X.Y.Z]` exists in `CHANGELOG.md`.
 
-### 3.2 Auto Release Workflow (`.github/workflows/release.yml`)
+### 3.2 Auto Release & Publish Workflow (`.github/workflows/release.yml`)
 
 - **Triggers**: Pushes to `main` (and staging branches `rc`, `release/**`).
-- **Permissions**: `contents: write`.
-- **Key Responsibilities**:
-  1. Extracts version from `pyproject.toml`.
-  2. Verifies the tag does not already exist via GitHub CLI (`gh release view`).
-  3. Extracts release notes directly from `CHANGELOG.md` for that version.
-  4. Creates and pushes the annotated tag `vX.Y.Z`.
-  5. Publishes a GitHub Release containing the changelog body, setting `make_latest: true` for stable releases.
+- **Permissions**: `contents: write`, `packages: write`.
+- **Chained Jobs Architecture**:
+  - **`release`**: Verifies the version bump, extracts release notes from `CHANGELOG.md`, creates tag `vX.Y.Z`, and cuts the GitHub release.
+  - **`docker`** *(depends on `release`)*: Avoids cross-workflow webhook suppression by executing within the same workflow. Builds and pushes multi-architecture images (`linux/amd64`, `linux/arm64`) to `ghcr.io`.
 
-### 3.3 Docker Publish Workflow (`.github/workflows/docker-publish.yml`)
+### 3.3 Standalone Docker Publish Workflow (`.github/workflows/docker-publish.yml`)
 
-- **Triggers**: Release published (`release: [published]`), manual trigger (`workflow_dispatch`).
+- **Triggers**: Manual trigger (`workflow_dispatch`).
 - **Permissions**: `contents: read`, `packages: write`.
 - **Key Responsibilities**:
-  1. Logs into GitHub Container Registry (`ghcr.io`).
-  2. Provisions QEMU and Docker Buildx.
-  3. Builds multi-architecture images for `linux/amd64,linux/arm64`.
-  4. Applies layer caching using GitHub Actions cache (`type=gha`).
-  5. Generates tags (`:latest`, `:vX.Y.Z`, `:X.Y.Z`, `:sha`) and pushes to `ghcr.io`.
-
----
+  - Serves as an on-demand utility to manually rebuild and push Docker container images from any branch at any time without triggering a new version release.
 
 ## 4. Local Git Pre-Push Hook
 

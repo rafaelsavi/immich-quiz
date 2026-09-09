@@ -68,6 +68,7 @@ export function setupFilterParams() {
   const selectedLibs = state.filters && state.filters.libraryMultiSelect
     ? state.filters.libraryMultiSelect.getSelectedIds()
     : [];
+  let hasCustomPhotoFilters = albumIds.length > 0;
   const params = new URLSearchParams({
     round_length: (el.roundLength && el.roundLength.value) || "1m",
     location_mode: String(locationMode),
@@ -81,8 +82,14 @@ export function setupFilterParams() {
   const slider = state.filters && state.filters.dateRangeSlider;
   if (slider) {
     const { minDate, maxDate } = slider.getSelectedRange();
-    if (minDate) params.set("min_date", minDate);
-    if (maxDate) params.set("max_date", maxDate);
+    if (minDate) {
+      params.set("min_date", minDate);
+      hasCustomPhotoFilters = true;
+    }
+    if (maxDate) {
+      params.set("max_date", maxDate);
+      hasCustomPhotoFilters = true;
+    }
   }
 
   const collator = getCollator();
@@ -90,18 +97,21 @@ export function setupFilterParams() {
   const countrySelect = state.filters && state.filters.countryMultiSelect;
   if (countrySelect) {
     const countries = countrySelect.getSelectedIds().sort((a, b) => collator.compare(a, b));
+    if (countries.length > 0) hasCustomPhotoFilters = true;
     countries.forEach((c) => params.append("countries", c));
   }
 
   const citySelect = state.filters && state.filters.cityMultiSelect;
   if (citySelect) {
     const cities = citySelect.getSelectedIds().sort((a, b) => collator.compare(a, b));
+    if (cities.length > 0) hasCustomPhotoFilters = true;
     cities.forEach((c) => params.append("cities", c));
   }
 
   const peopleSelect = state.filters && state.filters.peopleMultiSelect;
   if (peopleSelect) {
     const peopleList = peopleSelect.getSelectedIds().sort((a, b) => collator.compare(a, b));
+    if (peopleList.length > 0) hasCustomPhotoFilters = true;
     peopleList.forEach((pid) => params.append("people", pid));
     if (peopleList.length > 0) {
       const peopleMode = typeof getSelectedPeopleMode === "function" ? getSelectedPeopleMode() : "ANY";
@@ -111,7 +121,10 @@ export function setupFilterParams() {
 
   if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) {
     params.set("include_shared", "true");
+    hasCustomPhotoFilters = true;
   }
+
+  params.set("is_custom_filtered", String(hasCustomPhotoFilters));
 
   return params;
 }
