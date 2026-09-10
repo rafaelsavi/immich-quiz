@@ -1,53 +1,25 @@
 #!/bin/sh
-# Git pre-push hook executing CI checks (.github/workflows/ci.yml)
+# Git pre-push hook executing unified verification (scripts/verify.py)
+# Guarantees 100% parity between local developer pushes and CI validation.
 
 echo "=========================================="
-echo "Running Pre-Push Quality Checks (CI parity)"
+echo "Running Pre-Push Quality Verification"
 echo "=========================================="
 
-echo "[1/6] Syncing dependencies..."
-uv sync --extra dev
-if [ $? -ne 0 ]; then
-    echo "❌ uv sync failed. Push aborted."
-    exit 1
-fi
+# Ensure dev dependencies and Playwright browser binary are installed
+uv sync --extra dev || exit 1
+uv run playwright install chromium || exit 1
 
-echo "[2/6] Ensuring Playwright browser binaries..."
-uv run playwright install chromium
+# Execute the exact same verification suite as CI
+uv run python scripts/verify.py --check-version
 if [ $? -ne 0 ]; then
-    echo "❌ Playwright browser installation failed. Push aborted."
-    exit 1
-fi
-
-echo "[3/6] Running Ruff Linter..."
-uv run ruff check .
-if [ $? -ne 0 ]; then
-    echo "❌ Ruff check failed. Push aborted."
-    exit 1
-fi
-
-echo "[4/6] Running Ruff Formatter Check..."
-uv run ruff format --check
-if [ $? -ne 0 ]; then
-    echo "❌ Ruff format check failed. Push aborted."
-    exit 1
-fi
-
-echo "[5/6] Running Mypy Type Checker..."
-uv run mypy src
-if [ $? -ne 0 ]; then
-    echo "❌ Mypy type check failed. Push aborted."
-    exit 1
-fi
-
-echo "[6/6] Running Pytest with Coverage..."
-uv run pytest --cov=src --cov-report=term-missing
-if [ $? -ne 0 ]; then
-    echo "❌ Pytest failed. Push aborted."
+    echo ""
+    echo "❌ Quality verification failed. Push aborted."
+    echo "Fix the reported errors or run 'uv run python scripts/verify.py --fix' before pushing."
     exit 1
 fi
 
 echo "=========================================="
-echo "✅ All CI checks passed! Proceeding with push."
+echo "✅ All verification checks passed! Proceeding with push."
 echo "=========================================="
 exit 0

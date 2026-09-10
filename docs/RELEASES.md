@@ -32,16 +32,18 @@ flowchart TD
     A[Create Feature Branch] --> B[Implement Changes & Tests]
     B --> C[Bump Version in pyproject.toml]
     C --> D[Add Release Notes to CHANGELOG.md]
-    D --> E[Run Pre-Push Checks locally]
+    D --> E[Run Local Verification: scripts/verify.py]
     E --> F[Open Pull Request to main]
-    F --> G{CI Pipeline Runs}
+    F --> G[CI Pipeline: Stage 1 Validate]
     G -- Fails --> B
     G -- Passes --> H[Review & Merge to main]
-    H --> I[Auto Release Workflow]
-    I --> J[Git Tag vX.Y.Z Created & Pushed]
-    J --> K[GitHub Release Published with Changelog Body]
-    K --> L[Docker Publish Workflow]
-    L --> M[Multi-Arch Images Built & Pushed to ghcr.io]
+    H --> I[Unified CI/CD Pipeline on main]
+    I --> J[Stage 1: Validate Suite]
+    J -- Fails --> K[Pipeline Terminated: No Tag, No Release, No Docker]
+    J -- Passes --> L{New Version Tag?}
+    L -- No --> M[No-op: Code Validated, Release Skipped]
+    L -- Yes --> N[Stage 2: Create Git Tag & GitHub Release]
+    N --> O[Stage 3: Build & Publish Multi-Arch Docker to GHCR]
 ```
 
 ### Step 1: Create a Feature or Fix Branch
@@ -75,7 +77,7 @@ version = "3.1.0"
 Add a new release section right under the document preamble in [`CHANGELOG.md`](../CHANGELOG.md):
 
 ```markdown
-## [3.1.0] - 2026-09-08
+## [3.1.0] - 2026-09-10
 
 ### Added
 - Feature description here...
@@ -89,52 +91,49 @@ Add a new release section right under the document preamble in [`CHANGELOG.md`](
 
 Use standardized subsection headers: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
 
-### Step 5: Verify Locally Before Pushing
+### Step 5: Verify Locally Before Pushing (Identical to CI)
 
-Run the automated pre-push checks (or verify them manually):
+Run the unified verification script:
 
 ```bash
-# 1. Format check
-uv run ruff format --check
+# Full verification (Format, Lint, Types, Tests, and Version/Changelog checks)
+uv run python scripts/verify.py --check-version
 
-# 2. Lint check
-uv run ruff check .
-
-# 3. Type check
-uv run mypy src
-
-# 4. Run test suite with coverage
-uv run pytest --cov=src --cov-report=term-missing
+# Tip: Auto-fix formatting and linting errors automatically:
+uv run python scripts/verify.py --fix
 ```
 
 ### Step 6: Open Pull Request to `main`
 
 Push your branch and open a PR targeting `main`.
-The CI workflow automatically executes:
+The CI workflow automatically executes **Stage 1 (`validate`)**:
 
 - Quality and test suites across all components.
-- **Version Bump Gate**: Checks if code files were modified. If yes, verifies that `version` in `pyproject.toml` is greater than `origin/main` and that a corresponding release section exists in `CHANGELOG.md`.
+- **Version Bump Gate**: Checks if code files were modified. If yes, verifies that `version` in `pyproject.toml` is strictly greater than `origin/main` and that a corresponding non-empty release section exists in `CHANGELOG.md`.
 
 ### Step 7: Merge PR to `main`
 
-Once CI passes and the PR is approved, merge it.
+Once validation passes and the PR is approved, merge it.
 
-### Step 8: Automated Release & Container Deployment
+### Step 8: Strict Sequential Pipeline Execution
 
-Upon merge to `main`:
+Upon merge to `main`, the single unified **`CI/CD Pipeline`** executes in strict sequential order:
 
-**`release.yml`** executes two chained jobs sequentially:
+1. **Stage 1 (`validate`)**:
+   - Executes the exact same `scripts/verify.py --ci` suite.
+   - **Critical Guardrail**: If ANY test, lint, format, or type check fails, the pipeline aborts immediately. **Stages 2 and 3 will never run.**
+   - Evaluates whether `version` represents a new tag not yet present on remote.
 
-1. **Job 1 (`release`)**:
-   - Validates the version format (`X.Y.Z`).
-   - Checks if release tag `vX.Y.Z` already exists.
-   - Extracts the release section from `CHANGELOG.md`.
-   - Creates and pushes annotated Git tag `vX.Y.Z`.
+2. **Stage 2 (`release`)** *(Depends on `validate`)*:
+   - Runs **only** if Stage 1 completely passed and a new version is detected.
+   - Extracts release notes directly from `CHANGELOG.md` for that version.
+   - Creates and pushes the annotated Git tag `vX.Y.Z`.
    - Publishes the GitHub Release with the extracted changelog notes.
-2. **Job 2 (`docker`)** *(chained via `needs: release`)*:
-   - Executes automatically whenever Job 1 creates a new release.
-   - Sets up QEMU and Docker Buildx.
-   - Builds multi-architecture images for `linux/amd64` and `linux/arm64`.
+
+3. **Stage 3 (`docker`)** *(Depends on `release`)*:
+   - Runs **only** if Stage 2 successfully created the release.
+   - Provisions QEMU and Docker Buildx.
+   - Builds multi-architecture container images for `linux/amd64` and `linux/arm64`.
    - Pushes images to GitHub Container Registry (`ghcr.io/rafaelsavi/immich-quiz`) with tags:
      - `:latest` (pointing to the latest official release)
      - `:vX.Y.Z` (e.g. `:v3.1.0`)
@@ -145,57 +144,41 @@ Upon merge to `main`:
 
 ## 3. GitHub Actions Workflows Breakdown
 
-### 3.1 CI Workflow (`.github/workflows/ci.yml`)
+### 3.1 Unified CI/CD Pipeline (`.github/workflows/ci.yml`)
 
-- **Triggers**: Pull requests targeting `main`, pushes to `main`.
-- **Key Responsibilities**:
-  1. Setup Python environment using `astral-sh/setup-uv` with caching.
-  2. Install headless Chromium browser for Playwright end-to-end tests (`uv run playwright install --with-deps chromium`).
-  3. Validate formatting (`uv run ruff format --check`).
-  4. Run static linting (`uv run ruff check .`).
-  5. Run static type checking (`uv run mypy src`).
-  6. Execute unit, integration, and E2E tests with coverage report (`uv run pytest --cov=src`).
-  7. **Version Bump Gate (PRs only)**:
-     - Detects code changes comparing against the merge-base (`git diff origin/main...HEAD`).
-     - Bypasses check if changes only affect markdown files, documentation (`docs/**`), VS Code configs (`.vscode/**`), or hooks (`.githooks/**`).
-     - Verifies `pyproject.toml` version is strictly bumped using semantic version comparison.
-     - Rejects pre-release suffixes (`rc`, `beta`, `dev`) targeting `main`.
-     - Confirms matching header entry `## [X.Y.Z]` exists in `CHANGELOG.md`.
-
-### 3.2 Auto Release & Publish Workflow (`.github/workflows/release.yml`)
-
-- **Triggers**: Pushes to `main` (and staging branches `rc`, `release/**`).
+- **Triggers**: Pull requests targeting `main`, pushes to `main`, and manual triggers.
 - **Permissions**: `contents: write`, `packages: write`.
-- **Chained Jobs Architecture**:
-  - **`release`**: Verifies the version bump, extracts release notes from `CHANGELOG.md`, creates tag `vX.Y.Z`, and cuts the GitHub release.
-  - **`docker`** *(depends on `release`)*: Avoids cross-workflow webhook suppression by executing within the same workflow. Builds and pushes multi-architecture images (`linux/amd64`, `linux/arm64`) to `ghcr.io`.
+- **Sequential Architecture**:
+  - `validate`: Runs on all branches/PRs. Runs `uv run python scripts/verify.py --ci`.
+  - `release`: Depends on `validate`. Runs only on `main` when a new version tag is detected.
+  - `docker`: Depends on `release`. Builds and pushes multi-arch images (`linux/amd64`, `linux/arm64`) to `ghcr.io`.
 
-### 3.3 Standalone Docker Publish Workflow (`.github/workflows/docker-publish.yml`)
+### 3.2 Standalone Docker Publish Workflow (`.github/workflows/docker-publish.yml`)
 
 - **Triggers**: Manual trigger (`workflow_dispatch`).
 - **Permissions**: `contents: read`, `packages: write`.
-- **Key Responsibilities**:
-  - Serves as an on-demand utility to manually rebuild and push Docker container images from any branch at any time without triggering a new version release.
+- **Purpose**: Serves as an on-demand utility to manually rebuild and push Docker container images from any branch at any time without triggering a release.
+
+---
 
 ## 4. Local Git Pre-Push Hook
 
-To catch lint, formatting, type, and test regressions before pushing to remote, install the project's pre-push hook:
+To catch all issues before pushing to remote, enable the project's pre-push hook:
 
 ```bash
 # Enable repository hooks directory
 git config core.hooksPath .githooks
 ```
 
-The hook automatically runs:
+The hook automatically executes:
 
-1. `uv sync --extra dev`
-2. `uv run playwright install chromium`
-3. `uv run ruff check .`
-4. `uv run ruff format --check`
-5. `uv run mypy src`
-6. `uv run pytest --cov=src --cov-report=term-missing`
+```bash
+uv sync --extra dev
+uv run playwright install chromium
+uv run python scripts/verify.py --check-version
+```
 
-If any step fails, the push is aborted.
+If any check fails, the push is prevented, guaranteeing 100% parity with cloud CI.
 
 ---
 
@@ -217,7 +200,7 @@ If any step fails, the push is aborted.
 - **Cause**: A pre-release tag like `3.0.0rc1` was pushed or targeted to `main`.
 - **Solution**: Pre-releases are only allowed on `rc` or `release/*` branches. For `main`, use standard `MAJOR.MINOR.PATCH` format (e.g. `3.0.0`).
 
-### Error: *"Failed to push tag vX.Y.Z"* in `release.yml`
+### Error: *"Failed to push tag vX.Y.Z"*
 
 - **Cause**: GitHub repository rulesets or branch/tag protection policies prevent the default `GITHUB_TOKEN` from pushing tags directly.
 - **Solution**: Ensure repository Settings > Actions > General > Workflow Permissions has **Read and write permissions** enabled, or configure a personal access token (`RELEASE_TOKEN`) with `repo` scope in repository secrets.

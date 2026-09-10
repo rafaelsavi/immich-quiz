@@ -1,63 +1,174 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, rc ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
 
 jobs:
-  test:
-    name: Run Tests & Linters
+  # ============================================================================
+  # STAGE 1: VALIDATE (Runs on EVERY PR and EVERY push to main)
+  # ============================================================================
+  validate:
+    name: Validate (Format, Lint, Types, Tests & Version)
     runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check_release.outputs.should_release }}
+      version: ${{ steps.check_release.outputs.version }}
+      tag: ${{ steps.check_release.outputs.tag }}
+      is_official: ${{ steps.check_release.outputs.is_official }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v3
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-      - name: Install dependencies
-        run: uv sync --extra dev
-      - name: Install Playwright Browsers
-        run: uv run playwright install --with-deps chromium
-      - name: Run Ruff Formatter Check
-        run: uv run ruff format --check
-      - name: Run Ruff Linter
-        run: uv run ruff check .
-      - name: Run Mypy Type Checker
-        run: uv run mypy src
-      - name: Run Pytest with Coverage
-        run: uv run pytest --cov=src --cov-report=term-missing
-      - name: Check Version Bump in pyproject.toml
-        if: github.event_name == 'pull_request'
+
+      - name: Install dependencies & Playwright browser
         run: |
-          CHANGED_CODE_FILES=$(git diff --name-only origin/main...HEAD | grep -vE '^(docs/|\.vscode/|\.githooks/|\.github/|\.gitignore|.*\.md$)' || true)
-          if [ -z "$CHANGED_CODE_FILES" ]; then
-            echo "ℹ️ Only documentation or non-code files changed. Version bump not required."
-            exit 0
-          fi
+          uv sync --extra dev
+          uv run playwright install --with-deps chromium
 
-          OLD_VERSION=$(git show origin/main:pyproject.toml | uv run python -c "import tomllib, sys; print(tomllib.loads(sys.stdin.read())['project']['version'])")
-          NEW_VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          echo "main branch version: $OLD_VERSION"
-          echo "PR branch version:   $NEW_VERSION"
+      - name: Run Unified Verification Suite
+        run: uv run python scripts/verify.py --ci
 
-          IS_GREATER=$(uv run python -c "from packaging.version import Version; print('true' if Version('$NEW_VERSION') > Version('$OLD_VERSION') else 'false')")
-          if [ "$IS_GREATER" = "false" ]; then
-            echo "::error::Code changes detected but version in pyproject.toml ($NEW_VERSION) is not greater than main branch ($OLD_VERSION)! Please bump the version before merging to main."
-            exit 1
-          fi
+      - name: Evaluate Release Readiness
+        id: check_release
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          uv run python -c "
+          import tomllib, os, re, subprocess
+          from pathlib import Path
 
-          IS_VALID_FORMAT=$(uv run python -c "import re; print('true' if re.match(r'^[0-9]+\.[0-9]+\.[0-9]+$', '$NEW_VERSION') else 'false')")
-          if [ "$IS_VALID_FORMAT" = "false" ]; then
-            echo "::error::Version '$NEW_VERSION' in pyproject.toml does not match required x.x.x layout for main branch (e.g. 1.0.0, 1.0.1). Pre-release suffixes like 'rc' are not permitted on main."
-            exit 1
-          fi
+          version = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
+          tag = f'v{version}'
+          is_official = 'true' if re.match(r'^[0-9]+\.[0-9]+\.[0-9]+$', version) else 'false'
 
-          IS_IN_CHANGELOG=$(uv run python -c "import re; content=open('CHANGELOG.md', encoding='utf-8').read(); print('true' if re.search(r'##\s*\[?v?' + re.escape('$NEW_VERSION') + r'\]?', content) else 'false')")
-          if [ "$IS_IN_CHANGELOG" = "false" ]; then
-            echo "::error::Version '$NEW_VERSION' from pyproject.toml was not found in CHANGELOG.md! Please add release notes for [$NEW_VERSION] in CHANGELOG.md before merging to main."
-            exit 1
-          fi
+          # Check if tag already exists on remote origin
+          result = subprocess.run(['git', 'ls-remote', '--tags', 'origin', f'refs/tags/{tag}'], capture_output=True, text=True)
+          tag_exists = bool(result.stdout.strip())
 
+          # Only release if tag does not exist yet on remote
+          should_release = 'true' if not tag_exists else 'false'
+          print(f'Version: {version}, Tag: {tag}, Remote Tag Exists: {tag_exists}, Should Release: {should_release}')
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'version={version}\n')
+              f.write(f'tag={tag}\n')
+              f.write(f'is_official={is_official}\n')
+              f.write(f'should_release={should_release}\n')
+          "
+
+  # ============================================================================
+  # STAGE 2: RELEASE (Runs ONLY if validate succeeded, on main, and version is new)
+  # ============================================================================
+  release:
+    name: Create Tag & GitHub Release
+    needs: validate
+    if: needs.validate.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Extract Release Notes from CHANGELOG.md
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          uv run python -c "
+          import re, os
+          from pathlib import Path
+          content = Path('CHANGELOG.md').read_text(encoding='utf-8')
+          version = os.environ['VERSION']
+          pattern = rf'##\s*\[?v?{re.escape(version)}\]?[^\n]*\n(.*?)(?=\n##\s*\[|\Z)'
+          match = re.search(pattern, content, re.DOTALL)
+          notes = match.group(1).strip() if match else ''
+          Path('release_notes.md').write_text(notes, encoding='utf-8')
+          "
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+
+      - name: Create Git Tag
+        run: |
+          TAG="${{ needs.validate.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG" || echo "::warning::Direct git push failed; tag will be created by action-gh-release."
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.validate.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ needs.validate.outputs.tag }}
+          body_path: release_notes.md
+          prerelease: ${{ needs.validate.outputs.is_official == 'false' }}
+          make_latest: ${{ needs.validate.outputs.is_official == 'true' }}
+          generate_release_notes: true
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+  # ============================================================================
+  # STAGE 3: DOCKER (Runs ONLY if release succeeded)
+  # ============================================================================
+  docker:
+    name: Build & Publish Multi-Arch Docker
+    needs: [validate, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ needs.validate.outputs.is_official == 'true' }}
+            type=raw,value=${{ needs.validate.outputs.tag }}
+            type=raw,value=${{ needs.validate.outputs.version }}
+            type=raw,value=rc,enable=${{ needs.validate.outputs.is_official == 'false' }}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
