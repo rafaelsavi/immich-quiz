@@ -1819,3 +1819,29 @@ def test_filters_accordion_header_full_clickability() -> None:
     assert '.filters-accordion-header {' in filters_css
     header_block = filters_css.split('.filters-accordion-header {')[1].split('}')[0]
     assert 'cursor: pointer;' in header_block
+
+
+def test_preflight_count_updates_with_guess_mode() -> None:
+    """Verify that setup_filters.js and modes/common.js listen to guess mode changes and update preflight counts."""
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+    modes_common_js = (JS_DIR / 'modules' / 'modes' / 'common.js').read_text(encoding='utf-8')
+
+    # 1. modes/common.js dispatches change / guess-mode-change on toggleCard
+    assert 'checkbox.dispatchEvent(new Event("change", { bubbles: true }));' in modes_common_js
+    assert 'containerEl.dispatchEvent(' in modes_common_js
+    assert 'guess-mode-change' in modes_common_js
+
+    # 2. setup_filters.js defines onGuessModeChanged
+    assert 'export function onGuessModeChanged()' in setup_filters_js
+    assert 'updatePreflightCount(_lastPreflightData);' in setup_filters_js
+    assert 'triggerPreflightDebounced();' in setup_filters_js
+
+    # 3. game-settings-container listens for change / guess-mode-change
+    assert 'container.addEventListener("change"' in setup_filters_js
+    assert 'container.addEventListener("guess-mode-change"' in setup_filters_js
+
+    # 4. updatePreflightCount handles both_count and guess mode
+    assert 'const bothCount = preflight.both_count;' in setup_filters_js
+    assert 'setup.preflight_count_both' in setup_filters_js
+    assert 'setup.preflight_count_gps' in setup_filters_js
+    assert 'setup.preflight_count_date' in setup_filters_js

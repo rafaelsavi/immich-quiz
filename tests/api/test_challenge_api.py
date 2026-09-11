@@ -131,7 +131,7 @@ def test_challenge_detail_public_endpoint(tmp_path: Path) -> None:
     token = create_res.json()['capability_token']
 
     # 2. Query public detail
-    detail_res = client.get(f'/api/challenge/{token}')
+    detail_res = client.get(f'/play/api/{token}')
     assert detail_res.status_code == 200
     detail = detail_res.json()
 
@@ -142,7 +142,7 @@ def test_challenge_detail_public_endpoint(tmp_path: Path) -> None:
     assert detail['total_participants'] == 0
 
     # 3. Non-existent token returns 404
-    not_found = client.get('/api/challenge/invalid-token-123')
+    not_found = client.get('/play/api/invalid-token-123')
     assert not_found.status_code == 404
 
 
@@ -157,7 +157,7 @@ def test_challenge_start_and_deduplicated_resumption(tmp_path: Path) -> None:
     token = create_res.json()['capability_token']
 
     # 1. Start new session
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Bob'})
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Bob'})
     assert start_res.status_code == 200
     s_data = start_res.json()
 
@@ -168,7 +168,7 @@ def test_challenge_start_and_deduplicated_resumption(tmp_path: Path) -> None:
     session_token = s_data['session_token']
 
     # 2. Starting again with same player name returns same session
-    resume_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Bob'})
+    resume_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Bob'})
     assert resume_res.status_code == 200
     r_data = resume_res.json()
     assert r_data['session_token'] == session_token
@@ -184,12 +184,12 @@ def test_challenge_question_sequencing_and_security(tmp_path: Path) -> None:
     )
     token = create_res.json()['capability_token']
 
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Charlie'})
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Charlie'})
     p_token = start_res.json()['session_token']
 
     # 1. Valid request for round 0
     q0_res = client.get(
-        f'/api/challenge/{token}/question/0',
+        f'/play/api/{token}/question/0',
         headers={'X-Player-Token': p_token},
     )
     assert q0_res.status_code == 200
@@ -202,7 +202,7 @@ def test_challenge_question_sequencing_and_security(tmp_path: Path) -> None:
 
     # 2. Skipping ahead to round 1 without answering round 0 -> 400 Bad Request
     q1_res = client.get(
-        f'/api/challenge/{token}/question/1',
+        f'/play/api/{token}/question/1',
         headers={'X-Player-Token': p_token},
     )
     assert q1_res.status_code == 400
@@ -210,7 +210,7 @@ def test_challenge_question_sequencing_and_security(tmp_path: Path) -> None:
 
     # 3. Invalid session token -> 401 Unauthorized
     bad_token_res = client.get(
-        f'/api/challenge/{token}/question/0',
+        f'/play/api/{token}/question/0',
         headers={'X-Player-Token': 'wrong_token'},
     )
     assert bad_token_res.status_code == 401
@@ -226,12 +226,12 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
     )
     token = create_res.json()['capability_token']
 
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Dave'})
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Dave'})
     p_token = start_res.json()['session_token']
 
     # Get question 0 first
     q0_res = client.get(
-        f'/api/challenge/{token}/question/0',
+        f'/play/api/{token}/question/0',
         headers={'X-Player-Token': p_token},
     )
     assert q0_res.status_code == 200
@@ -241,7 +241,7 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
 
     # Submit round 0 with exact coordinates and date
     ans0_res = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
@@ -273,7 +273,7 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
 
     # Now round 1 question can be retrieved
     q1_res = client.get(
-        f'/api/challenge/{token}/question/1',
+        f'/play/api/{token}/question/1',
         headers={'X-Player-Token': p_token},
     )
     assert q1_res.status_code == 200
@@ -281,7 +281,7 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
     # Submit rounds 1, 2, 3
     for r in range(1, 4):
         client.post(
-            f'/api/challenge/{token}/answer',
+            f'/play/api/{token}/answer',
             headers={'X-Player-Token': p_token},
             json={
                 'round_index': r,
@@ -297,7 +297,7 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
 
     # Submit round 4 (final round)
     ans4_res = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 4,
@@ -318,7 +318,7 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
 
     # Further question requests after completion return 409 Conflict
     conflict_q = client.get(
-        f'/api/challenge/{token}/question/4',
+        f'/play/api/{token}/question/4',
         headers={'X-Player-Token': p_token},
     )
     assert conflict_q.status_code == 409
@@ -334,12 +334,12 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
     )
     token = create_res.json()['capability_token']
 
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Emma'})
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Emma'})
     p_token = start_res.json()['session_token']
 
     # Get question 0
     q0_res = client.get(
-        f'/api/challenge/{token}/question/0',
+        f'/play/api/{token}/question/0',
         headers={'X-Player-Token': p_token},
     )
     assert q0_res.status_code == 200
@@ -352,7 +352,7 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
 
     # Submit answers for round 0
     ans_res = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
@@ -385,7 +385,7 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
 
     # Check leaderboard round_history contains batch_reveal
     lb_res = client.get(
-        f'/api/challenge/{token}/leaderboard',
+        f'/play/api/{token}/leaderboard',
         headers={'X-Player-Token': p_token},
     )
     assert lb_res.status_code == 200
@@ -412,12 +412,12 @@ def test_challenge_timer_grace_window(tmp_path: Path) -> None:
     )
     token = create_res.json()['capability_token']
 
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'SlowPlayer'})
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'SlowPlayer'})
     p_token = start_res.json()['session_token']
 
     # 30s round length + 5s grace = 35s max. Submitting with 40s should mark timed_out = True
     ans_res = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
@@ -433,7 +433,7 @@ def test_challenge_timer_grace_window(tmp_path: Path) -> None:
     assert ans_res.json()['timed_out'] is True
 
     # Check that leaderboard round_guesses for opponents also exposes timed_out
-    lead_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': p_token})
+    lead_res = client.get(f'/play/api/{token}/leaderboard', headers={'X-Player-Token': p_token})
     assert lead_res.status_code == 200
     guesses = lead_res.json()['round_guesses']
     assert len(guesses) == 1
@@ -451,10 +451,10 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
     token = create_res.json()['capability_token']
 
     # Player 1 finishes round 0
-    s1 = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player1'}).json()
+    s1 = client.post(f'/play/api/{token}/start', json={'player_name': 'Player1'}).json()
     t1 = s1['session_token']
     client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': t1},
         json={
             'round_index': 0,
@@ -467,10 +467,10 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
     )
 
     # Player 2 finishes round 0 and round 1
-    s2 = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player2'}).json()
+    s2 = client.post(f'/play/api/{token}/start', json={'player_name': 'Player2'}).json()
     t2 = s2['session_token']
     client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': t2},
         json={
             'round_index': 0,
@@ -482,7 +482,7 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
         },
     )
     client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': t2},
         json={
             'round_index': 1,
@@ -497,7 +497,7 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
     # Player 1 queries leaderboard with Player 1's token (completed round 0, currently on round 1)
     # Fog of war: Player 1 should ONLY see guesses for round 0!
     lb_res_p1 = client.get(
-        f'/api/challenge/{token}/leaderboard',
+        f'/play/api/{token}/leaderboard',
         headers={'X-Player-Token': t1},
     )
     assert lb_res_p1.status_code == 200
@@ -512,7 +512,7 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
 
     # Player 1 now completes round 1
     client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': t1},
         json={
             'round_index': 1,
@@ -526,7 +526,7 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
 
     # Player 1 queries leaderboard again: now sees up to round 1
     lb_res_p1_r1 = client.get(
-        f'/api/challenge/{token}/leaderboard',
+        f'/play/api/{token}/leaderboard',
         headers={'X-Player-Token': t1},
     )
     lb_p1_r1 = lb_res_p1_r1.json()
@@ -538,7 +538,7 @@ def test_challenge_fog_of_war_leaderboard_route(tmp_path: Path) -> None:
     # Unauthenticated / anonymous caller on active challenge:
     # Fog of War MUST conceal round_guesses and round_history (no secret coordinates/dates leaked)
     # but still provide player standings list for the Challenges Hub drawer.
-    lb_res_anon = client.get(f'/api/challenge/{token}/leaderboard')
+    lb_res_anon = client.get(f'/play/api/{token}/leaderboard')
     assert lb_res_anon.status_code == 200
     lb_anon = lb_res_anon.json()
     assert lb_anon['round_guesses'] == [], 'Active challenge round guesses must be empty for anonymous callers'
@@ -557,10 +557,10 @@ def test_media_proxy_authorization_for_challenge_assets(tmp_path: Path) -> None:
         json={'creator_name': 'Host', 'game_mode': 'pinpoint', 'round_count': 5},
     )
     token = create_res.json()['capability_token']
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Alice'}).json()
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Alice'}).json()
 
     q0 = client.get(
-        f'/api/challenge/{token}/question/0',
+        f'/play/api/{token}/question/0',
         headers={'X-Player-Token': start_res['session_token']},
     ).json()
 
@@ -591,20 +591,20 @@ def test_challenge_expired_and_deactivated_returns_404(tmp_path: Path) -> None:
 
     # Gameplay endpoints should return 404 for expired challenge,
     # but metadata/standings remain accessible with is_active=False
-    detail_res = client.get(f'/api/challenge/{token}')
+    detail_res = client.get(f'/play/api/{token}')
     assert detail_res.status_code == 200
     assert detail_res.json()['is_active'] is False
-    assert client.post(f'/api/challenge/{token}/start', json={'player_name': 'Test'}).status_code == 404
-    assert client.get(f'/api/challenge/{token}/question/0', headers={'X-Player-Token': 'tok'}).status_code == 404
+    assert client.post(f'/play/api/{token}/start', json={'player_name': 'Test'}).status_code == 404
+    assert client.get(f'/play/api/{token}/question/0', headers={'X-Player-Token': 'tok'}).status_code == 404
     assert (
         client.post(
-            f'/api/challenge/{token}/answer',
+            f'/play/api/{token}/answer',
             headers={'X-Player-Token': 'tok'},
             json={'round_index': 0, 'time_taken_seconds': 1.0},
         ).status_code
         == 404
     )
-    exp_lb_res = client.get(f'/api/challenge/{token}/leaderboard')
+    exp_lb_res = client.get(f'/play/api/{token}/leaderboard')
     assert exp_lb_res.status_code == 200
     assert exp_lb_res.json()['challenge_id'] == ch_id
     assert exp_lb_res.json()['is_game_over'] is True
@@ -629,7 +629,7 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     ).json()
 
     # 2. Add player to c1 to test participant count
-    client.post(f'/api/challenge/{c1["capability_token"]}/start', json={'player_name': 'PlayerA'})
+    client.post(f'/play/api/{c1["capability_token"]}/start', json={'player_name': 'PlayerA'})
 
     # 3. Call GET /api/challenge/list
     list_res = client.get('/api/challenge/list')
@@ -670,12 +670,12 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     assert c1_updated['is_active'] is False
 
     # 6. Verify accessing c1 gameplay returns 404, but detail shows inactive and standings/leaderboard returns 200
-    detail_res2 = client.get(f'/api/challenge/{c1["capability_token"]}')
+    detail_res2 = client.get(f'/play/api/{c1["capability_token"]}')
     assert detail_res2.status_code == 200
     assert detail_res2.json()['is_active'] is False
     c1_token = c1['capability_token']
-    assert client.post(f'/api/challenge/{c1_token}/start', json={'player_name': 'Test'}).status_code == 404
-    deact_lb_res = client.get(f'/api/challenge/{c1_token}/leaderboard')
+    assert client.post(f'/play/api/{c1_token}/start', json={'player_name': 'Test'}).status_code == 404
+    deact_lb_res = client.get(f'/play/api/{c1_token}/leaderboard')
     assert deact_lb_res.status_code == 200
     assert len(deact_lb_res.json()['leaderboard']) == 1
     assert deact_lb_res.json()['leaderboard'][0]['player_name'] == 'PlayerA'
@@ -698,19 +698,19 @@ def test_challenge_answer_invalid_round_index_returns_400(tmp_path: Path) -> Non
     token = create_res.json()['capability_token']
 
     # Start player
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Tester'})
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Tester'})
     p_token = start_res.json()['session_token']
 
     # Question for round 99 returns 400
     q_res = client.get(
-        f'/api/challenge/{token}/question/99',
+        f'/play/api/{token}/question/99',
         headers={'X-Player-Token': p_token},
     )
     assert q_res.status_code == 400
 
     # Answer for round 99 returns 400
     ans_res = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 99,
@@ -736,24 +736,24 @@ def test_challenge_individual_player_colors_api(tmp_path: Path) -> None:
     token = create_res.json()['capability_token']
 
     # Initial detail has empty participants
-    detail0 = client.get(f'/api/challenge/{token}').json()
+    detail0 = client.get(f'/play/api/{token}').json()
     assert detail0['total_participants'] == 0
     assert detail0['participants'] == []
 
     # 2. Player 1 starts
-    p1_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Alice'}).json()
+    p1_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Alice'}).json()
     assert p1_res['player_name'] == 'Alice'
     assert p1_res['participant_index'] == 0
     assert p1_res['player_color'] == '#f25f5c'
     assert p1_res['participants'] == ['Alice']
 
     # Detail now reflects Player 1
-    detail1 = client.get(f'/api/challenge/{token}').json()
+    detail1 = client.get(f'/play/api/{token}').json()
     assert detail1['total_participants'] == 1
     assert detail1['participants'] == ['Alice']
 
     # 3. Player 2 starts
-    p2_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Bob'}).json()
+    p2_res = client.post(f'/play/api/{token}/start', json={'player_name': 'Bob'}).json()
     assert p2_res['player_name'] == 'Bob'
     assert p2_res['participant_index'] == 1
     assert p2_res['player_color'] == '#0f7c7f'
@@ -764,7 +764,7 @@ def test_challenge_individual_player_colors_api(tmp_path: Path) -> None:
 
     # 4. Player 1 submits answer for round 0
     ans_res = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': p1_res['session_token']},
         json={
             'round_index': 0,
@@ -779,7 +779,7 @@ def test_challenge_individual_player_colors_api(tmp_path: Path) -> None:
     assert ans_res.json()['player_color'] == '#f25f5c'
 
     # 5. Leaderboard returns player_color on entries and round guesses
-    lb_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': p1_res['session_token']})
+    lb_res = client.get(f'/play/api/{token}/leaderboard', headers={'X-Player-Token': p1_res['session_token']})
     assert lb_res.status_code == 200
     lb_data = lb_res.json()
     alice_entry = next(e for e in lb_data['leaderboard'] if e['player_name'] == 'Alice')
@@ -804,15 +804,15 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     token = create_res.json()['capability_token']
 
     # 2. Host and Bob start challenge
-    host_start = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Host'}).json()
-    bob_start = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Bob'}).json()
+    host_start = client.post(f'/play/api/{token}/start', json={'player_name': 'Host'}).json()
+    bob_start = client.post(f'/play/api/{token}/start', json={'player_name': 'Bob'}).json()
 
     host_token = host_start['session_token']
     bob_token = bob_start['session_token']
 
     # 3. Fetch round 0 question to get batch photo and pin IDs
     q0_res = client.get(
-        f'/api/challenge/{token}/question/0',
+        f'/play/api/{token}/question/0',
         headers={'X-Player-Token': host_token},
     )
     assert q0_res.status_code == 200
@@ -824,7 +824,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
 
     # 4. Host submits round 0
     ans_host = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': host_token},
         json={
             'round_index': 0,
@@ -840,7 +840,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
 
     # 5. Bob submits round 0 with different assignments
     ans_bob = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': bob_token},
         json={
             'round_index': 0,
@@ -856,7 +856,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
 
     # 6. Bob queries leaderboard to observe Host's guesses
     lb_res = client.get(
-        f'/api/challenge/{token}/leaderboard',
+        f'/play/api/{token}/leaderboard',
         headers={'X-Player-Token': bob_token},
     )
     assert lb_res.status_code == 200
@@ -904,33 +904,33 @@ def test_challenge_standings_completion_status_for_in_progress_viewer(tmp_path: 
     token = create_res.json()['capability_token']
 
     # 2. Player 1 joins and completes all 3 rounds
-    p1_join = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player1'}).json()
+    p1_join = client.post(f'/play/api/{token}/start', json={'player_name': 'Player1'}).json()
     t1 = p1_join['session_token']
     for r in range(3):
         client.post(
-            f'/api/challenge/{token}/answer',
+            f'/play/api/{token}/answer',
             headers={'X-Player-Token': t1},
             json={'round_index': r, 'guessed_latitude': 10.0, 'guessed_longitude': 10.0, 'time_taken_seconds': 5.0},
         )
 
     # 3. Player 2 joins and completes all 3 rounds
-    p2_join = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player2'}).json()
+    p2_join = client.post(f'/play/api/{token}/start', json={'player_name': 'Player2'}).json()
     t2 = p2_join['session_token']
     for r in range(3):
         client.post(
-            f'/api/challenge/{token}/answer',
+            f'/play/api/{token}/answer',
             headers={'X-Player-Token': t2},
             json={'round_index': r, 'guessed_latitude': 10.0, 'guessed_longitude': 10.0, 'time_taken_seconds': 6.0},
         )
 
     # 4. Player 3 joins but has not answered any rounds (current_round = 0)
-    p3_join = client.post(f'/api/challenge/{token}/start', json={'player_name': 'Player3'}).json()
+    p3_join = client.post(f'/play/api/{token}/start', json={'player_name': 'Player3'}).json()
     t3 = p3_join['session_token']
 
     # 5. Player 3 queries leaderboard:
     # Player 1 and Player 2 MUST be reported with completed_rounds=3 and is_finished=True
     # Player 3 MUST be reported with completed_rounds=0 and is_finished=False
-    lb_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': t3})
+    lb_res = client.get(f'/play/api/{token}/leaderboard', headers={'X-Player-Token': t3})
     assert lb_res.status_code == 200
     lb = lb_res.json()
     assert lb['is_game_over'] is False
@@ -960,12 +960,12 @@ def test_challenge_album_shuffle_timeout(tmp_path: Path) -> None:
     assert create_res.status_code == 200
     token = create_res.json()['capability_token']
 
-    start_res = client.post(f'/api/challenge/{token}/start', json={'player_name': 'ShufflePlayer'})
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'ShufflePlayer'})
     p_token = start_res.json()['session_token']
 
     # Submit empty answers with timed_out=True
     ans_res = client.post(
-        f'/api/challenge/{token}/answer',
+        f'/play/api/{token}/answer',
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
@@ -980,8 +980,68 @@ def test_challenge_album_shuffle_timeout(tmp_path: Path) -> None:
     assert ans['round_score'] == 0
 
     # Verify leaderboard exposes timed_out
-    lead_res = client.get(f'/api/challenge/{token}/leaderboard', headers={'X-Player-Token': p_token})
+    lead_res = client.get(f'/play/api/{token}/leaderboard', headers={'X-Player-Token': p_token})
     assert lead_res.status_code == 200
     guesses = lead_res.json()['round_guesses']
     assert len(guesses) == 3  # 3 photos in round 0
     assert all(g['timed_out'] is True for g in guesses)
+
+
+def test_play_media_scoped_and_flagging(tmp_path: Path) -> None:
+    immich = FakeImmichClient(_create_mock_assets(25))
+    client = build_client(tmp_path, immich)
+
+    create_res = client.post(
+        '/api/challenge/create',
+        json={'creator_name': 'Host', 'game_mode': 'pinpoint', 'round_count': 3},
+    )
+    assert create_res.status_code == 200
+    c_data = create_res.json()
+    token = c_data['capability_token']
+
+    # 1. Fetch round question to get asset_id and verify media_url points to /play/media/...
+    start_res = client.post(f'/play/api/{token}/start', json={'player_name': 'MediaTester'})
+    p_token = start_res.json()['session_token']
+
+    q_res = client.get(f'/play/api/{token}/question/0', headers={'X-Player-Token': p_token})
+    assert q_res.status_code == 200
+    q_data = q_res.json()
+    valid_asset_id = q_data['asset_id']
+    assert q_data['media_url'] == f'/play/media/{token}/{valid_asset_id}'
+
+    # 2. Fetch scoped media for valid asset
+    media_res = client.get(f'/play/media/{token}/{valid_asset_id}')
+    assert media_res.status_code == 200
+    assert media_res.headers['content-type'] == 'image/jpeg'
+
+    # 3. Fetch media with unknown/unrelated asset -> 404
+    media_fail = client.get(f'/play/media/{token}/random-unknown-asset-id')
+    assert media_fail.status_code == 404
+
+    # 4. Fetch media with invalid token -> 404
+    token_fail = client.get(f'/play/media/invalid-token/{valid_asset_id}')
+    assert token_fail.status_code == 404
+
+    # 5. Flag asset via challenge endpoint (/play/api/{token}/flag)
+    flag_res = client.post(
+        f'/play/api/{token}/flag',
+        json={
+            'asset_id': valid_asset_id,
+            'flag_coordinates': True,
+            'flag_date': False,
+            'other': 'GPS seems off by 50km',
+            'reported_by': 'MediaTester',
+        },
+    )
+    assert flag_res.status_code == 200
+    assert flag_res.json()['success'] is True
+
+    # 6. Flag unknown asset via challenge endpoint -> 404
+    flag_fail = client.post(
+        f'/play/api/{token}/flag',
+        json={
+            'asset_id': 'unknown-asset-id',
+            'flag_coordinates': True,
+        },
+    )
+    assert flag_fail.status_code == 404

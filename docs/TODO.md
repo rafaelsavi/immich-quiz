@@ -6,8 +6,6 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-fix count update depending on guess mode
-
 - [ ] v3.1.0 **Player Statistics & Match Replays**
   - [ ] Build dedicated player profile & stats dashboard querying relational data in `data/leaderboard.db`.
   - [ ] Visual accuracy analytics:

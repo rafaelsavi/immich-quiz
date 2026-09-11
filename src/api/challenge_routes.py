@@ -1,13 +1,19 @@
-"""REST API routes for Challenge Mode (async & hybrid multiplayer)."""
+"""REST API routes for Challenge Mode (async & hybrid multiplayer).
+
+Separated into:
+- challenge_router (/api/challenge): Protected host management endpoints (create, list, deactivate).
+- play_router (/play): Public player endpoints (/play/api/...) and scoped media proxy (/play/media/...).
+"""
 
 from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 
 from src.game.challenge_service import ChallengeService, get_challenge_total_rounds
+from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
     ChallengeAnswerRequest,
     ChallengeAnswerResponse,
@@ -21,14 +27,18 @@ from src.models import (
     ChallengeQuestionResponse,
     ChallengeStartRequest,
     ChallengeStartResponse,
+    FlagAssetRequest,
+    FlagAssetResponse,
     GameMode,
     MapBounds,
     RoundLength,
 )
 from src.storage.challenge import ChallengeStore
 from src.storage.leaderboard import LeaderboardStore
+from src.storage.metadata import MetadataStore
 
 challenge_router = APIRouter(prefix='/api/challenge', tags=['challenge'])
+play_router = APIRouter(prefix='/play', tags=['play'])
 
 
 # --- Dependency Helpers ---
@@ -49,7 +59,19 @@ def get_leaderboard_store(request: Request) -> LeaderboardStore:
     return request.app.state.leaderboard_store
 
 
-# --- Routes ---
+def get_immich_client(request: Request) -> ImmichClient:
+    """FastAPI dependency yielding the Immich client."""
+    return request.app.state.immich_client
+
+
+def get_metadata_store(request: Request) -> MetadataStore:
+    """FastAPI dependency yielding the MetadataStore."""
+    return request.app.state.metadata_store
+
+
+# =====================================================================
+# Host / Management Routes (/api/challenge)
+# =====================================================================
 
 
 @challenge_router.post('/create', response_model=ChallengeCreateResponse)
@@ -156,7 +178,12 @@ async def deactivate_challenge(
     return ChallengeDeactivateResponse(success=True, challenge_id=challenge_id)
 
 
-@challenge_router.get('/{capability_token}', response_model=ChallengeDetailResponse)
+# =====================================================================
+# Public Player & Game Routes (/play/api & /play/media)
+# =====================================================================
+
+
+@play_router.get('/api/{capability_token}', response_model=ChallengeDetailResponse)
 async def get_challenge_detail(
     capability_token: str,
     challenge_store: ChallengeStore = Depends(get_challenge_store),
@@ -202,7 +229,7 @@ async def get_challenge_detail(
     )
 
 
-@challenge_router.post('/{capability_token}/start', response_model=ChallengeStartResponse)
+@play_router.post('/api/{capability_token}/start', response_model=ChallengeStartResponse)
 async def start_challenge(
     capability_token: str,
     body: ChallengeStartRequest,
@@ -247,8 +274,8 @@ async def start_challenge(
     )
 
 
-@challenge_router.get(
-    '/{capability_token}/question/{round_index}',
+@play_router.get(
+    '/api/{capability_token}/question/{round_index}',
     response_model=ChallengeQuestionResponse,
 )
 async def get_challenge_question(
@@ -290,8 +317,8 @@ async def get_challenge_question(
     return await asyncio.to_thread(service.get_question, challenge, round_index)
 
 
-@challenge_router.post(
-    '/{capability_token}/answer',
+@play_router.post(
+    '/api/{capability_token}/answer',
     response_model=ChallengeAnswerResponse,
 )
 async def submit_challenge_answer(
@@ -334,8 +361,8 @@ async def submit_challenge_answer(
     )
 
 
-@challenge_router.get(
-    '/{capability_token}/leaderboard',
+@play_router.get(
+    '/api/{capability_token}/leaderboard',
     response_model=ChallengeLeaderboardResponse,
 )
 async def get_challenge_leaderboard(
@@ -414,6 +441,7 @@ async def get_challenge_leaderboard(
         max_round=history_max_round,
         game_mode=game_mode.value,
         location_mode=location_mode,
+        capability_token=capability_token,
     )
 
     return ChallengeLeaderboardResponse(
@@ -429,4 +457,88 @@ async def get_challenge_leaderboard(
         location_mode=location_mode,
         date_mode=date_mode,
         round_history=round_history,
+    )
+
+
+@play_router.post('/api/{capability_token}/flag', response_model=FlagAssetResponse)
+async def flag_challenge_asset(
+    capability_token: str,
+    payload: FlagAssetRequest,
+    request: Request,
+    challenge_store: ChallengeStore = Depends(get_challenge_store),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
+) -> FlagAssetResponse:
+    """Allow challenge participants to flag photo inconsistencies directly from challenge gameplay."""
+    is_valid = await asyncio.to_thread(challenge_store.is_asset_in_challenge, capability_token, payload.asset_id)
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Unknown asset for this challenge')
+
+    res = await asyncio.to_thread(
+        metadata_store.flag_asset,
+        payload.asset_id,
+        flag_coordinates=payload.flag_coordinates,
+        flag_date=payload.flag_date,
+        other=payload.other,
+        reported_by=payload.reported_by,
+    )
+    immich_web_url = request.app.state.settings.immich_server_url.removesuffix('/api')
+    immich_url = f'{immich_web_url}/photos/{payload.asset_id}'
+    return FlagAssetResponse(
+        success=True,
+        asset_id=res['asset_id'],
+        flag_coordinates=res['flag_coordinates'],
+        flag_date=res['flag_date'],
+        other=res['other'],
+        reported_by=res['reported_by'],
+        reported_at=res['reported_at'],
+        immich_url=immich_url,
+    )
+
+
+@play_router.get('/media/{capability_token}/{asset_id}')
+async def play_media(
+    capability_token: str,
+    asset_id: str,
+    request: Request,
+    challenge_store: ChallengeStore = Depends(get_challenge_store),
+    immich: ImmichClient = Depends(get_immich_client),
+    metadata_store: MetadataStore = Depends(get_metadata_store),
+) -> Response:
+    """Scoped media proxy for challenge players.
+
+    Verifies the asset is registered to this specific active capability token,
+    and strips all EXIF/GPS metadata in-memory before streaming image bytes.
+    """
+    is_valid = await asyncio.to_thread(challenge_store.is_asset_in_challenge, capability_token, asset_id)
+    if not is_valid:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Unknown asset for this challenge')
+
+    target_library = await asyncio.to_thread(metadata_store.get_asset_library, asset_id)
+    if not target_library:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Cannot resolve library for asset')
+
+    etag = f'"{asset_id}"'
+    if_none_match = request.headers.get('if-none-match')
+    if if_none_match and if_none_match.strip() == etag:
+        return Response(
+            status_code=status.HTTP_304_NOT_MODIFIED,
+            headers={
+                'ETag': etag,
+                'Cache-Control': 'public, max-age=86400, immutable',
+            },
+        )
+
+    try:
+        content, content_type = await immich.get_asset_bytes(target_library, asset_id)
+    except ImmichClientError as exc:
+        await asyncio.to_thread(metadata_store.mark_asset_invalid, asset_id)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={
+            'ETag': etag,
+            'Cache-Control': 'public, max-age=86400, immutable',
+        },
     )

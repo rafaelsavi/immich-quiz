@@ -292,6 +292,7 @@ class GameService:
         total_count = counts['total_count']
         gps_count = counts['gps_count']
         date_count = counts['date_count']
+        both_count = counts.get('both_count', counts['eligible_count'])
         facet_counts = await asyncio.to_thread(self.metadata_store.get_facet_counts, criteria)
 
         active_filters: list[str] = []
@@ -326,6 +327,7 @@ class GameService:
             total_count=total_count,
             gps_count=gps_count,
             date_count=date_count,
+            both_count=both_count,
             location_mode=setup.location_mode,
             date_mode=setup.date_mode,
             facet_counts=facet_counts,

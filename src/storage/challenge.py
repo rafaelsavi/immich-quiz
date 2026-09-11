@@ -331,6 +331,22 @@ class ChallengeStore:
         )
         return row is not None
 
+    def is_asset_in_challenge(self, capability_token: str, asset_id: str) -> bool:
+        """Verify if an asset belongs specifically to this active, unexpired challenge."""
+        now_iso = datetime.now(UTC).isoformat()
+        row = self._db.fetch_one(
+            """
+            SELECT 1 FROM challenges, json_each(challenges.asset_ids_json)
+            WHERE challenges.capability_token = ?
+              AND challenges.is_active = 1
+              AND (challenges.expires_at IS NULL OR challenges.expires_at > ?)
+              AND json_each.value = ?
+            LIMIT 1
+            """,
+            (capability_token, now_iso, asset_id),
+        )
+        return row is not None
+
     def deactivate_challenge(self, challenge_id: str) -> bool:
         """Mark a challenge as inactive (admin revocation)."""
         with self._db.connection() as conn:

@@ -171,6 +171,7 @@ Response:
   "total_count": 120,
   "gps_count": 95,
   "date_count": 120,
+  "both_count": 95,
   "location_mode": true,
   "date_mode": true,
   "facet_counts": {
@@ -631,9 +632,9 @@ Response:
 
 ---
 
-## Multiplayer Challenges API
+## Host Challenge Management API
 
-Endpoints powering asynchronous and hybrid multiplayer challenge matches. Protected by capability tokens and session headers.
+Administrative endpoints for creating, monitoring, and deactivating multiplayer challenge matches. These routes belong to the host/administrator and should be kept protected behind authentication.
 
 ### POST /api/challenge/create
 
@@ -700,7 +701,26 @@ Response (`200 OK`):
 }
 ```
 
-### GET /api/challenge/{capability_token}
+### POST /api/challenge/{challenge_id}/deactivate
+
+Deactivates an active challenge immediately by its ID (host revocation). Deactivated challenges can no longer accept new attempts, while existing results and standings remain accessible.
+
+Response (`200 OK`):
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_uuid_12345"
+}
+```
+
+---
+
+## Public Player Challenge API
+
+Public endpoints powering participant gameplay, live social polling, photo inspection, and inconsistency reporting. All public traffic is scoped under `/play/api/*` and `/play/media/*` for simple Zero Trust and reverse proxy bypass rules.
+
+### GET /play/api/{capability_token}
 
 Retrieves public landing metadata, rule configurations, and participant rosters for a challenge link.
 
@@ -729,7 +749,7 @@ Response (`200 OK`):
 }
 ```
 
-### POST /api/challenge/{capability_token}/start
+### POST /play/api/{capability_token}/start
 
 Initializes or resumes a player's challenge session. If the player name already has an active session, returns the existing session token and current round progress.
 
@@ -758,7 +778,7 @@ Response (`200 OK`):
 }
 ```
 
-### GET /api/challenge/{capability_token}/question/{round_index}
+### GET /play/api/{capability_token}/question/{round_index}
 
 Fetches the sanitized question payload for round `round_index`. Requires `X-Player-Token` header. Sequential progression is strictly enforced (players cannot skip ahead).
 
@@ -773,7 +793,7 @@ Response (`200 OK`):
   "round_index": 0,
   "total_rounds": 10,
   "asset_id": "asset-uuid-101",
-  "media_url": "/api/media/asset-uuid-101",
+  "media_url": "/play/media/ch_9f8e2a1b3c4d5e6f/asset-uuid-101",
   "game_mode": "pinpoint",
   "location_mode": true,
   "date_mode": true,
@@ -782,7 +802,7 @@ Response (`200 OK`):
 }
 ```
 
-### POST /api/challenge/{capability_token}/answer
+### POST /play/api/{capability_token}/answer
 
 Submits a guess for the specified round and returns immediate personal reveal scores.
 
@@ -835,7 +855,7 @@ Response (`200 OK`):
   "total_time_seconds": 14.2,
   "pinpoint_reveal": {
     "asset_id": "asset-uuid-101",
-    "media_url": "/api/media/asset-uuid-101",
+    "media_url": "/play/media/ch_9f8e2a1b3c4d5e6f/asset-uuid-101",
     "actual_latitude": -23.5510,
     "actual_longitude": -46.6340,
     "actual_date": "2023-07-22",
@@ -853,9 +873,9 @@ Response (`200 OK`):
 }
 ```
 
-### GET /api/challenge/{capability_token}/leaderboard
+### GET /play/api/{capability_token}/leaderboard
 
-Retrieves challenge standings, overall scores, and Fog of War filtered round guesses. Polled every 3 seconds during round reviews.
+Retrieves challenge standings, overall scores, and Fog of War filtered round guesses. Polled every 3 seconds during round reviews and on the Grand Reveal screen.
 
 Headers:
 
@@ -927,10 +947,10 @@ Response (`200 OK`):
   ],
   "round_history": [
     {
-      "round_index": 0,
-      "asset_id": "asset-uuid-101",
-      "actual_lat": -23.5510,
-      "actual_lon": -46.6340,
+      "round_number": 1,
+      "media_url": "/play/media/ch_9f8e2a1b3c4d5e6f/asset-uuid-101",
+      "actual_latitude": -23.5510,
+      "actual_longitude": -46.6340,
       "actual_year": 2023,
       "actual_month": 7,
       "actual_date": "2023-07-22",
@@ -941,18 +961,44 @@ Response (`200 OK`):
 }
 ```
 
-### POST /api/challenge/{challenge_id}/deactivate
+### POST /play/api/{capability_token}/flag
 
-Deactivates an active challenge immediately by its ID (host revocation). Deactivated challenges can no longer accept new attempts, while existing results and standings remain accessible.
+Allows challenge participants to report photo inconsistencies (e.g. wrong date or misplaced GPS) directly from in-game controls without exposing the administrative `/api/assets/flag` endpoint.
+
+Request:
+
+```json
+{
+  "asset_id": "asset-uuid-101",
+  "reason": "GPS pin is in the wrong city"
+}
+```
 
 Response (`200 OK`):
 
 ```json
 {
   "success": true,
-  "challenge_id": "ch_uuid_12345"
+  "asset_id": "asset-uuid-101"
 }
 ```
+
+### GET /play/media/{capability_token}/{asset_id}
+
+Scoped media proxy for challenge participants. Strips all EXIF, GPS, and timestamp metadata in-memory before streaming image bytes to the client.
+
+**Security Constraints**:
+
+* The `capability_token` must correspond to an active, unexpired challenge.
+* The requested `asset_id` must be an explicit member of that challenge's photo pool.
+* Arbitrary asset lookups return HTTP `404 Not Found`.
+
+Headers:
+
+* `Cache-Control`: `public, max-age=86400, immutable`
+* `ETag`: `"asset-uuid-101"`
+
+Response (`200 OK` / `304 Not Modified`): Image stream (`image/jpeg`, etc.).
 
 ---
 
@@ -962,7 +1008,7 @@ Immich Quiz implements multi-layered security controls across both Local and Cha
 
 ### 1. Sanitized Question Payloads
 
-Question endpoints (`POST /api/question`, `GET /api/challenge/{token}/question/{round}`) never expose answer metadata:
+Question endpoints (`POST /api/question`, `GET /play/api/{token}/question/{round}`) never expose answer metadata:
 
 * No EXIF metadata, camera models, or timestamps
 * No GPS coordinates (latitude / longitude)
@@ -970,14 +1016,14 @@ Question endpoints (`POST /api/question`, `GET /api/challenge/{token}/question/{
 
 ### 2. EXIF & GPS Metadata Stripping on Image Proxies
 
-The media proxy (`GET /api/media/{asset_id}`) reads raw image bytes from Immich and scrubs all EXIF headers, GPS location tags, and creation dates in-memory before streaming bytes to the browser. Inspecting image requests in browser DevTools reveals zero geographic or temporal metadata.
+All media proxies (`GET /api/media/{asset_id}`, `GET /play/media/{capability_token}/{asset_id}`) read raw image bytes from Immich and scrub all EXIF headers, GPS location tags, and creation dates in-memory before streaming bytes to the browser. Inspecting image requests in browser DevTools reveals zero geographic or temporal metadata.
 
 ### 3. Capability-Based Asset Authorization
 
 The media proxy verifies that requested assets belong to an authorized context:
 
 * In Local mode, the asset must belong to the active in-memory match session.
-* In Challenge mode, the asset must belong to a valid, registered challenge seed.
+* In Challenge mode (`/play/media/{token}/{asset_id}`), the asset must belong strictly to that active, valid challenge seed.
 * In Moderation mode, the asset must currently be in the flagged asset registry.
 * Arbitrary asset ID probing returns HTTP `404 Not Found`.
 
@@ -988,3 +1034,4 @@ In Challenge mode, opponent guesses and true round coordinates are withheld unti
 ### 5. Server-Side Timer Grace Window
 
 Turn durations (`time_taken_seconds`) are tracked on the client and validated on the backend against `round_length_seconds + 5.0s` (grace period for network latency). Excessively delayed submissions are scored with zero points.
+

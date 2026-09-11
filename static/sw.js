@@ -62,7 +62,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Bypass cache for API calls and Immich media proxy
-  if (url.pathname.startsWith('/api/')) {
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/play/api/') ||
+    url.pathname.startsWith('/play/media/')
+  ) {
     return;
   }
 

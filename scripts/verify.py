@@ -195,7 +195,7 @@ def validate_version_and_changelog() -> None:
         sys.exit(1)
 
     # Validate CHANGELOG.md inclusion
-    changelog_path = Path('CHANGELOG.md')
+    changelog_path = REPO_ROOT / 'CHANGELOG.md'
     if not changelog_path.exists():
         log_error('CHANGELOG.md not found!')
         sys.exit(1)

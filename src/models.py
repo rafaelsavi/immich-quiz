@@ -408,6 +408,7 @@ class PreflightResponse(BaseModel):
     total_count: int | None = Field(default=None, ge=0)
     gps_count: int | None = Field(default=None, ge=0)
     date_count: int | None = Field(default=None, ge=0)
+    both_count: int | None = Field(default=None, ge=0)
     location_mode: bool = True
     date_mode: bool = True
     facet_counts: FacetCounts | None = None
