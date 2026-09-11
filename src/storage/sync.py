@@ -344,6 +344,20 @@ class SyncEngine:
         try:
             self._sync_warnings.pop(library_name, None)
             key = self._immich._library_key(library_name)
+            supports_search_v2 = False
+            if hasattr(self._immich, 'supports_search_v2'):
+                try:
+                    supports_search_v2 = await self._immich.supports_search_v2()
+                except Exception as exc:
+                    logger.warning('Failed to check Immich Search API v2 support: %s', exc)
+
+            api_protocol = (
+                'Search API v2 (structured filter & cursor pagination)'
+                if supports_search_v2
+                else 'legacy search API (flat params & page pagination)'
+            )
+            logger.info("Using Immich %s for library '%s'", api_protocol, library_name)
+
             current_user_id = await self._immich._current_user_id(key)
             if not current_user_id:
                 logger.warning(
@@ -351,6 +365,8 @@ class SyncEngine:
                     'Album ownership detection may fall back to default behavior.',
                     library_name,
                 )
+            else:
+                logger.debug("Resolved authenticated user ID '%s' for library '%s'", current_user_id, library_name)
 
             # 1. Fetch & store people
             raw_people = await self._immich._request_json('GET', '/people', key)
@@ -368,6 +384,7 @@ class SyncEngine:
                         people_data.append({'id': pid, 'name': pname})
             self._metadata_store.upsert_people(library_name, people_data)
             known_person_ids = {p['id'] for p in people_data}
+            logger.info("Indexed %d active people for library '%s'", len(people_data), library_name)
 
             # 2. Fetch & store albums
             raw_albums = await self._immich._request_json('GET', '/albums', key)
@@ -408,6 +425,13 @@ class SyncEngine:
 
             self._metadata_store.upsert_albums(library_name, albums_data)
             known_album_ids = {a['id'] for a in albums_data}
+            logger.info(
+                "Indexed %d albums (%d shared) for library '%s'; %d album(s) queued for asset contents fetch",
+                len(albums_data),
+                len(shared_album_ids),
+                library_name,
+                len(albums_to_fetch),
+            )
 
             if not is_delta:
                 self._metadata_store.prune_missing_albums(library_name, known_album_ids)
@@ -427,23 +451,73 @@ class SyncEngine:
                 async def _fetch_album_contents(alb_id: str, count: int) -> tuple[str, list[str]]:
                     async with album_semaphore:
                         try:
-                            alb_detail = await self._immich._request_json('GET', f'/albums/{alb_id}', key)
-                            alb_assets = self._immich._extract_asset_items(alb_detail)
-                            if not alb_assets and count > 0:
-                                search_alb = await self._immich._request_json(
-                                    'POST',
-                                    '/search/metadata',
-                                    key,
-                                    json={'albumIds': [alb_id], 'size': 1000},
-                                )
-                                alb_assets = self._immich._extract_asset_items(search_alb)
+                            if supports_search_v2:
+                                # On Immich >= 3.2.0, POST /search/metadata with structured filter is the
+                                # primary endpoint for retrieving album assets (GET /albums/:id does not return assets).
+                                item_ids: list[str] = []
+                                cursor: str | None = None
+                                while True:
+                                    search_alb_payload: dict[str, Any] = {
+                                        'filter': {
+                                            'albumIds': {'any': [alb_id]},
+                                            'trashedAt': {'eq': None},
+                                        },
+                                        'size': 1000,
+                                    }
+                                    if cursor:
+                                        search_alb_payload['cursor'] = cursor
 
-                            item_ids = [
-                                str(item.get('id', '') or item.get('assetId', '')).strip()
-                                for item in alb_assets
-                                if str(item.get('id', '') or item.get('assetId', '')).strip()
-                            ]
-                            return alb_id, item_ids
+                                    search_alb = await self._immich._request_json(
+                                        'POST',
+                                        '/search/metadata',
+                                        key,
+                                        json=search_alb_payload,
+                                    )
+                                    alb_assets = self._immich._extract_asset_items(search_alb)
+                                    if not alb_assets:
+                                        break
+
+                                    batch_ids = [
+                                        str(item.get('id', '') or item.get('assetId', '')).strip()
+                                        for item in alb_assets
+                                        if str(item.get('id', '') or item.get('assetId', '')).strip()
+                                    ]
+                                    item_ids.extend(batch_ids)
+
+                                    if len(batch_ids) < 1000 or (count > 0 and len(item_ids) >= count):
+                                        break
+
+                                    next_cursor = None
+                                    if isinstance(search_alb, dict):
+                                        assets_obj = search_alb.get('assets')
+                                        if isinstance(assets_obj, dict):
+                                            next_cursor = assets_obj.get('nextCursor')
+                                    if not next_cursor:
+                                        break
+                                    cursor = str(next_cursor)
+
+                                logger.debug('Album %s resolved %d asset item(s)', alb_id, len(item_ids))
+                                return alb_id, item_ids
+                            else:
+                                # Legacy Immich (< 3.2.0): try GET /albums/{alb_id} first, fallback to search if empty
+                                alb_detail = await self._immich._request_json('GET', f'/albums/{alb_id}', key)
+                                alb_assets = self._immich._extract_asset_items(alb_detail)
+                                if not alb_assets and count > 0:
+                                    search_alb = await self._immich._request_json(
+                                        'POST',
+                                        '/search/metadata',
+                                        key,
+                                        json={'albumIds': [alb_id], 'size': 1000},
+                                    )
+                                    alb_assets = self._immich._extract_asset_items(search_alb)
+
+                                item_ids = [
+                                    str(item.get('id', '') or item.get('assetId', '')).strip()
+                                    for item in alb_assets
+                                    if str(item.get('id', '') or item.get('assetId', '')).strip()
+                                ]
+                                logger.debug('Album %s resolved %d asset item(s)', alb_id, len(item_ids))
+                                return alb_id, item_ids
                         except ImmichClientError as exc:
                             logger.warning('Failed to fetch assets for album %s: %s', alb_id, exc)
                             return alb_id, []
@@ -471,6 +545,18 @@ class SyncEngine:
                         modified_junction_inserts,
                         clear_album_ids=clear_album_ids if is_delta else None,
                     )
+                    logger.info(
+                        "Updated album junctions for %d modified album(s) (%d asset link(s)) in library '%s'",
+                        len(clear_album_ids) if is_delta else len(fetched_results),
+                        len(modified_junction_inserts),
+                        library_name,
+                    )
+                else:
+                    logger.info(
+                        "Completed album asset content fetching for %d album(s) in library '%s'",
+                        len(fetched_results),
+                        library_name,
+                    )
 
             # 3. Fetch & store tags
             try:
@@ -485,6 +571,7 @@ class SyncEngine:
                             tags_data.append({'id': tid, 'name': tname})
                 self._metadata_store.upsert_tags(library_name, tags_data)
                 known_tag_ids = {t['id'] for t in tags_data}
+                logger.info("Indexed %d tags for library '%s'", len(tags_data), library_name)
             except Exception as exc:
                 logger.warning('Failed to fetch tags for library %s: %s', library_name, exc)
                 known_tag_ids = set()
@@ -492,6 +579,7 @@ class SyncEngine:
             # 4. Asset search (Delta or Full)
             page_size = 250
             page_num = 1
+            cursor: str | None = None
             seen_asset_ids: set[str] = set()
             max_updated_at: str | None = last_immich_updated_at if is_delta else None
             total_reported: int | None = None
@@ -505,6 +593,12 @@ class SyncEngine:
                     )
                     logger.warning(msg)
                     self._sync_warnings[library_name] = msg
+                else:
+                    logger.info(
+                        "Starting full asset scan for library '%s' (~%d total assets estimated)",
+                        library_name,
+                        total_reported,
+                    )
 
                 self._metadata_store.set_sync_state(
                     library_name,
@@ -515,6 +609,11 @@ class SyncEngine:
                     total_assets=total_reported or 0,
                 )
             else:
+                logger.info(
+                    "Starting delta asset scan for library '%s' (fetching changes after %s)",
+                    library_name,
+                    last_immich_updated_at,
+                )
                 self._metadata_store.set_sync_state(
                     library_name,
                     status=SyncStatus.syncing,
@@ -525,26 +624,51 @@ class SyncEngine:
                 )
 
             while True:
-                payload: dict[str, Any] = {
-                    'size': page_size,
-                    'page': page_num,
-                    'withExif': True,
-                    'withPartners': True,
-                    'isShared': True,
-                    'withPeople': True,
-                    'withTags': True,
-                }
-                if is_delta and last_immich_updated_at:
-                    payload['updatedAfter'] = last_immich_updated_at
+                if supports_search_v2:
+                    filter_payload: dict[str, Any] = {
+                        'trashedAt': {'eq': None},
+                    }
+                    if is_delta and last_immich_updated_at:
+                        filter_payload['updatedAt'] = {'gte': last_immich_updated_at}
+                    payload: dict[str, Any] = {
+                        'size': page_size,
+                        'filter': filter_payload,
+                        'withExif': True,
+                        'withPeople': True,
+                        'withStacked': True,
+                    }
+                    if cursor:
+                        payload['cursor'] = cursor
+                else:
+                    payload = {
+                        'size': page_size,
+                        'page': page_num,
+                        'withExif': True,
+                        'withPartners': True,
+                        'isShared': True,
+                        'withPeople': True,
+                        'withTags': True,
+                    }
+                    if is_delta and last_immich_updated_at:
+                        payload['updatedAfter'] = last_immich_updated_at
 
                 raw_page = await self._immich._request_json('POST', '/search/metadata', key, json=payload)
                 if not is_delta and total_reported is None:
                     extracted_total = self._immich._extract_total_assets(raw_page)
                     if extracted_total is not None and extracted_total > 0:
                         total_reported = extracted_total
+                        logger.info(
+                            "Discovered total asset estimate: ~%d for library '%s'",
+                            total_reported,
+                            library_name,
+                        )
 
                 items = self._immich._extract_asset_items(raw_page)
                 if not items:
+                    logger.info(
+                        "Asset search pagination reached end for library '%s' (no items returned)",
+                        library_name,
+                    )
                     break
 
                 batch_assets: list[dict[str, Any]] = []
@@ -586,6 +710,18 @@ class SyncEngine:
                 )
 
                 synced_count = len(seen_asset_ids)
+                batch_label = (
+                    f'page {page_num}' if not supports_search_v2 else f'batch {(synced_count - 1) // page_size + 1}'
+                )
+                total_suffix = f' / ~{total_reported}' if total_reported else ''
+                logger.info(
+                    "Sync progress for '%s': %s processed (%d assets in batch, %d cumulative%s)",
+                    library_name,
+                    batch_label,
+                    len(batch_assets),
+                    synced_count,
+                    total_suffix,
+                )
                 if not is_delta:
                     total_target = (
                         total_reported if (total_reported is not None and total_reported >= synced_count) else 0
@@ -608,7 +744,22 @@ class SyncEngine:
                         total_assets=synced_count,
                     )
 
-                page_num += 1
+                if supports_search_v2:
+                    next_cursor: str | None = None
+                    if isinstance(raw_page, dict):
+                        assets_obj = raw_page.get('assets')
+                        if isinstance(assets_obj, dict):
+                            next_cursor = assets_obj.get('nextCursor')
+                    if not next_cursor:
+                        logger.info(
+                            "Cursor pagination completed for library '%s' (no nextCursor returned)",
+                            library_name,
+                        )
+                        break
+                    cursor = str(next_cursor)
+                else:
+                    page_num += 1
+
                 await asyncio.sleep(0.01)
 
             # 5. Link any album associations that might have been processed
@@ -633,6 +784,13 @@ class SyncEngine:
                         shared_asset_updates=shared_asset_updates,
                         unshared_asset_updates=unshared_asset_updates,
                     )
+                    logger.info(
+                        "Linked %d album-asset relation(s) (%d shared, %d unshared) for library '%s'",
+                        len(junction_inserts),
+                        len(shared_asset_updates),
+                        len(unshared_asset_updates),
+                        library_name,
+                    )
 
             # 6. Prune missing assets (only in full sync)
             if not is_delta:
@@ -645,6 +803,8 @@ class SyncEngine:
                 pruned_count = self._metadata_store.prune_missing_assets(library_name, seen_asset_ids)
                 if pruned_count > 0:
                     logger.info('Pruned %d deleted asset(s) from metadata index for %s', pruned_count, library_name)
+                else:
+                    logger.debug('No deleted assets to prune for %s', library_name)
 
             # 7. Mark sync complete
             self._metadata_store.set_sync_state(
@@ -681,6 +841,10 @@ class SyncEngine:
             )
 
             # Flush WAL and optimize query planner statistics after batch metadata sync
+            logger.debug(
+                "Flushing SQLite WAL (TRUNCATE) and optimizing query planner statistics for '%s'",
+                library_name,
+            )
             self._metadata_store.db.checkpoint(mode='TRUNCATE')
             self._metadata_store.db.optimize()
 

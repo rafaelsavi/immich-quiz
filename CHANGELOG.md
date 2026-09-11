@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.4] - 2026-09-11
+
+### Added
+
+- **Immich 3.2+ Search API v2 Support & Modernization**:
+  - Implemented automatic Immich server version detection via `GET /server/version` (`get_server_version()` & `supports_search_v2()`).
+  - Added support for Immich 3.2+ structured Search API v2 (`filter: { ... }`) and cursor-based pagination (`cursor` / `nextCursor`).
+  - Added explicit exclusion of trashed assets (`trashedAt: { eq: null }`) to mirror legacy behavior in Search API v2.
+  - Retained 100% backward compatibility with pre-3.2 Immich instances using automatic fallback to legacy flat search parameters (`page`, `updatedAfter`).
+  - Future-proofed the sync engine for the planned removal of flat search parameters in Immich v4.0.0.
+
 ## [3.0.3] - 2026-09-11
 
 ### Added

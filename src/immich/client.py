@@ -61,6 +61,8 @@ class ImmichClient:
         self._timeout = timeout_seconds
         self._client = client
         self._user_id_by_key: dict[str, str] = {}
+        self._server_version: tuple[int, int, int] | None = None
+        self._server_version_probed: bool = False
 
     async def __aenter__(self) -> ImmichClient:
         return self
@@ -88,10 +90,45 @@ class ImmichClient:
         """Return sorted list of configured library names."""
         return sorted(self._library_keys.keys())
 
+    async def get_server_version(self) -> tuple[int, int, int] | None:
+        """Retrieve Immich server semver tuple (major, minor, patch) via /server/version."""
+        if self._server_version_probed:
+            return self._server_version
+
+        self._server_version_probed = True
+        first_key = next(iter(self._library_keys.values()), '')
+        try:
+            data = await self._request_json('GET', '/server/version', first_key)
+            if isinstance(data, dict):
+                major = int(data.get('major', 0))
+                minor = int(data.get('minor', 0))
+                patch = int(data.get('patch', 0))
+                self._server_version = (major, minor, patch)
+                logger.info('Detected Immich server version: %d.%d.%d', major, minor, patch)
+                return self._server_version
+        except Exception as exc:
+            logger.warning('Failed to fetch Immich server version via /server/version: %s', exc)
+
+        return None
+
+    async def supports_search_v2(self) -> bool:
+        """Return True if Immich server version is >= 3.2.0 (supports structured Search API v2)."""
+        version = await self.get_server_version()
+        if version is not None:
+            return version >= (3, 2, 0)
+        return False
+
     async def validate_access(self, library_name: str) -> None:
         """Verify API key validity and access permissions for a specific library."""
         key = self._library_key(library_name)
-        payload = {'size': 1, 'page': 1, 'withExif': True}
+        if await self.supports_search_v2():
+            payload: dict[str, Any] = {
+                'size': 1,
+                'filter': {'trashedAt': {'eq': None}},
+                'withExif': True,
+            }
+        else:
+            payload = {'size': 1, 'page': 1, 'withExif': True}
         await self._request_json('POST', '/search/metadata', key, json=payload)
 
     async def list_albums(self, library_name: str, include_shared: bool = False) -> list[dict[str, str]]:
@@ -137,6 +174,7 @@ class ImmichClient:
             if tag_id and tag_name:
                 items.append({'id': tag_id, 'name': tag_name})
         items.sort(key=lambda item: (item['name'].lower(), item['id']))
+        logger.info('list_tags(%s): %d tag(s) returned', library_name, len(items))
         return items
 
     async def get_asset_count(self, library_name: str) -> int | None:
@@ -147,11 +185,20 @@ class ImmichClient:
             if isinstance(stats, dict):
                 total = stats.get('total')
                 if isinstance(total, int) and total >= 0:
+                    logger.info('get_asset_count(%s): reported %d total asset(s)', library_name, total)
                     return total
                 images = stats.get('images') or stats.get('photos') or 0
                 videos = stats.get('videos') or 0
                 if isinstance(images, int) and isinstance(videos, int) and (images + videos) >= 0:
-                    return images + videos
+                    combined = images + videos
+                    logger.info(
+                        'get_asset_count(%s): reported %d asset(s) (%d photos, %d videos)',
+                        library_name,
+                        combined,
+                        images,
+                        videos,
+                    )
+                    return combined
             logger.warning(
                 'Unexpected response structure from Immich /search/statistics for %s: %s',
                 library_name,

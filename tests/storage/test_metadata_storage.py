@@ -7,11 +7,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from src.config import AppSettings
+from src.immich.client import ImmichClientError
 from src.main import create_app
 from src.models import CityOption, PeopleMode, SyncMode, SyncStage, SyncStatus
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
 from src.storage.sync import SyncEngine
+from tests.conftest import FakeImmichClient
 
 
 @pytest.fixture
@@ -552,97 +554,106 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     )
 
     app = create_app(settings=settings)
-    client = TestClient(app)
+    fake_client = FakeImmichClient()
+    app.state.immich_client = fake_client
+    app.state.sync_engine._immich = fake_client
+    app.state.sync_engine.trigger_sync_all = lambda *args, **kwargs: None
 
-    # Populate SQLite with test data
-    meta_store: MetadataStore = app.state.metadata_store
-    meta_store.upsert_assets_batch(
-        'family',
-        [
-            {
-                'id': 'api-asset-1',
-                'is_shared': 0,
-                'is_partner': 0,
-                'file_type': 'IMAGE',
-                'country': 'Italy',
-                'city': 'Rome',
-                'latitude': 41.9028,
-                'longitude': 12.4964,
-                'capture_datetime': '2023-09-20T11:00:00',
-            }
-        ],
-        [],
-        [],
-    )
+    async def mock_get_asset_bytes(library_name: str, asset_id: str) -> tuple[bytes, str]:
+        raise ImmichClientError('Mock asset download failure')
 
-    # Test GET /api/filters
-    res_filters = client.get('/api/filters?libraries=family')
-    assert res_filters.status_code == 200
-    data_filters = res_filters.json()
-    assert data_filters['countries'] == ['Italy']
-    assert any(c['name'] == 'Rome' and c['country'] == 'Italy' for c in data_filters['cities'])
+    fake_client.get_asset_bytes = mock_get_asset_bytes  # type: ignore
 
-    # Test GET /api/sync/status
-    res_status = client.get('/api/sync/status')
-    assert res_status.status_code == 200
-    data_status = res_status.json()
-    assert 'sync_status' in data_status
+    with TestClient(app) as client:
+        # Populate SQLite with test data
+        meta_store: MetadataStore = app.state.metadata_store
+        meta_store.upsert_assets_batch(
+            'family',
+            [
+                {
+                    'id': 'api-asset-1',
+                    'is_shared': 0,
+                    'is_partner': 0,
+                    'file_type': 'IMAGE',
+                    'country': 'Italy',
+                    'city': 'Rome',
+                    'latitude': 41.9028,
+                    'longitude': 12.4964,
+                    'capture_datetime': '2023-09-20T11:00:00',
+                }
+            ],
+            [],
+            [],
+        )
 
-    # Test POST /api/sync and POST /api/sync?force_full=true
-    res_post_sync = client.post('/api/sync')
-    assert res_post_sync.status_code == 200
-    res_post_sync_full = client.post('/api/sync?force_full=true')
-    assert res_post_sync_full.status_code == 200
+        # Test GET /api/filters
+        res_filters = client.get('/api/filters?libraries=family')
+        assert res_filters.status_code == 200
+        data_filters = res_filters.json()
+        assert data_filters['countries'] == ['Italy']
+        assert any(c['name'] == 'Rome' and c['country'] == 'Italy' for c in data_filters['cities'])
 
-    # Test POST /api/game/preflight
-    preflight_payload = {
-        'players': ['Player 1'],
-        'round_count': 5,
-        'location_mode': True,
-        'date_mode': True,
-        'game_mode': 'pinpoint',
-        'libraries': ['family'],
-        'countries': ['Italy'],
-    }
-    res_preflight = client.post('/api/game/preflight', json=preflight_payload)
-    assert res_preflight.status_code == 200
-    data_preflight = res_preflight.json()
-    assert data_preflight['eligible_count'] == 1
-    assert data_preflight['total_count'] == 1
-    assert data_preflight['gps_count'] == 1
-    assert data_preflight['date_count'] == 1
-    assert data_preflight['both_count'] == 1
-    assert data_preflight['location_mode'] is True
-    assert data_preflight['date_mode'] is True
-    assert 'countries' in data_preflight['active_filters']
+        # Test GET /api/sync/status
+        res_status = client.get('/api/sync/status')
+        assert res_status.status_code == 200
+        data_status = res_status.json()
+        assert 'sync_status' in data_status
 
-    # Test POST /api/game/setup
-    setup_payload = {
-        'players': ['Alice'],
-        'round_count': 5,
-        'round_length': '1m',
-        'location_mode': True,
-        'date_mode': True,
-        'library_name': 'family',
-        'album_ids': [],
-        'game_mode': 'pinpoint',
-    }
-    res_setup = client.post('/api/game/setup', json=setup_payload)
-    assert res_setup.status_code == 200
-    data_setup = res_setup.json()
-    match_id = data_setup['match_id']
+        # Test POST /api/sync and POST /api/sync?force_full=true
+        res_post_sync = client.post('/api/sync')
+        assert res_post_sync.status_code == 200
+        res_post_sync_full = client.post('/api/sync?force_full=true')
+        assert res_post_sync_full.status_code == 200
 
-    # Test POST /api/question
-    res_q = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
-    assert res_q.status_code == 200
-    data_q = res_q.json()
-    assert data_q['asset_id'] == 'api-asset-1'
+        # Test POST /api/game/preflight
+        preflight_payload = {
+            'players': ['Player 1'],
+            'round_count': 5,
+            'location_mode': True,
+            'date_mode': True,
+            'game_mode': 'pinpoint',
+            'libraries': ['family'],
+            'countries': ['Italy'],
+        }
+        res_preflight = client.post('/api/game/preflight', json=preflight_payload)
+        assert res_preflight.status_code == 200
+        data_preflight = res_preflight.json()
+        assert data_preflight['eligible_count'] == 1
+        assert data_preflight['total_count'] == 1
+        assert data_preflight['gps_count'] == 1
+        assert data_preflight['date_count'] == 1
+        assert data_preflight['both_count'] == 1
+        assert data_preflight['location_mode'] is True
+        assert data_preflight['date_mode'] is True
+        assert 'countries' in data_preflight['active_filters']
 
-    # Test asset invalidation on /media failure
-    client.get('/api/media/api-asset-1')
-    # Since Immich mock client fails get_asset_bytes in this raw client test or returns 400,
-    # verify that metadata_store invalidates the asset
-    assert meta_store.count_eligible_assets(AssetFilterCriteria(library_names=('family',))) == 0
+        # Test POST /api/game/setup
+        setup_payload = {
+            'players': ['Alice'],
+            'round_count': 5,
+            'round_length': '1m',
+            'location_mode': True,
+            'date_mode': True,
+            'library_name': 'family',
+            'album_ids': [],
+            'game_mode': 'pinpoint',
+        }
+        res_setup = client.post('/api/game/setup', json=setup_payload)
+        assert res_setup.status_code == 200
+        data_setup = res_setup.json()
+        match_id = data_setup['match_id']
+
+        # Test POST /api/question
+        res_q = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []})
+        assert res_q.status_code == 200
+        data_q = res_q.json()
+        assert data_q['asset_id'] == 'api-asset-1'
+
+        # Test asset invalidation on /media failure
+        client.get('/api/media/api-asset-1')
+        # Since Immich mock client fails get_asset_bytes in this raw client test or returns 400,
+        # verify that metadata_store invalidates the asset
+        assert meta_store.count_eligible_assets(AssetFilterCriteria(library_names=('family',))) == 0
 
 
 def test_null_and_none_sanitization_in_db(db_mgr: DatabaseManager, meta_store: MetadataStore, tmp_path: Path) -> None:
@@ -2227,3 +2238,210 @@ async def test_sync_engine_end_to_end_album_sharing_and_multi_library_isolation(
         include_shared=True,
     )
     assert meta_store.count_eligible_assets(crit_rafael_shared) == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_engine_search_v2_cursor_pagination_and_delta(tmp_path: Path) -> None:
+    db_mgr = DatabaseManager(tmp_path / 'metadata_v2.db')
+    meta_store = MetadataStore(db_mgr)
+
+    recorded_searches: list[dict] = []
+
+    class MockImmichV2:
+        def _library_key(self, lib: str) -> str:
+            return 'key-v2'
+
+        async def supports_search_v2(self) -> bool:
+            return True
+
+        async def _current_user_id(self, key: str) -> str:
+            return 'user-me'
+
+        async def _request_json(self, method: str, path: str, key: str, json: Any = None) -> Any:
+            if path == '/people':
+                return []
+            if path == '/albums':
+                return []
+            if path == '/tags':
+                return []
+            if path == '/search/metadata':
+                recorded_searches.append(dict(json or {}))
+                cursor = json.get('cursor')
+                if cursor is None:
+                    # Page 1
+                    return {
+                        'assets': {
+                            'items': [
+                                {
+                                    'id': 'asset-v2-1',
+                                    'type': 'IMAGE',
+                                    'ownerId': 'user-me',
+                                    'exifInfo': {
+                                        'latitude': 48.8566,
+                                        'longitude': 2.3522,
+                                        'country': 'France',
+                                        'city': 'Paris',
+                                        'dateTimeOriginal': '2024-05-01T12:00:00Z',
+                                    },
+                                    'updatedAt': '2024-05-01T12:00:00Z',
+                                }
+                            ],
+                            'nextCursor': 'curs_pg2',
+                        }
+                    }
+                elif cursor == 'curs_pg2':
+                    # Page 2
+                    return {
+                        'assets': {
+                            'items': [
+                                {
+                                    'id': 'asset-v2-2',
+                                    'type': 'IMAGE',
+                                    'ownerId': 'user-me',
+                                    'exifInfo': {
+                                        'latitude': 41.9028,
+                                        'longitude': 12.4964,
+                                        'country': 'Italy',
+                                        'city': 'Rome',
+                                        'dateTimeOriginal': '2024-05-02T12:00:00Z',
+                                    },
+                                    'updatedAt': '2024-05-02T12:00:00Z',
+                                }
+                            ],
+                            'nextCursor': None,
+                        }
+                    }
+                return {'assets': {'items': [], 'nextCursor': None}}
+            return {}
+
+        async def get_asset_count(self, library_name: str) -> int | None:
+            return 2
+
+        def _extract_total_assets(self, raw: Any) -> int | None:
+            return 2
+
+        def _extract_asset_items(self, raw: Any) -> list[dict[str, Any]]:
+            assets = raw.get('assets', {})
+            return assets.get('items', []) if isinstance(assets, dict) else []
+
+    client_v2 = MockImmichV2()
+    sync_engine = SyncEngine(client_v2, meta_store)  # type: ignore
+
+    # 1. Full sync with Search API v2
+    await sync_engine.sync_library('family', force_full=True)
+
+    assert len(recorded_searches) == 2
+    # Check page 1 request payload
+    req1 = recorded_searches[0]
+    assert 'filter' in req1
+    assert req1['filter'] == {'trashedAt': {'eq': None}}
+    assert 'page' not in req1
+    assert 'cursor' not in req1
+
+    # Check page 2 request payload (cursor traversal)
+    req2 = recorded_searches[1]
+    assert req2['cursor'] == 'curs_pg2'
+    assert req2['filter'] == {'trashedAt': {'eq': None}}
+
+    # Verify both assets stored in SQLite
+    crit = AssetFilterCriteria(library_names=('family',), location_mode=True, date_mode=True)
+    assert meta_store.count_eligible_assets(crit) == 2
+
+    # 2. Delta sync with Search API v2
+    recorded_searches.clear()
+    await sync_engine.sync_library('family', force_full=False)
+    assert len(recorded_searches) >= 1
+    delta_req = recorded_searches[0]
+    assert 'filter' in delta_req
+    assert delta_req['filter']['trashedAt'] == {'eq': None}
+    assert 'updatedAt' in delta_req['filter']
+    assert 'gte' in delta_req['filter']['updatedAt']
+    assert 'updatedAfter' not in delta_req
+
+
+@pytest.mark.asyncio
+async def test_sync_engine_search_v2_album_fallback(tmp_path: Path) -> None:
+    db_mgr = DatabaseManager(tmp_path / 'metadata_alb_v2.db')
+    meta_store = MetadataStore(db_mgr)
+
+    recorded_searches: list[dict] = []
+
+    class MockImmichV2Album:
+        def _library_key(self, lib: str) -> str:
+            return 'key-v2'
+
+        async def supports_search_v2(self) -> bool:
+            return True
+
+        async def _current_user_id(self, key: str) -> str:
+            return 'user-me'
+
+        async def _request_json(self, method: str, path: str, key: str, json: Any = None) -> Any:
+            if path == '/people':
+                return []
+            if path == '/albums':
+                return [{'id': 'alb-fallback', 'name': 'Fallback Album', 'assetCount': 1}]
+            if path == '/albums/alb-fallback':
+                # Return empty detail so fallback search kicks in
+                return {'assets': []}
+            if path == '/tags':
+                return []
+            if path == '/search/metadata':
+                recorded_searches.append(dict(json or {}))
+                if json and 'albumIds' in json.get('filter', {}):
+                    return {
+                        'assets': {
+                            'items': [{'id': 'asset-in-alb', 'ownerId': 'user-me'}],
+                        }
+                    }
+                # Main scan returns the asset with exif
+                return {
+                    'assets': {
+                        'items': [
+                            {
+                                'id': 'asset-in-alb',
+                                'type': 'IMAGE',
+                                'ownerId': 'user-me',
+                                'exifInfo': {
+                                    'latitude': 51.5074,
+                                    'longitude': -0.1278,
+                                    'country': 'United Kingdom',
+                                    'city': 'London',
+                                    'dateTimeOriginal': '2024-06-01T12:00:00Z',
+                                },
+                            }
+                        ],
+                        'nextCursor': None,
+                    }
+                }
+            return {}
+
+        async def get_asset_count(self, library_name: str) -> int | None:
+            return 1
+
+        def _extract_total_assets(self, raw: Any) -> int | None:
+            return 1
+
+        def _extract_asset_items(self, raw: Any) -> list[dict[str, Any]]:
+            assets = raw.get('assets', {})
+            return assets.get('items', []) if isinstance(assets, dict) else []
+
+    client = MockImmichV2Album()
+    sync_engine = SyncEngine(client, meta_store)  # type: ignore
+
+    await sync_engine.sync_library('family', force_full=True)
+
+    # Verify album fallback used v2 filter
+    fallback_searches = [s for s in recorded_searches if 'albumIds' in s.get('filter', {})]
+    assert len(fallback_searches) == 1
+    assert fallback_searches[0]['filter']['albumIds'] == {'any': ['alb-fallback']}
+    assert fallback_searches[0]['filter']['trashedAt'] == {'eq': None}
+
+    # Verify asset is linked to album
+    crit_album = AssetFilterCriteria(
+        library_names=('family',),
+        album_ids=('alb-fallback',),
+        location_mode=True,
+        date_mode=True,
+    )
+    assert meta_store.count_eligible_assets(crit_album) == 1
