@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "immich-quiz"
-version = "3.0.3"
+version = "3.0.4"
 description = "Trivia game powered by Immich libraries"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -32,6 +32,7 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "ignore::starlette.exceptions.StarletteDeprecationWarning",
 ]
@@ -91,3 +92,8 @@ inline-quotes = "single"
 [tool.ruff.format]
 docstring-code-format = true
 quote-style = "single"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.12.0",
+]

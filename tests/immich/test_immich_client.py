@@ -750,3 +750,107 @@ def test_is_shared_album_ownership_checks() -> None:
     # 6. Album explicitly not shared -> False
     alb_unshared = {'id': 'alb-3', 'shared': False}
     assert ImmichClient._is_shared_album(alb_unshared, current_user_id='user-1') is False
+
+
+@pytest.mark.asyncio
+async def test_get_server_version_and_caching() -> None:
+    calls = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        if request.url.path == '/api/server/version':
+            calls += 1
+            return httpx.Response(200, json={'major': 3, 'minor': 2, 'patch': 0})
+        return httpx.Response(404)
+
+    client = build_client(handler)
+    ver = await client.get_server_version()
+    assert ver == (3, 2, 0)
+    assert calls == 1
+
+    # Second call should use cached value without issuing another request
+    ver2 = await client.get_server_version()
+    assert ver2 == (3, 2, 0)
+    assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_get_server_version_failure_returns_none() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text='Server Error')
+
+    client = build_client(handler)
+    ver = await client.get_server_version()
+    assert ver is None
+    assert await client.supports_search_v2() is False
+
+
+@pytest.mark.asyncio
+async def test_supports_search_v2_thresholds() -> None:
+    versions = [
+        ({'major': 3, 'minor': 2, 'patch': 0}, True),
+        ({'major': 3, 'minor': 2, 'patch': 4}, True),
+        ({'major': 3, 'minor': 3, 'patch': 0}, True),
+        ({'major': 4, 'minor': 0, 'patch': 0}, True),
+        ({'major': 3, 'minor': 1, 'patch': 9}, False),
+        ({'major': 3, 'minor': 0, 'patch': 0}, False),
+        ({'major': 2, 'minor': 5, 'patch': 0}, False),
+        ({'major': 1, 'minor': 100, 'patch': 0}, False),
+    ]
+
+    for data, expected in versions:
+
+        def handler(request: httpx.Request, d=data) -> httpx.Response:
+            return httpx.Response(200, json=d)
+
+        client = build_client(handler)
+        assert await client.supports_search_v2() is expected
+
+
+@pytest.mark.asyncio
+async def test_validate_access_search_v2_payload() -> None:
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == '/api/server/version':
+            return httpx.Response(200, json={'major': 3, 'minor': 2, 'patch': 0})
+        if request.url.path == '/api/search/metadata':
+            recorded_payloads.append(request.read())
+            return httpx.Response(200, json={'assets': {'items': []}})
+        return httpx.Response(404)
+
+    client = build_client(handler)
+    await client.validate_access('family')
+
+    assert len(recorded_payloads) == 1
+    import json
+
+    data = json.loads(recorded_payloads[0].decode('utf-8'))
+    assert 'filter' in data
+    assert data['filter'] == {'trashedAt': {'eq': None}}
+    assert data.get('withExif') is True
+    assert 'page' not in data
+
+
+@pytest.mark.asyncio
+async def test_validate_access_legacy_payload() -> None:
+    recorded_payloads: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == '/api/server/version':
+            return httpx.Response(200, json={'major': 3, 'minor': 1, 'patch': 0})
+        if request.url.path == '/api/search/metadata':
+            recorded_payloads.append(request.read())
+            return httpx.Response(200, json={'assets': {'items': []}})
+        return httpx.Response(404)
+
+    client = build_client(handler)
+    await client.validate_access('family')
+
+    assert len(recorded_payloads) == 1
+    import json
+
+    data = json.loads(recorded_payloads[0].decode('utf-8'))
+    assert 'page' in data
+    assert data['page'] == 1
+    assert 'filter' not in data

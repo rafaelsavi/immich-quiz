@@ -202,7 +202,9 @@ flowchart TD
 * **Workflow**:
   1. **Auxiliary Entities**: Fetches and upserts `people` (`GET /people`) and `tags` (`GET /tags`).
   2. **High-Concurrency Album Ingestion**: Fetches album metadata (`GET /albums`) and retrieves album asset memberships **in parallel** (`asyncio.gather` with a bounded concurrency pool of 15). Empty albums (`assetCount == 0`) are skipped automatically. Prunes deleted albums from SQLite.
-  3. **Full Asset Pagination**: Queries `POST /search/metadata` page-by-page (page size `250`) requesting `withExif: True`, `withPeople: True`, `withTags: True`, `withPartners: True`, and `isShared: True`.
+  3. **Asset Pagination**:
+     * **Immich >= 3.2.0 (Search API v2)**: Streams batches using cursor-based pagination (`cursor` / `nextCursor`) and structured boolean filter trees (`filter: { "trashedAt": { "eq": null } }`, requesting `withExif: True`, `withPeople: True`, `withStacked: True`).
+     * **Immich < 3.2.0 (Legacy Flat Search)**: Uses offset page numbers (`page: 1, 2, ...`) requesting `withExif: True`, `withPeople: True`, `withTags: True`, `withPartners: True`, and `isShared: True`.
   4. **Batch Upserts**: Uses SQLite `executemany` to insert/update `assets` and reconcile junction tables. Stale junction records for the batch are cleared and repopulated atomically.
   5. **Deletion Pruning (`prune_missing_assets`)**: Inserts all active asset IDs into a SQLite `TEMP TABLE temp_active_ids` and deletes records present in SQLite but missing on the server.
   6. **Telemetry**: Sets `sync_status = idle`, `sync_mode = full`, records `last_full_sync_at`, `last_immich_updated_at` (newest `updatedAt` found), and total execution time.
@@ -215,8 +217,11 @@ flowchart TD
 * **Workflow**:
   1. **Auxiliary Entities**: Refreshes `people`, `albums`, and `tags` in 1 request each.
   2. **Zero-Overhead Album Delta**: Compares each album's `updatedAt` with `last_immich_updated_at`. If no albums were modified, **zero album detail requests** are made (skipping hundreds of unnecessary HTTP calls). If an album was modified or newly created, only that album's membership is refreshed.
-  3. **Incremental Asset Query**: Queries `POST /search/metadata` with `updatedAfter: <last_immich_updated_at>`. Only photos uploaded, updated (e.g. location/date edit), or tagged since the last sync are returned.
-  4. **High-Speed Upsert**: Updates the modified photos in SQLite in milliseconds.
+  3. **Incremental Asset Query**:
+     * **Immich >= 3.2.0**: Uses structured filter with range condition `filter: { "trashedAt": { "eq": null }, "updatedAt": { "gte": <last_immich_updated_at> } }`.
+     * **Immich < 3.2.0**: Uses legacy flat search with `updatedAfter: <last_immich_updated_at>`.
+     Only photos/videos uploaded, updated (e.g. location/date edit), or tagged since the last sync are returned.
+  4. **High-Speed Upsert**: Updates the modified assets in SQLite in milliseconds.
   5. **Telemetry**: Updates `last_immich_updated_at` to the newest timestamp, updates `last_sync_at`, and marks `sync_mode = delta`.
 
 ---

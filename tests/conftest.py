@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -99,6 +100,12 @@ class FakeImmichClient:
     async def list_albums(self, library_name: str, include_shared: bool = False) -> list[dict[str, str]]:
         self.last_include_shared = include_shared
         return [{'id': 'album-1', 'name': 'Holidays'}]
+
+    async def get_server_version(self) -> tuple[int, int, int] | None:
+        return None
+
+    async def supports_search_v2(self) -> bool:
+        return False
 
     async def get_asset_bytes(self, library_name: str, asset_id: str) -> tuple[bytes, str]:
         return b'fake-jpg', 'image/jpeg'
@@ -349,6 +356,10 @@ def build_client(
     )
     app = create_app(settings=settings)
     app.state.immich_client = immich
+    if hasattr(app.state, 'sync_engine'):
+        app.state.sync_engine._immich = immich
+    if hasattr(app.state, 'game_service'):
+        app.state.game_service._immich = immich
     if auto_seed and hasattr(app.state, 'metadata_store'):
         for lib in settings.immich_libraries:
             seed_test_metadata(app.state.metadata_store, lib, immich)
@@ -361,5 +372,9 @@ def immich() -> FakeImmichClient:
 
 
 @pytest.fixture
-def client(tmp_path: Path, immich: FakeImmichClient) -> TestClient:
-    return build_client(tmp_path, immich)
+def client(tmp_path: Path, immich: FakeImmichClient) -> Generator[TestClient, None, None]:
+    test_client = build_client(tmp_path, immich)
+    try:
+        yield test_client
+    finally:
+        test_client.close()
