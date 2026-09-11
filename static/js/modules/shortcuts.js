@@ -85,18 +85,5 @@ export function bindGlobalShortcuts(actions = {}) {
       actions.onTogglePhotoFullscreen?.();
       return;
     }
-
-    // Number keys 1-9 for photo slot selection in Album Shuffle
-    if (key >= "1" && key <= "9") {
-      const slotIndex = parseInt(key, 10) - 1;
-      actions.onSelectPhotoSlot?.(slotIndex);
-      return;
-    }
-
-    // Letter keys A-E for pin assignment in Album Shuffle
-    if (key.length === 1 && /^[a-eA-E]$/.test(key)) {
-      actions.onAssignPin?.(key.toUpperCase());
-      return;
-    }
   });
 }

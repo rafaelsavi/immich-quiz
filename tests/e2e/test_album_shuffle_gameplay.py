@@ -48,7 +48,7 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
     await expect(reordered_cards.nth(0).locator('img')).to_have_attribute('src', second_card_img_src or '')
     await expect(reordered_cards.nth(1).locator('img')).to_have_attribute('src', first_card_img_src or '')
 
-    # 2. Multi-Pin Placement Test
+    # 2. Multi-Pin Placement Test (Direct Card Chips & Map Pin Heads)
     submit_btn = page.locator('#submit-answer')
     await expect(submit_btn).to_be_disabled()
 
@@ -56,20 +56,30 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
     map_pins = page.locator('#shuffle-map-shell .shuffle-pin-icon, #shuffle-map-shell .leaflet-marker-icon')
     await expect(map_pins).to_have_count(3)
 
-    # Assign Pin A to Card 0
-    await reordered_cards.nth(0).click()
-    await map_pins.nth(0).click()
+    # Assign Pin A to Card 0 via direct card chip (Idea 1)
+    chip_a_card0 = reordered_cards.nth(0).locator('.shuffle-pin-chip[data-pin="A"]')
+    await expect(chip_a_card0).to_be_visible()
+    await chip_a_card0.click()
     await expect(reordered_cards.nth(0).locator('.shuffle-assigned-pin-badge.assigned')).to_be_visible()
+    await expect(reordered_cards.nth(0).locator('.shuffle-pin-chip.active')).to_have_text('A')
 
-    # Assign Pin B to Card 1
-    await reordered_cards.nth(1).click()
-    await map_pins.nth(1).click()
+    # Verify photo thumbnail on assigned map marker (Idea 3)
+    await expect(map_pins.nth(0).locator('.shuffle-pin-photo-img')).to_be_visible()
+    await expect(map_pins.nth(0).locator('.shuffle-pin-letter-badge')).to_have_text('A')
+
+    # Assign Pin B to Card 1 via direct card chip
+    chip_b_card1 = reordered_cards.nth(1).locator('.shuffle-pin-chip[data-pin="B"]')
+    await chip_b_card1.click()
     await expect(reordered_cards.nth(1).locator('.shuffle-assigned-pin-badge.assigned')).to_be_visible()
+    await expect(reordered_cards.nth(1).locator('.shuffle-pin-chip.active')).to_have_text('B')
+    await expect(map_pins.nth(1).locator('.shuffle-pin-photo-img')).to_be_visible()
 
-    # Assign Pin C to Card 2
-    await reordered_cards.nth(2).click()
-    await map_pins.nth(2).click()
+    # Assign Pin C to Card 2 via direct card chip
+    chip_c_card2 = reordered_cards.nth(2).locator('.shuffle-pin-chip[data-pin="C"]')
+    await chip_c_card2.click()
     await expect(reordered_cards.nth(2).locator('.shuffle-assigned-pin-badge.assigned')).to_be_visible()
+    await expect(reordered_cards.nth(2).locator('.shuffle-pin-chip.active')).to_have_text('C')
+    await expect(map_pins.nth(2).locator('.shuffle-pin-photo-img')).to_be_visible()
 
     # All pins assigned: Submit button must become enabled
     await expect(submit_btn).to_be_enabled()

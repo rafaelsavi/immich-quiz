@@ -86,10 +86,14 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
       - name: Extract Release Notes from CHANGELOG.md
         run: |
-          VERSION="${{ needs.validate.outputs.version }}"
-          uv run python -c "
+          python3 -c "
           import re, os
           from pathlib import Path
           content = Path('CHANGELOG.md').read_text(encoding='utf-8')

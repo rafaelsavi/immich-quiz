@@ -62,7 +62,6 @@ export const state = {
   },
   // Album Shuffle mode batch assignment state
   albumShuffleState: {
-    selectedPhotoId: null,
     assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
   },
   guessMap: null,

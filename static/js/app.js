@@ -455,24 +455,6 @@ bindGlobalShortcuts({
   onToggleMapLayer: (layerType) => {
     updateMapLayerControls(layerType);
   },
-  onSelectPhotoSlot: (slotIndex) => {
-    if (state.currentScreen === "guessing" && state.gameMode === "album_shuffle") {
-      const mode = getActiveMode();
-      mode.selectPhotoBySlotIndex?.(slotIndex);
-    }
-  },
-  onAssignPin: (pinLetter) => {
-    if (state.currentScreen === "guessing" && state.gameMode === "album_shuffle") {
-      const mode = getActiveMode();
-      mode.assignPinToSelectedPhoto?.(pinLetter);
-    }
-  },
-  onAssignTimeline: (rankIndex) => {
-    if (state.currentScreen === "guessing" && state.gameMode === "album_shuffle") {
-      const mode = getActiveMode();
-      mode.assignTimelineRankToSelectedPhoto?.(rankIndex);
-    }
-  },
 });
 
 function refreshActiveScreenLanguage() {

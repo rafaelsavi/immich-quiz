@@ -410,19 +410,30 @@ export function createBadgePinIcon(badgeText, color, options = {}) {
     className = "shuffle-pin-marker",
     extraClasses = "",
     size = 36,
+    photoUrl = null,
   } = options;
 
   const isAssignedClass = isTaken ? "assigned" : "unassigned";
-  const styleStr = isTaken
-    ? `background:${color};color:#ffffff;border:2px solid #ffffff;opacity:1;box-shadow:0 3px 8px rgba(0,0,0,0.35);`
-    : `background:#ffffff;color:${color};border:2px solid ${color};opacity:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);`;
-
+  const hasPhotoClass = isTaken && photoUrl ? "has-photo" : "";
   const idAttr = id ? `id="${id}"` : "";
   const anchor = Math.round(size / 2);
 
+  let styleStr = "";
+  let contentHtml = badgeText;
+  if (isTaken && photoUrl) {
+    styleStr = `background:#ffffff;border:3px solid ${color};opacity:1;box-shadow:0 3px 10px rgba(0,0,0,0.35);`;
+    contentHtml = `<img src="${photoUrl}" class="shuffle-pin-photo-img" alt="Pin ${badgeText}" /><span class="shuffle-pin-letter-badge" style="background:${color};">${badgeText}</span>`;
+  } else if (isTaken) {
+    styleStr = `background:${color};color:#ffffff;border:2px solid #ffffff;opacity:1;box-shadow:0 3px 8px rgba(0,0,0,0.35);`;
+    contentHtml = badgeText;
+  } else {
+    styleStr = `background:#ffffff;color:${color};border:2px solid ${color};opacity:1;box-shadow:0 2px 6px rgba(0,0,0,0.2);`;
+    contentHtml = badgeText;
+  }
+
   return L.divIcon({
     className: "custom-pin-icon",
-    html: `<div ${idAttr} class="${className} ${isAssignedClass} ${extraClasses}" style="${styleStr}">${badgeText}</div>`,
+    html: `<div ${idAttr} class="${className} ${isAssignedClass} ${hasPhotoClass} ${extraClasses}" style="${styleStr}">${contentHtml}</div>`,
     iconSize: [size, size],
     iconAnchor: [anchor, anchor],
     popupAnchor: [0, -anchor],
