@@ -106,7 +106,7 @@ export function setNavigationGuard(guard) {
  * @param {string} path
  * @param {{ replace?: boolean, state?: any, force?: boolean }} [options]
  */
-export function navigate(path, { replace = false, state = null, force = false } = {}) {
+export function navigate(path, { replace = false, state = null, force = false, silent = false } = {}) {
   const targetPath = normalizePath(path);
   const fromRoute = parseRoute(currentPath);
   const toRoute = parseRoute(targetPath);
@@ -125,7 +125,9 @@ export function navigate(path, { replace = false, state = null, force = false } 
   }
 
   currentPath = targetPath;
-  dispatchRoute(toRoute);
+  if (!silent) {
+    dispatchRoute(toRoute);
+  }
   return true;
 }
 

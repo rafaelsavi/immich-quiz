@@ -133,6 +133,15 @@ export function renderGuessingModeSettings(containerEl, modeName = "pinpoint") {
     card.classList.toggle("active", nextState);
     card.setAttribute("aria-checked", String(nextState));
     checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+    containerEl.dispatchEvent(
+      new CustomEvent("guess-mode-change", {
+        bubbles: true,
+        detail: {
+          location_mode: locCheckbox.checked,
+          date_mode: dateCheckbox.checked,
+        },
+      })
+    );
   };
 
   locCard.addEventListener("click", (e) => {

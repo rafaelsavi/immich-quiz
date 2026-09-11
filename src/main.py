@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from src.api.challenge_routes import challenge_router
+from src.api.challenge_routes import challenge_router, play_router
 from src.api.routes import invalidate_filters_cache, router
 from src.app_logging import LoggingContextMiddleware, get_logger, setup_logging
 from src.config import AppSettings, ConfigError, load_settings
@@ -205,6 +205,9 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=(), payment=()'
         if request.url.path.startswith('/static/'):
             response.headers['Cache-Control'] = 'no-cache, must-revalidate'
+        elif request.url.path.startswith(('/api/', '/play/api/')) and 'Cache-Control' not in response.headers:
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
         return response
 
     static_path = Path(__file__).parent.parent / 'static'
@@ -249,10 +252,11 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
 
     app.include_router(router)
     app.include_router(challenge_router)
+    app.include_router(play_router)
 
     @app.get('/{full_path:path}')
     async def spa_catch_all(request: Request, full_path: str) -> HTMLResponse:
-        if full_path.startswith(('api/', 'static/')):
+        if full_path.startswith(('api/', 'static/', 'play/api/', 'play/media/')):
             raise HTTPException(status_code=404, detail='Not Found')
         return _serve_spa(request)
 

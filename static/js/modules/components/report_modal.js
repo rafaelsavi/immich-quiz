@@ -8,6 +8,7 @@ import { api } from "../api.js";
 import { t } from "../i18n.js";
 import { showShareToast } from "../summary/share.js";
 import { activateFocusTrap, deactivateFocusTrap } from "./focus_trap.js";
+import { challengeSession } from "../challenge/session.js";
 
 let _currentAssetId = null;
 let _currentPlayerName = null;
@@ -89,9 +90,13 @@ export function openReportModal(assetId, previewUrl = null, playerName = null) {
   if (_flagDateEl) _flagDateEl.checked = false;
   if (_flagOtherEl) _flagOtherEl.value = "";
 
-  // Set thumbnail if provided, else fallback to /api/media/{assetId}
+  // Set thumbnail if provided, else fallback to token-scoped or local media
   if (_thumbEl) {
-    const src = previewUrl || `/api/media/${assetId}`;
+    const capToken = challengeSession?.challengeData?.capability_token;
+    const fallbackSrc = capToken
+      ? `/play/media/${encodeURIComponent(capToken)}/${assetId}`
+      : `/api/media/${assetId}`;
+    const src = previewUrl || fallbackSrc;
     _thumbEl.src = src;
   }
 
@@ -143,7 +148,12 @@ async function handleReportSubmit(e) {
       reported_by: _currentPlayerName,
     };
 
-    await api("/api/assets/flag", {
+    const capToken = challengeSession?.challengeData?.capability_token;
+    const flagEndpoint = capToken
+      ? `/play/api/${encodeURIComponent(capToken)}/flag`
+      : "/api/assets/flag";
+
+    await api(flagEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

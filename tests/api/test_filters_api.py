@@ -1247,3 +1247,76 @@ def test_people_mode_all_intersection_across_libraries(tmp_path: Path) -> None:
     candidates = meta_store.fetch_candidate_assets(crit_all)
     assert len(candidates) == 2
     assert set(candidates.keys()) == {'ast-1', 'ast-3'}
+
+
+def test_preflight_guess_mode_counts(tmp_path: Path) -> None:
+    """Verify that /api/game/preflight updates eligible_count based on guess mode."""
+    immich = FakeImmichClient(
+        assets=[
+            make_filter_asset('ast-both', latitude=48.85, longitude=2.35, captured='2023-06-15T10:00:00Z'),
+            make_filter_asset('ast-gps-only', latitude=35.67, longitude=139.65, captured=None),
+            make_filter_asset('ast-date-only', latitude=None, longitude=None, captured='2023-07-20T15:30:00Z'),
+            make_filter_asset('ast-neither', latitude=None, longitude=None, captured=None),
+        ]
+    )
+    client = build_client(tmp_path, immich)
+
+    # 1. Guess mode: Both (GPS and Date required)
+    res_both = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['family'],
+            'round_count': 3,
+            'location_mode': True,
+            'date_mode': True,
+        },
+    )
+    assert res_both.status_code == 200
+    data_both = res_both.json()
+    assert data_both['total_count'] == 4
+    assert data_both['gps_count'] == 2
+    assert data_both['date_count'] == 2
+    assert data_both['both_count'] == 1
+    assert data_both['eligible_count'] == 1
+    assert data_both['location_mode'] is True
+    assert data_both['date_mode'] is True
+
+    # 2. Guess mode: GPS only (location_mode=True, date_mode=False)
+    res_gps = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['family'],
+            'round_count': 3,
+            'location_mode': True,
+            'date_mode': False,
+        },
+    )
+    assert res_gps.status_code == 200
+    data_gps = res_gps.json()
+    assert data_gps['total_count'] == 4
+    assert data_gps['gps_count'] == 2
+    assert data_gps['date_count'] == 2
+    assert data_gps['both_count'] == 1
+    assert data_gps['eligible_count'] == 2  # ast-both and ast-gps-only
+    assert data_gps['location_mode'] is True
+    assert data_gps['date_mode'] is False
+
+    # 3. Guess mode: Date only (location_mode=False, date_mode=True)
+    res_date = client.post(
+        '/api/game/preflight',
+        json={
+            'libraries': ['family'],
+            'round_count': 3,
+            'location_mode': False,
+            'date_mode': True,
+        },
+    )
+    assert res_date.status_code == 200
+    data_date = res_date.json()
+    assert data_date['total_count'] == 4
+    assert data_date['gps_count'] == 2
+    assert data_date['date_count'] == 2
+    assert data_date['both_count'] == 1
+    assert data_date['eligible_count'] == 2  # ast-both and ast-date-only
+    assert data_date['location_mode'] is False
+    assert data_date['date_mode'] is True

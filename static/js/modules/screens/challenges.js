@@ -653,7 +653,7 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
     _loadingStandings.add(challengeId);
 
     try {
-      data = await api(`/api/challenge/${encodeURIComponent(capabilityToken)}/leaderboard`);
+      data = await api(`/play/api/${encodeURIComponent(capabilityToken)}/leaderboard`);
       _cachedStandings.set(challengeId, data);
     } catch (err) {
       console.error(`Failed to fetch leaderboard for challenge ${challengeId}:`, err);

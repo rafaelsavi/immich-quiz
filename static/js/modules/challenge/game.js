@@ -29,7 +29,7 @@ export const challengeGame = {
     challengeSession.reset();
 
     try {
-      challengeSession.challengeData = await api(`/api/challenge/${encodeURIComponent(capabilityToken)}`);
+      challengeSession.challengeData = await api(`/play/api/${encodeURIComponent(capabilityToken)}`);
       state.gameMode = challengeSession.challengeData.game_mode || "pinpoint";
       state.mapBounds = challengeSession.challengeData.map_bounds || null;
 
@@ -52,7 +52,7 @@ export const challengeGame = {
     challengeSession.reset();
 
     try {
-      challengeSession.challengeData = await api(`/api/challenge/${encodeURIComponent(capabilityToken)}`);
+      challengeSession.challengeData = await api(`/play/api/${encodeURIComponent(capabilityToken)}`);
       state.gameMode = challengeSession.challengeData.game_mode || "pinpoint";
       state.mapBounds = challengeSession.challengeData.map_bounds || null;
 
@@ -89,7 +89,7 @@ export const challengeGame = {
         payload.player_color = preferredColor;
       }
 
-      const res = await api(`/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/start`, {
+      const res = await api(`/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/start`, {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -152,7 +152,7 @@ export const challengeGame = {
 
     try {
       const question = await api(
-        `/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/question/${roundIndex}`,
+        `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/question/${roundIndex}`,
         {
           headers: {
             "X-Player-Token": challengeSession.sessionToken,
@@ -260,7 +260,7 @@ export const challengeGame = {
 
     try {
       const result = await api(
-        `/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/answer`,
+        `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/answer`,
         {
           method: "POST",
           headers: {

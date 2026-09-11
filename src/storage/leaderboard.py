@@ -179,6 +179,7 @@ def _parse_json_list(val: str | None) -> list[str]:
 def _build_round_history_from_guesses(
     guess_rows: list[dict[str, Any]],
     match_row: dict[str, Any],
+    capability_token: str | None = None,
 ) -> list[dict[str, Any]]:
     """Reconstruct round history and album shuffle batch reveal data from stored guess records.
 
@@ -202,6 +203,7 @@ def _build_round_history_from_guesses(
     round_history: list[dict[str, Any]] = []
     game_mode = match_row['game_mode']
     location_mode = bool(match_row['location_mode'])
+    media_prefix = f'/play/media/{capability_token}' if capability_token else '/api/media'
 
     for r_idx in sorted(rounds_by_idx.keys()):
         r_guesses = rounds_by_idx[r_idx]
@@ -210,7 +212,7 @@ def _build_round_history_from_guesses(
         act_dt = _parse_iso_date(first_g.get('actual_date'))
         round_entry: dict[str, Any] = {
             'round_number': r_idx + 1,
-            'media_url': f'/api/media/{first_g["asset_id"]}' if first_g.get('asset_id') else None,
+            'media_url': f'{media_prefix}/{first_g["asset_id"]}' if first_g.get('asset_id') else None,
             'actual_latitude': first_g.get('actual_latitude'),
             'actual_longitude': first_g.get('actual_longitude'),
             'actual_date': first_g.get('actual_date'),
@@ -1448,6 +1450,7 @@ class LeaderboardStore:
         max_round: int | None = None,
         game_mode: str = 'pinpoint',
         location_mode: bool = True,
+        capability_token: str | None = None,
     ) -> list[dict[str, Any]]:
         """Query round history for a challenge under Fog of War filtering.
 
@@ -1482,4 +1485,5 @@ class LeaderboardStore:
         return _build_round_history_from_guesses(
             rows,
             {'game_mode': game_mode, 'location_mode': location_mode},
+            capability_token=capability_token,
         )

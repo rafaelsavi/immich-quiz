@@ -70,6 +70,12 @@ def test_challenge_store_creation_and_retrieval(tmp_path: Path) -> None:
     assert by_id is not None
     assert by_id['capability_token'] == res['capability_token']
 
+    # Token-scoped asset verification
+    assert store.is_asset_in_challenge(res['capability_token'], 'a1') is True
+    assert store.is_asset_in_challenge(res['capability_token'], 'a5') is True
+    assert store.is_asset_in_challenge(res['capability_token'], 'unknown_asset') is False
+    assert store.is_asset_in_challenge('invalid_token', 'a1') is False
+
 
 def test_challenge_expiration_and_deactivation(tmp_path: Path) -> None:
     db_path = tmp_path / 'leaderboard.db'

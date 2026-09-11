@@ -132,21 +132,23 @@ Immich Quiz implements defense-in-depth protections for challenge matches:
 
 ### 1. Server-Enforced Fog of War
 
-- When querying `GET /api/challenge/{token}/leaderboard`, the server strictly withholds round answers and player guesses for future rounds:
+- When querying `GET /play/api/{token}/leaderboard`, the server strictly withholds round answers and player guesses for future rounds:
   - If a player is on Round $k$, they can only see round history and guesses for rounds $\le k - 1$.
   - Unauthenticated requests on active matches receive empty `round_history: []` and `round_guesses: []`.
   - True photo coordinates, dates, and other players' guesses are only exposed after the player completes the round, or when the challenge concludes.
 
 ### 2. EXIF & GPS Metadata Stripping
 
-- Image thumbnails are proxied through FastAPI (`GET /api/media/{asset_id}`).
+- Image thumbnails are proxied through FastAPI (`GET /play/media/{capability_token}/{asset_id}`).
 - All EXIF metadata, GPS latitude/longitude tags, and camera timestamps are stripped in-memory before streaming image bytes to the client. Inspecting images in browser DevTools or Network tabs reveals no location or date data.
 
-### 3. Asset Authorization via Capability Tokens
+### 3. Capability-Scoped Asset Authorization
 
-- Media proxy endpoints require proof of authorization:
-  - Local matches require an active in-memory `match_id`.
-  - Challenge matches verify that the requested `asset_id` belongs to an active or valid challenge seed. Arbitrary asset probing is blocked with HTTP 404.
+- Challenge media endpoints (`/play/media/{capability_token}/{asset_id}`) verify that:
+  1. The `capability_token` corresponds to an active, unexpired challenge.
+  2. The requested `asset_id` belongs strictly to that challenge's photo seed.
+- Arbitrary asset probing across the Immich library is blocked with HTTP 404, preventing unauthorized media access.
+- Participants can report photo inaccuracies directly during gameplay via `POST /play/api/{capability_token}/flag` without needing access to administrative moderation endpoints.
 
 ### 4. Server-Side Timer Grace Window
 
@@ -157,69 +159,119 @@ Immich Quiz implements defense-in-depth protections for challenge matches:
 
 ## 5. Reverse Proxy & Zero Trust Deployment
 
-When hosting Immich Quiz behind Cloudflare Zero Trust, Traefik, Nginx, or Caddy, public challenge paths must be allowed while protecting administrative interfaces.
+Immich Quiz consolidates all public player traffic under two clean prefixes:
+1. **`/play/*`**: Challenge SPA pages, player APIs, in-game photo flagging, and scoped media streaming.
+2. **`/static/*`**: Frontend assets (JavaScript bundles, CSS stylesheets, sound effects, favicons).
+
+All administrative, host-only, and moderation routes (`/`, `/challenges`, `/reported`, `/api/*`) remain strictly protected.
 
 ### Path Protection Rules
 
-| Path                          | Access Level          | Description                                                    |
-|:------------------------------|:----------------------|:---------------------------------------------------------------|
-| `/play/*`                     | **Public**            | Challenge landing, participant join, and match summary         |
-| `/api/challenge/*`            | **Public**            | Capability-token authenticated challenge endpoints             |
-| `/api/media/*`                | **Public**            | Metadata-scrubbed thumbnail proxy (authorized by asset ID)     |
-| `/static/*`                   | **Public**            | Frontend assets (JS, CSS, audio, icons)                        |
-| `/api/challenge/create`       | **Protected / Host**  | Challenge creation (protect with Zero Trust / HTTP Basic Auth) |
-| `/api/challenge/*/deactivate` | **Protected / Host**  | Challenge deactivation                                         |
-| `/challenges`                 | **Protected / Host**  | Challenges Hub management page                                 |
-| `/reported`                   | **Protected / Host**  | Photo inconsistency moderation dashboard                       |
-| `/api/assets/*`               | **Protected / Host**  | Flagged photo management and moderation endpoints              |
-| `/api/sync*`                  | **Protected / Admin** | Metadata synchronization triggers                              |
+| Path               | Access Level          | Description                                                                 |
+|:-------------------|:----------------------|:----------------------------------------------------------------------------|
+| `/play/*`          | **Public**            | Pages (`/play/:token`), APIs (`/play/api/:token/*`), Scoped Media (`/play/media/:token/:asset_id`) |
+| `/static/*`        | **Public**            | Static frontend assets (JS, CSS, audio, icons)                              |
+| `/` (root lobby)   | **Protected / Host**  | Local game setup, quick solo/pass & play matches                            |
+| `/challenges`      | **Protected / Host**  | Challenges Hub management dashboard                                         |
+| `/reported`        | **Protected / Host**  | Photo inconsistency moderation dashboard                                    |
+| `/api/*`           | **Protected / Host**  | Host APIs (`/api/challenge/create`, `/api/challenge/list`, `/api/assets/*`, `/api/sync*`) |
 
-### Example Nginx Configuration
+---
+
+### Cloudflare Zero Trust (Access) Setup
+
+If you run Immich Quiz behind Cloudflare Zero Trust (Cloudflare Access), protecting your instance requires zero reverse-proxy regexes or priority conflicts:
+
+#### 1. Public Challenge Bypass Application
+- **Application Type**: Self-hosted
+- **Application Name**: `Immich Quiz - Challenge Player`
+- **Application Domain**: `quiz.example.com`
+- **Path**: `/play*` (add an additional path rule for `/static*`)
+- **Policy**:
+  - Policy Name: `Public Challenge Access`
+  - Action: **Bypass**
+  - Rule (Include): **Everyone**
+
+#### 2. Default Protected Application
+- **Application Type**: Self-hosted
+- **Application Name**: `Immich Quiz - Host`
+- **Application Domain**: `quiz.example.com`
+- **Path**: *(leave empty to protect all other paths, including root `/` and `/api/*`)*
+- **Policy**:
+  - Policy Name: `Host Access`
+  - Action: **Allow**
+  - Rule (Include): Your authorized emails, Google Workspace, GitHub, or One-Time PIN
+
+With this setup, visiting `quiz.example.com/play/<token>` immediately serves the challenge without an auth prompt, while `quiz.example.com/` and `quiz.example.com/challenges` prompt for host login.
+
+---
+
+### Reverse Proxy Configuration Examples
+
+#### Caddy
+
+```caddy
+quiz.example.com {
+    # If using Cloudflare Access, simply proxy the application:
+    reverse_proxy 127.0.0.1:8010
+
+    # OR, if enforcing HTTP Basic Auth at the Caddy layer:
+    # @public path /play/* /static/*
+    # handle @public {
+    #     reverse_proxy 127.0.0.1:8010
+    # }
+    # handle {
+    #     basic_auth {
+    #         admin $2a$14$...
+    #     }
+    #     reverse_proxy 127.0.0.1:8010
+    # }
+}
+```
+
+#### Nginx
 
 ```nginx
 server {
     listen 443 ssl http2;
     server_name quiz.example.com;
 
-    # Public Challenge Paths
+    # Public Challenge & Static Paths (No Auth)
     location /play/ {
-        proxy_pass http://127.0.0.1:8010;
-    }
-    location /api/challenge/ {
-        proxy_pass http://127.0.0.1:8010;
-    }
-    location /api/media/ {
         proxy_pass http://127.0.0.1:8010;
     }
     location /static/ {
         proxy_pass http://127.0.0.1:8010;
     }
 
-    # Protected Admin & Creation Routes
-    location /api/challenge/create {
-        auth_basic "Host Authorization";
-        auth_basic_user_file /etc/nginx/.htpasswd;
-        proxy_pass http://127.0.0.1:8010;
-    }
-    location ~ ^/api/challenge/.+/deactivate$ {
-        auth_basic "Host Authorization";
-        auth_basic_user_file /etc/nginx/.htpasswd;
-        proxy_pass http://127.0.0.1:8010;
-    }
-    location /challenges {
-        auth_basic "Host Authorization";
-        auth_basic_user_file /etc/nginx/.htpasswd;
-        proxy_pass http://127.0.0.1:8010;
-    }
-    location /reported {
-        auth_basic "Host Authorization";
-        auth_basic_user_file /etc/nginx/.htpasswd;
-        proxy_pass http://127.0.0.1:8010;
-    }
-    location /api/assets/ {
+    # Protected Host & Admin Routes
+    location / {
         auth_basic "Host Authorization";
         auth_basic_user_file /etc/nginx/.htpasswd;
         proxy_pass http://127.0.0.1:8010;
     }
 }
 ```
+
+#### Traefik (Docker Compose Labels)
+
+```yaml
+services:
+  immich-quiz:
+    labels:
+      - "traefik.enable=true"
+      # Public Router for Challenge Players
+      - "traefik.http.routers.quiz-public.rule=Host(`quiz.example.com`) && (PathPrefix(`/play`) || PathPrefix(`/static`))"
+      - "traefik.http.routers.quiz-public.entrypoints=websecure"
+      - "traefik.http.routers.quiz-public.tls=true"
+      - "traefik.http.routers.quiz-public.service=quiz-service"
+
+      # Protected Router for Host
+      - "traefik.http.routers.quiz-admin.rule=Host(`quiz.example.com`)"
+      - "traefik.http.routers.quiz-admin.entrypoints=websecure"
+      - "traefik.http.routers.quiz-admin.tls=true"
+      - "traefik.http.routers.quiz-admin.middlewares=auth-middleware"
+      - "traefik.http.routers.quiz-admin.service=quiz-service"
+      - "traefik.http.services.quiz-service.loadbalancer.server.port=8010"
+```
+
