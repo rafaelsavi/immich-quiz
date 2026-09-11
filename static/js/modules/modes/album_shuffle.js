@@ -221,69 +221,9 @@ export const albumShuffleMode = {
     }
     const photos = state.currentQuestion?.batch_photos || [];
     if (!photos.length) return;
-    const selectedPhotoId = state.albumShuffleState?.selectedPhotoId;
-    const photo = (selectedPhotoId && photos.find((p) => p.photo_id === selectedPhotoId)) || photos[0];
+    const photo = photos[0];
     if (photo?.media_url) {
       openPhotoLightbox(photo.media_url);
-    }
-  },
-
-  selectPhotoBySlotIndex(slotIndex) {
-    if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-    const orderedIds = state.albumShuffleState?.orderedPhotoIds || [];
-    if (slotIndex >= 0 && slotIndex < orderedIds.length) {
-      const photoId = orderedIds[slotIndex];
-      state.albumShuffleState.selectedPhotoId = photoId;
-      const cardsList = el.shuffleCardsList || document.getElementById("shuffle-cards-list");
-      if (cardsList && state.currentQuestion) {
-        renderPhotoCardsList(cardsList, state.currentQuestion);
-      }
-      const assignedPin = state.albumShuffleState.pinAssignments
-        ? state.albumShuffleState.pinAssignments[photoId]
-        : null;
-      highlightMapMarker(assignedPin || null);
-    }
-  },
-
-  assignPinToSelectedPhoto(pinLetter) {
-    if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-    if (!state.currentQuestion?.location_mode) return;
-    const selectedId = state.albumShuffleState?.selectedPhotoId;
-    if (!selectedId) return;
-    const pins = state.currentQuestion.batch_pins || [];
-    const targetPin = pins.find((p) => String(p.pin_id).toUpperCase() === String(pinLetter).toUpperCase());
-    if (!targetPin) return;
-
-    const pinAssignments = state.albumShuffleState.pinAssignments || {};
-    Object.keys(pinAssignments).forEach((pid) => {
-      if (pinAssignments[pid] === targetPin.pin_id) {
-        pinAssignments[pid] = null;
-      }
-    });
-    pinAssignments[selectedId] = targetPin.pin_id;
-    updateShuffleMapMarkers(pins);
-    const cardsList = el.shuffleCardsList || document.getElementById("shuffle-cards-list");
-    if (cardsList && state.currentQuestion) {
-      renderPhotoCardsList(cardsList, state.currentQuestion);
-    }
-    highlightMapMarker(targetPin.pin_id);
-    updateSubmitState();
-  },
-
-  assignTimelineRankToSelectedPhoto(rankIndex) {
-    if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-    if (!state.currentQuestion?.date_mode) return;
-    const selectedId = state.albumShuffleState?.selectedPhotoId;
-    if (!selectedId) return;
-    const orderedIds = state.albumShuffleState.orderedPhotoIds || [];
-    const currentIndex = orderedIds.indexOf(selectedId);
-    if (currentIndex === -1 || rankIndex < 0 || rankIndex >= orderedIds.length || currentIndex === rankIndex) return;
-
-    orderedIds.splice(currentIndex, 1);
-    orderedIds.splice(rankIndex, 0, selectedId);
-    const cardsList = el.shuffleCardsList || document.getElementById("shuffle-cards-list");
-    if (cardsList && state.currentQuestion) {
-      renderPhotoCardsList(cardsList, state.currentQuestion);
     }
   },
 
@@ -309,7 +249,6 @@ export const albumShuffleMode = {
     const photos = questionData.batch_photos || [];
     state.albumShuffleState = {
       orderedPhotoIds: photos.map((p) => p.photo_id),
-      selectedPhotoId: questionData.location_mode ? (photos[0]?.photo_id || null) : null,
       pinAssignments: {}, // photoId -> pinId
     };
 
@@ -674,6 +613,38 @@ export function getPinColor(pinId) {
   return rawColor;
 }
 
+function assignPinToPhoto(photoId, pinId, questionData, containerEl = null) {
+  if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+  if (!state.albumShuffleState) return;
+
+  const pinAssignments = state.albumShuffleState.pinAssignments || {};
+  const currentPinOfThisPhoto = pinAssignments[photoId];
+
+  if (currentPinOfThisPhoto === pinId) {
+    // Tapping the same assigned pin unassigns it
+    pinAssignments[photoId] = null;
+  } else {
+    // Smart swap: if another photo currently has this pin, swap or clear it
+    const otherPhotoId = Object.keys(pinAssignments).find(
+      (pid) => pid !== photoId && pinAssignments[pid] === pinId
+    );
+    if (otherPhotoId) {
+      pinAssignments[otherPhotoId] = currentPinOfThisPhoto || null;
+    }
+    pinAssignments[photoId] = pinId;
+  }
+
+  const pins = questionData?.batch_pins || [];
+  updateShuffleMapMarkers(pins);
+
+  const cardsList = containerEl || el.shuffleCardsList || document.getElementById("shuffle-cards-list");
+  if (cardsList && questionData) {
+    renderPhotoCardsList(cardsList, questionData);
+  }
+
+  updateSubmitState();
+}
+
 function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData) {
   container.replaceChildren();
 
@@ -823,7 +794,6 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
   const isDisabled = Boolean(state.timedOut || state.albumShuffleDisabled);
   const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
-  const selectedPhotoId = state.albumShuffleState ? state.albumShuffleState.selectedPhotoId : null;
   const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
   const photosMap = {};
   (questionData.batch_photos || []).forEach((p) => {
@@ -845,46 +815,19 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
     const assignedPin = questionData.location_mode ? pinAssignments[photoId] : null;
     const pinColor = assignedPin ? getPinColor(assignedPin) : null;
-    const isSelectable = Boolean(questionData.location_mode);
-    const isSelected = isSelectable && selectedPhotoId === photoId;
-
     const card = document.createElement("div");
-    card.className = `shuffle-card-row ${isSelected ? "selected" : ""} ${isDisabled ? "disabled" : ""} ${assignedPin ? "assigned" : ""} ${isSelectable ? "selectable" : "not-selectable"}`;
+    card.className = `shuffle-card-row ${isDisabled ? "disabled" : ""} ${assignedPin ? "assigned" : ""}`;
+    card.setAttribute("data-photo-id", photoId);
 
     if (assignedPin && pinColor) {
       card.style.borderColor = pinColor;
-      if (isSelected) {
-        card.style.backgroundColor = `${pinColor}70`;
-        card.style.boxShadow = `0 0 18px 4px ${pinColor}88, 0 6px 20px rgba(0, 0, 0, 0.14)`;
-        card.style.transform = "translateY(-2px)";
-        card.style.borderWidth = "4px";
-      } else {
-        card.style.backgroundColor = `${pinColor}30`;
-        card.style.boxShadow = "none";
-        card.style.transform = "";
-        card.style.borderWidth = "2px";
-      }
+      card.style.backgroundColor = `${pinColor}18`;
+      card.style.boxShadow = `0 2px 10px ${pinColor}25`;
     } else {
       card.style.borderColor = "";
       card.style.backgroundColor = "";
       card.style.boxShadow = "";
-      card.style.transform = "";
-      card.style.borderWidth = "";
     }
-
-    card.addEventListener("click", () => {
-      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-      if (!isSelectable) return;
-      if (state.albumShuffleState) {
-        state.albumShuffleState.selectedPhotoId = photoId;
-        renderPhotoCardsList(containerEl, questionData);
-
-        const assignedPin = state.albumShuffleState.pinAssignments
-          ? state.albumShuffleState.pinAssignments[photoId]
-          : null;
-        highlightMapMarker(assignedPin || null);
-      }
-    });
 
     // Thumbnail
     const thumbWrap = document.createElement("div");
@@ -894,6 +837,9 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     img.className = "shuffle-card-thumb-lg";
     img.src = photo.media_url;
     img.alt = `Photo ${index + 1}`;
+    img.addEventListener("click", () => {
+      openPhotoLightbox(photo.media_url);
+    });
 
     const fsBtn = document.createElement("button");
     fsBtn.type = "button";
@@ -915,7 +861,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 
     thumbWrap.append(img, fsBtn);
 
-    // Right Action Panel: Pin Badge + Rank Controls stacked vertically
+    // Right Action Panel: Pin Chips + Rank Controls stacked vertically
     const rightActions = document.createElement("div");
     rightActions.className = "shuffle-card-actions";
 
@@ -923,21 +869,45 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     pinBadgeWrap.className = "shuffle-card-details";
 
     if (questionData.location_mode) {
-      const pinBadge = document.createElement("div");
-      if (assignedPin && pinColor) {
-        pinBadge.className = "shuffle-assigned-pin-badge assigned";
-        pinBadge.textContent = `📍 ${assignedPin}`;
-        pinBadge.style.backgroundColor = pinColor;
-        pinBadge.style.color = "#ffffff";
-        pinBadge.style.borderColor = pinColor;
-      } else {
-        pinBadge.className = "shuffle-assigned-pin-badge unassigned";
-        pinBadge.textContent = "📍 -";
-        pinBadge.style.backgroundColor = "";
-        pinBadge.style.color = "";
-        pinBadge.style.borderColor = "";
-      }
-      pinBadgeWrap.appendChild(pinBadge);
+      const pinChipsWrap = document.createElement("div");
+      pinChipsWrap.className = "shuffle-pin-selector";
+      pinChipsWrap.setAttribute("role", "group");
+      pinChipsWrap.setAttribute("aria-label", "Assign pin");
+
+      const batchPins = questionData.batch_pins || [];
+      batchPins.forEach((pin) => {
+        const letter = pin.pin_id;
+        const color = getPinColor(letter);
+        const isChipActive = assignedPin === letter;
+
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = `shuffle-pin-chip ${isChipActive ? "active shuffle-assigned-pin-badge assigned" : ""}`;
+        chip.dataset.pin = letter;
+        chip.textContent = letter;
+        chip.title = `Assign Pin ${letter}`;
+        chip.setAttribute("aria-label", `Assign Pin ${letter}`);
+        chip.disabled = isDisabled;
+
+        if (isChipActive) {
+          chip.style.backgroundColor = color;
+          chip.style.borderColor = color;
+          chip.style.color = "#ffffff";
+          chip.style.boxShadow = `0 2px 6px ${color}66`;
+        } else {
+          chip.style.borderColor = color;
+          chip.style.color = color;
+        }
+
+        chip.addEventListener("click", (e) => {
+          e.stopPropagation();
+          assignPinToPhoto(photoId, letter, questionData, containerEl);
+        });
+
+        pinChipsWrap.appendChild(chip);
+      });
+
+      pinBadgeWrap.appendChild(pinChipsWrap);
     } else {
       pinBadgeWrap.style.display = "none";
     }
@@ -1029,36 +999,51 @@ function getPinMarkerDetails(pinId) {
   const assignedPhotoId = Object.keys(pinAssignments).find(
     (photoId) => pinAssignments[photoId] === pinId
   );
+  const photos = state.currentQuestion?.batch_photos || [];
+  const assignedPhoto = assignedPhotoId ? photos.find((p) => p.photo_id === assignedPhotoId) : null;
 
   return {
     isTaken: Boolean(assignedPhotoId && orderedIds.includes(assignedPhotoId)),
     badgeText: pinId,
     bgColor: getPinColor(pinId),
+    photoUrl: assignedPhoto?.media_url || null,
   };
 }
 
 function updateShuffleMapMarkers(pins) {
   if (!pins) return;
   pins.forEach((pin) => {
-    const { isTaken, badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
+    const { isTaken, badgeText, bgColor, photoUrl } = getPinMarkerDetails(pin.pin_id);
     const el = document.getElementById(`pin-marker-${pin.pin_id}`);
     if (el) {
-      el.textContent = badgeText;
-
-      if (isTaken) {
-        el.classList.add("assigned");
+      if (isTaken && photoUrl) {
+        el.classList.add("assigned", "has-photo");
         el.classList.remove("unassigned");
+        el.innerHTML = `<img src="${photoUrl}" class="shuffle-pin-photo-img" alt="Pin ${badgeText}" /><span class="shuffle-pin-letter-badge" style="background:${bgColor};">${badgeText}</span>`;
+        el.style.background = "#ffffff";
+        el.style.color = "#ffffff";
+        el.style.borderColor = bgColor;
+        el.style.borderWidth = "3px";
+        el.style.opacity = "1";
+        el.style.boxShadow = "0 3px 10px rgba(0,0,0,0.35)";
+      } else if (isTaken) {
+        el.classList.add("assigned");
+        el.classList.remove("unassigned", "has-photo");
+        el.textContent = badgeText;
         el.style.background = bgColor;
         el.style.color = "#ffffff";
         el.style.borderColor = "#ffffff";
+        el.style.borderWidth = "2px";
         el.style.opacity = "1";
         el.style.boxShadow = "0 3px 8px rgba(0,0,0,0.35)";
       } else {
         el.classList.add("unassigned");
-        el.classList.remove("assigned");
+        el.classList.remove("assigned", "has-photo");
+        el.textContent = badgeText;
         el.style.background = "#ffffff";
         el.style.color = bgColor;
         el.style.borderColor = bgColor;
+        el.style.borderWidth = "2px";
         el.style.opacity = "1";
         el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
       }
@@ -1077,7 +1062,6 @@ function renderShuffleMap(containerEl, pins, questionData) {
   if (!map) return;
 
   const bounds = L.latLngBounds();
-  const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
 
   // Store true coordinates and place markers at their true positions.
   // Visual separation of overlapping pins is handled dynamically by applySpiderfy().
@@ -1089,11 +1073,12 @@ function renderShuffleMap(containerEl, pins, questionData) {
     truePinCoords[pin.pin_id] = { lat, lng: lon };
     bounds.extend([lat, lon]);
 
-    const { isTaken, badgeText, bgColor } = getPinMarkerDetails(pin.pin_id);
+    const { isTaken, badgeText, bgColor, photoUrl } = getPinMarkerDetails(pin.pin_id);
     const icon = createBadgePinIcon(badgeText, bgColor, {
       id: `pin-marker-${pin.pin_id}`,
       isTaken,
       size: 36,
+      photoUrl,
     });
 
     const marker = L.marker([lat, lon], { icon }).addTo(map);
@@ -1101,20 +1086,13 @@ function renderShuffleMap(containerEl, pins, questionData) {
 
     marker.on("click", () => {
       if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-      const selectedId = state.albumShuffleState ? state.albumShuffleState.selectedPhotoId : null;
-      if (selectedId) {
-        Object.keys(pinAssignments).forEach((pid) => {
-          if (pinAssignments[pid] === pin.pin_id) {
-            pinAssignments[pid] = null;
-          }
-        });
-        pinAssignments[selectedId] = pin.pin_id;
-        updateShuffleMapMarkers(pins);
-        const cardsList = document.getElementById("shuffle-cards-list");
-        if (cardsList) {
-          renderPhotoCardsList(cardsList, questionData);
+      const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+      const assignedPhotoId = Object.keys(pinAssignments).find((pid) => pinAssignments[pid] === pin.pin_id);
+      if (assignedPhotoId) {
+        const photo = (questionData.batch_photos || []).find((p) => p.photo_id === assignedPhotoId);
+        if (photo?.media_url) {
+          openPhotoLightbox(photo.media_url);
         }
-        highlightMapMarker(pin.pin_id);
       }
     });
   });
@@ -1125,56 +1103,6 @@ function renderShuffleMap(containerEl, pins, questionData) {
     fitMapToBounds(map, bounds, { padding: [50, 50], maxZoom: 15 });
     map.once("moveend", () => applySpiderfy(map, truePinCoords, shuffleMarkers, spiderLines, getPinColor));
   }
-}
-
-
-function highlightMapMarker(pinId) {
-  Object.keys(shuffleMarkers).forEach((pid) => {
-    const el = document.getElementById(`pin-marker-${pid}`);
-    if (el) {
-      const pinColor = getPinColor(pid);
-      const isSelected = Boolean(pinId && pid === pinId);
-      const { isTaken } = getPinMarkerDetails(pid);
-
-      el.style.transform = "scale(1)";
-
-      if (isSelected) {
-        el.classList.add("selected");
-        el.style.opacity = "1";
-        el.style.boxShadow = `0 0 0 3px #ffffff, 0 0 0 6px ${pinColor}, 0 4px 14px rgba(0,0,0,0.5)`;
-        if (isTaken) {
-          el.style.background = pinColor;
-          el.style.color = "#ffffff";
-          el.style.borderColor = "#ffffff";
-        } else {
-          el.style.background = "#ffffff";
-          el.style.color = pinColor;
-          el.style.borderColor = pinColor;
-        }
-        if (el.parentElement) {
-          el.parentElement.style.zIndex = "1000";
-        }
-      } else {
-        el.classList.remove("selected");
-        if (el.parentElement) {
-          el.parentElement.style.zIndex = "";
-        }
-        if (isTaken) {
-          el.style.background = pinColor;
-          el.style.color = "#ffffff";
-          el.style.borderColor = "#ffffff";
-          el.style.boxShadow = "0 3px 8px rgba(0,0,0,0.35)";
-          el.style.opacity = "1";
-        } else {
-          el.style.background = "#ffffff";
-          el.style.color = pinColor;
-          el.style.borderColor = pinColor;
-          el.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
-          el.style.opacity = "1";
-        }
-      }
-    }
-  });
 }
 
 function renderBatchRevealMap(containerEl, batchItems) {

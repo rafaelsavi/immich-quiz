@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.3] - 2026-09-11
+
+### Added
+
+- **Album Shuffle Direct Pin Chip Selectors**:
+  - Replaced the static `📍 -` text with direct interactive `[A] [B] [C]` pin chip selectors on each photo card.
+  - Tapping a chip matches the photo to that lettered map pin with zero modal ambiguity and smart auto-swapping.
+- **Album Shuffle Photo Pin Heads on Map**:
+  - Map markers now display the photo's circular thumbnail directly inside the pin head when assigned, accompanied by a color-coded letter badge.
+  - Retains crisp, high-contrast letter styling when unassigned, enabling immediate visual verification of photo locations on the map.
+
+### Changed
+
+- **Album Shuffle Help Balloons and Guidance**:
+  - Updated in-game help text across English and Portuguese to reflect direct card chip selection and visual photo pin heads on the map.
+  - Streamlined `docs/GAMEPLAY.md` documentation for Album Shuffle matching rules.
+
 ## [3.0.2] - 2026-09-11
 
 ### Added

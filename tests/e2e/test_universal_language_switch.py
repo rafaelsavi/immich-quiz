@@ -333,13 +333,10 @@ async def test_universal_scanner_album_shuffle_gameplay_and_reveal(page: Page) -
     # 1. Scan Album Shuffle Guessing UI
     await assert_universal_dynamic_language_switch(page, 'Album Shuffle Guessing UI', min_expected_elements=5)
 
-    # Assign map pins to photo cards to enable submit button
+    # Assign map pins to photo cards via direct chips to enable submit button
     cards = page.locator('#shuffle-cards-list .shuffle-card-row')
-    map_pins = page.locator('#shuffle-map-shell .shuffle-pin-icon, #shuffle-map-shell .leaflet-marker-icon')
-    card_count = await cards.count()
-    for i in range(card_count):
-        await cards.nth(i).click()
-        await map_pins.nth(i).click()
+    for i, pin_letter in enumerate(['A', 'B', 'C']):
+        await cards.nth(i).locator(f'.shuffle-pin-chip[data-pin="{pin_letter}"]').click()
 
     await expect(page.locator('#submit-answer')).to_be_enabled()
     await page.locator('#submit-answer').click()

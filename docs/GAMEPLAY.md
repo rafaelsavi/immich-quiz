@@ -71,7 +71,7 @@ Designed for parties, family gatherings, or solo play on a single screen.
 - **Inspect Photo**: Click the photo or the fullscreen expand icon (`⛶`) to inspect details in high resolution with the modal lightbox.
 - **Pinpoint Location**: Click on the world map to place or adjust your pin. Use the **Focus region** button to snap back to the album's auto-framed bounding box.
 - **Pinpoint Date**: Pick the month and year using the date selectors.
-- **Album Shuffle Matching**: Tap a photo card to select it, then tap its matching pin on the map.
+- **Album Shuffle Matching**: Tap the letter chips (**A**, **B**, **C**) directly on each photo card to assign its location. Assigned map pins display the photo thumbnail preview directly inside the pin marker.
 - **Album Shuffle Timeline**: Reorder photo cards chronologically using the ▲ and ▼ buttons.
 - Click **Submit Guess** when finished.
 
