@@ -62,7 +62,7 @@ export const challengeSummary = {
 
     try {
       const data = await api(
-        `/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
+        `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
         {
           headers: {
             "X-Player-Token": challengeSession.sessionToken,
@@ -70,7 +70,6 @@ export const challengeSummary = {
         }
       );
       challengeSession.cachedLeaderboardData = data;
-
       if (data.leaderboard) {
         const participantNames = data.leaderboard.map((p) => p.player_name);
         if (participantNames.length > 0) {
@@ -83,15 +82,16 @@ export const challengeSummary = {
         });
       }
 
-      if (updateUrl && challengeSession.challengeData?.capability_token) {
-        navigate(`/play/${encodeURIComponent(challengeSession.challengeData.capability_token)}/summary`, { replace: true });
+      const capToken = challengeSession.challengeData?.capability_token;
+      if (updateUrl && capToken) {
+        navigate(`/play/${encodeURIComponent(capToken)}/summary`, { replace: true, silent: true });
       }
 
       launchGoldConfetti();
       playVictoryFanfare();
 
-      const playUrl = `${window.location.origin}/play/${challengeSession.challengeData.capability_token}`;
-      const summaryUrl = `${window.location.origin}/play/${challengeSession.challengeData.capability_token}/summary`;
+      const playUrl = capToken ? `${window.location.origin}/play/${capToken}` : "";
+      const summaryUrl = capToken ? `${window.location.origin}/play/${capToken}/summary` : "";
       const totalRoundsCount = data.total_rounds || challengeSession.totalRounds;
 
       const finishedPlayers = data.leaderboard.filter((p) => p.is_finished || p.completed_rounds >= totalRoundsCount);
@@ -761,7 +761,7 @@ export const challengeSummary = {
       if (!challengeSession.challengeData) return;
       try {
         const data = await api(
-          `/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
+          `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
           {
             headers: {
               "X-Player-Token": challengeSession.sessionToken,

@@ -933,7 +933,7 @@ class MetadataStore:
         """
         row = self._db.fetch_one(sql, params)
         if not row:
-            return {'eligible_count': 0, 'total_count': 0, 'gps_count': 0, 'date_count': 0}
+            return {'eligible_count': 0, 'total_count': 0, 'gps_count': 0, 'date_count': 0, 'both_count': 0}
 
         total_cnt = int(row['total_count'] or 0)
         gps_cnt = int(row['gps_count'] or 0)
@@ -954,6 +954,7 @@ class MetadataStore:
             'total_count': total_cnt,
             'gps_count': gps_cnt,
             'date_count': date_cnt,
+            'both_count': both_cnt,
         }
 
     def fetch_candidate_assets(

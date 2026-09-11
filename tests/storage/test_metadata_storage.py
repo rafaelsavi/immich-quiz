@@ -185,6 +185,7 @@ def test_metadata_store_upsert_and_queries(meta_store: MetadataStore) -> None:
     assert counts['total_count'] == 3
     assert counts['gps_count'] == 3
     assert counts['date_count'] == 3
+    assert counts['both_count'] == 3
     assert counts['eligible_count'] == 3
 
 
@@ -610,6 +611,7 @@ def test_api_sync_and_filters_endpoints(tmp_path: Path) -> None:
     assert data_preflight['total_count'] == 1
     assert data_preflight['gps_count'] == 1
     assert data_preflight['date_count'] == 1
+    assert data_preflight['both_count'] == 1
     assert data_preflight['location_mode'] is True
     assert data_preflight['date_mode'] is True
     assert 'countries' in data_preflight['active_filters']

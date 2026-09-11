@@ -161,6 +161,7 @@ Every filter change triggers a debounced (500ms) background request to `POST /ap
   "total_count": 1200,
   "gps_count": 850,
   "date_count": 1150,
+  "both_count": 820,
   "location_mode": true,
   "date_mode": true,
   "facet_counts": {

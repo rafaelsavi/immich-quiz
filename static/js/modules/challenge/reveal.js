@@ -135,7 +135,7 @@ export const challengeReveal = {
       if (!challengeSession.challengeData) return;
       try {
         const data = await api(
-          `/api/challenge/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
+          `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
           {
             headers: {
               "X-Player-Token": challengeSession.sessionToken,

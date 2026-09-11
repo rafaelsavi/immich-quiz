@@ -227,10 +227,11 @@ class ChallengeService:
             batch_indices = round_batches[round_index]
             batch_asset_ids = [asset_ids[i] for i in batch_indices]
 
+            token = challenge['capability_token']
             batch_photos = [
                 BatchPhotoItem(
                     photo_id=aid,
-                    media_url=f'/api/media/{aid}',
+                    media_url=f'/play/media/{token}/{aid}',
                 )
                 for aid in batch_asset_ids
             ]
@@ -254,7 +255,7 @@ class ChallengeService:
                 round_index=round_index,
                 total_rounds=len(round_batches),
                 asset_id=batch_asset_ids[0],
-                media_url=f'/api/media/{batch_asset_ids[0]}',
+                media_url=f'/play/media/{token}/{batch_asset_ids[0]}',
                 game_mode=game_mode,
                 location_mode=bool(config.get('location_mode', True)),
                 date_mode=bool(config.get('date_mode', True)),
@@ -269,11 +270,12 @@ class ChallengeService:
             raise HTTPException(status_code=400, detail='Invalid round index for pinpoint.')
 
         target_asset_id = asset_ids[round_index]
+        token = challenge['capability_token']
         return ChallengeQuestionResponse(
             round_index=round_index,
             total_rounds=len(asset_ids),
             asset_id=target_asset_id,
-            media_url=f'/api/media/{target_asset_id}',
+            media_url=f'/play/media/{token}/{target_asset_id}',
             game_mode=game_mode,
             location_mode=bool(config.get('location_mode', True)),
             date_mode=bool(config.get('date_mode', True)),
@@ -463,9 +465,10 @@ class ChallengeService:
 
         updated = self.challenge_store.get_player_session(session['session_token'])
 
+        token = challenge['capability_token']
         pinpoint_reveal = PinpointReveal(
             asset_id=target_asset_id,
-            media_url=f'/api/media/{target_asset_id}',
+            media_url=f'/play/media/{token}/{target_asset_id}',
             actual_latitude=asset.latitude,
             actual_longitude=asset.longitude,
             actual_date=asset.capture_date,

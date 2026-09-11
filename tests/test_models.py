@@ -507,10 +507,12 @@ def test_preflight_and_setup_response_validation() -> None:
         total_count=100,
         gps_count=50,
         date_count=80,
+        both_count=45,
         min_date=date(2020, 1, 1),
         max_date=date(2023, 1, 1),
     )
     assert resp_ok.eligible_count == 25
+    assert resp_ok.both_count == 45
 
     # Negative counts in PreflightResponse
     with pytest.raises(ValidationError):
@@ -519,6 +521,8 @@ def test_preflight_and_setup_response_validation() -> None:
         PreflightResponse(eligible_count=10, required=-5, ok=True, active_filters=[])
     with pytest.raises(ValidationError):
         PreflightResponse(eligible_count=10, required=10, ok=True, active_filters=[], total_count=-10)
+    with pytest.raises(ValidationError):
+        PreflightResponse(eligible_count=10, required=10, ok=True, active_filters=[], both_count=-1)
 
     # Inverted dates in PreflightResponse
     with pytest.raises(ValidationError):

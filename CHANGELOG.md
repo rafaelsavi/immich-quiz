@@ -5,12 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.2] - 2026-09-11
+
+### Added
+
+- **Scoped Challenge Public Routes & Seed-Validated Media Proxy**:
+  - Consolidated all public participant challenge access under `/play/*` (`/play/api/:token/*` and `/play/media/:token/:asset_id`).
+  - Added strict server-side capability and challenge seed validation (`is_asset_in_challenge`): participants can only fetch image thumbnails belonging to their active, unexpired challenge match, preventing arbitrary Immich library scanning.
+  - Added in-game photo inconsistency reporting via `POST /play/api/{token}/flag` allowing challenge players to report misplaced GPS tags or dates without exposing administrative moderation APIs.
+- **Dynamic Preflight Count Updates by Guess Mode**:
+  - Preflight counter in setup and home screen now dynamically updates based on active guess mode toggles (Location/GPS, Date, or both).
+  - Toggling Location or Date immediately recalculates eligible counts and warnings using `both_count`, `gps_count`, and `date_count`, and triggers a debounced server check.
+  - Added `both_count` field to `PreflightResponse` and `MetadataStore.get_asset_counts` to provide full breakdown data.
+  - Bound event listeners to `#game-settings-container` and `#round-count` to react to mode toggles and round requirement changes instantly.
+- **Streamlined Zero Trust & Reverse Proxy Path Security**:
+  - Simplified Cloudflare Access, Caddy, Nginx, and Traefik deployment by exposing only `/play/*` and `/static/*` for public challenge participants.
+  - Keeps root (`/`), Challenges Hub (`/challenges`), Moderation Dashboard (`/reported`), and administrative endpoints (`/api/*`) strictly protected behind host authentication with zero complex reverse-proxy path regexes or priority conflicts.
+
+### Changed
+
+- **Clean Architectural Separation of Host and Player APIs**:
+  - Split challenge router into host management (`/api/challenge/*`) and player participant routes (`/play/api/*`, `/play/media/*`).
+  - Updated all challenge game engine views (Game, Intermission, Reveal, and Summary) and in-game report modals to consume the scoped `/play/*` APIs.
+  - Enhanced router navigation state to support silent history updates, preventing redundant re-render loops on URL parameter updates.
+
+### Fixed
+
+- **Service Worker and HTTP Dynamic Response Caching**:
+  - Updated Service Worker (`sw.js`) to bypass caching for `/play/api/` and `/play/media/`, ensuring real-time multi-tab and multiplayer standings are never served from stale caches.
+  - Hardened dynamic API endpoints with HTTP `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` headers while preserving immutable client caching for static and media proxy assets.
+
 ## [3.0.1] - 2026-09-09
 
 ### Fixed
 
 - **Leaderboard data selection**: Fixed leaderboard query to correctly filter when no media filters are applied.
-
 
 ## [3.0.0] - 2026-09-07
 

@@ -295,6 +295,14 @@ export function initSegmentedControls() {
 
   setupControl("round-count", "10");
   setupControl("round-length", "1m");
+
+  const roundCountEl = document.getElementById("round-count");
+  if (roundCountEl && !roundCountEl.dataset.changeBound) {
+    roundCountEl.dataset.changeBound = "true";
+    roundCountEl.addEventListener("change", () => {
+      onGuessModeChanged();
+    });
+  }
 }
 
 function initModeSelector() {
@@ -310,7 +318,7 @@ function initModeSelector() {
     if (activeMode && container) {
       activeMode.renderSettings(container);
     }
-    triggerPreflightDebounced();
+    onGuessModeChanged();
     loadLeaderboardDebounced();
   };
 
@@ -343,6 +351,25 @@ function initModeSelector() {
       e.preventDefault();
       e.stopPropagation();
       GAME_MODES.album_shuffle?.openHelp?.();
+    });
+  }
+
+  if (container && !container.dataset.bound) {
+    container.dataset.bound = "true";
+    container.addEventListener("change", (e) => {
+      if (
+        e.target &&
+        (e.target.id === "goal-location" ||
+          e.target.id === "goal-date" ||
+          e.target.id === "card-goal-location" ||
+          e.target.id === "card-goal-date" ||
+          e.target.closest?.(".guess-mode-buttons"))
+      ) {
+        onGuessModeChanged();
+      }
+    });
+    container.addEventListener("guess-mode-change", () => {
+      onGuessModeChanged();
     });
   }
 
@@ -620,6 +647,56 @@ export function hidePreflightWarning() {
   }
 }
 
+export function onGuessModeChanged() {
+  const activeMode = getActiveMode();
+  const modePayload = activeMode ? activeMode.getModePayload() : {};
+  let locMode = modePayload.location_mode ?? true;
+  let dtMode = modePayload.date_mode ?? true;
+  if (!locMode && !dtMode) {
+    locMode = true;
+    dtMode = true;
+  }
+
+  if (_lastPreflightData) {
+    let count;
+    if (locMode && dtMode) {
+      count = _lastPreflightData.both_count ?? _lastPreflightData.eligible_count;
+    } else if (locMode && !dtMode) {
+      count = _lastPreflightData.gps_count ?? _lastPreflightData.eligible_count;
+    } else if (!locMode && dtMode) {
+      count = _lastPreflightData.date_count ?? _lastPreflightData.eligible_count;
+    } else {
+      count = _lastPreflightData.total_count ?? _lastPreflightData.eligible_count;
+    }
+
+    const roundCount = el.roundCount ? parseInt(el.roundCount.value, 10) : 10;
+    const required = activeMode?.name === "album_shuffle" ? 3 * roundCount : roundCount;
+
+    _lastPreflightData = {
+      ..._lastPreflightData,
+      eligible_count: count,
+      location_mode: locMode,
+      date_mode: dtMode,
+      required,
+      ok: count >= required,
+    };
+
+    updatePreflightCount(_lastPreflightData);
+
+    if (!_lastPreflightData.ok) {
+      if (_lastPreflightData.is_synced === false || _lastPreflightData.sync_status === "never_synced") {
+        showPreflightWarning(t("setup.library_not_synced_warning"));
+      } else {
+        showPreflightWarning(t("setup.not_enough_media", count, required));
+      }
+    } else {
+      hidePreflightWarning();
+    }
+  }
+
+  triggerPreflightDebounced();
+}
+
 export function updatePreflightCount(preflight) {
   const countEl = document.getElementById("preflight-count");
   if (!countEl) return;
@@ -632,12 +709,26 @@ export function updatePreflightCount(preflight) {
     locMode = modePayload.location_mode ?? true;
     dtMode = modePayload.date_mode ?? true;
   } else if (preflight && typeof preflight === "object") {
-    count = preflight.eligible_count;
-    locMode = preflight.location_mode ?? true;
-    dtMode = preflight.date_mode ?? true;
+    const mode = getActiveMode();
+    const modePayload = mode ? mode.getModePayload() : {};
+    locMode = preflight.location_mode ?? modePayload.location_mode ?? true;
+    dtMode = preflight.date_mode ?? modePayload.date_mode ?? true;
     totalCount = preflight.total_count;
     gpsCount = preflight.gps_count;
     dateCount = preflight.date_count;
+    const bothCount = preflight.both_count;
+
+    if (preflight.eligible_count !== undefined && preflight.eligible_count !== null) {
+      count = preflight.eligible_count;
+    } else if (locMode && dtMode && bothCount !== undefined) {
+      count = bothCount;
+    } else if (locMode && !dtMode && gpsCount !== undefined) {
+      count = gpsCount;
+    } else if (!locMode && dtMode && dateCount !== undefined) {
+      count = dateCount;
+    } else {
+      count = totalCount ?? 0;
+    }
   }
 
   if (count === undefined || count === null || count === 0) {
