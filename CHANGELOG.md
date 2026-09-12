@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.1.0] - 2026-09-12
 
 - **Unified Hub Toolbar Design System (`.hub-toolbar`)**:
   - Standardized the search, sort, and filter toolbars across **Challenges Hub** (`#challenges-page-card`) and **Player Statistics & Replays** (`#stats-page-card`) with a cohesive shaded deck container (`background: var(--bg-surface-secondary)`, subtle borders, rounded corners).
@@ -49,8 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Challenges & Stats Toolbar Desktop Layout & Styling (`toolbar.css`)**:
   - Resolved an unclosed CSS brace in `challenge.css` line 524 on `.mini-podium-container` that broke stylesheet parsing for `.challenges-toolbar`.
   - Overrode global form reset styles (`select { width: 100%; }`) on toolbar selects with `width: auto`, keeping dropdowns and counter badges aligned on a single horizontal row on desktop.
-
-## [3.1.0] - 2026-09-12
 
 ### Added
 
