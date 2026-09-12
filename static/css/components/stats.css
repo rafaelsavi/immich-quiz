@@ -134,62 +134,7 @@
   color: var(--accent, #0f7c7f);
 }
 
-/* Toolbar */
-.stats-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-.stats-search-wrap {
-  display: flex;
-  align-items: center;
-  position: relative;
-  flex: 1;
-  min-width: 200px;
-}
-
-.stats-search-wrap .search-icon {
-  position: absolute;
-  left: 0.75rem;
-  font-size: 0.9rem;
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-.stats-search-input {
-  width: 100%;
-  padding: 0.5rem 0.75rem 0.5rem 2.2rem;
-  border: 1px solid var(--border-color, #cbd5e1);
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 0.88rem;
-  background: var(--bg-card, #ffffff);
-  color: var(--text-color, #1e293b);
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.stats-search-input:focus {
-  border-color: var(--accent, #0f7c7f);
-  box-shadow: 0 0 0 3px rgba(15, 124, 127, 0.12);
-}
-
-.stats-sort-wrap select,
-.stats-filters-wrap select {
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  font-size: 0.88rem;
-}
-
-.stats-filters-wrap {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
+/* Toolbar: Standardized via components/toolbar.css (.hub-toolbar) */
 
 /* Player Directory Grid */
 .stats-players-grid {

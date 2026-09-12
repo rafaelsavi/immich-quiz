@@ -536,30 +536,34 @@
 
       <!-- Toolbar: Search, Filters & Sorting -->
       <div class="challenges-toolbar">
-        <div class="challenges-search-wrap">
-          <span class="search-icon" aria-hidden="true">🔍</span>
-          <input type="search" id="challenges-search-input" class="challenges-search-input"
+        <div class="hub-search-box challenges-search-wrap">
+          <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="search" id="challenges-search-input" class="hub-search-input challenges-search-input"
             placeholder="Search by title, host, album, person..."
             data-i18n-placeholder="challenges_page.search_placeholder" />
+          <button type="button" id="challenges-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
         </div>
 
-        <div class="challenges-filters-group">
+        <div class="hub-filters-group challenges-filters-group">
           <!-- Status filter tabs -->
-          <div id="challenges-status-tabs" class="challenges-filter-pills">
+          <div id="challenges-status-tabs" class="hub-segmented-pills challenges-filter-pills">
             <button type="button" class="filter-pill active" data-status="all" data-i18n="challenges_page.filter_all">All</button>
             <button type="button" class="filter-pill" data-status="active" data-i18n="challenges_page.filter_active">Active</button>
             <button type="button" class="filter-pill" data-status="expired" data-i18n="challenges_page.filter_expired">Expired</button>
           </div>
 
           <!-- Mode filter dropdown -->
-          <select id="challenges-mode-filter" class="select-input challenges-mode-select">
+          <select id="challenges-mode-filter" class="hub-select select-input challenges-mode-select">
             <option value="all" data-i18n="challenges_page.mode_all">All Game Modes</option>
             <option value="pinpoint" data-i18n="challenges_page.mode_pinpoint">🎯 Pinpoint</option>
             <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Album Shuffle</option>
           </select>
 
           <!-- Sort dropdown -->
-          <select id="challenges-sort-select" class="select-input challenges-sort-select">
+          <select id="challenges-sort-select" class="hub-select select-input challenges-sort-select">
             <option value="newest" data-i18n="challenges_page.sort_newest">Newest First</option>
             <option value="players" data-i18n="challenges_page.sort_players">Most Players</option>
             <option value="expiring" data-i18n="challenges_page.sort_expiring">Ending Soonest</option>
@@ -567,7 +571,7 @@
           </select>
 
           <!-- Total count badge -->
-          <span id="challenges-page-total-badge" class="challenges-counter-pill hidden">0</span>
+          <span id="challenges-page-total-badge" class="hub-counter-pill challenges-counter-pill hidden">0</span>
         </div>
       </div>
 
@@ -598,16 +602,20 @@
 
       <!-- Toolbar: Search, Filters & Sorting -->
       <div class="reported-toolbar">
-        <div class="reported-search-wrap">
-          <span class="search-icon" aria-hidden="true">🔍</span>
-          <input type="search" id="reported-search-input" class="reported-search-input"
+        <div class="hub-search-box reported-search-wrap">
+          <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="search" id="reported-search-input" class="hub-search-input reported-search-input"
             placeholder="Search by asset ID, reporter, reason..."
             data-i18n-placeholder="reported_page.search_placeholder" />
+          <button type="button" id="reported-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
         </div>
 
-        <div class="reported-filters-group">
+        <div class="hub-filters-group reported-filters-group">
           <!-- Issue filter tabs -->
-          <div id="reported-issue-tabs" class="reported-filter-pills">
+          <div id="reported-issue-tabs" class="hub-segmented-pills reported-filter-pills">
             <button type="button" class="filter-pill active" data-issue="all" data-i18n="reported_page.filter_all">All</button>
             <button type="button" class="filter-pill" data-issue="location" data-i18n="reported_page.filter_location">📍 Location</button>
             <button type="button" class="filter-pill" data-issue="date" data-i18n="reported_page.filter_date">📅 Date</button>
@@ -615,14 +623,14 @@
           </div>
 
           <!-- Sort dropdown -->
-          <select id="reported-sort-select" class="select-input reported-sort-select">
+          <select id="reported-sort-select" class="hub-select select-input reported-sort-select">
             <option value="newest" data-i18n="reported_page.sort_newest">Newest Reported</option>
             <option value="oldest" data-i18n="reported_page.sort_oldest">Oldest Reported</option>
             <option value="id" data-i18n="reported_page.sort_id">Asset ID (A-Z)</option>
           </select>
 
           <!-- Total count badge -->
-          <span id="reported-page-total-badge" class="reported-counter-pill hidden">0</span>
+          <span id="reported-page-total-badge" class="hub-counter-pill reported-counter-pill hidden">0</span>
         </div>
       </div>
 
@@ -699,20 +707,25 @@
 
       <!-- Tab View 1: Player Directory -->
       <div id="stats-players-view" class="stats-tab-view">
-        <div class="stats-toolbar">
-          <div class="stats-search-wrap">
-            <span class="search-icon" aria-hidden="true">🔍</span>
-            <input type="search" id="stats-players-search" class="stats-search-input"
+        <div class="hub-toolbar stats-toolbar">
+          <div class="hub-search-box stats-search-wrap">
+            <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="stats-players-search" class="hub-search-input stats-search-input"
               placeholder="Search players by name..."
               data-i18n-placeholder="stats.directory_search_placeholder" />
+            <button type="button" id="stats-players-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
           </div>
-          <div class="stats-sort-wrap">
-            <select id="stats-players-sort" class="select-input">
+          <div class="hub-filters-group stats-sort-wrap">
+            <select id="stats-players-sort" class="hub-select select-input">
               <option value="matches" data-i18n="stats.sort_by_matches">Most Matches</option>
               <option value="win_rate" data-i18n="stats.sort_by_win_rate">Win Rate</option>
               <option value="points" data-i18n="stats.sort_by_points">Total Career Points</option>
               <option value="name" data-i18n="stats.sort_by_name">Name</option>
             </select>
+            <span id="stats-players-total-badge" class="hub-counter-pill stats-counter-pill hidden">0 players</span>
           </div>
         </div>
         <div id="stats-players-grid" class="stats-players-grid"></div>
@@ -720,24 +733,29 @@
 
       <!-- Tab View 2: Match Replays Catalog -->
       <div id="stats-replays-view" class="stats-tab-view hidden">
-        <div class="stats-toolbar">
-          <div class="stats-search-wrap">
-            <span class="search-icon" aria-hidden="true">🔍</span>
-            <input type="search" id="stats-replays-player-search" class="stats-search-input"
+        <div class="hub-toolbar stats-toolbar">
+          <div class="hub-search-box stats-search-wrap">
+            <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="search" id="stats-replays-player-search" class="hub-search-input stats-search-input"
               placeholder="Filter by player..."
               data-i18n-placeholder="replay.filter_player_placeholder" />
+            <button type="button" id="stats-replays-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
           </div>
-          <div class="stats-filters-wrap">
-            <select id="stats-replays-mode-filter" class="select-input">
+          <div class="hub-filters-group stats-filters-wrap">
+            <select id="stats-replays-mode-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_modes">All Modes</option>
               <option value="pinpoint" data-i18n="mode.pinpoint">🎯 Pinpoint</option>
               <option value="album_shuffle" data-i18n="mode.album_shuffle">🔀 Album Shuffle</option>
             </select>
-            <select id="stats-replays-type-filter" class="select-input">
+            <select id="stats-replays-type-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_types">All Types</option>
               <option value="local" data-i18n="replay.filter_type_local">Local Match</option>
               <option value="challenge" data-i18n="replay.filter_type_challenge">Challenge Link</option>
             </select>
+            <span id="stats-replays-total-badge" class="hub-counter-pill stats-counter-pill hidden">0 replays</span>
           </div>
         </div>
         <div id="stats-replays-list" class="stats-replays-list"></div>

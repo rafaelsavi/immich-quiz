@@ -7,8 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
+- **Unified Hub Toolbar Design System (`.hub-toolbar`)**:
+  - Standardized the search, sort, and filter toolbars across **Challenges Hub** (`#challenges-page-card`) and **Player Statistics & Replays** (`#stats-page-card`) with a cohesive shaded deck container (`background: var(--bg-surface-secondary)`, subtle borders, rounded corners).
+  - Introduced standard 38px control height token (`--toolbar-control-height`) aligning search inputs, segmented pill switches, and dropdown selects on the exact same horizontal baseline.
+  - Replaced system emoji icons (`🔍`) with accessible, inline vector SVG magnifying glasses across all search inputs.
+  - Added interactive search clear buttons (`✕`) that automatically toggle visibility and reset search queries with single-click ease.
+  - Added real-time telemetry counter badges (`#stats-players-total-badge`, `#stats-replays-total-badge`) for Player Directory and Match Replays.
 - **Animated Sync Completion Popup (`.sync-popup`)**:
   - Added an animated popup notification anchored beneath `#sync-library-btn` upon sync completion, displaying what was synced in rich detail.
   - Features real-time sync metrics including sync mode (Quick Update vs. Full Sync), photo count (updated vs. indexed vs. up-to-date), albums linked, tags indexed, pruned assets, and execution duration.
@@ -42,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stats Hub Routing Parameter Bug (`router.js`)**:
   - Fixed an issue where visiting `/stats` caused `parseRoute` to decode `undefined` regex capture groups into the string `"undefined"`, hiding both tabs and leaving the page blank.
   - Fixed dark mode text contrast for `.player-card-name` and `.player-stat-val` in player directory cards.
+- **Challenges & Stats Toolbar Desktop Layout & Styling (`toolbar.css`)**:
+  - Resolved an unclosed CSS brace in `challenge.css` line 524 on `.mini-podium-container` that broke stylesheet parsing for `.challenges-toolbar`.
+  - Overrode global form reset styles (`select { width: 100%; }`) on toolbar selects with `width: auto`, keeping dropdowns and counter badges aligned on a single horizontal row on desktop.
 
 ## [3.1.0] - 2026-09-12
 

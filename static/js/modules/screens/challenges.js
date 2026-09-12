@@ -40,6 +40,7 @@ let _modeFilterEl = null;
 let _sortSelectEl = null;
 let _refreshBtnEl = null;
 let _totalBadgeEl = null;
+let _searchClearBtnEl = null;
 
 let _isInitialized = false;
 let _hasLoaded = false;
@@ -53,6 +54,7 @@ export function initChallengesPage() {
   _pageCardEl = document.getElementById("challenges-page-card");
   _hubListEl = document.getElementById("challenges-hub-list");
   _searchInputEl = document.getElementById("challenges-search-input");
+  _searchClearBtnEl = document.getElementById("challenges-search-clear");
   _statusTabsEl = document.getElementById("challenges-status-tabs");
   _modeFilterEl = document.getElementById("challenges-mode-filter");
   _sortSelectEl = document.getElementById("challenges-sort-select");
@@ -63,7 +65,23 @@ export function initChallengesPage() {
   if (_searchInputEl) {
     _searchInputEl.addEventListener("input", (e) => {
       _searchQuery = e.target.value.trim().toLowerCase();
+      if (_searchClearBtnEl) {
+        _searchClearBtnEl.classList.toggle("hidden", !_searchInputEl.value);
+      }
       renderChallenges();
+    });
+  }
+
+  // Search clear button
+  if (_searchClearBtnEl) {
+    _searchClearBtnEl.addEventListener("click", () => {
+      if (_searchInputEl) {
+        _searchInputEl.value = "";
+        _searchClearBtnEl.classList.add("hidden");
+        _searchQuery = "";
+        _searchInputEl.focus();
+        renderChallenges();
+      }
     });
   }
 

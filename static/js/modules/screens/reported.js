@@ -28,6 +28,7 @@ let _pageCardEl = null;
 let _itemsListEl = null;
 let _inspectionPanelEl = null;
 let _searchInputEl = null;
+let _searchClearBtnEl = null;
 let _issueTabsEl = null;
 let _sortSelectEl = null;
 let _refreshBtnEl = null;
@@ -43,6 +44,7 @@ export function initReportedPage() {
   _itemsListEl = document.getElementById("reported-items-list");
   _inspectionPanelEl = document.getElementById("reported-inspection-panel");
   _searchInputEl = document.getElementById("reported-search-input");
+  _searchClearBtnEl = document.getElementById("reported-search-clear");
   _issueTabsEl = document.getElementById("reported-issue-tabs");
   _sortSelectEl = document.getElementById("reported-sort-select");
   _refreshBtnEl = document.getElementById("reported-page-refresh-btn");
@@ -51,7 +53,22 @@ export function initReportedPage() {
   if (_searchInputEl) {
     _searchInputEl.addEventListener("input", (e) => {
       _searchQuery = e.target.value.trim().toLowerCase();
+      if (_searchClearBtnEl) {
+        _searchClearBtnEl.classList.toggle("hidden", !_searchInputEl.value);
+      }
       renderReported();
+    });
+  }
+
+  if (_searchClearBtnEl) {
+    _searchClearBtnEl.addEventListener("click", () => {
+      if (_searchInputEl) {
+        _searchInputEl.value = "";
+        _searchClearBtnEl.classList.add("hidden");
+        _searchQuery = "";
+        _searchInputEl.focus();
+        renderReported();
+      }
     });
   }
 

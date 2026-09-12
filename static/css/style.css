@@ -11,6 +11,7 @@
 @import "./components/modals.css";
 @import "./components/multi_select.css";
 @import "./components/filters.css";
+@import "./components/toolbar.css";
 @import "./components/range_slider.css";
 @import "./components/player_input.css";
 @import "./components/timer.css";

@@ -28,12 +28,27 @@ export function initStats() {
 
   // Player search & sort
   const playerSearch = document.getElementById("stats-players-search");
+  const playerSearchClear = document.getElementById("stats-players-search-clear");
   if (playerSearch) {
     playerSearch.addEventListener("input", () => {
+      if (playerSearchClear) {
+        playerSearchClear.classList.toggle("hidden", !playerSearch.value);
+      }
       clearTimeout(_searchDebounceTimer);
       _searchDebounceTimer = setTimeout(() => {
         loadPlayerDirectory();
       }, 200);
+    });
+  }
+
+  if (playerSearchClear) {
+    playerSearchClear.addEventListener("click", () => {
+      if (playerSearch) {
+        playerSearch.value = "";
+        playerSearchClear.classList.add("hidden");
+        playerSearch.focus();
+        loadPlayerDirectory();
+      }
     });
   }
 
@@ -46,12 +61,27 @@ export function initStats() {
 
   // Matches filters
   const matchPlayerSearch = document.getElementById("stats-replays-player-search");
+  const matchPlayerSearchClear = document.getElementById("stats-replays-search-clear");
   if (matchPlayerSearch) {
     matchPlayerSearch.addEventListener("input", () => {
+      if (matchPlayerSearchClear) {
+        matchPlayerSearchClear.classList.toggle("hidden", !matchPlayerSearch.value);
+      }
       clearTimeout(_searchDebounceTimer);
       _searchDebounceTimer = setTimeout(() => {
         loadMatchesHistory();
       }, 200);
+    });
+  }
+
+  if (matchPlayerSearchClear) {
+    matchPlayerSearchClear.addEventListener("click", () => {
+      if (matchPlayerSearch) {
+        matchPlayerSearch.value = "";
+        matchPlayerSearchClear.classList.add("hidden");
+        matchPlayerSearch.focus();
+        loadMatchesHistory();
+      }
     });
   }
 
@@ -200,6 +230,17 @@ function renderPlayerDirectory(players) {
   const toolbar = document.querySelector("#stats-players-view .stats-toolbar");
   if (toolbar) {
     toolbar.style.display = (!players || players.length === 0) && !search ? "none" : "";
+  }
+
+  const totalBadge = document.getElementById("stats-players-total-badge");
+  if (totalBadge) {
+    if (players && players.length > 0) {
+      totalBadge.textContent = `${players.length} ${players.length === 1 ? "player" : "players"}`;
+      totalBadge.classList.remove("hidden");
+    } else {
+      totalBadge.textContent = "0 players";
+      totalBadge.classList.toggle("hidden", !search);
+    }
   }
 
   if (!players || players.length === 0) {
@@ -372,6 +413,17 @@ function renderMatchesHistory(matches) {
   const replaysToolbar = document.querySelector("#stats-replays-view .stats-toolbar");
   if (replaysToolbar) {
     replaysToolbar.style.display = (!matches || matches.length === 0) && !isFiltered ? "none" : "";
+  }
+
+  const totalBadge = document.getElementById("stats-replays-total-badge");
+  if (totalBadge) {
+    if (matches && matches.length > 0) {
+      totalBadge.textContent = `${matches.length} ${matches.length === 1 ? "replay" : "replays"}`;
+      totalBadge.classList.remove("hidden");
+    } else {
+      totalBadge.textContent = "0 replays";
+      totalBadge.classList.toggle("hidden", !isFiltered);
+    }
   }
 
   if (!matches || matches.length === 0) {
