@@ -77,6 +77,32 @@ export function initStats() {
   }
 }
 
+async function fetchTabCounts() {
+  try {
+    const [pRes, mRes] = await Promise.allSettled([
+      fetch("/api/players?limit=100"),
+      fetch("/api/matches?limit=100"),
+    ]);
+    if (pRes.status === "fulfilled" && pRes.value.ok) {
+      const pData = await pRes.value.json();
+      _updateTabBadge("players", pData.length);
+    }
+    if (mRes.status === "fulfilled" && mRes.value.ok) {
+      const mData = await mRes.value.json();
+      _updateTabBadge("replays", mData.length);
+    }
+  } catch (_) {}
+}
+
+function _updateTabBadge(tab, count) {
+  const btn = document.querySelector(`#stats-tabs-bar .stats-tab-btn[data-tab="${tab}"]`);
+  if (btn) {
+    if (typeof count === "number") {
+      btn.setAttribute("data-count", String(count));
+    }
+  }
+}
+
 export function showStatsHub(tab = "players") {
   _cachedProfileData = null;
   showCard(el.statsPageCard);
@@ -98,21 +124,20 @@ export function showStatsHub(tab = "players") {
     desc.textContent = t("stats.hub_subtitle");
   }
 
+  fetchTabCounts();
   switchStatsTab(tab);
 }
 
 export function switchStatsTab(tab) {
   _currentTab = tab;
 
-  // Update tabs UI
+  // Update tabs UI & ARIA states
   const tabsBar = document.getElementById("stats-tabs-bar");
   if (tabsBar) {
     tabsBar.querySelectorAll(".stats-tab-btn").forEach((btn) => {
-      if (btn.getAttribute("data-tab") === tab) {
-        btn.classList.add("active");
-      } else {
-        btn.classList.remove("active");
-      }
+      const isActive = btn.getAttribute("data-tab") === tab;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-selected", isActive ? "true" : "false");
     });
   }
 
@@ -156,6 +181,9 @@ async function loadPlayerDirectory() {
     const res = await fetch(`/api/players?search=${encodeURIComponent(search)}&sort_by=${encodeURIComponent(sortBy)}&limit=60`);
     if (!res.ok) throw new Error("Failed to fetch players directory");
     _cachedPlayers = await res.json();
+    if (!search) {
+      _updateTabBadge("players", _cachedPlayers.length);
+    }
     renderPlayerDirectory(_cachedPlayers);
   } catch (err) {
     console.error("Error loading players:", err);
@@ -167,12 +195,76 @@ function renderPlayerDirectory(players) {
   const container = document.getElementById("stats-players-grid");
   if (!container) return;
 
+  const searchInput = document.getElementById("stats-players-search");
+  const search = searchInput ? searchInput.value.trim() : "";
+  const toolbar = document.querySelector("#stats-players-view .stats-toolbar");
+  if (toolbar) {
+    toolbar.style.display = (!players || players.length === 0) && !search ? "none" : "";
+  }
+
   if (!players || players.length === 0) {
+    if (search) {
+      container.innerHTML = `
+        <div class="stats-search-empty">
+          <p>${t("stats.no_search_results", escapeHtml(search))}</p>
+          <button type="button" id="stats-clear-search-btn" class="btn-secondary btn-sm">
+            <span>${t("stats.clear_search")}</span>
+          </button>
+        </div>
+      `;
+      document.getElementById("stats-clear-search-btn")?.addEventListener("click", () => {
+        if (searchInput) {
+          searchInput.value = "";
+          searchInput.focus();
+        }
+        loadPlayerDirectory();
+      });
+      return;
+    }
+
     container.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1; padding: 3rem 1rem; text-align: center;">
-        <p style="color: var(--text-muted); font-size: 1rem;">${t("stats.no_players_found")}</p>
+      <div class="stats-empty-guide">
+        <div class="stats-empty-icon-wrap" aria-hidden="true">👥</div>
+        <div class="stats-empty-content">
+          <h3 class="stats-empty-title">${t("stats.empty_players_title")}</h3>
+          <p class="stats-empty-desc">${t("stats.empty_players_desc")}</p>
+        </div>
+        <div class="stats-empty-actions">
+          <button type="button" class="btn-primary" id="stats-empty-play-btn">
+            <span aria-hidden="true">🎮</span>
+            <span>${t("stats.start_game_cta")}</span>
+          </button>
+          <button type="button" class="btn-secondary" id="stats-empty-challenge-btn">
+            <span aria-hidden="true">⚔️</span>
+            <span>${t("stats.browse_challenges_cta")}</span>
+          </button>
+        </div>
+        <div class="stats-empty-features">
+          <div class="stats-empty-feature-item">
+            <span class="stats-empty-feature-icon" aria-hidden="true">🎯</span>
+            <span class="stats-empty-feature-title">${t("stats.feature_accuracy")}</span>
+            <span class="stats-empty-feature-desc">${t("stats.feature_accuracy_desc")}</span>
+          </div>
+          <div class="stats-empty-feature-item">
+            <span class="stats-empty-feature-icon" aria-hidden="true">🏆</span>
+            <span class="stats-empty-feature-title">${t("stats.feature_podiums")}</span>
+            <span class="stats-empty-feature-desc">${t("stats.feature_podiums_desc")}</span>
+          </div>
+          <div class="stats-empty-feature-item">
+            <span class="stats-empty-feature-icon" aria-hidden="true">🎬</span>
+            <span class="stats-empty-feature-title">${t("stats.feature_replays")}</span>
+            <span class="stats-empty-feature-desc">${t("stats.feature_replays_desc")}</span>
+          </div>
+        </div>
       </div>
     `;
+
+    document.getElementById("stats-empty-play-btn")?.addEventListener("click", () => {
+      navigate("/");
+    });
+    document.getElementById("stats-empty-challenge-btn")?.addEventListener("click", () => {
+      navigate("/challenges");
+    });
     return;
   }
 
@@ -241,6 +333,7 @@ async function loadMatchesHistory() {
   const player = playerInput ? playerInput.value.trim() : "";
   const mode = modeSelect && modeSelect.value !== "all" ? modeSelect.value : "";
   const type = typeSelect && typeSelect.value !== "all" ? typeSelect.value : "";
+  const isFiltered = Boolean(player || mode || type);
 
   let url = `/api/matches?limit=40`;
   if (player) url += `&player=${encodeURIComponent(player)}`;
@@ -253,6 +346,9 @@ async function loadMatchesHistory() {
     const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to fetch matches history");
     _cachedMatches = await res.json();
+    if (!isFiltered) {
+      _updateTabBadge("replays", _cachedMatches.length);
+    }
     renderMatchesHistory(_cachedMatches);
   } catch (err) {
     console.error("Error loading matches:", err);
@@ -264,12 +360,65 @@ function renderMatchesHistory(matches) {
   const container = document.getElementById("stats-replays-list");
   if (!container) return;
 
+  const playerInput = document.getElementById("stats-replays-player-search");
+  const modeSelect = document.getElementById("stats-replays-mode-filter");
+  const typeSelect = document.getElementById("stats-replays-type-filter");
+
+  const player = playerInput ? playerInput.value.trim() : "";
+  const mode = modeSelect && modeSelect.value !== "all" ? modeSelect.value : "";
+  const type = typeSelect && typeSelect.value !== "all" ? typeSelect.value : "";
+  const isFiltered = Boolean(player || mode || type);
+
+  const replaysToolbar = document.querySelector("#stats-replays-view .stats-toolbar");
+  if (replaysToolbar) {
+    replaysToolbar.style.display = (!matches || matches.length === 0) && !isFiltered ? "none" : "";
+  }
+
   if (!matches || matches.length === 0) {
+    if (isFiltered) {
+      container.innerHTML = `
+        <div class="stats-search-empty">
+          <p>${t("replay.empty_matches")}</p>
+          <button type="button" id="stats-clear-replays-filter-btn" class="btn-secondary btn-sm">
+            <span>${t("stats.clear_search")}</span>
+          </button>
+        </div>
+      `;
+      document.getElementById("stats-clear-replays-filter-btn")?.addEventListener("click", () => {
+        if (playerInput) playerInput.value = "";
+        if (modeSelect) modeSelect.value = "all";
+        if (typeSelect) typeSelect.value = "all";
+        loadMatchesHistory();
+      });
+      return;
+    }
+
     container.innerHTML = `
-      <div class="empty-state" style="padding: 3rem 1rem; text-align: center;">
-        <p style="color: var(--text-muted); font-size: 1rem;">${t("replay.empty_matches")}</p>
+      <div class="stats-empty-guide">
+        <div class="stats-empty-icon-wrap" aria-hidden="true">🎬</div>
+        <div class="stats-empty-content">
+          <h3 class="stats-empty-title">${t("replay.empty_title")}</h3>
+          <p class="stats-empty-desc">${t("replay.empty_desc")}</p>
+        </div>
+        <div class="stats-empty-actions">
+          <button type="button" class="btn-primary" id="stats-replay-play-btn">
+            <span aria-hidden="true">🎮</span>
+            <span>${t("replay.play_match_cta")}</span>
+          </button>
+          <button type="button" class="btn-secondary" id="stats-replay-challenge-btn">
+            <span aria-hidden="true">⚔️</span>
+            <span>${t("stats.browse_challenges_cta")}</span>
+          </button>
+        </div>
       </div>
     `;
+
+    document.getElementById("stats-replay-play-btn")?.addEventListener("click", () => {
+      navigate("/");
+    });
+    document.getElementById("stats-replay-challenge-btn")?.addEventListener("click", () => {
+      navigate("/challenges");
+    });
     return;
   }
 
@@ -722,9 +871,9 @@ export function refreshStatsPageLanguage() {
       desc.textContent = t("stats.hub_subtitle");
     }
 
-    if (_currentTab === "players" && _cachedPlayers && _cachedPlayers.length > 0) {
+    if (_currentTab === "players") {
       renderPlayerDirectory(_cachedPlayers);
-    } else if (_currentTab === "replays" && _cachedMatches && _cachedMatches.length > 0) {
+    } else if (_currentTab === "replays") {
       renderMatchesHistory(_cachedMatches);
     }
   }

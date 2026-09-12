@@ -20,6 +20,14 @@ MOCK_REPLAY_DATA = {
     'played_at': 1740000000.0,
     'location_mode': True,
     'date_mode': True,
+    'config': {
+        'round_count': 2,
+        'round_length': '1m',
+        'location_mode': True,
+        'date_mode': True,
+        'game_mode': 'pinpoint',
+        'libraries': ['Familia Savi'],
+    },
     'rounds_data': [
         {
             'round_number': 1,
@@ -104,10 +112,20 @@ async def test_replay_reuses_media_frame_and_map_shell(page: Page) -> None:
     await page.goto('/game/test-reuse-match/replay')
     await expect(page.locator('#replay-page-card')).to_be_visible()
 
+    # Verify unified Match Meta specification panel is rendered
+    meta_section = page.locator('#replay-match-meta-container .match-meta-section')
+    await expect(meta_section).to_be_visible()
+    await expect(page.locator('#replay-match-meta-container .category-game-setup')).to_be_visible()
+    await expect(page.locator('#replay-match-meta-container .category-library-filters')).to_be_visible()
+
     # 2. Verify Reused Image Canvas (.media-frame)
     media_frame = page.locator('#replay-media-frame')
     await expect(media_frame).to_be_visible()
     await expect(media_frame).to_have_class('media-frame replay-media-frame')
+
+    # Verify background is consistent with standard .media-frame (#eef2fb)
+    bg_color = await media_frame.evaluate('el => window.getComputedStyle(el).backgroundColor')
+    assert bg_color == 'rgb(238, 242, 251)'
 
     photo_img = page.locator('#replay-photo-img')
     await expect(photo_img).to_be_visible()

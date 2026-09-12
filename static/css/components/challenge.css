@@ -529,6 +529,62 @@
   width: 100%;
 }
 
+/* Challenge Replay Hero Banner */
+.challenge-replay-banner {
+  background: linear-gradient(135deg, rgba(15, 124, 127, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%);
+  border: 1px solid rgba(15, 124, 127, 0.25);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="dark"] .challenge-replay-banner {
+  background: linear-gradient(135deg, rgba(15, 124, 127, 0.15) 0%, rgba(59, 130, 246, 0.15) 100%);
+  border-color: rgba(15, 124, 127, 0.4);
+}
+
+.challenge-replay-banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.challenge-replay-banner-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+.challenge-replay-banner-desc {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+}
+
+.challenge-replay-cta-btn {
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.65rem 1.35rem;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+}
+
+.challenge-replay-cta-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 124, 127, 0.3);
+}
+
 .challenge-carousel-card {
   background: var(--bg-surface-secondary);
   border: 1px solid var(--border-light);

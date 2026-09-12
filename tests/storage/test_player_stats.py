@@ -356,6 +356,12 @@ def test_get_match_replay(tmp_path: Path) -> None:
     assert replay.match_id == 'match-1'
     assert replay.game_mode == 'pinpoint'
     assert replay.rounds == 5
+    assert replay.config is not None
+    assert replay.config.round_count == 5
+    assert replay.config.location_mode is True
+    assert replay.config.date_mode is True
+    assert replay.config.min_date == date(2023, 1, 1)
+    assert replay.config.max_date == date(2023, 12, 31)
     assert len(replay.rounds_data) == 2
 
     # Round 1
@@ -411,3 +417,114 @@ def test_get_match_replay_legacy_missing_player_color(tmp_path: Path) -> None:
     players = {p.player_name: p for p in replay.players}
     assert players['Alice'].player_color == PLAYER_COLORS[0]
     assert players['Bob'].player_color == PLAYER_COLORS[1]
+
+
+def test_get_match_replay_challenge_multiplayer(tmp_path: Path) -> None:
+    """Verify that a challenge match replay aggregates all challenge participant sessions and guesses."""
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+
+    ch_id = 'test-ch-1'
+    config = {'game_mode': 'pinpoint', 'location_mode': True, 'date_mode': True, 'round_length': '1m'}
+
+    # 1. Insert challenge and sessions
+    with store.db.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO challenges (
+                challenge_id, capability_token, title, creator_name,
+                config_json, asset_ids_json, is_active, created_at
+            )
+            VALUES (?, 'cap-1', 'Test Challenge', 'Host', '{}', '["photo-1"]', 1, '2026-03-01T12:00:00')
+            """,
+            (ch_id,),
+        )
+        conn.execute(
+            """
+            INSERT INTO challenge_sessions (
+                session_token, match_id, challenge_id, player_name,
+                current_round, location_score, date_score, total_score,
+                started_at, player_color
+            )
+            VALUES ('tok-1', 'm-ch-1', ?, 'Alice', 1, 100, 100, 200, '2026-03-01T12:00:00', '#ff0000')
+            """,
+            (ch_id,),
+        )
+        conn.execute(
+            """
+            INSERT INTO challenge_sessions (
+                session_token, match_id, challenge_id, player_name,
+                current_round, location_score, date_score, total_score,
+                started_at, player_color
+            )
+            VALUES ('tok-2', 'm-ch-2', ?, 'Bob', 1, 80, 80, 160, '2026-03-01T12:05:00', '#00ff00')
+            """,
+            (ch_id,),
+        )
+
+    # 2. Record completions using official helper
+    store.finalize_challenge_player_match(
+        match_id='m-ch-1',
+        challenge_id=ch_id,
+        player_name='Alice',
+        total_rounds=1,
+        total_score=200,
+        location_score=100,
+        date_score=100,
+        config=config,
+    )
+    store.finalize_challenge_player_match(
+        match_id='m-ch-2',
+        challenge_id=ch_id,
+        player_name='Bob',
+        total_rounds=1,
+        total_score=160,
+        location_score=80,
+        date_score=80,
+        config=config,
+    )
+
+    # 3. Add round guesses
+    with store.db.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO match_round_guesses (
+                match_id, player_name, round_index, photo_index, game_mode,
+                asset_id, actual_latitude, actual_longitude, actual_date,
+                guess_latitude, guess_longitude, round_score, submitted_at
+            )
+            VALUES (
+                'm-ch-1', 'Alice', 0, 0, 'pinpoint',
+                'photo-1', 48.85, 2.35, '2023-01-01',
+                48.86, 2.36, 200, '2026-03-01T12:01:00'
+            )
+            """
+        )
+        conn.execute(
+            """
+            INSERT INTO match_round_guesses (
+                match_id, player_name, round_index, photo_index, game_mode,
+                asset_id, actual_latitude, actual_longitude, actual_date,
+                guess_latitude, guess_longitude, round_score, submitted_at
+            )
+            VALUES (
+                'm-ch-2', 'Bob', 0, 0, 'pinpoint',
+                'photo-1', 48.85, 2.35, '2023-01-01',
+                48.90, 2.40, 160, '2026-03-01T12:06:00'
+            )
+            """
+        )
+
+    # 1. Query by session match_id
+    replay = store.get_match_replay('m-ch-1')
+    assert replay is not None
+    assert len(replay.players) == 2
+    assert replay.winners == ['Alice']
+    assert len(replay.rounds_data[0].player_guesses) == 2
+
+    # 2. Query by challenge_id
+    replay_ch = store.get_match_replay(ch_id)
+    assert replay_ch is not None
+    assert len(replay_ch.players) == 2
+    assert replay_ch.winners == ['Alice']
+    assert len(replay_ch.rounds_data[0].player_guesses) == 2

@@ -692,9 +692,9 @@
       </div>
 
       <!-- Stats Tabs (Player Directory, Match Replays) -->
-      <div id="stats-tabs-bar" class="stats-tabs-bar">
-        <button type="button" class="stats-tab-btn active" data-tab="players" data-i18n="stats.tab_players">Player Directory</button>
-        <button type="button" class="stats-tab-btn" data-tab="replays" data-i18n="stats.tab_replays">Match Replays</button>
+      <div id="stats-tabs-bar" class="stats-tabs-bar" role="tablist" aria-label="Statistics navigation">
+        <button type="button" class="stats-tab-btn active" role="tab" aria-selected="true" aria-controls="stats-players-view" data-tab="players" data-i18n="stats.tab_players">Player Directory</button>
+        <button type="button" class="stats-tab-btn" role="tab" aria-selected="false" aria-controls="stats-replays-view" data-tab="replays" data-i18n="stats.tab_replays">Match Replays</button>
       </div>
 
       <!-- Tab View 1: Player Directory -->
@@ -783,6 +783,8 @@
             <p id="replay-match-title" class="replay-match-meta"></p>
           </div>
         </div>
+
+        <div id="replay-match-meta-container" class="replay-match-meta-container"></div>
       </div>
 
       <div id="replay-content-container" class="replay-content-container">
@@ -827,20 +829,16 @@
               </div>
             </div>
 
-            <!-- Guesses Breakdown Card -->
+            <!-- Consolidated Guesses & Scoreboard Breakdown Card -->
             <div class="replay-guesses-card">
-              <h4>👥 <span data-i18n="replay.player_guess_heading">Player Guesses</span></h4>
+              <div class="replay-guesses-header">
+                <h4>
+                  <span>👥 <span data-i18n="replay.player_guess_heading">Player Guesses</span> &amp; 🏆 <span data-i18n="replay.scoreboard">Scoreboard</span></span>
+                  <span id="replay-scoreboard-round-tag" class="replay-round-tag"></span>
+                </h4>
+              </div>
               <div id="replay-guesses-list" class="replay-guesses-list"></div>
             </div>
-          </div>
-
-          <!-- Right Scoreboard Sidebar -->
-          <div class="replay-scoreboard-card">
-            <h3>
-              <span>🏆 <span data-i18n="replay.scoreboard">Scoreboard</span></span>
-              <span id="replay-scoreboard-round-tag" style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;"></span>
-            </h3>
-            <div id="replay-standings-list" class="replay-standings-list"></div>
           </div>
         </div>
       </div>

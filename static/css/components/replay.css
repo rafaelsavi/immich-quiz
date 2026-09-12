@@ -171,6 +171,11 @@
   line-height: 1.4;
 }
 
+.replay-match-meta-container {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
 
 /* Responsive queries */
 @media (max-width: 640px) {
@@ -241,16 +246,10 @@
 
 /* Replay Content Grid Layout */
 .replay-content-grid {
-  display: grid;
-  grid-template-columns: 1fr 340px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
   gap: 1.25rem;
-  align-items: start;
-}
-
-@media (max-width: 960px) {
-  .replay-content-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* Replay Stage (Left Column) */
@@ -299,8 +298,8 @@
   width: 100%;
   height: 380px;
   min-height: 280px;
-  border-radius: var(--radius-md, 10px);
-  background: #0f172a;
+  border-radius: var(--radius-lg, 14px);
+  background: #eef2fb;
   border: 1px solid var(--border-color, #d5dcec);
   display: flex;
   align-items: center;
@@ -314,7 +313,7 @@
   height: 100vh;
   border: none;
   border-radius: 0;
-  background: var(--card, #0f172a);
+  background: var(--card);
 }
 
 .replay-media-frame:fullscreen .replay-photo-img {
@@ -349,7 +348,7 @@
   position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
-  background: #0f172a;
+  background: #eef2fb;
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -418,7 +417,7 @@
   min-height: 420px;
 }
 
-/* Player Round Guesses Breakdown Card */
+/* Player Round Guesses & Standings Breakdown Card */
 .replay-guesses-card {
   background: var(--bg-card, #ffffff);
   border: 1px solid var(--border-color, #e2e8f0);
@@ -426,11 +425,22 @@
   padding: 1rem 1.25rem;
 }
 
-.replay-guesses-card h4 {
+.replay-guesses-header h4 {
   margin: 0 0 0.85rem 0;
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text-color, #0f172a);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.replay-round-tag {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
 }
 
 .replay-guesses-list {
@@ -446,14 +456,35 @@
   gap: 0.75rem;
   padding: 0.55rem 0.75rem;
   background: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
   border-radius: 8px;
   font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.replay-guess-row.rank-1 {
+  background: rgba(245, 158, 11, 0.08);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
 .replay-guess-player {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+}
+
+.replay-standing-rank {
+  font-weight: 800;
+  font-size: 0.95rem;
+  min-width: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #64748b);
+}
+
+.rank-1 .replay-standing-rank {
+  color: #d97706;
 }
 
 .replay-guess-avatar {
@@ -499,114 +530,48 @@
   border-color: #334155;
 }
 
+.replay-guess-score-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.12rem;
+  min-width: 90px;
+  text-align: right;
+}
+
 .replay-guess-score {
   font-weight: 800;
   color: var(--accent, #0f7c7f);
   font-size: 0.95rem;
-  min-width: 55px;
-  text-align: right;
+  line-height: 1.1;
 }
 
-/* Sidebar Scoreboard */
-.replay-scoreboard-card {
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--border-color, #e2e8f0);
-  border-radius: 12px;
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  position: sticky;
-  top: 1rem;
-}
-
-.replay-scoreboard-card h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--text-color, #0f172a);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.replay-standings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.replay-standing-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.65rem 0.85rem;
-  border-radius: 10px;
-  background: var(--bg-secondary, #f8fafc);
-  border: 1px solid var(--border-color, #e2e8f0);
-  transition: all 0.3s ease;
-}
-
-.replay-standing-row.rank-1 {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.25);
-}
-
-.replay-standing-player {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.replay-standing-rank {
-  font-weight: 800;
-  font-size: 0.95rem;
-  min-width: 22px;
-  color: var(--text-muted, #64748b);
-}
-
-.rank-1 .replay-standing-rank {
-  color: #d97706;
-}
-
-.replay-standing-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.replay-standing-name {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--text-color, #1e293b);
-}
-
-.replay-round-gain {
-  font-size: 0.72rem;
+.replay-guess-cumulative {
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #10b981;
-}
-
-.replay-standing-total {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--text-color, #0f172a);
+  color: var(--text-muted, #64748b);
+  line-height: 1.1;
 }
 
 /* Dark mode adjustments */
 [data-theme="dark"] .replay-photo-card,
 [data-theme="dark"] .replay-polaroid,
 [data-theme="dark"] .replay-guesses-card,
-[data-theme="dark"] .replay-scoreboard-card,
 [data-theme="dark"] .replay-map-shell,
 [data-theme="dark"] .replay-map-container {
   background: #1e293b;
   border-color: #334155;
 }
 
+[data-theme="dark"] .replay-media-frame,
+[data-theme="dark"] .replay-polaroid-img-wrap {
+  background: #0f172a;
+  border-color: #334155;
+}
+
 [data-theme="dark"] .replay-round-stepper,
 [data-theme="dark"] .btn-icon-control,
-[data-theme="dark"] .replay-guess-row,
-[data-theme="dark"] .replay-standing-row {
+[data-theme="dark"] .replay-guess-row {
   background: #0f172a;
   border-color: #334155;
   color: #f1f5f9;
@@ -616,21 +581,22 @@
   color: #f1f5f9;
 }
 
-[data-theme="dark"] .replay-standing-row.rank-1 {
+[data-theme="dark"] .replay-guess-row.rank-1 {
   background: rgba(245, 158, 11, 0.15);
   border-color: rgba(245, 158, 11, 0.35);
 }
 
 [data-theme="dark"] .replay-guesses-card h4,
-[data-theme="dark"] .replay-scoreboard-card h3,
 [data-theme="dark"] .replay-guess-name,
-[data-theme="dark"] .replay-standing-name,
-[data-theme="dark"] .replay-standing-total,
 [data-theme="dark"] .replay-photo-loc,
 [data-theme="dark"] .replay-polaroid-loc,
 [data-theme="dark"] .replay-photo-date,
 [data-theme="dark"] .replay-polaroid-date {
   color: #f8fafc;
+}
+
+[data-theme="dark"] .replay-guess-cumulative {
+  color: #94a3b8;
 }
 
 [data-theme="dark"] .badge-type {

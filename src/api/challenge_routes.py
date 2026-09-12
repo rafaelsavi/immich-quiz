@@ -444,8 +444,18 @@ async def get_challenge_leaderboard(
         capability_token=capability_token,
     )
 
+    replay_match_id = session.get('match_id') if session else None
+    if not replay_match_id:
+        for s in standings:
+            if s.match_id:
+                replay_match_id = s.match_id
+                break
+    if not replay_match_id:
+        replay_match_id = challenge['challenge_id']
+
     return ChallengeLeaderboardResponse(
         challenge_id=challenge['challenge_id'],
+        match_id=replay_match_id,
         title=challenge.get('title'),
         game_mode=game_mode,
         up_to_round=caller_completed_round,

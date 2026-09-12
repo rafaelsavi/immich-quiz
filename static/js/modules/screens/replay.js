@@ -29,6 +29,7 @@ import {
   toggleMapFullscreen,
 } from "../maps.js";
 import { openPhotoLightbox } from "../components/lightbox.js";
+import { renderMatchMeta } from "../components/match_meta.js";
 
 let _matchData = null;
 let _currentRoundIndex = 0;
@@ -170,6 +171,11 @@ function renderReplayShell() {
     titleEl.textContent = `${t("stats.rounds_count", totalCount)} • ${formatDateTime(_matchData.played_at)}`;
   }
 
+  const metaContainer = document.getElementById("replay-match-meta-container");
+  if (metaContainer) {
+    renderMatchMeta(metaContainer, _matchData);
+  }
+
   // Initialize or reuse standard Leaflet Map
   const mapEl = document.getElementById("replay-leaflet-map");
   if (mapEl && window.L) {
@@ -231,11 +237,8 @@ function renderCurrentRound() {
   // Render Map markers & polylines
   renderRoundMap(round);
 
-  // Render player guesses list
+  // Render player guesses & standings list
   renderPlayerGuesses(round);
-
-  // Render running scoreboard
-  renderScoreboard(round);
 }
 
 function renderPhotoCanvas(round) {
@@ -436,20 +439,30 @@ function renderPlayerGuesses(round) {
     return;
   }
 
-  // Sort by round_score descending
-  const sorted = [...guesses].sort((a, b) => b.round_score - a.round_score);
+  // Sort by cumulative score descending (with round_score as secondary tie-breaker)
+  const sorted = [...guesses].sort((a, b) => {
+    const diff = (b.cumulative_score ?? 0) - (a.cumulative_score ?? 0);
+    if (diff !== 0) return diff;
+    return (b.round_score ?? 0) - (a.round_score ?? 0);
+  });
+
+  const isMultiplayer = sorted.length > 1;
 
   container.innerHTML = sorted
-    .map((g) => {
+    .map((g, idx) => {
+      const rank = idx + 1;
+      const rankBadgeHtml = isMultiplayer ? formatRankBadge(rank, { showNumber: false }) : "";
       const initial = playerInitial(g.player_name);
       const pColor = g.player_color || playerColor(g.player_name);
       const distStr = g.distance_km != null ? formatDistance(g.distance_km) : "";
       const dateStr = g.date_diff_days != null ? formatMonthError({ date_diff_days: g.date_diff_days }) : "";
       const timeStr = g.time_taken_seconds != null ? `${Number(g.time_taken_seconds).toFixed(1)}s` : "";
+      const cumulativeScore = g.cumulative_score != null ? g.cumulative_score.toLocaleString() : null;
 
       return `
-        <div class="replay-guess-row">
+        <div class="replay-guess-row ${isMultiplayer && rank === 1 ? "rank-1" : ""}">
           <div class="replay-guess-player">
+            ${isMultiplayer ? `<span class="replay-standing-rank">${rankBadgeHtml}</span>` : ""}
             <span class="legend-badge replay-guess-avatar" style="background:${escapeHtml(pColor)};">
               ${escapeHtml(initial)}
             </span>
@@ -463,45 +476,9 @@ function renderPlayerGuesses(round) {
             ${timeStr ? `<span class="replay-guess-metric-item" title="${escapeHtml(t("stats.response_time"))}">⏱️ ${escapeHtml(timeStr)}</span>` : ""}
           </div>
 
-          <div class="replay-guess-score">
-            +${g.round_score.toLocaleString()}
-          </div>
-        </div>
-      `;
-    })
-    .join("");
-}
-
-function renderScoreboard(round) {
-  const container = document.getElementById("replay-standings-list");
-  if (!container) return;
-
-  const guesses = round.player_guesses || [];
-  // Sort by cumulative score descending
-  const sorted = [...guesses].sort((a, b) => b.cumulative_score - a.cumulative_score);
-
-  container.innerHTML = sorted
-    .map((g, idx) => {
-      const rank = idx + 1;
-      const rankBadgeHtml = formatRankBadge(rank, { showNumber: false });
-      const initial = playerInitial(g.player_name);
-      const pColor = g.player_color || playerColor(g.player_name);
-
-      return `
-        <div class="replay-standing-row ${rank === 1 ? "rank-1" : ""}">
-          <div class="replay-standing-player">
-            <span class="replay-standing-rank">${rankBadgeHtml}</span>
-            <span class="legend-badge replay-guess-avatar" style="background:${escapeHtml(pColor)};">
-              ${escapeHtml(initial)}
-            </span>
-            <div class="replay-standing-info">
-              <span class="replay-standing-name">${escapeHtml(g.player_name)}</span>
-              <span class="replay-round-gain">+${g.round_score}</span>
-            </div>
-          </div>
-
-          <div class="replay-standing-total">
-            ${g.cumulative_score.toLocaleString()}
+          <div class="replay-guess-score-col">
+            <span class="replay-guess-score">+${g.round_score.toLocaleString()}</span>
+            ${cumulativeScore != null ? `<span class="replay-guess-cumulative">${escapeHtml(t("summary.col_total"))}: ${cumulativeScore}</span>` : ""}
           </div>
         </div>
       `;
@@ -538,6 +515,11 @@ export function refreshReplayPageLanguage() {
     if (titleEl) {
       const totalCount = _matchData.rounds || (_matchData.rounds_data ? _matchData.rounds_data.length : 0);
       titleEl.textContent = `${t("stats.rounds_count", totalCount)} • ${formatDateTime(_matchData.played_at)}`;
+    }
+
+    const metaContainer = document.getElementById("replay-match-meta-container");
+    if (metaContainer) {
+      renderMatchMeta(metaContainer, _matchData);
     }
 
     renderCurrentRound();

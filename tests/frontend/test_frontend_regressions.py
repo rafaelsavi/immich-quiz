@@ -53,6 +53,8 @@ DYNAMIC_IDS = frozenset(
         'grand-reveal-podium',
         'grand-reveal-podium-section',
         'grand-reveal-provisional',
+        'grand-reveal-replay-action-btn',
+        'grand-reveal-replay-btn',
         'grand-reveal-share-btn',
         'grand-reveal-share-summary-btn',
         'grand-reveal-table',
@@ -70,6 +72,14 @@ DYNAMIC_IDS = frozenset(
         'shuffle-cards-list',
         'shuffle-map',
         'shuffle-map-shell',
+        'stats-clear-replays-filter-btn',
+        'stats-clear-search-btn',
+        'stats-empty-challenge-btn',
+        'stats-empty-play-btn',
+        'stats-replay-challenge-btn',
+        'stats-replay-play-btn',
+        'sync-popup',
+        'sync-popup-close-btn',
     }
 )
 
@@ -1053,17 +1063,17 @@ def test_challenges_page_share_drawer_and_results_button() -> None:
         assert '"challenges_page.scan_qr_hint"' in locale
 
 
-def test_challenge_carousel_layout_standardization_and_mobile_optimization() -> None:
-    """Verify that carousel-photo-shell standardizes layout with media-frame,
-    uses map-fullscreen-btn, and challenge summary includes mobile responsiveness.
+def test_challenge_summary_replay_unification_and_mobile_optimization() -> None:
+    """Verify that challenge summary unifies round review with the match replay engine,
+    includes the replay banner and CTA button, and maintains mobile responsiveness.
     """
     challenge_js = read_challenge_bundle_js()
     challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
 
-    # 1. Carousel photo shell uses media-frame class and SVG map-fullscreen-btn
-    assert 'media-frame carousel-photo-shell' in challenge_js
-    assert 'map-fullscreen-btn carousel-photo-zoom-btn' in challenge_js
-    assert 'viewBox="0 0 24 24"' in challenge_js
+    # 1. Challenge summary includes replay banner and CTA button navigating to /game/:id/replay
+    assert 'grand-reveal-replay-btn' in challenge_js
+    assert 'challenge-replay-banner' in challenge_js
+    assert '/game/${encodeURIComponent(replayMatchId)}/replay' in challenge_js
 
     # 2. Grand reveal standings table hides accuracy column on mobile screens and excludes unnecessary avg-round column
     assert '<th class="col-accuracy text-right hide-on-mobile">' in challenge_js
@@ -1071,15 +1081,12 @@ def test_challenge_carousel_layout_standardization_and_mobile_optimization() -> 
     assert 'col-avg-round' not in challenge_js
     assert 'summary.col_avg_round' not in challenge_js
 
-    # 3. Carousel photo shell and scatter map shell layout styling in challenge.css
-    assert '.carousel-photo-shell {' in challenge_css
-    assert 'background: #eef2fb;' in challenge_css
-    assert 'border: 1px solid #d5dcec;' in challenge_css
-    assert 'height: var(--quiz-map-height, 420px);' in challenge_css
+    # 3. Challenge replay banner styling in challenge.css
+    assert '.challenge-replay-banner {' in challenge_css
+    assert '.challenge-replay-cta-btn {' in challenge_css
 
-    # 4. Mobile responsive rules defined for grand reveal, carousel, table, and summary actions
+    # 4. Mobile responsive rules defined for grand reveal, table, and summary actions
     assert '.challenge-grand-reveal' in challenge_css
-    assert '.carousel-nav-controls' in challenge_css
     assert '#grand-reveal-table' in challenge_css
     assert '.summary-actions' in challenge_css
 

@@ -149,6 +149,9 @@ export const el = {
   libraryMultiSelect: document.getElementById("library-multi-select"),
   syncLibraryBtn: document.getElementById("sync-library-btn"),
   syncBtnLabel: document.getElementById("sync-btn-label"),
+  get syncPopup() {
+    return document.getElementById("sync-popup");
+  },
   albumMultiSelect: document.getElementById("album-multi-select"),
   includeSharedCheckbox: document.getElementById("include-shared-checkbox"),
   labelIncludeShared: document.getElementById("label-include-shared"),

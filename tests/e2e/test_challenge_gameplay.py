@@ -168,6 +168,17 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
     await expect(page.locator('#grand-reveal-podium')).to_be_visible()
     await expect(page.locator('#grand-reveal-live-status')).to_contain_text('2/2 finished')
 
+    # Verify Watch Match Replay button is visible and navigates to the Match Replay engine
+    replay_btn = page.locator('#grand-reveal-replay-btn')
+    await expect(replay_btn).to_be_visible()
+    await expect(replay_btn).to_be_enabled()
+    await replay_btn.click()
+
+    await expect(page.locator('#replay-page-card')).to_be_visible()
+    await expect(page.locator('#replay-media-frame')).to_be_visible()
+    await expect(page.locator('#replay-map-shell')).to_be_visible()
+    await expect(page.locator('#replay-guesses-list')).to_be_visible()
+
     await page2.close()
 
 

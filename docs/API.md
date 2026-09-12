@@ -1156,7 +1156,7 @@ Response (`200 OK`):
 
 ### GET /api/match/{match_id}/replay
 
-Fetch interactive step-through telemetry for a match, including photo references, actual coordinates/dates, each player's guess coordinates/dates/points, and cumulative scoreboard progression.
+Fetch interactive step-through telemetry for a match, including photo references, actual coordinates/dates, each player's guess coordinates/dates/points, and cumulative scoreboard progression. For challenges, passing either a participant's session `match_id` or the `challenge_id` automatically aggregates guesses and standings progression across all completed challenge participants.
 
 Response (`200 OK`):
 

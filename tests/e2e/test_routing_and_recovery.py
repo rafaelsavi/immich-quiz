@@ -22,6 +22,9 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await expect(page.locator('#stats-page-card')).to_be_visible()
     await expect(page.locator('#setup-card')).to_be_hidden()
     await expect(page.locator('#stats-nav-btn')).to_have_class(re.compile(r'active'))
+    await expect(page.locator('#stats-tabs-bar button[data-tab="players"]')).to_have_class(re.compile(r'active'))
+    await expect(page.locator('#stats-players-view')).to_be_visible()
+    await expect(page.locator('#stats-replays-view')).to_be_hidden()
 
     # 3. /challenges route
     await page.goto('/challenges')

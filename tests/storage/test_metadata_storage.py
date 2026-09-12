@@ -486,6 +486,12 @@ async def test_sync_engine_flow(tmp_path: Path) -> None:
     assert status['sync_status'] == 'idle'
     assert status['total_assets'] == 1
     assert status['synced_assets'] == 1
+    assert status['last_sync_summary'] is not None
+    assert status['last_sync_summary']['assets_synced'] == 1
+    assert status['last_sync_summary']['total_assets'] == 1
+    assert status['last_sync_summary']['albums_synced'] == 1
+    assert status['last_sync_summary']['sync_mode'] == 'full'
+    assert status['last_sync_summary']['duration_seconds'] >= 0.0
 
     assert meta_store.has_synced_assets(['family'])
     crit = AssetFilterCriteria(library_names=('family',))

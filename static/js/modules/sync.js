@@ -1,9 +1,14 @@
 import { el } from "./state.js";
 import { t, formatDateTime, formatNumber, formatRelativeTime } from "./i18n.js";
+import { escapeHtml } from "./formatters.js";
 import { api } from "./api.js";
 
 let _syncPollInterval = null;
 let _lastSyncStatus = null;
+let _activeSyncPopup = null;
+let _syncPopupDismissTimer = null;
+let _onSyncDocClick = null;
+let _onSyncKeyDown = null;
 
 export function getLastSyncStatus() {
   return _lastSyncStatus;
@@ -138,6 +143,7 @@ export function startSyncPolling(onSyncComplete = null) {
           clearInterval(_syncPollInterval);
           _syncPollInterval = null;
         }
+        showSyncCompletedPopup(status);
         if (onSyncComplete) {
           await onSyncComplete();
         }
@@ -163,6 +169,7 @@ export function startSyncPolling(onSyncComplete = null) {
 
 export async function triggerLibrarySync(onSyncComplete = null) {
   try {
+    dismissSyncPopup();
     const isDelta = Boolean(_lastSyncStatus && _lastSyncStatus.last_sync_at);
     renderSyncStatus({
       sync_status: "syncing",
@@ -179,5 +186,203 @@ export async function triggerLibrarySync(onSyncComplete = null) {
     console.error("Failed to trigger sync:", err);
     await checkSyncStatus(onSyncComplete);
   }
+}
+
+export function dismissSyncPopup() {
+  if (_syncPopupDismissTimer) {
+    clearTimeout(_syncPopupDismissTimer);
+    _syncPopupDismissTimer = null;
+  }
+  if (_onSyncDocClick) {
+    document.removeEventListener("click", _onSyncDocClick);
+    _onSyncDocClick = null;
+  }
+  if (_onSyncKeyDown) {
+    document.removeEventListener("keydown", _onSyncKeyDown);
+    _onSyncKeyDown = null;
+  }
+  if (_activeSyncPopup) {
+    const popup = _activeSyncPopup;
+    _activeSyncPopup = null;
+    popup.classList.add("hide");
+    setTimeout(() => {
+      if (popup.parentNode) {
+        popup.remove();
+      }
+    }, 250);
+  }
+}
+
+export function showSyncCompletedPopup(status) {
+  if (!status) return null;
+  dismissSyncPopup();
+
+  const isError = Boolean(status.sync_error);
+  const summary = status.last_sync_summary;
+  const modeKey = (summary?.sync_mode || status.sync_mode || "full").toLowerCase();
+  const isDelta = modeKey === "delta";
+  const modeLabel = isDelta ? t("setup.sync_mode_delta") : t("setup.sync_mode_full");
+
+  const totalAssets = summary?.total_assets ?? status.total_assets ?? 0;
+  const assetsSynced = summary?.assets_synced ?? (isDelta ? 0 : (status.synced_assets ?? 0));
+  const durationSec = summary?.duration_seconds ?? status.last_sync_duration_seconds;
+  const albumsCount = summary?.albums_synced ?? 0;
+  const tagsCount = summary?.tags_synced ?? 0;
+  const prunedCount = summary?.pruned_assets ?? 0;
+
+  const title = isError ? t("setup.sync_failed_title") : t("setup.sync_completed_title");
+
+  let message = "";
+  if (isError) {
+    message = escapeHtml(status.sync_error);
+  } else if (isDelta) {
+    if (assetsSynced > 0) {
+      message = t("setup.sync_summary_updated", formatNumber(assetsSynced), formatNumber(totalAssets));
+    } else {
+      message = t("setup.sync_summary_up_to_date", formatNumber(totalAssets));
+    }
+  } else {
+    message = t("setup.sync_summary_indexed", formatNumber(totalAssets));
+  }
+
+  // Build stat chips
+  const chips = [];
+  if (!isError) {
+    if (totalAssets > 0) {
+      chips.push(`
+        <span class="sync-popup-stat-chip">
+          <span class="stat-icon" aria-hidden="true">📷</span>
+          <span class="stat-val">${formatNumber(totalAssets)}</span>
+        </span>
+      `);
+    }
+    if (albumsCount > 0) {
+      chips.push(`
+        <span class="sync-popup-stat-chip">
+          <span class="stat-icon" aria-hidden="true">📁</span>
+          <span>${escapeHtml(t("setup.sync_summary_albums", formatNumber(albumsCount)))}</span>
+        </span>
+      `);
+    }
+    if (tagsCount > 0) {
+      chips.push(`
+        <span class="sync-popup-stat-chip">
+          <span class="stat-icon" aria-hidden="true">🏷️</span>
+          <span>${escapeHtml(t("setup.sync_summary_tags", formatNumber(tagsCount)))}</span>
+        </span>
+      `);
+    }
+    if (prunedCount > 0) {
+      chips.push(`
+        <span class="sync-popup-stat-chip">
+          <span class="stat-icon" aria-hidden="true">🗑️</span>
+          <span>${escapeHtml(t("setup.sync_summary_pruned", formatNumber(prunedCount)))}</span>
+        </span>
+      `);
+    }
+    if (durationSec !== null && durationSec !== undefined) {
+      chips.push(`
+        <span class="sync-popup-stat-chip">
+          <span class="stat-icon" aria-hidden="true">⏱️</span>
+          <span>${escapeHtml(t("setup.sync_summary_duration", durationSec))}</span>
+        </span>
+      `);
+    }
+  }
+
+  const iconSvg = isError
+    ? `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`
+    : `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.6"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+
+  const popup = document.createElement("div");
+  popup.className = `sync-popup ${isError ? "is-error" : ""}`;
+  popup.id = "sync-popup";
+  popup.setAttribute("role", "status");
+  popup.setAttribute("aria-live", "polite");
+
+  popup.innerHTML = `
+    <div class="sync-popup-header">
+      <div class="sync-popup-title-wrap">
+        <span class="sync-popup-icon" aria-hidden="true">${iconSvg}</span>
+        <span class="sync-popup-title">${escapeHtml(title)}</span>
+        <span class="sync-popup-mode-badge">${escapeHtml(modeLabel)}</span>
+      </div>
+      <button type="button" class="sync-popup-close-btn" id="sync-popup-close-btn" aria-label="Close">×</button>
+    </div>
+    <div class="sync-popup-body">
+      <div class="sync-popup-message">${message}</div>
+      ${chips.length > 0 ? `<div class="sync-popup-stats">${chips.join("")}</div>` : ""}
+    </div>
+    <div class="sync-popup-progress" aria-hidden="true"></div>
+  `;
+
+  // Determine anchor: prefer .accordion-meta-wrap if syncLibraryBtn is visible
+  const syncBtn = el.syncLibraryBtn || document.getElementById("sync-library-btn");
+  const isBtnVisible = syncBtn && syncBtn.offsetParent !== null;
+
+  if (isBtnVisible && syncBtn.parentElement) {
+    syncBtn.parentElement.appendChild(popup);
+    try {
+      const btnRect = syncBtn.getBoundingClientRect();
+      const wrapRect = syncBtn.parentElement.getBoundingClientRect();
+      const centerOffsetFromRight = Math.max(12, Math.round(wrapRect.right - (btnRect.left + btnRect.width / 2)));
+      popup.style.setProperty("--pointer-right", `${centerOffsetFromRight}px`);
+    } catch (_) {
+      popup.style.setProperty("--pointer-right", "48px");
+    }
+  } else {
+    popup.classList.add("floating");
+    document.body.appendChild(popup);
+  }
+
+  _activeSyncPopup = popup;
+
+  const closeBtn = popup.querySelector("#sync-popup-close-btn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dismissSyncPopup();
+    });
+  }
+
+  // Auto-dismiss countdown
+  _syncPopupDismissTimer = setTimeout(() => {
+    dismissSyncPopup();
+  }, 6000);
+
+  popup.addEventListener("mouseenter", () => {
+    if (_syncPopupDismissTimer) {
+      clearTimeout(_syncPopupDismissTimer);
+      _syncPopupDismissTimer = null;
+    }
+  });
+
+  popup.addEventListener("mouseleave", () => {
+    if (!_syncPopupDismissTimer) {
+      _syncPopupDismissTimer = setTimeout(() => {
+        dismissSyncPopup();
+      }, 3000);
+    }
+  });
+
+  _onSyncDocClick = (e) => {
+    if (popup && !popup.contains(e.target) && (!syncBtn || !syncBtn.contains(e.target))) {
+      dismissSyncPopup();
+    }
+  };
+  setTimeout(() => {
+    if (_activeSyncPopup === popup) {
+      document.addEventListener("click", _onSyncDocClick);
+    }
+  }, 100);
+
+  _onSyncKeyDown = (e) => {
+    if (e.key === "Escape") {
+      dismissSyncPopup();
+    }
+  };
+  document.addEventListener("keydown", _onSyncKeyDown);
+
+  return popup;
 }
 

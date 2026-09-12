@@ -107,6 +107,7 @@ class SyncStateResponse(BaseModel):
     total_assets: int = Field(default=0, ge=0)
     synced_assets: int = Field(default=0, ge=0)
     last_sync_duration_seconds: float | None = Field(default=None, ge=0.0)
+    last_sync_summary: dict[str, Any] | None = None
     warnings: dict[str, str] = Field(default_factory=dict)
 
 
@@ -1064,6 +1065,7 @@ class MatchReplayResponse(BaseModel):
     winners: list[str] = Field(default_factory=list)
     players: list[MatchSummaryPlayer] = Field(default_factory=list)
     rounds_data: list[MatchReplayRound] = Field(default_factory=list)
+    config: MatchConfig = Field(default_factory=MatchConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -1315,6 +1317,7 @@ class ChallengeLeaderboardEntry(BaseModel):
     total_time_seconds: float
     completed_rounds: int
     is_finished: bool = False  # True if player has completed all rounds
+    match_id: str | None = None
     awards: list[str] = Field(default_factory=list)
 
 
@@ -1324,6 +1327,7 @@ class ChallengeLeaderboardResponse(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     challenge_id: str
+    match_id: str | None = None
     title: str | None = None
     game_mode: GameMode
     up_to_round: int

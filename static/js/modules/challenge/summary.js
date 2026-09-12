@@ -147,69 +147,35 @@ export const challengeSummary = {
         </div>
       `;
 
-      const middleContentHtml = isAlbumShuffle
-        ? `
-          ${standingsTableHtml}
+      const canReplay = Boolean(isConcluded || data.is_game_over || callerCompletedRound >= totalRoundsCount - 1);
+      const replayMatchId = data.match_id || challengeSession.loadSession(capabilityToken)?.matchId || capabilityToken;
 
-          <!-- World Journey Map (if location mode is active) -->
+      const replayBannerHtml = `
+        <div class="challenge-replay-banner">
+          <div class="challenge-replay-banner-info">
+            <h3 class="challenge-replay-banner-title">🎬 ${t("challenge.watch_replay_btn")}</h3>
+            <p class="challenge-replay-banner-desc">${data.title ? escapeHtml(data.title) : t("challenge.badge")} • ${totalRoundsCount} ${t("challenge.rounds")}</p>
+          </div>
           ${
-            isLocationEnabled
+            canReplay
               ? `
-            <div class="field-head" id="challenge-journey-map-head">
-              <label>${t("summary.journey_map_heading")}</label>
-            </div>
-            <div id="challenge-journey-map-shell" class="map-shell">
-              <div id="challenge-journey-map"></div>
-            </div>
+            <button type="button" class="btn btn-primary challenge-replay-cta-btn" id="grand-reveal-replay-btn">
+              🎬 ${t("challenge.watch_replay_btn")} →
+            </button>
           `
-              : ""
+              : `
+            <button type="button" class="btn btn-secondary challenge-replay-cta-btn" id="grand-reveal-replay-btn" disabled title="${escapeHtml(t("challenge.replay_locked"))}">
+              🔒 ${t("challenge.watch_replay_btn")}
+            </button>
+          `
           }
+        </div>
+      `;
 
-          <!-- Match Memory Cards (Polaroids) -->
-          <div class="polaroids-section" id="challenge-polaroids-section">
-            <div class="field-head">
-              <label>${t("summary.polaroids_heading")}</label>
-            </div>
-            <div id="challenge-polaroid-gallery" class="polaroid-grid"></div>
-          </div>
-        `
-        : `
-          <!-- Interactive Round Carousel Section -->
-          <div class="challenge-carousel-card">
-            <div class="carousel-nav-header">
-              <h3 class="carousel-nav-title" id="carousel-title">${t("challenge.round_carousel_title")}</h3>
-              <div class="carousel-nav-controls">
-                <button type="button" class="carousel-nav-btn" id="carousel-prev-btn">◀ ${t("challenge.carousel_prev")}</button>
-                <span id="carousel-indicator" style="font-weight:700;font-size:0.9rem;color:var(--ink);"></span>
-                <button type="button" class="carousel-nav-btn" id="carousel-next-btn">${t("challenge.carousel_next")} ▶</button>
-              </div>
-            </div>
-
-            <div class="carousel-round-content" id="carousel-round-content">
-              <div class="carousel-media-row" id="carousel-media-row">
-                <div class="media-frame carousel-photo-shell hidden" id="carousel-photo-shell">
-                  <img id="carousel-photo-img" class="carousel-photo-img" alt="${t("game.fullscreen_photo_alt")}" />
-                  <button type="button" class="map-fullscreen-btn carousel-photo-zoom-btn" id="carousel-photo-zoom-btn"
-                    title="${t("game.fullscreen_image_title")}" data-i18n-title="game.fullscreen_image_title" aria-pressed="false">
-                    <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
-                      stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="15 3 21 3 21 9"></polyline>
-                      <polyline points="9 21 3 21 3 15"></polyline>
-                      <line x1="21" y1="3" x2="14" y2="10"></line>
-                      <line x1="3" y1="21" x2="10" y2="14"></line>
-                    </svg>
-                  </button>
-                </div>
-                <div class="map-shell scatter-map-shell" id="scatter-map-shell">
-                  <div id="scatter-map"></div>
-                </div>
-              </div>
-              <div id="carousel-round-extra"></div>
-            </div>
-          </div>
-
-          ${standingsTableHtml}
-        `;
+      const middleContentHtml = `
+        ${replayBannerHtml}
+        ${standingsTableHtml}
+      `;
 
       el.challengeCard.innerHTML = `
         <div class="challenge-grand-reveal">
@@ -230,7 +196,16 @@ export const challengeSummary = {
           ${middleContentHtml}
 
           <div class="summary-actions">
-            <button type="button" class="btn btn-primary" id="grand-reveal-share-btn">
+            ${
+              canReplay
+                ? `
+              <button type="button" class="btn btn-primary" id="grand-reveal-replay-action-btn">
+                🎬 ${t("challenge.watch_replay_btn")}
+              </button>
+            `
+                : ""
+            }
+            <button type="button" class="btn btn-secondary" id="grand-reveal-share-btn">
               📋 ${t("challenge.copy_invite_link")}
             </button>
             <button type="button" class="btn btn-secondary" id="grand-reveal-share-summary-btn">
@@ -275,43 +250,13 @@ export const challengeSummary = {
         );
       }
 
-      if (isAlbumShuffle) {
-        // 3. Render Journey Map & Polaroids for Album Shuffle
-        const mapShell = document.getElementById("challenge-journey-map-shell");
-        const mapHead = document.getElementById("challenge-journey-map-head");
-        const mapContainer = document.getElementById("challenge-journey-map");
-        if (isLocationEnabled && mapShell && mapHead && mapContainer) {
-          challengeSession.challengeJourneyMap = renderJourneyMap(data.round_history, true, {
-            mapShell,
-            mapHead,
-            container: mapContainer,
-            existingMap: challengeSession.challengeJourneyMap,
-          });
-        }
-
-        const polaroidGallery = document.getElementById("challenge-polaroid-gallery");
-        if (polaroidGallery) {
-          renderPolaroidGallery(data.round_history, polaroidGallery);
-        }
-      } else {
-        // 3. Render Round Carousel for Pinpoint
-        challengeSession.carouselRoundIndex = 0;
-        this.renderCarouselRound(data, challengeSession.carouselRoundIndex);
-
-        document.getElementById("carousel-prev-btn")?.addEventListener("click", () => {
-          if (challengeSession.carouselRoundIndex > 0) {
-            challengeSession.carouselRoundIndex--;
-            this.renderCarouselRound(data, challengeSession.carouselRoundIndex);
-          }
-        });
-
-        document.getElementById("carousel-next-btn")?.addEventListener("click", () => {
-          if (challengeSession.carouselRoundIndex < totalRoundsCount - 1) {
-            challengeSession.carouselRoundIndex++;
-            this.renderCarouselRound(data, challengeSession.carouselRoundIndex);
-          }
-        });
-      }
+      // Replay action button click listeners
+      const handleReplayClick = () => {
+        if (!canReplay) return;
+        navigate(`/game/${encodeURIComponent(replayMatchId)}/replay`);
+      };
+      document.getElementById("grand-reveal-replay-btn")?.addEventListener("click", handleReplayClick);
+      document.getElementById("grand-reveal-replay-action-btn")?.addEventListener("click", handleReplayClick);
 
       // Share button (Invite link)
       document.getElementById("grand-reveal-share-btn")?.addEventListener("click", async () => {
@@ -962,7 +907,7 @@ export const challengeSummary = {
 
     challengeSession.cachedLeaderboardData = data;
 
-    if (data.game_mode !== "album_shuffle" && activeRoundIdx !== undefined) {
+    if (document.getElementById("carousel-round-content") && data.game_mode !== "album_shuffle" && activeRoundIdx !== undefined) {
       const hasRoundGuessesChanged =
         prevGuesses.length !== newGuesses.length ||
         newGuesses.some((ng) => {

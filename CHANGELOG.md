@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Animated Sync Completion Popup (`.sync-popup`)**:
+  - Added an animated popup notification anchored beneath `#sync-library-btn` upon sync completion, displaying what was synced in rich detail.
+  - Features real-time sync metrics including sync mode (Quick Update vs. Full Sync), photo count (updated vs. indexed vs. up-to-date), albums linked, tags indexed, pruned assets, and execution duration.
+  - Implemented using existing design system tokens (`--card`, `--ink`, `--accent`, `--border-light`, `--radius-lg`, `--shadow-md`, glassmorphism) and the existing `@keyframes modalPop` entrance animation.
+  - Displays speech-bubble pointer arrow dynamically aligned with the center of the Sync button, auto-dismisses after 6 seconds with a countdown progress bar, and supports close button (`×`), outside click, and keyboard Escape dismissal.
+  - Backed by backend `last_sync_summary` telemetry in `SyncStateResponse` and `SyncEngine`.
+  - Fully localized in English and Portuguese (`en-US`, `pt-BR`).
+- **Challenge Summary Match Replay Unification (`/challenges/:token/summary`)**:
+  - Replaced the legacy single-column `.challenge-carousel-card` and static journey map on the Challenge Grand Reveal summary screen with a modern "🎬 Watch Match Replay" banner (`.challenge-replay-banner`) linking directly to `/game/:matchId/replay`.
+  - Added multi-player challenge replay aggregation to `get_match_replay` in `src/storage/leaderboard.py`, enabling challenge replays to display all participants' guesses, distance lines, round scores, and dynamic standings simultaneously across all completed challenge sessions.
+  - Added `match_id` field to `ChallengeLeaderboardEntry` and `ChallengeLeaderboardResponse` models in `src/models.py`.
+  - Resolved Album Shuffle games rendering blank space in challenge summaries by leveraging the full Match Replay engine with batch photo navigation tabs.
+  - Enforced strict Fog-of-War protection so unfinished participants cannot access match replay telemetry prematurely.
+- **Match Specification Panel in Replays (`.match-meta-section`)**:
+  - Integrated the unified 2-category specification panel (`#replay-match-meta-container`) into the Match Replay screen header.
+  - Displays full Game Setup (Game Mode, Targets/Guessing, Rounds, Time Limit) and Library Filters (Libraries, Places, Albums, People, Dates, Shared Scope) for complete match context.
+  - Enhanced `MatchReplayResponse` API model and `get_match_replay` database query to deserialize and return `config: MatchConfig`.
+  - Re-renders specification items dynamically upon runtime language toggle.
+
+### Changed
+
+- **Elevated Segmented Tabs for Statistics Hub (`#stats-tabs-bar`)**:
+  - Transformed flat, unbordered tab bar into a modern, prominent segmented pill control with subtle container background, elevated active card surface, and smooth micro-animations.
+  - Added SVG mask icons (`👥` Player Directory, `🎬` Match Replays) that preserve exact button text nodes for i18n and automated tests.
+  - Added dynamic item count pill badges (`data-count`) indicating total player profiles and recorded match replays.
+  - Added rich guided empty states with feature highlights and prominent CTAs ("Start a Game" and "Browse Challenges") for first-time visitors or clean databases.
+  - Automatically hide the search/filter toolbar when no global records exist to center focus on guided onboarding.
+
+### Fixed
+
+- **Stats Hub Routing Parameter Bug (`router.js`)**:
+  - Fixed an issue where visiting `/stats` caused `parseRoute` to decode `undefined` regex capture groups into the string `"undefined"`, hiding both tabs and leaving the page blank.
+  - Fixed dark mode text contrast for `.player-card-name` and `.player-stat-val` in player directory cards.
+
 ## [3.1.0] - 2026-09-12
 
 ### Added

@@ -42,6 +42,7 @@ class SyncEngine:
         self._on_sync_complete = on_sync_complete
         self._active_sync_tasks: dict[str, asyncio.Task[None]] = {}
         self._sync_warnings: dict[str, str] = {}
+        self._last_sync_summaries: dict[str, dict[str, Any]] = {}
 
     def is_syncing(self, library_name: str) -> bool:
         """Check whether a background synchronization task is actively running for a library."""
@@ -130,6 +131,20 @@ class SyncEngine:
         target_warning_libs = libs or list(self._sync_warnings.keys())
         warnings_dict = {lib: self._sync_warnings[lib] for lib in target_warning_libs if lib in self._sync_warnings}
 
+        summaries = [self._last_sync_summaries[lib] for lib in libs if lib in self._last_sync_summaries]
+        last_sync_summary: dict[str, Any] | None = None
+        if summaries:
+            last_sync_summary = {
+                'sync_mode': summaries[-1].get('sync_mode', active_mode),
+                'assets_synced': sum(s.get('assets_synced', 0) for s in summaries),
+                'total_assets': total_assets,
+                'duration_seconds': round(max((s.get('duration_seconds', 0.0) for s in summaries), default=0.0), 2),
+                'albums_synced': sum(s.get('albums_synced', 0) for s in summaries),
+                'tags_synced': sum(s.get('tags_synced', 0) for s in summaries),
+                'pruned_assets': sum(s.get('pruned_assets', 0) for s in summaries),
+                'completed_at': max((s.get('completed_at', '') for s in summaries), default=None),
+            }
+
         return {
             'libraries': libs,
             'is_syncing': is_syncing,
@@ -143,6 +158,7 @@ class SyncEngine:
             'total_assets': total_assets,
             'synced_assets': synced_assets,
             'last_sync_duration_seconds': last_sync_duration,
+            'last_sync_summary': last_sync_summary,
             'warnings': warnings_dict,
         }
 
@@ -328,6 +344,7 @@ class SyncEngine:
 
         is_delta = (not force_full) and has_synced and bool(last_immich_updated_at)
         sync_mode = SyncMode.delta if is_delta else SyncMode.full
+        pruned_count = 0
 
         logger.info('Starting %s metadata sync for library: %s', sync_mode.value, library_name)
         sync_start = time.monotonic()
@@ -831,6 +848,17 @@ class SyncEngine:
                 total_assets=db_total,
                 error=None,
             )
+            self._last_sync_summaries[library_name] = {
+                'library_name': library_name,
+                'sync_mode': sync_mode.value,
+                'assets_synced': len(seen_asset_ids),
+                'total_assets': db_total,
+                'duration_seconds': duration_sec,
+                'albums_synced': len(albums_data) if 'albums_data' in locals() else 0,
+                'tags_synced': len(tags_data) if 'tags_data' in locals() else 0,
+                'pruned_assets': pruned_count,
+                'completed_at': now_iso,
+            }
             logger.info(
                 'Successfully finished %s metadata sync for %s (%d assets in db, %d updated in %.2fs)',
                 sync_mode.value,

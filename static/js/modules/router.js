@@ -98,7 +98,10 @@ export function parseRoute(pathname) {
       const params = {};
       if (def.paramKeys) {
         def.paramKeys.forEach((key, index) => {
-          params[key] = decodeURIComponent(match[index + 1]);
+          const rawVal = match[index + 1];
+          if (rawVal !== undefined) {
+            params[key] = decodeURIComponent(rawVal);
+          }
         });
       }
       return {
