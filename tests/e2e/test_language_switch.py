@@ -246,3 +246,180 @@ async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> Non
         await expect(newest_header).to_contain_text('Last')
     await expect(down_btn).to_have_attribute('title', 'Move Down (Later)')
     await expect(up_btn).to_have_attribute('title', 'Move Up (Earlier)')
+
+
+async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
+    """Verify that all new v3.1.0 pages (/stats directory, replays, leaderboard,
+    player profile, and round replay) support realtime translation.
+    """
+    await page.goto('/stats')
+    await page.wait_for_selector('#stats-page-card')
+    await _ensure_language(page, 'en-US')
+
+    # 1. /stats Hub in English
+    await expect(page.locator('#stats-page-heading')).to_have_text('Player Statistics & Replays')
+    await expect(page.locator('#stats-tabs-bar button[data-tab="players"]')).to_have_text('Player Directory')
+    await expect(page.locator('#stats-tabs-bar button[data-tab="replays"]')).to_have_text('Match Replays')
+    await expect(page.locator('#stats-players-search')).to_have_attribute('placeholder', 'Search players by name...')
+
+    # Replays tab in English
+    await page.locator('#stats-tabs-bar button[data-tab="replays"]').click()
+    await expect(page.locator('#stats-replays-player-search')).to_have_attribute('placeholder', 'Filter by player...')
+    await expect(page.locator('#stats-replays-mode-filter option[value="all"]')).to_have_text('All Modes')
+    await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('All Types')
+
+    # 2. Toggle to Portuguese in realtime
+    await page.locator('#lang-toggle-btn').click()
+    await expect(page.locator('#stats-page-heading')).to_have_text('Estatísticas & Replays')
+    await expect(page.locator('#stats-page-desc')).to_have_text(
+        'Histórico de jogadores, precisão na carreira e replays interativos de partidas.'
+    )
+    await expect(page.locator('#stats-tabs-bar button[data-tab="players"]')).to_have_text('Diretório de Jogadores')
+    await expect(page.locator('#stats-tabs-bar button[data-tab="replays"]')).to_have_text('Replays de Partidas')
+    await expect(page.locator('#stats-replays-player-search')).to_have_attribute(
+        'placeholder', 'Filtrar por jogador...'
+    )
+    await expect(page.locator('#stats-replays-mode-filter option[value="all"]')).to_have_text('Todos os Modos')
+    await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('Todos os Tipos')
+
+    # Directory tab in Portuguese
+    await page.locator('#stats-tabs-bar button[data-tab="players"]').click()
+    await expect(page.locator('#stats-players-search')).to_have_attribute('placeholder', 'Buscar jogadores por nome...')
+
+    # 3. Test Match Replay page with mocked data
+    async def handle_replay_route(route):
+        await route.fulfill(
+            status=200,
+            content_type='application/json',
+            json={
+                'match_id': 'mock-match-1',
+                'game_mode': 'pinpoint',
+                'play_mode': 'local',
+                'played_at': '2026-09-12T10:00:00Z',
+                'rounds': 1,
+                'players': ['Alice', 'Bob'],
+                'winners': ['Alice'],
+                'top_score': 250,
+                'top_accuracy_pct': 92.5,
+                'rounds_data': [
+                    {
+                        'round_number': 1,
+                        'asset_id': 'asset-1',
+                        'actual_latitude': 48.856,
+                        'actual_longitude': 2.352,
+                        'actual_date': '2023-06-15',
+                        'actual_city': 'Paris',
+                        'actual_country': 'France',
+                        'player_guesses': [
+                            {
+                                'player_name': 'Alice',
+                                'player_color': '#ff5722',
+                                'guess_latitude': 48.857,
+                                'guess_longitude': 2.353,
+                                'distance_km': 0.1,
+                                'round_score': 150,
+                                'cumulative_score': 150,
+                                'time_taken_seconds': 4.2,
+                            },
+                        ],
+                    }
+                ],
+            },
+        )
+
+    await page.route('**/api/match/mock-match-1/replay', handle_replay_route)
+
+    # Navigate to /game/mock-match-1/replay
+    await page.goto('/game/mock-match-1/replay')
+    await expect(page.locator('#replay-page-card')).to_be_visible()
+
+    # Still in Portuguese from previous toggle
+    await expect(page.locator('#replay-round-indicator')).to_contain_text(re.compile(r'Rodada 1 de 1', re.IGNORECASE))
+    await expect(page.locator('#replay-scoreboard-round-tag')).to_contain_text(re.compile(r'Após R1', re.IGNORECASE))
+    await expect(page.locator('#replay-back-btn')).to_contain_text('Sair do Replay')
+    await expect(page.locator("span[data-i18n='replay.scoreboard']")).to_have_text('Placar da Partida')
+
+    # Realtime toggle replay to English
+    await page.locator('#lang-toggle-btn').click()
+    await expect(page.locator('#replay-round-indicator')).to_contain_text(re.compile(r'Round 1 of 1', re.IGNORECASE))
+    await expect(page.locator('#replay-scoreboard-round-tag')).to_contain_text(re.compile(r'After R1', re.IGNORECASE))
+    await expect(page.locator('#replay-back-btn')).to_contain_text('Exit Replay')
+    await expect(page.locator("span[data-i18n='replay.scoreboard']")).to_have_text('Live Scoreboard')
+
+    # 4. Test Player Profile with mocked data
+    async def handle_profile_route(route):
+        await route.fulfill(
+            status=200,
+            content_type='application/json',
+            json={
+                'player': {
+                    'player_name': 'Alice',
+                    'avatar_color': '#ff5722',
+                    'first_played_at': '2026-01-01T12:00:00Z',
+                    'matches_played': 10,
+                    'matches_won': 7,
+                    'win_rate_pct': 70.0,
+                    'career_points': 24500,
+                    'avg_accuracy_pct': 85.0,
+                    'peak_match_accuracy_pct': 98.0,
+                    'podiums_count': 9,
+                },
+                'analytics': {
+                    'best_distance_km': 0.1,
+                    'perfect_location_rounds_count': 3,
+                    'avg_location_accuracy_pct': 88.0,
+                    'avg_date_accuracy_pct': 82.0,
+                    'exact_year_month_pct': 75.0,
+                    'exact_year_pct': 90.0,
+                    'perfect_date_rounds_count': 5,
+                    'avg_response_time_seconds': 5.4,
+                    'fastest_response_time_seconds': 2.1,
+                    'total_active_time_seconds': 3600,
+                    'preferred_cadence': 'Casual',
+                    'location_tiers': [
+                        {'tier_key': 'top', 'label': 'Top', 'count': 6, 'percentage': 60.0},
+                    ],
+                    'date_tiers': [
+                        {'tier_key': 'top', 'label': 'Top', 'count': 5, 'percentage': 50.0},
+                    ],
+                    'mode_mastery': [
+                        {'game_mode': 'pinpoint', 'matches_played': 6, 'wins': 4, 'avg_accuracy_pct': 88.0},
+                    ],
+                },
+                'recent_matches': [
+                    {
+                        'match_id': 'mock-match-1',
+                        'game_mode': 'pinpoint',
+                        'played_at': '2026-09-12T10:00:00Z',
+                        'rank': 1,
+                        'total_score': 4800,
+                        'accuracy_pct': 96.0,
+                        'is_winner': True,
+                    }
+                ],
+            },
+        )
+
+    await page.route('**/api/players/Alice/profile', handle_profile_route)
+
+    # Navigate to /stats/players/Alice
+    await page.goto('/stats/players/Alice')
+    await expect(page.locator('#stats-page-card')).to_be_visible()
+    await expect(page.locator('#stats-profile-view')).to_be_visible()
+
+    # In English
+    await expect(page.locator('#stats-page-heading')).to_have_text('Player Profile')
+    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Back to Stats Hub')
+    await expect(page.locator('.player-profile-view h3').first).to_contain_text('Location Accuracy')
+
+    # Realtime toggle profile to Portuguese
+    await page.locator('#lang-toggle-btn').click()
+    await expect(page.locator('#stats-page-heading')).to_have_text('Perfil do Jogador')
+    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Voltar ao Hub')
+    await expect(page.locator('.player-profile-view h3').first).to_contain_text('Precisão de Localização')
+
+    # Realtime toggle back to English
+    await page.locator('#lang-toggle-btn').click()
+    await expect(page.locator('#stats-page-heading')).to_have_text('Player Profile')
+    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Back to Stats Hub')
+    await expect(page.locator('.player-profile-view h3').first).to_contain_text('Location Accuracy')

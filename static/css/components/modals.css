@@ -567,6 +567,7 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow: visible; /* Allow autocomplete dropdown to extend beyond pane and card */
 }
 
 .modal-title-wrap {
@@ -583,6 +584,19 @@
 .prepare-game-card .modal-header {
   border-bottom: none;
   padding-bottom: 0.5rem;
+  border-radius: 16px 16px 0 0;
+}
+
+.prepare-game-card .modal-footer {
+  border-radius: 0 0 16px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+#pane-local-game {
+  overflow: visible;
+  position: relative;
+  z-index: 20;
 }
 
 .modal-tabs {
@@ -661,6 +675,11 @@
     margin: 0 !important;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25) !important;
     animation: sheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: visible !important;
+  }
+
+  .prepare-game-card .modal-footer {
+    border-radius: 0 !important;
   }
 
   .modal-sheet-handle {

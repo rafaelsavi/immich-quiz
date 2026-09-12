@@ -365,6 +365,75 @@ td {
   color: var(--ink, #1f2a44);
 }
 
+.leaderboard-player-link {
+  color: var(--ink, #1f2a44);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: color 0.15s ease, text-decoration 0.15s ease;
+  cursor: pointer;
+}
+
+.leaderboard-player-link:hover {
+  color: var(--accent, #0f7c7f);
+  text-decoration: underline;
+}
+
+[data-theme="dark"] .leaderboard-player-link {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .leaderboard-player-link:hover {
+  color: #38bdf8;
+}
+
+.col-replay {
+  text-align: right;
+  width: 95px;
+  padding-right: 0.85rem;
+}
+
+.leaderboard-replay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.22rem 0.55rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-color, #1e293b);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.leaderboard-replay-btn:hover {
+  background: var(--bg-hover, #f8fafc);
+  border-color: var(--accent, #0f7c7f);
+  color: var(--accent, #0f7c7f);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+
+.leaderboard-replay-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+[data-theme="dark"] .leaderboard-replay-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .leaderboard-replay-btn:hover {
+  background: #334155;
+  border-color: var(--accent, #0f7c7f);
+  color: #38bdf8;
+}
+
 .playmode-badge {
   display: inline-flex;
   align-items: center;
@@ -769,23 +838,49 @@ td.hide-on-desktop {
 
   #leaderboard-table th[data-sort="played_at"],
   #leaderboard-table td:first-child {
-    width: 22%;
+    width: 21%;
     white-space: normal;
     word-break: break-word;
   }
 
   #leaderboard-table th[data-sort="play_mode"],
   #leaderboard-table td.col-play-mode {
-    width: 28%;
+    width: 23%;
   }
 
   #leaderboard-table th[data-sort="player_name"] {
-    width: 26%;
+    width: 24%;
   }
 
   #leaderboard-table th[data-sort="accuracy_pct"],
   #leaderboard-table td.col-accuracy {
-    width: 24%;
+    width: 20%;
+    font-size: 0.72rem;
+  }
+
+  #leaderboard-table th.col-replay,
+  #leaderboard-table td.col-replay {
+    width: 12%;
+    padding: 0.3rem 0.15rem;
+    text-align: center;
+  }
+
+  #leaderboard-table th.col-replay {
+    font-size: 0;
+  }
+
+  #leaderboard-table th.col-replay::after {
+    content: "🎬";
+    font-size: 0.75rem;
+  }
+
+  .leaderboard-replay-btn .replay-text {
+    display: none;
+  }
+
+  .leaderboard-replay-btn {
+    padding: 0.2rem 0.35rem;
+    font-size: 0.8rem;
   }
 
   .playmode-badge {

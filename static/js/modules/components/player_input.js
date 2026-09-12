@@ -1,5 +1,6 @@
 import { t } from "../i18n.js";
 import { PLAYER_COLORS } from "../formatters.js";
+import { attachPlayerAutocomplete } from "./player_autocomplete.js";
 
 /**
  * Modern Player Input Component
@@ -166,6 +167,15 @@ export class PlayerInput {
       this._updateAddBtnState();
       this._clearFeedback();
     });
+
+    // Attach historical autocomplete
+    this.autocomplete = attachPlayerAutocomplete(this.textInput, {
+      onSelect: (playerName) => {
+        this.addPlayer(playerName);
+        this.textInput.focus();
+      },
+      getExcludedNames: () => this.players,
+    });
   }
 
   _updateAddBtnState() {
@@ -226,6 +236,7 @@ export class PlayerInput {
 
     this.players.push(name);
     this.textInput.value = "";
+    this.autocomplete?.close();
     this._updateAddBtnState();
     this._clearFeedback();
     this._sync();

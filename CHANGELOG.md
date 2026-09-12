@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-09-12
+
+### Added
+
+- **Player Statistics & Match Replays Page (`/stats`)**:
+  - Dedicated hub featuring a Player Directory (`/stats/players`), Match Replay catalog (`/stats/replays`), and embedded Leaderboard (`/stats/leaderboard`).
+  - Added primary navigation button (`🏆`) in the header navbar and quick-access banner card on the home lobby.
+  - Deep-linkable client-side routing supporting `/stats`, `/stats/players`, `/stats/players/:playerName`, and `/game/:matchId/replay`.
+- **Comprehensive Player Profiles & Accuracy Analytics (`/stats/players/:playerName`)**:
+  - Built dedicated player legacy dashboard querying relational match records in SQLite.
+  - Symmetrical 4-tier accuracy distribution analytics for Location and Date (Top Tier 90–100%, Great 75–89%, Moderate 50–74%, Low <50%).
+  - Detailed performance metrics: career points, win rate, podium count, lifetime peak match accuracy, best distance (km), perfect round tallies, and average response times.
+  - Game Mode Mastery breakdown (Pinpoint vs. Album Shuffle matches, win rates, and average accuracy).
+  - Recent matches log with direct links to interactive replays.
+- **Interactive Round-by-Round Match Replay Engine (`/game/:matchId/replay`)**:
+  - Direct reuse of standard `.media-frame` image canvas and `#photo-lightbox` modal preview with keyboard escape and click-outside dismissal.
+  - Direct reuse of standard `.map-shell` Leaflet architecture, featuring tile layer switching (Streets / Satellite), reset zoom control, map fullscreen toggle, and `fitMapToBounds` bounds framing.
+  - Interactive map displaying true photo locations alongside all player guess pins with connecting distance lines and spiderfied coordinates.
+  - Running round-by-round scoreboard tracking cumulative standings, points gained per round, and rank progression.
+  - Streamlined manual replay navigation with preserved DOM nodes and existing Leaflet map instances across rounds.
+- **Smart Player Name Autocomplete (`PlayerAutocomplete`)**:
+  - Reusable dropdown querying `/api/players/names` with match counts, recency, and avatar initials.
+  - Seamlessly integrated into Local Game setup, Challenge creation form, and Challenge join landing screens.
+  - Extended dropdown to full container width (`.player-input-container`) rather than being constrained to the text input wrapper.
+  - Resolved modal clipping and scrollbar issues by configuring overflow-visible containers and elevated z-index (`2500`) over modal footers.
+  - Added responsive upward flipping (`.open-upwards`) when viewport space below is tight (especially on mobile keyboards and bottom sheets).
+  - Enhanced touch interaction support with `pointerdown` listeners and 48px tap targets preventing premature blur dismissals.
+  - Keyboard accessible (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`) with non-intrusive dismiss behavior on blur, form submit, and outside pointer events.
+- **New REST API Endpoints**:
+  - `GET /api/players/names` (autocomplete query with match frequency).
+  - `GET /api/players` (player directory with sorting by matches, win rate, points, or name).
+  - `GET /api/players/{player_name}/profile` (detailed career profile and accuracy analytics).
+  - `GET /api/matches` (paginated match history filterable by game mode, play mode, and player).
+  - `GET /api/match/{match_id}/replay` (round-by-round guess telemetry and cumulative scoreboard).
+
+### Fixed
+
+- **Modal Backdrop Drag-Selection Dismissal Protection**:
+  - Prevented modals (`#prepare-game-modal`, `#report-issue-modal`, `#album-shuffle-help-modal`, `#pinpoint-help-modal`) from prematurely closing when dragging a text selection from inside an input (e.g. `challenge-creator-name-input`) and releasing the mouse outside the modal card.
+  - Required that mouse/touch down events originate directly on the backdrop overlay before a backdrop click dismisses the modal.
+- **Match Replay Standard Avatar Color Sequence**:
+  - Fixed avatar colors inside match replay (`/game/:matchId/replay`) to strictly follow the standard application palette sequence (`PLAYER_COLORS`: Coral Red `#f25f5c`, Teal `#0f7c7f`, Purple `#7048e8`, etc.) rather than string ASCII character hashing.
+  - Added `player_color` column to `match_entries` SQLite table with automatic schema migration.
+  - Preserved roster turn order in replay reconstruction from match round guesses and entries, ensuring backwards compatibility with legacy match records.
+  - Added client-side color registration in `replay.js` and sequential fallback in `formatters.js` to guarantee consistent colors across map pins, connection lines, player guesses, and scoreboards.
+- **Match Replay Photo Caption Visual Balance**:
+  - Balanced visual importance between photo date (`.replay-photo-date`, `.replay-polaroid-date`) and location (`.replay-photo-loc`, `.replay-polaroid-loc`) by unifying font-weight (`500`), font size (`0.88rem`), and text color, avoiding disparate bolding.
+- **Match Replay Header Reorganization (`.replay-page-header`)**:
+  - Restructured the match replay header into a clean, modern two-tier layout separating top-level navigation actions from match identity and metadata.
+  - Placed the back button (`#replay-back-btn`) and round stepper (`#replay-round-indicator`, controls) on a dedicated top navigation bar, eliminating horizontal crowding.
+  - Added dedicated page title heading (`🎬 Match Replay` / `Replay da Partida`) with localized subtitle meta line (`#replay-match-title`).
+  - Implemented pill badge styling with `white-space: nowrap` for mode and play type badges (`#replay-mode-badge`, `#replay-type-badge`), completely eliminating awkward multi-line word wrapping.
+  - Optimized responsive styles across desktop, tablet, and small mobile viewports (down to 375px).
+- **Navigation Back Button Standardization (`.page-back-btn`)**:
+  - Standardized `#profile-back-to-hub-btn`, `#profile-back-btn`, and `#replay-back-btn` under the reusable `.page-back-btn` class.
+  - Unified typography (`0.88rem`, semi-bold), padding (`0.42rem 0.85rem`), border radius (`9px`), and hover micro-interaction (`translateX(-2px)`).
+  - Aligned the Player Profile header hierarchy, placing the back button neatly on top above the player hero identity card.
+- **Recent Matches Rank Column & Medal Badges**:
+  - Fixed rank formatting in the Player Profile's Recent Matches table using standard `formatRankBadge(rank, { dot: true })`.
+  - Added dedicated `.col-rank` CSS class (50px fixed width, centered) to cleanly present medals (`🥇`, `🥈`, `🥉`) and numbered positions (`4.`) without column overflow.
+- **Standardized Replay Guess Metrics**:
+  - Upgraded round guess details in match replay to leverage `formatDistance` and `formatMonthError` from `formatters.js`.
+  - Enclosed distance (`📍 80 m`), date delta (`📅 12 days`), and response times (`⏱️ 3.8s`) in styled `.replay-guess-metric-item` pill tags with tabular numerals and dark mode support.
+- **Home Leaderboard Deep Integration & Stats Streamlining**:
+  - Streamlined `/stats` by removing the redundant embedded leaderboard tab, keeping the primary leaderboard on the home screen where it responds to active filter selections.
+  - Added interactive links on player names in the home leaderboard routing directly into `/stats/players/:playerName`.
+  - Added a dedicated Replay column (`<th class="col-replay">`) with interactive `[🎬 Replay]` action button to jump directly into `/game/:matchId/replay`.
+
 ## [3.0.4] - 2026-09-11
 
 ### Added

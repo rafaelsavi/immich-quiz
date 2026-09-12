@@ -60,6 +60,9 @@ DYNAMIC_IDS = frozenset(
         'photo-lightbox-img',
         'player-name-input',
         'preflight-warning',
+        'profile-back-btn',
+        'profile-back-to-hub-btn',
+        'replay-error-back-btn',
         'retry-load-challenges-btn',
         'reveal-shuffle-map-shell',
         'scatter-map',
@@ -1845,3 +1848,62 @@ def test_preflight_count_updates_with_guess_mode() -> None:
     assert 'setup.preflight_count_both' in setup_filters_js
     assert 'setup.preflight_count_gps' in setup_filters_js
     assert 'setup.preflight_count_date' in setup_filters_js
+
+
+def test_player_autocomplete_extension_and_mobile() -> None:
+    """Verify that player autocomplete dropdown extends beyond the input container,
+    does not get clipped by modal pane or footer, and supports mobile viewports with
+    upward flipping and touch interactions.
+    """
+    autocomplete_js = (JS_DIR / 'modules' / 'components' / 'player_autocomplete.js').read_text(encoding='utf-8')
+    player_input_css = (STATIC_DIR / 'css' / 'components' / 'player_input.css').read_text(encoding='utf-8')
+    modals_css = (STATIC_DIR / 'css' / 'components' / 'modals.css').read_text(encoding='utf-8')
+
+    # 1. Dropdown is anchored to closest .player-input-container if present
+    assert "this.inputEl.closest('.player-input-container')" in autocomplete_js
+    assert 'this.anchorEl.appendChild(this.dropdownEl)' in autocomplete_js
+
+    # 2. Dynamic upward flipping for mobile / tight viewports
+    assert '_updatePosition()' in autocomplete_js
+    assert 'open-upwards' in autocomplete_js
+    assert '.player-autocomplete-dropdown.open-upwards' in player_input_css
+
+    # 3. Pointer and touch handling to avoid mobile blur issues
+    assert "el.addEventListener('pointerdown', handleSelect)" in autocomplete_js
+    assert "this.dropdownEl.addEventListener('pointerdown'" in autocomplete_js
+
+    # 4. CSS styling: full width, high z-index, and mobile touch targets
+    assert 'z-index: 2500;' in player_input_css
+    assert 'width: 100%;' in player_input_css
+    assert 'min-height: 48px;' in player_input_css
+
+    # 5. Modal styling: overflow visible so dropdown floats over pane and modal footer
+    assert 'overflow: visible;' in modals_css
+    assert '#pane-local-game {' in modals_css
+    assert 'z-index: 20;' in modals_css
+
+
+def test_modal_backdrop_drag_selection_no_close() -> None:
+    """Verify that all modals only close on backdrop clicks if pointerdown started outside on the backdrop,
+    preventing accidental modal dismissal when text selection drags and releases outside.
+    """
+    admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
+    report_js = (JS_DIR / 'modules' / 'components' / 'report_modal.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+
+    # Prepare game modal
+    assert '_isBackdropPress' in admin_js
+    assert '_modalEl.addEventListener("pointerdown"' in admin_js
+
+    # Report modal
+    assert '_isBackdropPress' in report_js
+    assert '_modalEl.addEventListener("pointerdown"' in report_js
+
+    # Album shuffle help modal
+    assert 'isBackdropPress' in shuffle_js
+    assert 'modal.addEventListener("pointerdown"' in shuffle_js
+
+    # Pinpoint help modal
+    assert 'isBackdropPress' in pinpoint_js
+    assert 'modal.addEventListener("pointerdown"' in pinpoint_js

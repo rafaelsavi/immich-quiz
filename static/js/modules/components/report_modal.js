@@ -43,11 +43,16 @@ export function initReportModal() {
   if (_cancelBtn) _cancelBtn.addEventListener("click", closeReportModal);
   if (_closeBtn) _closeBtn.addEventListener("click", closeReportModal);
 
-  // Close on backdrop click
+  // Close on backdrop click (only if mouse/touch was pressed outside on the backdrop)
+  let _isBackdropPress = false;
+  _modalEl.addEventListener("pointerdown", (e) => {
+    _isBackdropPress = (e.target === _modalEl);
+  });
   _modalEl.addEventListener("click", (e) => {
-    if (e.target === _modalEl) {
+    if (_isBackdropPress && e.target === _modalEl) {
       closeReportModal();
     }
+    _isBackdropPress = false;
   });
 
   // Close on Escape key

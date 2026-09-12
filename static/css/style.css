@@ -16,6 +16,8 @@
 @import "./components/timer.css";
 @import "./components/challenge.css";
 @import "./components/reported.css";
+@import "./components/stats.css";
+@import "./components/replay.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";

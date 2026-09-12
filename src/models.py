@@ -798,6 +798,7 @@ class MatchSummaryPlayer(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     player_name: str = Field(min_length=1)
+    player_color: str | None = None
     location_score: int | None = Field(default=None, ge=0)
     date_score: int | None = Field(default=None, ge=0)
     total_score: int = Field(ge=0)
@@ -861,6 +862,208 @@ class LeaderboardEntry(BaseModel):
     room_id: str | None = None
     room_name: str | None = None
     awards: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Player Statistics & Match Replay Models
+# ---------------------------------------------------------------------------
+
+
+class PlayerNameSuggestion(BaseModel):
+    """Autocomplete suggestion for a previously active player name."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    match_count: int = Field(ge=0)
+    last_played_at: str | None = None
+    avatar_color: str | None = None
+
+
+class AccuracyTierBucket(BaseModel):
+    """Accuracy percentage distribution tier (shared symmetrically by Location and Date)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    tier_key: str = Field(min_length=1)  # 'top', 'great', 'moderate', 'low'
+    label: str = Field(min_length=1)  # e.g. 'Top Tier (90–100%)', 'Great (75–89%)'
+    count: int = Field(ge=0)
+    percentage: float = Field(ge=0.0, le=100.0)
+
+
+class GameModeStats(BaseModel):
+    """Player performance breakdown for a specific game mode."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    game_mode: str = Field(min_length=1)
+    matches_played: int = Field(ge=0)
+    wins: int = Field(ge=0)
+    win_rate_pct: float = Field(ge=0.0, le=100.0)
+    avg_accuracy_pct: float = Field(ge=0.0, le=100.0)
+
+
+class PlayerPerformanceStats(BaseModel):
+    """Core lifetime performance statistics and career metrics for a player."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    avatar_color: str
+    legacy_title: str
+    matches_played: int = Field(ge=0)
+    matches_won: int = Field(ge=0)
+    win_rate_pct: float = Field(ge=0.0, le=100.0)
+    podiums_count: int = Field(ge=0)
+    peak_match_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    avg_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    career_points: int = Field(ge=0)
+    total_rounds_played: int = Field(ge=0)
+    first_played_at: str | None = None
+    last_played_at: str | None = None
+
+
+class PlayerAccuracyAnalytics(BaseModel):
+    """Symmetrical location and date accuracy metrics, response times, and game mode mastery."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    location_tiers: list[AccuracyTierBucket]
+    avg_location_accuracy_pct: float = Field(default=0.0, ge=0.0, le=100.0)
+    best_distance_km: float | None = None
+    perfect_location_rounds_count: int = Field(ge=0)
+    date_tiers: list[AccuracyTierBucket]
+    avg_date_accuracy_pct: float = Field(default=0.0, ge=0.0, le=100.0)
+    exact_year_month_pct: float = Field(ge=0.0, le=100.0)
+    exact_year_pct: float = Field(ge=0.0, le=100.0)
+    perfect_date_rounds_count: int = Field(ge=0)
+    avg_response_time_seconds: float = Field(ge=0.0)
+    fastest_response_time_seconds: float = Field(ge=0.0)
+    total_active_time_seconds: float = Field(ge=0.0)
+    mode_mastery: list[GameModeStats]
+    preferred_cadence: str | None = None
+
+
+class PlayerSummaryItem(BaseModel):
+    """Roster summary for a player in the player directory."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    avatar_color: str
+    matches_played: int = Field(ge=0)
+    matches_won: int = Field(ge=0)
+    win_rate_pct: float = Field(ge=0.0, le=100.0)
+    avg_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    career_points: int = Field(ge=0)
+    last_played_at: str | None = None
+
+
+class PlayerProfileResponse(BaseModel):
+    """Comprehensive player legacy profile response."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player: PlayerPerformanceStats
+    analytics: PlayerAccuracyAnalytics
+    recent_matches: list[dict[str, Any]]
+
+
+class MatchHistoryItem(BaseModel):
+    """Summary item in the Match Replays catalog."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    match_id: str = Field(min_length=1)
+    played_at: str
+    play_mode: str
+    game_mode: str
+    rounds: int
+    round_length: str
+    player_count: int
+    duration_seconds: float | None = None
+    winners: list[str] = Field(default_factory=list)
+    players: list[str] = Field(default_factory=list)
+    top_score: int = Field(ge=0)
+    top_accuracy_pct: float = Field(ge=0.0, le=100.0)
+
+
+class MatchReplayPlayerGuess(BaseModel):
+    """Detailed guess and score breakdown for a single player in a replay round."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    player_color: str | None = None
+    location_score: int | None = None
+    date_score: int | None = None
+    round_score: int = Field(ge=0)
+    cumulative_score: int = Field(ge=0)
+    time_taken_seconds: float = Field(ge=0.0)
+    timed_out: bool = False
+    guess_latitude: float | None = None
+    guess_longitude: float | None = None
+    distance_km: float | None = None
+    guess_date: str | None = None
+    date_diff_days: int | None = None
+    is_correct_location: bool | None = None
+    is_correct_date_order: bool | None = None
+    assigned_pin_id: str | None = None
+    assigned_timeline_index: int | None = None
+
+
+class MatchReplayBatchPhoto(BaseModel):
+    """Photo truth data for album shuffle multi-photo rounds."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    asset_id: str
+    true_pin_id: str | None = None
+    actual_latitude: float | None = None
+    actual_longitude: float | None = None
+    actual_date: str | None = None
+    actual_year: int | None = None
+    actual_month: int | None = None
+    actual_city: str | None = None
+    actual_country: str | None = None
+
+
+class MatchReplayRound(BaseModel):
+    """Single round in an interactive match replay."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    round_number: int = Field(ge=1)
+    game_mode: str
+    media_url: str | None = None
+    asset_id: str | None = None
+    actual_latitude: float | None = None
+    actual_longitude: float | None = None
+    actual_date: str | None = None
+    actual_year: int | None = None
+    actual_month: int | None = None
+    actual_city: str | None = None
+    actual_country: str | None = None
+    batch_photos: list[MatchReplayBatchPhoto] = Field(default_factory=list)
+    player_guesses: list[MatchReplayPlayerGuess] = Field(default_factory=list)
+
+
+class MatchReplayResponse(BaseModel):
+    """Full payload required to step through a match replay round-by-round."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    match_id: str = Field(min_length=1)
+    played_at: str
+    play_mode: str
+    game_mode: str
+    rounds: int = Field(ge=1)
+    round_length: str
+    location_mode: bool
+    date_mode: bool
+    winners: list[str] = Field(default_factory=list)
+    players: list[MatchSummaryPlayer] = Field(default_factory=list)
+    rounds_data: list[MatchReplayRound] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

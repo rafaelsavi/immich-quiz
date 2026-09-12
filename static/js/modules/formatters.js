@@ -79,13 +79,8 @@ export function playerColor(playerName) {
     return PLAYER_COLORS[index % PLAYER_COLORS.length];
   }
 
-  // 3. Deterministic hash fallback for unregistered names so distinct players don't all get color 0
-  let hash = 0;
-  const str = String(playerName);
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) & 0xffffffff;
-  }
-  const assigned = PLAYER_COLORS[Math.abs(hash) % PLAYER_COLORS.length];
+  // 3. Sequential fallback for unregistered names so distinct players follow standard sequence
+  const assigned = PLAYER_COLORS[_assignedPlayerColors.size % PLAYER_COLORS.length];
   _assignedPlayerColors.set(playerName, assigned);
   return assigned;
 }

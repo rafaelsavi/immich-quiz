@@ -1,8 +1,9 @@
 import { state, el } from "./state.js";
 import { api, setupFilterParams } from "./api.js";
-import { buildCell, createRankBadge } from "./formatters.js";
+import { buildCell, createRankBadge, escapeHtml } from "./formatters.js";
 import { t, formatDateTime } from "./i18n.js";
 import { getActiveFilterSummary } from "./setup_filters.js";
+import { navigate } from "./router.js";
 
 export function formatAccuracy(pct) {
   if (typeof pct !== "number" || isNaN(pct)) return "0%";
@@ -121,7 +122,7 @@ export function renderLeaderboard() {
     const tr = document.createElement("tr");
     tr.className = "leaderboard-empty-row";
     const td = document.createElement("td");
-    td.colSpan = 4;
+    td.colSpan = 5;
     td.className = "leaderboard-empty-cell";
     td.textContent = t("leaderboard.empty");
     tr.appendChild(td);
@@ -156,11 +157,17 @@ export function renderLeaderboard() {
     const effectiveRank = isRankingDescending ? index + 1 : row.rank;
     const rankSpan = createRankBadge(effectiveRank, { dot: true });
 
-    const nameSpan = document.createElement("span");
-    nameSpan.className = "player-name-text";
-    nameSpan.textContent = row.player_name;
+    const nameLink = document.createElement("a");
+    nameLink.className = "player-name-text leaderboard-player-link";
+    nameLink.href = `/stats/players/${encodeURIComponent(row.player_name)}`;
+    nameLink.textContent = row.player_name;
+    nameLink.title = t("stats.view_profile") !== "stats.view_profile" ? t("stats.view_profile") : "View Player Profile";
+    nameLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate(`/stats/players/${encodeURIComponent(row.player_name)}`);
+    });
 
-    playerWrap.append(rankSpan, nameSpan);
+    playerWrap.append(rankSpan, nameLink);
 
     if (isPerfect) {
       const perfectBadge = document.createElement("span");
@@ -188,7 +195,25 @@ export function renderLeaderboard() {
     const cellAcc = buildCell(accBadge);
     cellAcc.className = "col-accuracy";
 
-    tr.append(cell1, cellPlayMode, cellPlayer, cellAcc);
+    // Replay cell with watch action
+    const cellReplay = document.createElement("td");
+    cellReplay.className = "col-replay";
+    if (row.match_id) {
+      const replayBtn = document.createElement("a");
+      replayBtn.href = `/game/${encodeURIComponent(row.match_id)}/replay`;
+      replayBtn.className = "leaderboard-replay-btn";
+      replayBtn.title = t("replay.watch_replay") !== "replay.watch_replay" ? t("replay.watch_replay") : "Watch Replay";
+      replayBtn.innerHTML = `<span class="replay-icon" aria-hidden="true">🎬</span><span class="replay-text">${t("leaderboard.col_replay") !== "leaderboard.col_replay" ? t("leaderboard.col_replay") : "Replay"}</span>`;
+      replayBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        navigate(`/game/${encodeURIComponent(row.match_id)}/replay`);
+      });
+      cellReplay.appendChild(replayBtn);
+    } else {
+      cellReplay.innerHTML = `<span style="color: var(--text-muted); opacity: 0.5;">—</span>`;
+    }
+
+    tr.append(cell1, cellPlayMode, cellPlayer, cellAcc, cellReplay);
     el.leaderboardBody.appendChild(tr);
   });
 

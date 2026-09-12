@@ -27,11 +27,16 @@ function ensureShuffleHelpModal() {
       });
     }
 
+    let isBackdropPress = false;
+    modal.addEventListener("pointerdown", (event) => {
+      isBackdropPress = (event.target === modal);
+    });
     modal.addEventListener("click", (event) => {
-      if (event.target === modal) {
+      if (isBackdropPress && event.target === modal) {
         modal.classList.add("hidden");
         modal.setAttribute("aria-hidden", "true");
       }
+      isBackdropPress = false;
     });
 
     document.addEventListener("keydown", (event) => {

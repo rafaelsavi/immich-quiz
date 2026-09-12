@@ -6,15 +6,15 @@ This document lists planned features, design ideas, and technical debt items for
 
 ## 🚀 Prioritized TODO List
 
-- [ ] v3.1.0 **Player Statistics & Match Replays**
-  - [ ] Create a new page for player statistics, match replays, leadarboard etc.
-  - [ ] When entering names, show dropdown of already used names if exists. Used to build up player history and legacy.
-  - [ ] Build dedicated player profile & stats dashboard querying relational data in `data/leaderboard.db`.
-  - [ ] Visual accuracy analytics:
-    - Distance error distribution histograms (<5 km, 5–50 km, 50–500 km, >500 km).
-    - Date accuracy metrics (exact year/month percentage, average day delta).
-    - Best score streaks, average response time, and most-played libraries.
-  - [ ] Interactive match replay view allowing players to step through past games round-by-round with maps and polaroid cards.
+- [x] v3.1.0 **Player Statistics & Match Replays**
+  - [x] Create a new page for player statistics, match replays, leaderboard etc.
+  - [x] When entering names, show dropdown of already used names if exists. Used to build up player history and legacy.
+  - [x] Build dedicated player profile & stats dashboard querying relational data in `data/leaderboard.db`.
+  - [x] Visual accuracy analytics:
+    - Symmetrical 4-tier accuracy distribution for Location and Date (Top Tier 90–100%, Great 75–89%, Moderate 50–74%, Low <50%).
+    - Date accuracy metrics (exact year/month percentage, exact year percentage, perfect date round count).
+    - Lifetime peak match accuracy, podium finishes, average response time, and Game Mode Mastery.
+  - [x] Interactive match replay view allowing players to step through past games round-by-round with maps and polaroid cards.
 
 - [ ] v3.2.0 **Improve Share Functionality & Social Scorecards**
 

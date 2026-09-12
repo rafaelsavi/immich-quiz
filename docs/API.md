@@ -1002,6 +1002,210 @@ Response (`200 OK` / `304 Not Modified`): Image stream (`image/jpeg`, etc.).
 
 ---
 
+## Player Statistics, Directory & Match Replays
+
+### GET /api/players/names
+
+Query autocomplete suggestions for known player names ordered by recency and match frequency.
+
+Query Parameters:
+* `q` (optional): Filter prefix/substring (case-insensitive).
+* `limit` (optional, default: 10, max: 50): Number of items to return.
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "player_name": "Rafael",
+    "match_count": 14,
+    "last_played_at": "2026-09-11T20:15:00Z",
+    "avatar_color": "#0f7c7f"
+  }
+]
+```
+
+### GET /api/players
+
+Query the player directory roster with lifetime summary metrics and sorting options.
+
+Query Parameters:
+* `search` (optional): Filter player names by substring.
+* `sort_by` (optional, default: `matches`): Sort order (`matches`, `win_rate`, `points`, `name`).
+* `limit` (optional, default: 50, max: 200): Limit results.
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "player_name": "Rafael",
+    "avatar_color": "#0f7c7f",
+    "matches_played": 14,
+    "matches_won": 9,
+    "win_rate_pct": 64.3,
+    "avg_accuracy_pct": 82.5,
+    "career_points": 14250,
+    "last_played_at": "2026-09-11T20:15:00Z"
+  }
+]
+```
+
+### GET /api/players/{player_name}/profile
+
+Returns comprehensive career metrics, symmetrical accuracy tier analytics, speed telemetry, game mode mastery, and recent match history for a specific player.
+
+Response (`200 OK`):
+
+```json
+{
+  "player": {
+    "player_name": "Rafael",
+    "avatar_color": "#0f7c7f",
+    "legacy_title": "Legendary Cartographer",
+    "matches_played": 14,
+    "matches_won": 9,
+    "win_rate_pct": 64.3,
+    "podiums_count": 12,
+    "peak_match_accuracy_pct": 96.5,
+    "avg_accuracy_pct": 82.5,
+    "career_points": 14250,
+    "total_rounds_played": 120,
+    "first_played_at": "2026-08-01T12:00:00Z",
+    "last_played_at": "2026-09-11T20:15:00Z"
+  },
+  "analytics": {
+    "location_tiers": [
+      { "tier_key": "top", "label": "Top Tier (90–100%)", "count": 62, "percentage": 51.7 },
+      { "tier_key": "great", "label": "Great (75–89%)", "count": 30, "percentage": 25.0 },
+      { "tier_key": "moderate", "label": "Moderate (50–74%)", "count": 20, "percentage": 16.7 },
+      { "tier_key": "low", "label": "Low (<50%)", "count": 8, "percentage": 6.6 }
+    ],
+    "avg_location_accuracy_pct": 84.2,
+    "best_distance_km": 0.05,
+    "perfect_location_rounds_count": 18,
+    "date_tiers": [
+      { "tier_key": "top", "label": "Top Tier (90–100%)", "count": 55, "percentage": 45.8 },
+      { "tier_key": "great", "label": "Great (75–89%)", "count": 35, "percentage": 29.2 },
+      { "tier_key": "moderate", "label": "Moderate (50–74%)", "count": 18, "percentage": 15.0 },
+      { "tier_key": "low", "label": "Low (<50%)", "count": 12, "percentage": 10.0 }
+    ],
+    "avg_date_accuracy_pct": 80.8,
+    "exact_year_month_pct": 72.5,
+    "exact_year_pct": 91.2,
+    "perfect_date_rounds_count": 22,
+    "avg_response_time_seconds": 8.4,
+    "fastest_response_time_seconds": 1.8,
+    "total_active_time_seconds": 1008.0,
+    "mode_mastery": [
+      { "game_mode": "pinpoint", "matches_played": 10, "wins": 7, "win_rate_pct": 70.0, "avg_accuracy_pct": 85.0 },
+      { "game_mode": "album_shuffle", "matches_played": 4, "wins": 2, "win_rate_pct": 50.0, "avg_accuracy_pct": 76.2 }
+    ],
+    "preferred_cadence": "10 rounds • 1m"
+  },
+  "recent_matches": [
+    {
+      "match_id": "m_12345",
+      "played_at": "2026-09-11T20:15:00Z",
+      "play_mode": "local",
+      "game_mode": "pinpoint",
+      "rounds": 10,
+      "round_length": "1m",
+      "player_count": 3,
+      "rank": 1,
+      "is_winner": true,
+      "total_score": 1850,
+      "max_possible_score": 2000,
+      "accuracy_pct": 92.5
+    }
+  ]
+}
+```
+
+### GET /api/matches
+
+List paginated past match records for the Match Replays catalog.
+
+Query Parameters:
+* `game_mode` (optional): Filter by `pinpoint` or `album_shuffle`.
+* `play_mode` (optional): Filter by `local` or `challenge`.
+* `player` (optional): Filter matches where a player participated.
+* `limit` (optional, default: 30, max: 100): Results per page.
+* `offset` (optional, default: 0): Pagination offset.
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "match_id": "m_12345",
+    "played_at": "2026-09-11T20:15:00Z",
+    "play_mode": "local",
+    "game_mode": "pinpoint",
+    "rounds": 10,
+    "round_length": "1m",
+    "player_count": 3,
+    "duration_seconds": 185.4,
+    "winners": ["Rafael"],
+    "players": ["Rafael", "Alice", "Bob"],
+    "top_score": 1850,
+    "top_accuracy_pct": 92.5
+  }
+]
+```
+
+### GET /api/match/{match_id}/replay
+
+Fetch interactive step-through telemetry for a match, including photo references, actual coordinates/dates, each player's guess coordinates/dates/points, and cumulative scoreboard progression.
+
+Response (`200 OK`):
+
+```json
+{
+  "match_id": "m_12345",
+  "played_at": "2026-09-11T20:15:00Z",
+  "play_mode": "local",
+  "game_mode": "pinpoint",
+  "rounds": 10,
+  "round_length": "1m",
+  "players": ["Rafael", "Alice", "Bob"],
+  "rounds_data": [
+    {
+      "round_number": 1,
+      "game_mode": "pinpoint",
+      "asset_id": "asset-uuid-1",
+      "actual_latitude": 48.8566,
+      "actual_longitude": 2.3522,
+      "actual_date": "2023-06-15T14:30:00Z",
+      "actual_city": "Paris",
+      "actual_country": "France",
+      "batch_photos": [],
+      "player_guesses": [
+        {
+          "player_name": "Rafael",
+          "player_color": "#0f7c7f",
+          "location_score": 98,
+          "date_score": 100,
+          "round_score": 198,
+          "cumulative_score": 198,
+          "time_taken_seconds": 6.2,
+          "timed_out": false,
+          "guess_latitude": 48.8560,
+          "guess_longitude": 2.3520,
+          "distance_km": 0.08,
+          "guess_date": "2023-06-15",
+          "date_diff_days": 0,
+          "is_correct_location": true,
+          "is_correct_date_order": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
 ## Anti-Cheat & Security Model
 
 Immich Quiz implements multi-layered security controls across both Local and Challenge modes:

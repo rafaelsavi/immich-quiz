@@ -64,6 +64,11 @@
           <span id="challenges-nav-icon">⚔️</span>
           <span id="header-challenges-badge" class="header-challenges-badge hidden">0</span>
         </a>
+        <a href="/stats" id="stats-nav-btn" class="header-icon-btn stats-nav-btn"
+          data-i18n-title="nav.stats" data-i18n-aria-label="nav.stats"
+          title="Statistics & Replays" aria-label="Statistics & Replays">
+          <span id="stats-nav-icon">🏆</span>
+        </a>
         <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
           aria-label="Switch Language">
           <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"
@@ -659,10 +664,185 @@
                   aria-hidden="true"></span></th>
               <th data-sort="accuracy_pct" data-i18n="leaderboard.col_accuracy">Accuracy %<span class="sort-arrow"
                   aria-hidden="true"></span></th>
+              <th class="col-replay" data-i18n="leaderboard.col_replay">Replay</th>
             </tr>
           </thead>
           <tbody></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Dedicated Player Statistics & Match Replays Page -->
+    <section id="stats-page-card" class="card hidden">
+      <div class="stats-page-header">
+        <div class="stats-page-title-group">
+          <div class="stats-title-badge-row">
+            <span class="badge-stats" data-i18n="nav.stats">Statistics & Replays</span>
+          </div>
+          <h2 id="stats-page-heading" data-i18n="stats.hub_title">Player Statistics & Replays</h2>
+          <p id="stats-page-desc" class="stats-page-desc" data-i18n="stats.hub_subtitle">Player legacy, career accuracy analytics, and interactive match replays.</p>
+        </div>
+        <div class="stats-page-head-actions">
+          <button type="button" id="stats-page-refresh-btn" class="btn-icon-action" title="Refresh" aria-label="Refresh" data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Tabs (Player Directory, Match Replays) -->
+      <div id="stats-tabs-bar" class="stats-tabs-bar">
+        <button type="button" class="stats-tab-btn active" data-tab="players" data-i18n="stats.tab_players">Player Directory</button>
+        <button type="button" class="stats-tab-btn" data-tab="replays" data-i18n="stats.tab_replays">Match Replays</button>
+      </div>
+
+      <!-- Tab View 1: Player Directory -->
+      <div id="stats-players-view" class="stats-tab-view">
+        <div class="stats-toolbar">
+          <div class="stats-search-wrap">
+            <span class="search-icon" aria-hidden="true">🔍</span>
+            <input type="search" id="stats-players-search" class="stats-search-input"
+              placeholder="Search players by name..."
+              data-i18n-placeholder="stats.directory_search_placeholder" />
+          </div>
+          <div class="stats-sort-wrap">
+            <select id="stats-players-sort" class="select-input">
+              <option value="matches" data-i18n="stats.sort_by_matches">Most Matches</option>
+              <option value="win_rate" data-i18n="stats.sort_by_win_rate">Win Rate</option>
+              <option value="points" data-i18n="stats.sort_by_points">Total Career Points</option>
+              <option value="name" data-i18n="stats.sort_by_name">Name</option>
+            </select>
+          </div>
+        </div>
+        <div id="stats-players-grid" class="stats-players-grid"></div>
+      </div>
+
+      <!-- Tab View 2: Match Replays Catalog -->
+      <div id="stats-replays-view" class="stats-tab-view hidden">
+        <div class="stats-toolbar">
+          <div class="stats-search-wrap">
+            <span class="search-icon" aria-hidden="true">🔍</span>
+            <input type="search" id="stats-replays-player-search" class="stats-search-input"
+              placeholder="Filter by player..."
+              data-i18n-placeholder="replay.filter_player_placeholder" />
+          </div>
+          <div class="stats-filters-wrap">
+            <select id="stats-replays-mode-filter" class="select-input">
+              <option value="all" data-i18n="replay.filter_all_modes">All Modes</option>
+              <option value="pinpoint" data-i18n="mode.pinpoint">🎯 Pinpoint</option>
+              <option value="album_shuffle" data-i18n="mode.album_shuffle">🔀 Album Shuffle</option>
+            </select>
+            <select id="stats-replays-type-filter" class="select-input">
+              <option value="all" data-i18n="replay.filter_all_types">All Types</option>
+              <option value="local" data-i18n="replay.filter_type_local">Local Match</option>
+              <option value="challenge" data-i18n="replay.filter_type_challenge">Challenge Link</option>
+            </select>
+          </div>
+        </div>
+        <div id="stats-replays-list" class="stats-replays-list"></div>
+      </div>
+
+      <!-- Dedicated Player Profile View -->
+      <div id="stats-profile-view" class="stats-profile-view hidden"></div>
+    </section>
+
+    <!-- Dedicated Match Replay View -->
+    <section id="replay-page-card" class="card hidden">
+      <div class="replay-page-header">
+        <div class="replay-header-top">
+          <button type="button" id="replay-back-btn" class="btn-secondary btn-sm replay-back-btn page-back-btn">
+            <span aria-hidden="true">←</span>
+            <span data-i18n="replay.exit">Exit Replay</span>
+          </button>
+          <div class="replay-header-controls">
+            <div class="replay-round-stepper">
+              <button type="button" id="replay-prev-round-btn" class="btn-icon-control" title="Previous Round" aria-label="Previous Round" data-i18n-title="replay.prev_round">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <span id="replay-round-indicator" class="replay-round-indicator">Round 1 of 10</span>
+              <button type="button" id="replay-next-round-btn" class="btn-icon-control" title="Next Round" aria-label="Next Round" data-i18n-title="replay.next_round">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="replay-header-main">
+          <div class="replay-title-block">
+            <div class="replay-title-row">
+              <h2 class="replay-main-heading">
+                <span class="replay-heading-icon" aria-hidden="true">🎬</span>
+                <span data-i18n="replay.title">Match Replay</span>
+              </h2>
+              <div class="replay-badge-row">
+                <span id="replay-mode-badge" class="badge-tag badge-mode"></span>
+                <span id="replay-type-badge" class="badge-tag badge-type"></span>
+              </div>
+            </div>
+            <p id="replay-match-title" class="replay-match-meta"></p>
+          </div>
+        </div>
+      </div>
+
+      <div id="replay-content-container" class="replay-content-container">
+        <div id="replay-loading-state" class="challenges-loading hidden" data-i18n="challenges_page.loading">Loading...</div>
+        <div id="replay-error-state" class="empty-state hidden" style="padding: 3rem 1rem; text-align: center;">
+          <p style="color: var(--text-muted); font-size: 1.1rem;" id="replay-error-text" data-i18n="replay.not_found">Match replay not found.</p>
+          <button type="button" class="btn-secondary" style="margin-top: 1rem;" id="replay-error-back-btn">
+            ← <span data-i18n="stats.back_to_hub">Back to Hub</span>
+          </button>
+        </div>
+
+        <div id="replay-content-grid" class="replay-content-grid">
+          <!-- Left Stage -->
+          <div class="replay-stage">
+            <!-- Photo & Map Split -->
+            <div id="replay-media-map-row" class="replay-media-map-row">
+              <!-- Reused Media Frame (Image Canvas) -->
+              <div class="replay-photo-card" id="replay-photo-card">
+                <div id="replay-photo-tabs-container"></div>
+                <div id="replay-media-frame" class="media-frame replay-media-frame">
+                  <img id="replay-photo-img" class="quiz-image replay-photo-img" src="" alt="Round photo" />
+                  <button type="button" id="replay-photo-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                    title="Toggle fullscreen image" data-i18n-title="game.fullscreen_image_title">
+                    <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                      stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <polyline points="9 21 3 21 3 15"></polyline>
+                      <line x1="21" y1="3" x2="14" y2="10"></line>
+                      <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                  </button>
+                </div>
+                <div class="replay-photo-caption">
+                  <span id="replay-photo-loc" class="replay-photo-loc">-</span>
+                  <span id="replay-photo-date" class="replay-photo-date">-</span>
+                </div>
+              </div>
+
+              <!-- Reused Standard Map Shell -->
+              <div id="replay-map-shell" class="map-shell replay-map-shell">
+                <div id="replay-leaflet-map"></div>
+              </div>
+            </div>
+
+            <!-- Guesses Breakdown Card -->
+            <div class="replay-guesses-card">
+              <h4>👥 <span data-i18n="replay.player_guess_heading">Player Guesses</span></h4>
+              <div id="replay-guesses-list" class="replay-guesses-list"></div>
+            </div>
+          </div>
+
+          <!-- Right Scoreboard Sidebar -->
+          <div class="replay-scoreboard-card">
+            <h3>
+              <span>🏆 <span data-i18n="replay.scoreboard">Scoreboard</span></span>
+              <span id="replay-scoreboard-round-tag" style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500;"></span>
+            </h3>
+            <div id="replay-standings-list" class="replay-standings-list"></div>
+          </div>
+        </div>
       </div>
     </section>
 

@@ -19,9 +19,9 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
 
     # 2. /stats route
     await page.goto('/stats')
-    await expect(page.locator('#setup-card')).to_be_visible()
-    await expect(page.locator('#leaderboard-card')).to_be_visible()
-    await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
+    await expect(page.locator('#stats-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+    await expect(page.locator('#stats-nav-btn')).to_have_class(re.compile(r'active'))
 
     # 3. /challenges route
     await page.goto('/challenges')
@@ -29,9 +29,10 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await expect(page.locator('#setup-card')).to_be_hidden()
     await expect(page.locator('#challenges-nav-btn')).to_have_class(re.compile(r'active'))
 
-    # Verify both nav items are standard links with href attributes
+    # Verify nav items are standard links with href attributes
     await expect(page.locator('#home-nav-btn')).to_have_attribute('href', '/')
     await expect(page.locator('#challenges-nav-btn')).to_have_attribute('href', '/challenges')
+    await expect(page.locator('#stats-nav-btn')).to_have_attribute('href', '/stats')
 
     # Click home navigation link to return to lobby
     await page.locator('#home-nav-btn').click()
@@ -315,3 +316,37 @@ async def test_in_game_navigation_guard_and_abandon_dialog(page: Page) -> None:
     # Returned to setup lobby
     await expect(page).to_have_url(re.compile(r'/$'))
     await expect(page.locator('#setup-card')).to_be_visible()
+
+
+async def test_prepare_modal_drag_selection_does_not_close(page: Page) -> None:
+    """Verify that releasing mouse outside modal during text selection inside the modal card
+    does not dismiss the modal, and modal only closes when press begins outside on the backdrop.
+    """
+    await page.goto('/')
+    modal = page.locator('#prepare-game-modal')
+    await page.locator('#prepare-game-btn').click()
+    await expect(modal).to_be_visible()
+
+    # Switch to challenge tab
+    await page.locator('#tab-challenge-game').click()
+    name_input = page.locator('#challenge-creator-name-input')
+    await expect(name_input).to_be_visible()
+    await name_input.fill('Rafael Savi')
+
+    # Start drag inside the input and release far outside on the overlay
+    box = await name_input.bounding_box()
+    assert box is not None
+
+    await page.mouse.move(box['x'] + 10, box['y'] + box['height'] / 2)
+    await page.mouse.down()
+    await page.mouse.move(15, 15)
+    await page.mouse.up()
+    await page.wait_for_timeout(100)
+
+    # Modal MUST NOT close on drag-selection release outside
+    await expect(modal).to_be_visible()
+    await expect(name_input).to_have_value('Rafael Savi')
+
+    # Direct click on the backdrop (press and release outside) MUST close the modal
+    await page.mouse.click(15, 15)
+    await expect(modal).to_be_hidden()

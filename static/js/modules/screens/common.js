@@ -28,6 +28,8 @@ export function showCard(cardEl) {
     el.challengesPageCard,
     el.reportedPageCard,
     el.leaderboardCard,
+    el.statsPageCard,
+    el.replayPageCard,
   ].forEach((c) => {
     if (c) c.classList.add("hidden");
   });

@@ -23,6 +23,7 @@ import {
 } from "./setup_filters.js";
 import { loadChallengesList } from "./screens/challenges.js";
 import { getActiveMode } from "./modes/index.js";
+import { attachPlayerAutocomplete } from "./components/player_autocomplete.js";
 import { setupShareBox, SHARE_ICONS } from "./components/share_box.js";
 import { activateFocusTrap, deactivateFocusTrap } from "./components/focus_trap.js";
 
@@ -105,6 +106,9 @@ export function initAdminModal() {
   _formViewEl = document.getElementById("challenge-form-view");
   _titleInput = document.getElementById("challenge-title-input");
   _creatorNameInput = document.getElementById("challenge-creator-name-input");
+  if (_creatorNameInput) {
+    attachPlayerAutocomplete(_creatorNameInput);
+  }
   _expirationSelect = document.getElementById("challenge-expiration");
   _generateBtn = document.getElementById("challenge-generate-btn");
   _startMatchBtn = document.getElementById("start-match-btn");
@@ -139,11 +143,16 @@ export function initAdminModal() {
   if (_localCancelBtn) _localCancelBtn.addEventListener("click", closeAdminModal);
   if (_challengeCancelBtn) _challengeCancelBtn.addEventListener("click", closeAdminModal);
 
-  // Close on backdrop click
+  // Close on backdrop click (only if mouse/touch was pressed outside on the backdrop)
+  let _isBackdropPress = false;
+  _modalEl.addEventListener("pointerdown", (e) => {
+    _isBackdropPress = (e.target === _modalEl);
+  });
   _modalEl.addEventListener("click", (e) => {
-    if (e.target === _modalEl) {
+    if (_isBackdropPress && e.target === _modalEl) {
       closeAdminModal();
     }
+    _isBackdropPress = false;
   });
 
   // Close on Escape

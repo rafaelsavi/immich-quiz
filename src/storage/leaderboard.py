@@ -10,24 +10,37 @@ from typing import Any
 
 from src.app_logging import LOGGER_STORAGE, get_logger
 from src.models import (
+    AccuracyTierBucket,
     BaseGameConfig,
     ChallengeAlbumShuffleGuessData,
     ChallengeLeaderboardEntry,
     ChallengePinpointGuessData,
     ChallengeRoundGuessData,
     GameMode,
+    GameModeStats,
     GameSetupRequest,
     LeaderboardEntry,
     LeaderboardQuery,
     MatchConfig,
+    MatchHistoryItem,
+    MatchReplayBatchPhoto,
+    MatchReplayPlayerGuess,
+    MatchReplayResponse,
+    MatchReplayRound,
     MatchSummaryPlayer,
     MatchSummaryResponse,
     PeopleMode,
+    PlayerAccuracyAnalytics,
+    PlayerNameSuggestion,
+    PlayerPerformanceStats,
+    PlayerProfileResponse,
+    PlayerSummaryItem,
     PlayMode,
     RoundLength,
     SupportedLanguage,
 )
 from src.scoring import accuracy_pct, max_possible_score
+from src.storage.challenge import PLAYER_COLORS
 from src.storage.db import DatabaseManager
 
 logger = get_logger(LOGGER_STORAGE)
@@ -83,6 +96,7 @@ CREATE TABLE IF NOT EXISTS match_entries (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     match_id           TEXT NOT NULL,
     player_name        TEXT NOT NULL,
+    player_color       TEXT,                          -- Hex color assigned to player
     location_score     INTEGER,
     date_score         INTEGER,
     total_score        INTEGER NOT NULL,
@@ -280,6 +294,16 @@ def _parse_iso_datetime(val: str | None) -> datetime:
     return datetime.now(UTC)
 
 
+def _deterministic_player_color(player_name: str, custom_color: str | None = None) -> str:
+    """Return an assigned or deterministic hexadecimal color for a player."""
+    if custom_color:
+        return custom_color
+    if not player_name:
+        return PLAYER_COLORS[0]
+    idx = sum(ord(c) for c in player_name.lower()) % len(PLAYER_COLORS)
+    return PLAYER_COLORS[idx]
+
+
 class LeaderboardStore:
     """Manages persistent match history, player leaderboards, and detailed round guesses in SQLite."""
 
@@ -333,6 +357,22 @@ class LeaderboardStore:
                         ON challenge_sessions(challenge_id, player_name COLLATE NOCASE)
                     """
                 )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_match_round_guesses_player
+                    ON match_round_guesses(player_name COLLATE NOCASE)
+                """
+            )
+            cursor_e = conn.execute('PRAGMA table_info(match_entries)')
+            existing_entry_cols = {row[1] for row in cursor_e.fetchall()}
+            if existing_entry_cols and 'player_color' not in existing_entry_cols:
+                conn.execute('ALTER TABLE match_entries ADD COLUMN player_color TEXT')
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_match_entries_player_nocase
+                    ON match_entries(player_name COLLATE NOCASE)
+                """
+            )
 
     def append_match(
         self,
@@ -415,6 +455,15 @@ class LeaderboardStore:
                 ),
             )
 
+            config_players = getattr(config, 'players', None) or []
+            player_colors_map: dict[str, str] = {}
+            if config_players:
+                for c_idx, p in enumerate(config_players):
+                    player_colors_map[p] = PLAYER_COLORS[c_idx % len(PLAYER_COLORS)]
+            else:
+                for o_idx, p in enumerate(ordered_players):
+                    player_colors_map[p] = PLAYER_COLORS[o_idx % len(PLAYER_COLORS)]
+
             rank = 0
             previous_total: int | None = None
             for idx, player in enumerate(ordered_players):
@@ -429,18 +478,20 @@ class LeaderboardStore:
                 loc_score = scores.get('location') if config.location_mode else None
                 dt_score = scores.get('date') if config.date_mode else None
                 total_time = player_times.get(player) if player_times else None
+                p_color = player_colors_map.get(player, PLAYER_COLORS[idx % len(PLAYER_COLORS)])
 
                 conn.execute(
                     """
                     INSERT INTO match_entries (
-                        match_id, player_name, location_score, date_score,
+                        match_id, player_name, player_color, location_score, date_score,
                         total_score, max_possible_score, accuracy_pct,
                         rank, is_winner, total_time_seconds
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         match_id,
                         player,
+                        p_color,
                         loc_score,
                         dt_score,
                         total,
@@ -802,9 +853,32 @@ class LeaderboardStore:
         )
         winners = [r['player_name'] for r in entry_rows if r['is_winner']]
 
+        player_colors: dict[str, str] = {
+            r['player_name']: r['player_color'] for r in entry_rows if r.get('player_color')
+        }
+        if len(player_colors) < len(entry_rows):
+            guess_order_rows = self._db.fetch_all(
+                """
+                SELECT player_name, MIN(id) as first_id
+                FROM match_round_guesses
+                WHERE match_id = ?
+                GROUP BY player_name
+                ORDER BY first_id ASC
+                """,
+                (match_id,),
+            )
+            ordered_match_players: list[str] = [r['player_name'] for r in guess_order_rows]
+            for r in entry_rows:
+                if r['player_name'] not in ordered_match_players:
+                    ordered_match_players.append(r['player_name'])
+            for p_idx, p_name in enumerate(ordered_match_players):
+                if p_name not in player_colors:
+                    player_colors[p_name] = PLAYER_COLORS[p_idx % len(PLAYER_COLORS)]
+
         players = [
             MatchSummaryPlayer(
                 player_name=r['player_name'],
+                player_color=player_colors.get(r['player_name']),
                 location_score=r['location_score'],
                 date_score=r['date_score'],
                 total_score=r['total_score'],
@@ -1119,17 +1193,23 @@ class LeaderboardStore:
                 ),
             )
 
+            session_row = conn.execute(
+                'SELECT player_color FROM challenge_sessions WHERE challenge_id = ? AND player_name = ? COLLATE NOCASE',
+                (challenge_id, player_name),
+            ).fetchone()
+            assigned_color = session_row[0] if session_row and session_row[0] else PLAYER_COLORS[0]
             conn.execute(
                 """
                 INSERT INTO match_entries (
-                    match_id, player_name, location_score, date_score,
+                    match_id, player_name, player_color, location_score, date_score,
                     total_score, max_possible_score, accuracy_pct,
                     rank, is_winner, total_time_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?)
                 """,
                 (
                     match_id,
                     player_name,
+                    assigned_color,
                     location_score if location_mode else None,
                     date_score if date_mode else None,
                     total_score,
@@ -1486,4 +1566,689 @@ class LeaderboardStore:
             rows,
             {'game_mode': game_mode, 'location_mode': location_mode},
             capability_token=capability_token,
+        )
+
+    def get_known_player_names(self, query: str | None = None, limit: int = 30) -> list[PlayerNameSuggestion]:
+        """Query distinct known player names for autocomplete and history legacy."""
+        params: list[Any] = []
+        sql = """
+        SELECT
+            e.player_name,
+            COUNT(DISTINCT e.match_id) as match_count,
+            MAX(m.played_at) as last_played_at,
+            MAX(cs.player_color) as custom_color
+        FROM match_entries e
+        JOIN matches m ON e.match_id = m.match_id
+        LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name COLLATE NOCASE
+        """
+        if query and query.strip():
+            sql += ' WHERE e.player_name LIKE ? COLLATE NOCASE '
+            params.append(f'%{query.strip()}%')
+        sql += """
+        GROUP BY e.player_name COLLATE NOCASE
+        ORDER BY match_count DESC, last_played_at DESC
+        LIMIT ?
+        """
+        params.append(max(1, min(limit, 100)))
+        rows = self._db.fetch_all(sql, params)
+        return [
+            PlayerNameSuggestion(
+                player_name=r['player_name'],
+                match_count=int(r['match_count'] or 0),
+                last_played_at=r['last_played_at'],
+                avatar_color=_deterministic_player_color(r['player_name'], r.get('custom_color')),
+            )
+            for r in rows
+        ]
+
+    def get_all_players_directory(
+        self,
+        search: str | None = None,
+        sort_by: str = 'matches',
+        limit: int = 100,
+    ) -> list[PlayerSummaryItem]:
+        """Return aggregated roster summary across all players with search and sorting."""
+        params: list[Any] = []
+        sql = """
+        SELECT
+            e.player_name,
+            COUNT(DISTINCT e.match_id) as matches_played,
+            SUM(e.is_winner) as matches_won,
+            ROUND(AVG(e.accuracy_pct), 1) as avg_accuracy_pct,
+            SUM(e.total_score) as career_points,
+            MAX(m.played_at) as last_played_at,
+            MAX(cs.player_color) as custom_color
+        FROM match_entries e
+        JOIN matches m ON e.match_id = m.match_id
+        LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name COLLATE NOCASE
+        """
+        if search and search.strip():
+            sql += ' WHERE e.player_name LIKE ? COLLATE NOCASE '
+            params.append(f'%{search.strip()}%')
+        sql += ' GROUP BY e.player_name COLLATE NOCASE '
+
+        if sort_by == 'wins':
+            sql += ' ORDER BY matches_won DESC, matches_played DESC, avg_accuracy_pct DESC '
+        elif sort_by == 'win_rate':
+            sql += ' ORDER BY (CAST(SUM(e.is_winner) AS FLOAT) / COUNT(DISTINCT e.match_id)) DESC, matches_played DESC '
+        elif sort_by in ('points', 'score'):
+            sql += ' ORDER BY career_points DESC, matches_played DESC '
+        elif sort_by == 'name':
+            sql += ' ORDER BY e.player_name COLLATE NOCASE ASC '
+        elif sort_by == 'accuracy':
+            sql += ' ORDER BY avg_accuracy_pct DESC, matches_played DESC '
+        elif sort_by == 'recent':
+            sql += ' ORDER BY last_played_at DESC '
+        else:  # default 'matches'
+            sql += ' ORDER BY matches_played DESC, matches_won DESC, avg_accuracy_pct DESC '
+
+        sql += ' LIMIT ? '
+        params.append(max(1, min(limit, 500)))
+
+        rows = self._db.fetch_all(sql, params)
+        items: list[PlayerSummaryItem] = []
+        for r in rows:
+            m_played = int(r['matches_played'] or 0)
+            m_won = int(r['matches_won'] or 0)
+            win_rate = round((m_won / m_played) * 100.0, 1) if m_played > 0 else 0.0
+            items.append(
+                PlayerSummaryItem(
+                    player_name=r['player_name'],
+                    avatar_color=_deterministic_player_color(r['player_name'], r.get('custom_color')),
+                    matches_played=m_played,
+                    matches_won=m_won,
+                    win_rate_pct=win_rate,
+                    avg_accuracy_pct=float(r['avg_accuracy_pct'] or 0.0),
+                    career_points=int(r['career_points'] or 0),
+                    last_played_at=r['last_played_at'],
+                )
+            )
+        return items
+
+    def get_player_profile(self, player_name: str) -> PlayerProfileResponse | None:
+        """Query and compute rich lifetime statistics, performance tiers, and match history for a player."""
+        overall_row = self._db.fetch_one(
+            """
+            SELECT
+                e.player_name,
+                COUNT(DISTINCT e.match_id) as matches_played,
+                SUM(e.is_winner) as matches_won,
+                COUNT(CASE WHEN e.rank <= 3 THEN 1 END) as podiums_count,
+                MAX(e.accuracy_pct) as peak_match_accuracy_pct,
+                ROUND(AVG(e.accuracy_pct), 1) as avg_accuracy_pct,
+                SUM(e.total_score) as career_points,
+                MIN(m.played_at) as first_played_at,
+                MAX(m.played_at) as last_played_at,
+                MAX(cs.player_color) as custom_color
+            FROM match_entries e
+            JOIN matches m ON e.match_id = m.match_id
+            LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name COLLATE NOCASE
+            WHERE e.player_name = ? COLLATE NOCASE
+            GROUP BY e.player_name COLLATE NOCASE
+            """,
+            (player_name,),
+        )
+        if not overall_row or int(overall_row['matches_played'] or 0) == 0:
+            return None
+
+        canonical_name = str(overall_row['player_name'])
+        m_played = int(overall_row['matches_played'])
+        m_won = int(overall_row['matches_won'] or 0)
+        win_rate = round((m_won / m_played) * 100.0, 1) if m_played > 0 else 0.0
+        avg_acc = float(overall_row['avg_accuracy_pct'] or 0.0)
+
+        rounds_row = self._db.fetch_one(
+            'SELECT COUNT(id) as cnt FROM match_round_guesses WHERE player_name = ? COLLATE NOCASE',
+            (player_name,),
+        )
+        total_rounds = int(rounds_row['cnt'] or 0) if rounds_row else 0
+
+        if win_rate >= 60.0 and m_played >= 10:
+            legacy_title = 'Grandmaster'
+        elif avg_acc >= 90.0:
+            legacy_title = 'Deadeye'
+        elif m_won >= 5:
+            legacy_title = 'Champion'
+        elif m_played >= 10:
+            legacy_title = 'Veteran'
+        else:
+            legacy_title = 'Contender'
+
+        color = _deterministic_player_color(canonical_name, overall_row.get('custom_color'))
+
+        perf_stats = PlayerPerformanceStats(
+            player_name=canonical_name,
+            avatar_color=color,
+            legacy_title=legacy_title,
+            matches_played=m_played,
+            matches_won=m_won,
+            win_rate_pct=win_rate,
+            podiums_count=int(overall_row['podiums_count'] or 0),
+            peak_match_accuracy_pct=float(overall_row['peak_match_accuracy_pct'] or 0.0),
+            avg_accuracy_pct=avg_acc,
+            career_points=int(overall_row['career_points'] or 0),
+            total_rounds_played=total_rounds,
+            first_played_at=overall_row['first_played_at'],
+            last_played_at=overall_row['last_played_at'],
+        )
+
+        guesses = self._db.fetch_all(
+            """
+            SELECT
+                game_mode, distance_km, location_points,
+                guess_date, actual_date, date_points,
+                round_score, time_taken_seconds, timed_out
+            FROM match_round_guesses
+            WHERE player_name = ? COLLATE NOCASE
+            """,
+            (player_name,),
+        )
+
+        # Location performance tiers (90-100%, 75-89%, 50-74%, <50%)
+        loc_guesses = [g for g in guesses if g.get('location_points') is not None]
+        tot_loc = len(loc_guesses)
+        loc_top = sum(1 for g in loc_guesses if float(g['location_points']) >= 90.0)
+        loc_great = sum(1 for g in loc_guesses if 75.0 <= float(g['location_points']) < 90.0)
+        loc_mod = sum(1 for g in loc_guesses if 50.0 <= float(g['location_points']) < 75.0)
+        loc_low = sum(1 for g in loc_guesses if float(g['location_points']) < 50.0)
+
+        loc_tiers = [
+            AccuracyTierBucket(
+                tier_key='top',
+                label='Top Tier (90–100%)',
+                count=loc_top,
+                percentage=round((loc_top / tot_loc) * 100.0, 1) if tot_loc > 0 else 0.0,
+            ),
+            AccuracyTierBucket(
+                tier_key='great',
+                label='Great (75–89%)',
+                count=loc_great,
+                percentage=round((loc_great / tot_loc) * 100.0, 1) if tot_loc > 0 else 0.0,
+            ),
+            AccuracyTierBucket(
+                tier_key='moderate',
+                label='Moderate (50–74%)',
+                count=loc_mod,
+                percentage=round((loc_mod / tot_loc) * 100.0, 1) if tot_loc > 0 else 0.0,
+            ),
+            AccuracyTierBucket(
+                tier_key='low',
+                label='Low (<50%)',
+                count=loc_low,
+                percentage=round((loc_low / tot_loc) * 100.0, 1) if tot_loc > 0 else 0.0,
+            ),
+        ]
+
+        dist_vals = [float(g['distance_km']) for g in loc_guesses if g.get('distance_km') is not None]
+        best_dist = round(min(dist_vals), 2) if dist_vals else None
+        perf_loc_rounds = sum(1 for g in loc_guesses if float(g['location_points']) >= 100.0)
+
+        # Date performance tiers (90-100%, 75-89%, 50-74%, <50%)
+        date_guesses = [g for g in guesses if g.get('date_points') is not None]
+        tot_date = len(date_guesses)
+        date_top = sum(1 for g in date_guesses if float(g['date_points']) >= 90.0)
+        date_great = sum(1 for g in date_guesses if 75.0 <= float(g['date_points']) < 90.0)
+        date_mod = sum(1 for g in date_guesses if 50.0 <= float(g['date_points']) < 75.0)
+        date_low = sum(1 for g in date_guesses if float(g['date_points']) < 50.0)
+
+        date_tiers = [
+            AccuracyTierBucket(
+                tier_key='top',
+                label='Top Tier (90–100%)',
+                count=date_top,
+                percentage=round((date_top / tot_date) * 100.0, 1) if tot_date > 0 else 0.0,
+            ),
+            AccuracyTierBucket(
+                tier_key='great',
+                label='Great (75–89%)',
+                count=date_great,
+                percentage=round((date_great / tot_date) * 100.0, 1) if tot_date > 0 else 0.0,
+            ),
+            AccuracyTierBucket(
+                tier_key='moderate',
+                label='Moderate (50–74%)',
+                count=date_mod,
+                percentage=round((date_mod / tot_date) * 100.0, 1) if tot_date > 0 else 0.0,
+            ),
+            AccuracyTierBucket(
+                tier_key='low',
+                label='Low (<50%)',
+                count=date_low,
+                percentage=round((date_low / tot_date) * 100.0, 1) if tot_date > 0 else 0.0,
+            ),
+        ]
+
+        date_rows = [g for g in guesses if g.get('guess_date') and g.get('actual_date')]
+        exact_ym_count = sum(1 for g in date_rows if str(g['guess_date'])[:7] == str(g['actual_date'])[:7])
+        exact_y_count = sum(1 for g in date_rows if str(g['guess_date'])[:4] == str(g['actual_date'])[:4])
+        exact_ym_pct = round((exact_ym_count / len(date_rows)) * 100.0, 1) if date_rows else 0.0
+        exact_y_pct = round((exact_y_count / len(date_rows)) * 100.0, 1) if date_rows else 0.0
+        perf_date_rounds = sum(1 for g in date_guesses if float(g['date_points']) >= 100.0)
+
+        # Speed and response time
+        times = [
+            float(g['time_taken_seconds'])
+            for g in guesses
+            if g.get('time_taken_seconds') and float(g['time_taken_seconds']) > 0
+        ]
+        avg_time = round(sum(times) / len(times), 1) if times else 0.0
+        fast_cands = [t for t in times if t >= 0.5]
+        fastest_time = round(min(fast_cands), 1) if fast_cands else 0.0
+        tot_active_time = round(sum(times), 1)
+
+        # Game mode mastery
+        mode_rows = self._db.fetch_all(
+            """
+            SELECT
+                m.game_mode,
+                COUNT(DISTINCT m.match_id) as matches_played,
+                SUM(e.is_winner) as wins,
+                ROUND(AVG(e.accuracy_pct), 1) as avg_accuracy_pct
+            FROM match_entries e
+            JOIN matches m ON e.match_id = m.match_id
+            WHERE e.player_name = ? COLLATE NOCASE
+            GROUP BY m.game_mode
+            """,
+            (player_name,),
+        )
+        mode_data_map: dict[str, GameModeStats] = {}
+        for mr in mode_rows:
+            g_m = str(mr['game_mode'])
+            mp = int(mr['matches_played'])
+            w = int(mr['wins'] or 0)
+            wr = round((w / mp) * 100.0, 1) if mp > 0 else 0.0
+            mode_data_map[g_m] = GameModeStats(
+                game_mode=g_m,
+                matches_played=mp,
+                wins=w,
+                win_rate_pct=wr,
+                avg_accuracy_pct=float(mr['avg_accuracy_pct'] or 0.0),
+            )
+
+        standard_modes = [GameMode.pinpoint.value, GameMode.album_shuffle.value]
+        mode_mastery: list[GameModeStats] = []
+        for sm in standard_modes:
+            if sm in mode_data_map:
+                mode_mastery.append(mode_data_map[sm])
+            else:
+                mode_mastery.append(
+                    GameModeStats(
+                        game_mode=sm,
+                        matches_played=0,
+                        wins=0,
+                        win_rate_pct=0.0,
+                        avg_accuracy_pct=0.0,
+                    )
+                )
+        for k, v in mode_data_map.items():
+            if k not in standard_modes:
+                mode_mastery.append(v)
+
+        cadence_row = self._db.fetch_one(
+            """
+            SELECT m.rounds, m.round_length, COUNT(*) as cnt
+            FROM matches m
+            JOIN match_entries e ON m.match_id = e.match_id
+            WHERE e.player_name = ? COLLATE NOCASE
+            GROUP BY m.rounds, m.round_length
+            ORDER BY cnt DESC
+            LIMIT 1
+            """,
+            (player_name,),
+        )
+        pref_cadence = (
+            f'{cadence_row["rounds"]} rounds • {cadence_row["round_length"]}' if cadence_row else '10 rounds • 1m'
+        )
+
+        avg_loc_acc = (
+            round(sum(float(g['location_points']) for g in loc_guesses) / len(loc_guesses), 1) if loc_guesses else 0.0
+        )
+        avg_date_acc = (
+            round(sum(float(g['date_points']) for g in date_guesses) / len(date_guesses), 1) if date_guesses else 0.0
+        )
+
+        analytics = PlayerAccuracyAnalytics(
+            location_tiers=loc_tiers,
+            avg_location_accuracy_pct=avg_loc_acc,
+            best_distance_km=best_dist,
+            perfect_location_rounds_count=perf_loc_rounds,
+            date_tiers=date_tiers,
+            avg_date_accuracy_pct=avg_date_acc,
+            exact_year_month_pct=exact_ym_pct,
+            exact_year_pct=exact_y_pct,
+            perfect_date_rounds_count=perf_date_rounds,
+            avg_response_time_seconds=avg_time,
+            fastest_response_time_seconds=fastest_time,
+            total_active_time_seconds=tot_active_time,
+            mode_mastery=mode_mastery,
+            preferred_cadence=pref_cadence,
+        )
+
+        recent_rows = self._db.fetch_all(
+            """
+            SELECT
+                m.match_id,
+                m.played_at,
+                m.play_mode,
+                m.game_mode,
+                m.rounds,
+                m.round_length,
+                m.player_count,
+                e.rank,
+                e.is_winner,
+                e.total_score,
+                e.max_possible_score,
+                e.accuracy_pct
+            FROM match_entries e
+            JOIN matches m ON e.match_id = m.match_id
+            WHERE e.player_name = ? COLLATE NOCASE
+            ORDER BY m.played_at DESC
+            LIMIT 15
+            """,
+            (player_name,),
+        )
+        recent_matches = [
+            {
+                'match_id': r['match_id'],
+                'played_at': r['played_at'],
+                'play_mode': r['play_mode'],
+                'game_mode': r['game_mode'],
+                'rounds': int(r['rounds']),
+                'round_length': r['round_length'],
+                'player_count': int(r['player_count']),
+                'rank': int(r['rank']),
+                'is_winner': bool(r['is_winner']),
+                'total_score': int(r['total_score']),
+                'max_possible_score': int(r['max_possible_score']),
+                'accuracy_pct': float(r['accuracy_pct']),
+            }
+            for r in recent_rows
+        ]
+
+        return PlayerProfileResponse(
+            player=perf_stats,
+            analytics=analytics,
+            recent_matches=recent_matches,
+        )
+
+    def list_matches_history(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        game_mode: str | None = None,
+        play_mode: str | None = None,
+        player_name: str | None = None,
+    ) -> list[MatchHistoryItem]:
+        """Query paginated match history records for the Match Replays catalog."""
+        clauses: list[str] = []
+        params: list[Any] = []
+
+        if game_mode:
+            clauses.append('m.game_mode = ?')
+            params.append(game_mode)
+        if play_mode:
+            clauses.append('m.play_mode = ?')
+            params.append(play_mode)
+        if player_name:
+            clauses.append('m.match_id IN (SELECT match_id FROM match_entries WHERE player_name = ? COLLATE NOCASE)')
+            params.append(player_name)
+
+        where_sql = f'WHERE {" AND ".join(clauses)}' if clauses else ''
+
+        sql = f"""
+        SELECT
+            m.match_id,
+            m.played_at,
+            m.play_mode,
+            m.game_mode,
+            m.rounds,
+            m.round_length,
+            m.player_count,
+            m.duration_seconds
+        FROM matches m
+        {where_sql}
+        ORDER BY m.played_at DESC
+        LIMIT ? OFFSET ?
+        """
+        params.extend([max(1, min(limit, 200)), max(0, offset)])
+        match_rows = self._db.fetch_all(sql, params)
+        if not match_rows:
+            return []
+
+        match_ids = [r['match_id'] for r in match_rows]
+        placeholders = ', '.join('?' for _ in match_ids)
+        entry_rows = self._db.fetch_all(
+            f"""
+            SELECT match_id, player_name, total_score, accuracy_pct, is_winner
+            FROM match_entries
+            WHERE match_id IN ({placeholders})
+            ORDER BY rank ASC
+            """,
+            match_ids,
+        )
+        entries_by_match: dict[str, list[dict[str, Any]]] = {}
+        for er in entry_rows:
+            entries_by_match.setdefault(er['match_id'], []).append(er)
+
+        items: list[MatchHistoryItem] = []
+        for mr in match_rows:
+            m_id = mr['match_id']
+            m_entries = entries_by_match.get(m_id, [])
+            players = [e['player_name'] for e in m_entries]
+            winners = [e['player_name'] for e in m_entries if e['is_winner']]
+            top_score = max((int(e['total_score']) for e in m_entries), default=0)
+            top_acc = max((float(e['accuracy_pct']) for e in m_entries), default=0.0)
+
+            items.append(
+                MatchHistoryItem(
+                    match_id=m_id,
+                    played_at=mr['played_at'],
+                    play_mode=mr['play_mode'],
+                    game_mode=mr['game_mode'],
+                    rounds=int(mr['rounds']),
+                    round_length=mr.get('round_length') or '1m',
+                    player_count=int(mr['player_count']),
+                    duration_seconds=float(mr['duration_seconds']) if mr.get('duration_seconds') is not None else None,
+                    winners=winners,
+                    players=players,
+                    top_score=top_score,
+                    top_accuracy_pct=top_acc,
+                )
+            )
+        return items
+
+    def get_match_replay(self, match_id: str) -> MatchReplayResponse | None:
+        """Query and reconstruct full round-by-round replay data with player guesses and running scores."""
+        match_row = self._db.fetch_one('SELECT * FROM matches WHERE match_id = ?', (match_id,))
+        if not match_row:
+            return None
+
+        entry_rows = self._db.fetch_all(
+            'SELECT * FROM match_entries WHERE match_id = ? ORDER BY rank ASC, player_name ASC',
+            (match_id,),
+        )
+        winners = [r['player_name'] for r in entry_rows if r['is_winner']]
+        # 1. Existing player colors from match_entries
+        player_colors: dict[str, str] = {
+            r['player_name']: r['player_color'] for r in entry_rows if r.get('player_color')
+        }
+
+        # 2. Challenge session player colors if challenge match
+        challenge_id = match_row.get('challenge_id')
+        if challenge_id:
+            session_rows = self._db.fetch_all(
+                """
+                SELECT player_name, player_color FROM challenge_sessions
+                WHERE challenge_id = ? ORDER BY started_at ASC
+                """,
+                (challenge_id,),
+            )
+            for s in session_rows:
+                if s.get('player_name') and s.get('player_color') and s['player_name'] not in player_colors:
+                    player_colors[s['player_name']] = s['player_color']
+        else:
+            session_rows = self._db.fetch_all(
+                'SELECT player_name, player_color FROM challenge_sessions WHERE match_id = ?',
+                (match_id,),
+            )
+            for s in session_rows:
+                if s.get('player_name') and s.get('player_color') and s['player_name'] not in player_colors:
+                    player_colors[s['player_name']] = s['player_color']
+
+        # 3. For any remaining players without color, determine standard sequence from match roster order
+        guess_order_rows = self._db.fetch_all(
+            """
+            SELECT player_name, MIN(id) as first_id
+            FROM match_round_guesses
+            WHERE match_id = ?
+            GROUP BY player_name
+            ORDER BY first_id ASC
+            """,
+            (match_id,),
+        )
+        ordered_match_players: list[str] = [r['player_name'] for r in guess_order_rows]
+        for r in entry_rows:
+            if r['player_name'] not in ordered_match_players:
+                ordered_match_players.append(r['player_name'])
+
+        for p_idx, p_name in enumerate(ordered_match_players):
+            if p_name not in player_colors:
+                player_colors[p_name] = PLAYER_COLORS[p_idx % len(PLAYER_COLORS)]
+
+        players = [
+            MatchSummaryPlayer(
+                player_name=r['player_name'],
+                player_color=player_colors.get(r['player_name']),
+                location_score=r['location_score'],
+                date_score=r['date_score'],
+                total_score=r['total_score'],
+                max_possible_score=r['max_possible_score'],
+                accuracy_pct=r['accuracy_pct'],
+                rank=r['rank'],
+                is_winner=bool(r['is_winner']),
+            )
+            for r in entry_rows
+        ]
+
+        guess_rows = self._db.fetch_all(
+            """
+            SELECT * FROM match_round_guesses
+            WHERE match_id = ?
+            ORDER BY round_index ASC, photo_index ASC, player_name ASC
+            """,
+            (match_id,),
+        )
+
+        cumulative_scores: dict[str, int] = {p.player_name: 0 for p in players}
+        rounds_by_idx: dict[int, list[dict[str, Any]]] = {}
+        for gr in guess_rows:
+            rounds_by_idx.setdefault(int(gr['round_index']), []).append(gr)
+
+        game_mode = str(match_row['game_mode'])
+        rounds_data: list[MatchReplayRound] = []
+
+        for r_idx in sorted(rounds_by_idx.keys()):
+            r_guesses = rounds_by_idx[r_idx]
+            first_g = r_guesses[0]
+            act_dt = _parse_iso_date(first_g.get('actual_date'))
+
+            batch_photos: list[MatchReplayBatchPhoto] = []
+            if game_mode == 'album_shuffle':
+                unique_pids: dict[str, dict[str, Any]] = {}
+                for g in r_guesses:
+                    pid = g['asset_id']
+                    if pid not in unique_pids:
+                        p_dt = _parse_iso_date(g.get('actual_date'))
+                        unique_pids[pid] = {
+                            'asset_id': pid,
+                            'true_pin_id': g.get('assigned_pin_id'),
+                            'actual_latitude': g.get('actual_latitude'),
+                            'actual_longitude': g.get('actual_longitude'),
+                            'actual_date': g.get('actual_date'),
+                            'actual_year': p_dt.year if p_dt else None,
+                            'actual_month': p_dt.month if p_dt else None,
+                            'actual_city': g.get('actual_city'),
+                            'actual_country': g.get('actual_country'),
+                        }
+                batch_photos = [MatchReplayBatchPhoto(**data) for data in unique_pids.values()]
+
+            guesses_by_player: dict[str, list[dict[str, Any]]] = {}
+            for g in r_guesses:
+                guesses_by_player.setdefault(g['player_name'], []).append(g)
+
+            player_guesses: list[MatchReplayPlayerGuess] = []
+            for p_name, p_g_list in guesses_by_player.items():
+                first_pg = p_g_list[0]
+                round_loc_score = sum(
+                    int(x.get('location_points') or 0) for x in p_g_list if x.get('location_points') is not None
+                )
+                round_date_score = sum(
+                    int(x.get('date_points') or 0) for x in p_g_list if x.get('date_points') is not None
+                )
+                r_score = sum(int(x.get('round_score') or 0) for x in p_g_list)
+                total_time = sum(float(x.get('time_taken_seconds') or 0.0) for x in p_g_list)
+                is_timed_out = any(bool(x.get('timed_out')) for x in p_g_list)
+
+                cumulative_scores[p_name] = cumulative_scores.get(p_name, 0) + r_score
+                p_color = player_colors.get(p_name) or PLAYER_COLORS[0]
+
+                player_guesses.append(
+                    MatchReplayPlayerGuess(
+                        player_name=p_name,
+                        player_color=p_color,
+                        location_score=round_loc_score if match_row.get('location_mode') else None,
+                        date_score=round_date_score if match_row.get('date_mode') else None,
+                        round_score=r_score,
+                        cumulative_score=cumulative_scores[p_name],
+                        time_taken_seconds=round(total_time, 2),
+                        timed_out=is_timed_out,
+                        guess_latitude=first_pg.get('guess_latitude'),
+                        guess_longitude=first_pg.get('guess_longitude'),
+                        distance_km=first_pg.get('distance_km'),
+                        guess_date=first_pg.get('guess_date'),
+                        date_diff_days=first_pg.get('date_diff_days'),
+                        is_correct_location=bool(first_pg['is_correct_location'])
+                        if first_pg.get('is_correct_location') is not None
+                        else None,
+                        is_correct_date_order=bool(first_pg['is_correct_date_order'])
+                        if first_pg.get('is_correct_date_order') is not None
+                        else None,
+                        assigned_pin_id=first_pg.get('assigned_pin_id'),
+                        assigned_timeline_index=first_pg.get('assigned_timeline_index'),
+                    )
+                )
+
+            player_guesses.sort(key=lambda pg: (-pg.cumulative_score, pg.player_name.lower()))
+
+            media_url = f'/api/media/{first_g["asset_id"]}' if first_g.get('asset_id') else None
+            rounds_data.append(
+                MatchReplayRound(
+                    round_number=r_idx + 1,
+                    game_mode=game_mode,
+                    media_url=media_url,
+                    asset_id=first_g.get('asset_id'),
+                    actual_latitude=first_g.get('actual_latitude'),
+                    actual_longitude=first_g.get('actual_longitude'),
+                    actual_date=first_g.get('actual_date'),
+                    actual_year=act_dt.year if act_dt else None,
+                    actual_month=act_dt.month if act_dt else None,
+                    actual_city=first_g.get('actual_city'),
+                    actual_country=first_g.get('actual_country'),
+                    batch_photos=batch_photos,
+                    player_guesses=player_guesses,
+                )
+            )
+
+        return MatchReplayResponse(
+            match_id=match_row['match_id'],
+            played_at=match_row['played_at'],
+            play_mode=match_row['play_mode'],
+            game_mode=match_row['game_mode'],
+            rounds=int(match_row['rounds']),
+            round_length=match_row.get('round_length') or '1m',
+            location_mode=bool(match_row['location_mode']),
+            date_mode=bool(match_row['date_mode']),
+            winners=winners,
+            players=players,
+            rounds_data=rounds_data,
         )

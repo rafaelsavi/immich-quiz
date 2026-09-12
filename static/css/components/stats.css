@@ -1,0 +1,735 @@
+/* === Immich Quiz - Player Statistics, Directory & Profile Styling === */
+
+/* Stats Page Card & Header */
+.stats-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+}
+
+.stats-title-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.badge-stats {
+  display: inline-block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(112, 72, 232, 0.12);
+  color: #7048e8;
+  border: 1px solid rgba(112, 72, 232, 0.24);
+}
+
+.stats-page-desc {
+  color: var(--text-muted, #64748b);
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0 0;
+}
+
+/* Tabs Bar */
+.stats-tabs-bar {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.stats-tab-btn {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.stats-tab-btn:hover {
+  color: var(--text-color, #1e293b);
+  background: var(--bg-hover, rgba(15, 124, 127, 0.06));
+}
+
+.stats-tab-btn.active {
+  color: var(--accent, #0f7c7f);
+  background: rgba(15, 124, 127, 0.1);
+  box-shadow: inset 0 -2px 0 var(--accent, #0f7c7f);
+}
+
+/* Toolbar */
+.stats-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.stats-search-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.stats-search-wrap .search-icon {
+  position: absolute;
+  left: 0.75rem;
+  font-size: 0.9rem;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.stats-search-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  background: var(--bg-card, #ffffff);
+  color: var(--text-color, #1e293b);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stats-search-input:focus {
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 0 0 3px rgba(15, 124, 127, 0.12);
+}
+
+.stats-sort-wrap select,
+.stats-filters-wrap select {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+}
+
+.stats-filters-wrap {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Player Directory Grid */
+.stats-players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.player-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.player-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.08);
+}
+
+.player-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.player-card-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 1.15rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.player-card-meta {
+  overflow: hidden;
+}
+
+.player-card-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-color, #1e293b);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-card-time {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 0.15rem;
+}
+
+.player-card-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+  background: var(--bg-secondary, #f8fafc);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.player-stat-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.player-stat-val {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+.player-stat-lbl {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  letter-spacing: 0.04em;
+  margin-top: 0.15rem;
+}
+
+.player-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--accent, #0f7c7f);
+  font-weight: 600;
+  margin-top: auto;
+}
+
+/* Player Profile View */
+.player-profile-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.player-profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.85rem;
+  padding-bottom: 1.15rem;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.profile-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.player-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.player-hero-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 1.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.player-hero-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+  margin: 0 0 0.3rem 0;
+}
+
+.player-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.player-hero-badge {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: var(--bg-badge, rgba(100, 116, 139, 0.1));
+  color: var(--text-muted, #64748b);
+}
+
+/* KPI Overview Grid */
+.player-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.9rem;
+}
+
+.player-kpi-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.player-kpi-icon {
+  font-size: 1.3rem;
+  margin-bottom: 0.2rem;
+}
+
+.player-kpi-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-color, #0f172a);
+  line-height: 1.1;
+}
+
+.player-kpi-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.player-kpi-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 0.15rem;
+}
+
+/* Accuracy Analytics Section */
+.accuracy-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.accuracy-dimension-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.accuracy-dimension-card h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.accuracy-gauge-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.svg-gauge-wrap {
+  width: 90px;
+  height: 90px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.svg-gauge-wrap svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.svg-gauge-bg {
+  stroke: var(--border-color, #e2e8f0);
+}
+
+.svg-gauge-fill {
+  transition: stroke-dashoffset 0.8s ease-out;
+}
+
+.svg-gauge-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-color, #0f172a);
+}
+
+.accuracy-highlights {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.accuracy-highlight-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+}
+
+.accuracy-highlight-val {
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+.accuracy-highlight-lbl {
+  color: var(--text-muted, #64748b);
+  font-size: 0.8rem;
+}
+
+/* Symmetrical 4 Tiers Progress Bars */
+.tiers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.tier-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tier-label-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tier-name {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-color, #334155);
+}
+
+.tier-count {
+  color: var(--text-muted, #64748b);
+  font-weight: 500;
+}
+
+.tier-bar-track {
+  height: 8px;
+  background: var(--bg-secondary, #f1f5f9);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.tier-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.6s ease-out;
+}
+
+.tier-fill-top {
+  background: #10b981;
+}
+
+.tier-fill-great {
+  background: #3b82f6;
+}
+
+.tier-fill-moderate {
+  background: #f59e0b;
+}
+
+.tier-fill-low {
+  background: #ef4444;
+}
+
+/* Speed & Mode Mastery Cards */
+.meta-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.meta-stat-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.meta-stat-card h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.speed-metrics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.speed-metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.86rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border-color, #f1f5f9);
+}
+
+.speed-metric-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.speed-metric-label {
+  color: var(--text-muted, #64748b);
+}
+
+.speed-metric-value {
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+/* Mode Mastery Split */
+.mode-mastery-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.mode-mastery-box {
+  padding: 0.85rem;
+  border-radius: 10px;
+  background: var(--bg-secondary, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mode-mastery-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.mode-mastery-acc {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--accent, #0f7c7f);
+}
+
+.mode-mastery-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+}
+
+/* Recent Matches Table */
+.recent-matches-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.recent-matches-card h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+}
+
+.recent-matches-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.recent-matches-table th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.recent-matches-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color, #f1f5f9);
+  color: var(--text-color, #1e293b);
+}
+
+.recent-matches-table tr:last-child td {
+  border-bottom: none;
+}
+
+.recent-matches-table th.col-rank,
+.recent-matches-table td.col-rank {
+  width: 50px;
+  text-align: center;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.replay-action-btn {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none;
+}
+
+/* Replays Catalog List */
+.stats-replays-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.replay-catalog-item {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.replay-catalog-item:hover {
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.replay-catalog-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.replay-catalog-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.replay-catalog-title {
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+.replay-catalog-date {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.replay-catalog-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.replay-catalog-winner {
+  font-weight: 600;
+  color: #10b981;
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .player-card,
+[data-theme="dark"] .player-kpi-card,
+[data-theme="dark"] .accuracy-dimension-card,
+[data-theme="dark"] .meta-stat-card,
+[data-theme="dark"] .recent-matches-card,
+[data-theme="dark"] .replay-catalog-item {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .player-card-stats-row,
+[data-theme="dark"] .mode-mastery-box {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .tier-bar-track {
+  background: #334155;
+}
+
+[data-theme="dark"] .recent-matches-table td {
+  border-color: #334155;
+}
+
+[data-theme="dark"] .accuracy-dimension-card h3,
+[data-theme="dark"] .meta-stat-card h3,
+[data-theme="dark"] .recent-matches-card h3,
+[data-theme="dark"] .player-hero-name,
+[data-theme="dark"] .player-kpi-value,
+[data-theme="dark"] .tier-name,
+[data-theme="dark"] .speed-metric-value,
+[data-theme="dark"] .accuracy-highlight-val,
+[data-theme="dark"] .svg-gauge-text {
+  color: #f1f5f9;
+}

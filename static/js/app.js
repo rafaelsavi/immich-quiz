@@ -82,6 +82,17 @@ import {
   openReportedPage,
   refreshReportedPageLanguage,
 } from "./modules/screens/reported.js";
+import {
+  initStats,
+  showStatsHub,
+  showPlayerProfile,
+  refreshStatsPageLanguage,
+} from "./modules/screens/stats.js";
+import {
+  initReplay,
+  showMatchReplay,
+  refreshReplayPageLanguage,
+} from "./modules/screens/replay.js";
 
 // Re-export / configure global mode accessor
 
@@ -171,7 +182,36 @@ async function handleRoute(route) {
   if (el.challengesNavBtn) {
     el.challengesNavBtn.classList.toggle("active", route.type === RouteType.CHALLENGES);
   }
+  if (el.statsNavBtn) {
+    el.statsNavBtn.classList.toggle(
+      "active",
+      route.type === RouteType.STATS ||
+      route.type === RouteType.PLAYER_PROFILE ||
+      route.type === RouteType.GAME_REPLAY
+    );
+  }
   switch (route.type) {
+    case RouteType.STATS: {
+      challenge.reset();
+      clearActiveMatchSession();
+      showStatsHub(route.params.subTab || "players");
+      break;
+    }
+
+    case RouteType.PLAYER_PROFILE: {
+      challenge.reset();
+      clearActiveMatchSession();
+      await showPlayerProfile(route.params.playerName);
+      break;
+    }
+
+    case RouteType.GAME_REPLAY: {
+      challenge.reset();
+      clearActiveMatchSession();
+      await showMatchReplay(route.params.matchId);
+      break;
+    }
+
     case RouteType.GAME_ACTIVE: {
       challenge.reset();
       await routeToActiveGame(route.params.matchId);
@@ -472,6 +512,8 @@ function refreshActiveScreenLanguage() {
   refreshRevealLanguage();
   refreshChallengesPageLanguage();
   refreshReportedPageLanguage();
+  refreshStatsPageLanguage();
+  refreshReplayPageLanguage();
   challenge.refreshLanguage?.();
   const activeMode = getActiveMode();
   activeMode?.refreshHelpModal?.(state.currentQuestion);
@@ -547,6 +589,16 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
   initAdminModal();
   initChallengesPage();
   initReportedPage();
+  initStats();
+  initReplay();
+
+  if (el.statsNavBtn) {
+    el.statsNavBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/stats");
+    });
+  }
+
   initMapFullscreenControls();
   updateHeaderChallengeBadge();
   refreshActiveScreenLanguage();
