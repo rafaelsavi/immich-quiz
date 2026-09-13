@@ -422,8 +422,13 @@ async def test_challenge_multi_tab_session_isolation_and_standings_on_reload(pag
         await expect(page.locator('#game-card')).to_be_visible()
         guess_map = page.locator('#guess-map')
         await expect(guess_map).to_be_visible()
-        await guess_map.click(position={'x': 110, 'y': 110})
-        await page.locator('#submit-answer').click()
+        submit_btn = page.locator('#submit-answer')
+        for _attempt in range(5):
+            await guess_map.click(position={'x': 110, 'y': 110})
+            if await submit_btn.is_enabled():
+                break
+            await page.wait_for_timeout(200)
+        await submit_btn.click()
         await expect(page.locator('#reveal-ui')).to_be_visible()
         await page.locator('#next-round').click()
 
@@ -448,8 +453,13 @@ async def test_challenge_multi_tab_session_isolation_and_standings_on_reload(pag
         await expect(page2.locator('#game-card')).to_be_visible()
         p2_map = page2.locator('#guess-map')
         await expect(p2_map).to_be_visible()
-        await p2_map.click(position={'x': 130, 'y': 130})
-        await page2.locator('#submit-answer').click()
+        submit_btn2 = page2.locator('#submit-answer')
+        for _attempt in range(5):
+            await p2_map.click(position={'x': 130, 'y': 130})
+            if await submit_btn2.is_enabled():
+                break
+            await page2.wait_for_timeout(200)
+        await submit_btn2.click()
         await expect(page2.locator('#reveal-ui')).to_be_visible()
         await page2.locator('#next-round').click()
 

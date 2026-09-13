@@ -634,6 +634,7 @@ export default {
   "admin.ready_to_share": "Desafio Pronto para Compartilhar!",
   "challenges_page.mode_pinpoint": "🎯 Pinpoint",
   "challenges_page.mode_album_shuffle": "🔀 Álbum Embaralhado",
+  "summary.share_failed": "Não foi possível copiar para a área de transferência",
   "nav.stats": "Jogadores",
   "nav.players": "Jogadores",
   "nav.replays": "Replays de Partidas",
@@ -742,5 +743,9 @@ export default {
   "stats.clear_search": "Limpar busca",
   "replay.empty_title": "Nenhum Replay Gravado Ainda",
   "replay.empty_desc": "Partidas concluídas são salvas para você rever palpites rodada a rodada, explorar fotos no mapa e comparar precisão.",
-  "replay.play_match_cta": "Jogar uma Partida"
+  "replay.play_match_cta": "Jogar uma Partida",
+  "stats.player_count_single": "{0} jogador",
+  "stats.player_count_plural": "{0} jogadores",
+  "replay.counter_single": "{0} replay",
+  "replay.counter_plural": "{0} replays"
 };

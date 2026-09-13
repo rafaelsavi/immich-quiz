@@ -1,62 +1,6 @@
 /* Reported Asset Moderation Screen Styles */
 
-/* ----------------------------------------------------------------- Header & Badges */
-.reported-page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1.25rem;
-  margin-bottom: 1.5rem;
-}
-
-.reported-page-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.reported-title-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.badge-reported {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
-  color: #ffffff;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.3rem 0.85rem;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.3);
-}
-
-.reported-page-header h2 {
-  font-size: 1.85rem;
-  font-weight: 700;
-  color: var(--ink);
-  margin: 0.2rem 0;
-  line-height: 1.25;
-}
-
-.reported-page-desc {
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-  margin: 0;
-  max-width: 650px;
-}
-
-.reported-page-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+/* Header, title typography, and moderation badge styles are standardized in components/hub_header.css */
 
 /* ----------------------------------------------------------------- Toolbar (Standardized via components/toolbar.css) */
 

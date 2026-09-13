@@ -170,9 +170,11 @@ CREATE INDEX IF NOT EXISTS idx_matches_filter_scope ON matches(
 );
 CREATE INDEX IF NOT EXISTS idx_match_entries_match_id ON match_entries(match_id);
 CREATE INDEX IF NOT EXISTS idx_match_entries_player ON match_entries(player_name);
+CREATE INDEX IF NOT EXISTS idx_match_entries_player_nocase ON match_entries(player_name COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_match_entries_accuracy ON match_entries(accuracy_pct DESC, total_score DESC);
 CREATE INDEX IF NOT EXISTS idx_match_round_guesses_match ON match_round_guesses(match_id);
 CREATE INDEX IF NOT EXISTS idx_match_round_guesses_match_round ON match_round_guesses(match_id, round_index);
+CREATE INDEX IF NOT EXISTS idx_match_round_guesses_player ON match_round_guesses(player_name COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_challenges_capability ON challenges(capability_token);
 """
 

@@ -136,10 +136,12 @@ function renderPlayerDirectory(players) {
   const totalBadge = document.getElementById("stats-players-total-badge");
   if (totalBadge) {
     if (players && players.length > 0) {
-      totalBadge.textContent = `${players.length} ${players.length === 1 ? "player" : "players"}`;
+      totalBadge.textContent = players.length === 1
+        ? t("stats.player_count_single", players.length)
+        : t("stats.player_count_plural", players.length);
       totalBadge.classList.remove("hidden");
     } else {
-      totalBadge.textContent = "0 players";
+      totalBadge.textContent = t("stats.player_count_plural", 0);
       totalBadge.classList.toggle("hidden", !isFiltered);
     }
   }

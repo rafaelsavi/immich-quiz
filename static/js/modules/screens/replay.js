@@ -608,10 +608,12 @@ function renderMatchesHistory(matches) {
   const totalBadge = document.getElementById("stats-replays-total-badge");
   if (totalBadge) {
     if (matches && matches.length > 0) {
-      totalBadge.textContent = `${matches.length} ${matches.length === 1 ? "replay" : "replays"}`;
+      totalBadge.textContent = matches.length === 1
+        ? t("replay.counter_single", matches.length)
+        : t("replay.counter_plural", matches.length);
       totalBadge.classList.remove("hidden");
     } else {
-      totalBadge.textContent = "0 replays";
+      totalBadge.textContent = t("replay.counter_plural", 0);
       totalBadge.classList.toggle("hidden", !isFiltered);
     }
   }
@@ -720,7 +722,7 @@ function renderMatchesHistory(matches) {
           const initial = playerInitial(playerName);
           const isWinner = winners.includes(playerName) || (typeof p === "object" && p.is_winner);
           const scoreInfo = (typeof p === "object" && p.total_score != null) ? ` (${p.total_score} pts)` : "";
-          const winnerTooltip = isWinner ? ` 🏆 ${t("replay.winner") || "Winner"}` : "";
+          const winnerTooltip = isWinner ? ` 🏆 ${t("replay.winner")}` : "";
           const title = `${escapeHtml(playerName)}${scoreInfo}${winnerTooltip}`;
 
           return `

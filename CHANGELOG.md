@@ -24,12 +24,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables single-click navigation to `/game/:challengeId/replay` directly from any challenge card on both desktop and mobile viewports.
   - Fully localized in English (`en-US`) and Portuguese (`pt-BR`).
 - **Standardized Hub Page Headers (`.hub-page-header`)**:
-  - Unified header layout, title hierarchy, subtitle typography, section badges, and card container padding across **Challenges** (`/challenges`), **Match Replays** (`/replays`), and **Player Directory & Statistics** (`/players`).
-  - Standardized card container padding to `1.5rem` (24px) with responsive `1rem` on mobile, eliminating cramped card margins on Players and Replays.
+  - Unified header layout, title hierarchy, subtitle typography, section badges, and card container padding across **Challenges** (`/challenges`), **Match Replays** (`/replays`), **Player Directory & Statistics** (`/players`), and **Reported Photos Moderation** (`/reported`).
+  - Standardized card container padding to `1.5rem` (24px) with responsive `1rem` on mobile, eliminating cramped card margins on Players, Replays, and Moderation.
   - Standardized headings (`h2`) to `1.85rem` bold with `line-height: 1.2` and unified `0.35rem` vertical gap above descriptions, eliminating the unstyled browser default and `0.8rem` margin gap on Players and Replays.
-  - Standardized section badges with cohesive soft pill styling (`0.75rem` uppercase, `0.24rem 0.65rem` padding, `999px` border radius) and dedicated section theme accents: Teal for Challenges (`.badge-challenges`), Indigo for Match Replays (`.badge-replays`), and Purple for Players (`.badge-players`).
+  - Standardized section badges with cohesive soft pill styling (`0.75rem` uppercase, `0.24rem 0.65rem` padding, `999px` border radius) and dedicated section theme accents: Teal for Challenges (`.badge-challenges`), Indigo for Match Replays (`.badge-replays`), Purple for Players (`.badge-players`), and Rose / Crimson for Moderation (`.badge-reported`).
   - Removed outdated `border-bottom` divider line from `#challenges-page-card` to eliminate duplicate borders above the shaded `.hub-toolbar` deck.
   - Implemented full mobile responsiveness with pinned top-right refresh buttons and dark theme (`[data-theme="dark"]`) support.
+
+### Changed
+- **CSS Architecture & Bloat Cleanup**:
+  - Removed obsolete `.stats-tabs-bar` and `.stats-tab-btn` rules (~120 lines of dead CSS and SVG masks) from `stats.css` following the separation of Players and Match Replays.
+  - Relocated Match Replay catalog card styling (`.replay-catalog-item`, `.replay-item-header`, `.replay-player-chip`, `.replay-item-footer`, etc.) from `stats.css` into `replay.css`, restoring clean stylesheet encapsulation and reducing `stats.css` by ~40%.
+  - Consolidated `.replay-back-btn` to use the standardized `.page-back-btn` from `buttons.css`.
+  - Removed duplicate header rules from `reported.css` in favor of the unified `hub_header.css` system.
+- **Database Schema Indexing**:
+  - Added case-insensitive indices `idx_match_entries_player_nocase` and `idx_match_round_guesses_player` directly to `LEADERBOARD_SCHEMA_SQL` in `src/storage/leaderboard.py`.
+
+### Fixed
+- **Client-Side Localization Sync & Counter Badges**:
+  - Synchronized `summary.share_failed` into client locales (`en_US.js` and `pt_BR.js`), ensuring clipboard failure messages display properly in Portuguese.
+  - Localized telemetry counter badges across Player Directory (`#stats-players-total-badge`) and Match Replays (`#stats-replays-total-badge`) using dynamic pluralized `t(...)` keys in English and Portuguese.
 
 ### Fixed
 - **Player Directory & Statistics Cartesian Product Multiplication**:

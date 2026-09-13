@@ -60,14 +60,15 @@ immich-quiz/
 │       │                active response times per turn.
 │       ├── challenge.py ChallengeStore managing challenges and challenge_sessions SQLite tables.
 │       └── leaderboard.py LeaderboardStore managing the 5-table relational match & challenge
-│                        schema (`challenges`, `challenge_sessions`, `matches`, `match_entries`, `match_round_guesses`).
+│                        schema (`challenges`, `challenge_sessions`, `matches`, `match_entries`, `match_round_guesses`),
+│                        career player performance analytics, and interactive match replay datasets.
 └── static/              Vanilla HTML/CSS/JS frontend.
     ├── index.html       Main quiz application HTML.
     ├── audio-playground.html Interactive Web Audio testing playground page.
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, replay.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
@@ -103,6 +104,8 @@ immich-quiz/
         │   ├── reveal.js    Round results aggregation, reveal rendering, and turn progression.
         │   ├── summary.js   Replay loading from SQLite, podium/awards display, and 404/ended cards.
         │   ├── challenges.js Challenges Hub screen controller (#challenges-page-card, live timers, drawers).
+        │   ├── stats.js     Player Statistics Directory & Profile controller (#stats-page-card).
+        │   ├── replay.js    Match Replays & Replay Viewer controller (#replay-page-card).
         │   └── reported.js  Reported Asset Moderation Dashboard screen controller (#reported-page-card).
         ├── summary/     Post-game summary rendering submodules:
         │   ├── podium.js    3D podium and winner banner.

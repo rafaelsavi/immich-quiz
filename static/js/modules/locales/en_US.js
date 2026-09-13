@@ -634,6 +634,7 @@ export default {
   "admin.ready_to_share": "Challenge Ready to Share!",
   "challenges_page.mode_pinpoint": "🎯 Pinpoint",
   "challenges_page.mode_album_shuffle": "🔀 Album Shuffle",
+  "summary.share_failed": "Failed to copy to clipboard",
   "nav.stats": "Players",
   "nav.players": "Players",
   "nav.replays": "Match Replays",
@@ -742,5 +743,9 @@ export default {
   "stats.clear_search": "Clear search",
   "replay.empty_title": "No Match Replays Recorded Yet",
   "replay.empty_desc": "Completed games are saved so you can rewatch round-by-round guesses, explore photos on the map, and compare player precision.",
-  "replay.play_match_cta": "Play a Match"
+  "replay.play_match_cta": "Play a Match",
+  "stats.player_count_single": "{0} player",
+  "stats.player_count_plural": "{0} players",
+  "replay.counter_single": "{0} replay",
+  "replay.counter_plural": "{0} replays"
 };

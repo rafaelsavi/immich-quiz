@@ -559,6 +559,238 @@ Response:
 
 ---
 
+## Player Statistics & Profiles API
+
+Endpoints powering the Player Directory, career statistics, accuracy tier distributions, and player name autocomplete.
+
+### GET /api/players/names
+
+Returns autocomplete suggestions for known player names ordered by recency and match count.
+
+Query Parameters:
+
+* `q`: Search query substring (default `""`, max 100 characters).
+* `limit`: Maximum suggestions to return (1–50, default `10`).
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "player_name": "Alice",
+    "matches_played": 14,
+    "last_played_at": "2026-09-12T19:30:00Z"
+  }
+]
+```
+
+### GET /api/players
+
+Returns player directory cards with high-level stats and career metrics across matches.
+
+Query Parameters:
+
+* `search`: Case-insensitive name filter (default `""`, max 100 characters).
+* `sort_by`: Sorting field: `matches` (default), `win_rate`, `points`, or `name`.
+* `limit`: Maximum players to return (1–200, default `50`).
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "player_name": "Alice",
+    "avatar_color": "#f25f5c",
+    "matches_played": 14,
+    "matches_won": 9,
+    "win_rate_pct": 64.3,
+    "avg_accuracy_pct": 92.4,
+    "career_points": 18450,
+    "last_played_at": "2026-09-12T19:30:00Z"
+  }
+]
+```
+
+### GET /api/players/{player_name}/profile
+
+Returns comprehensive career performance analytics, symmetrical 4-tier accuracy distributions for Location and Date, mode mastery, and match history for a specific player.
+
+Path Parameters:
+
+* `player_name`: The player's exact or case-insensitive name.
+
+Response (`200 OK`):
+
+```json
+{
+  "player": {
+    "player_name": "Alice",
+    "avatar_color": "#f25f5c",
+    "matches_played": 14,
+    "matches_won": 9,
+    "win_rate_pct": 64.3,
+    "first_place_finishes": 9,
+    "second_place_finishes": 3,
+    "third_place_finishes": 1,
+    "career_points": 18450,
+    "avg_accuracy_pct": 92.4,
+    "peak_match_accuracy_pct": 98.2,
+    "first_played_at": "2026-08-01T14:00:00Z",
+    "last_played_at": "2026-09-12T19:30:00Z"
+  },
+  "analytics": {
+    "location_tiers": [
+      { "tier": "Top Tier", "min_pct": 90.0, "max_pct": 100.0, "count": 28, "pct_of_total": 70.0 },
+      { "tier": "Great", "min_pct": 75.0, "max_pct": 89.9, "count": 8, "pct_of_total": 20.0 },
+      { "tier": "Moderate", "min_pct": 50.0, "max_pct": 74.9, "count": 3, "pct_of_total": 7.5 },
+      { "tier": "Low", "min_pct": 0.0, "max_pct": 49.9, "count": 1, "pct_of_total": 2.5 }
+    ],
+    "avg_location_accuracy_pct": 91.8,
+    "best_distance_km": 0.12,
+    "perfect_location_rounds_count": 12,
+    "date_tiers": [
+      { "tier": "Top Tier", "min_pct": 90.0, "max_pct": 100.0, "count": 30, "pct_of_total": 75.0 },
+      { "tier": "Great", "min_pct": 75.0, "max_pct": 89.9, "count": 6, "pct_of_total": 15.0 },
+      { "tier": "Moderate", "min_pct": 50.0, "max_pct": 74.9, "count": 3, "pct_of_total": 7.5 },
+      { "tier": "Low", "min_pct": 0.0, "max_pct": 49.9, "count": 1, "pct_of_total": 2.5 }
+    ],
+    "avg_date_accuracy_pct": 93.0,
+    "exact_year_month_pct": 65.0,
+    "exact_year_pct": 85.0,
+    "perfect_date_rounds_count": 16,
+    "avg_response_time_seconds": 12.4,
+    "fastest_response_time_seconds": 2.1,
+    "total_active_time_seconds": 496.0,
+    "mode_mastery": [
+      { "game_mode": "pinpoint", "rounds_played": 30, "avg_accuracy_pct": 92.5, "win_rate_pct": 66.7 },
+      { "game_mode": "album_shuffle", "rounds_played": 10, "avg_accuracy_pct": 91.0, "win_rate_pct": 60.0 }
+    ],
+    "preferred_cadence": "1m"
+  },
+  "recent_matches": [
+    {
+      "match_id": "match-uuid-1234",
+      "played_at": "2026-09-12T19:30:00Z",
+      "game_mode": "pinpoint",
+      "play_mode": "local",
+      "rank": 1,
+      "total_score": 1920,
+      "accuracy_pct": 96.0,
+      "player_count": 3
+    }
+  ]
+}
+```
+
+---
+
+## Match History & Interactive Replay API
+
+Endpoints providing searchable match records and detailed step-by-step replay data with round media, actual coordinates, and player guesses.
+
+### GET /api/matches
+
+Returns a paginated list of completed matches for the Match Replays catalog.
+
+Query Parameters:
+
+* `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`).
+* `play_mode`: Filter by play mode (`local`, `challenge`).
+* `player`: Filter by participating player name.
+* `limit`: Page size (1–100, default `30`).
+* `offset`: Pagination offset (default `0`).
+
+Response (`200 OK`):
+
+```json
+[
+  {
+    "match_id": "match-uuid-1234",
+    "played_at": "2026-09-12T19:30:00Z",
+    "play_mode": "local",
+    "game_mode": "pinpoint",
+    "rounds": 5,
+    "round_length": "1m",
+    "player_count": 3,
+    "duration_seconds": 182.5,
+    "winners": ["Alice"],
+    "players": ["Alice", "Bob", "Charlie"],
+    "top_score": 4820,
+    "top_accuracy_pct": 96.4
+  }
+]
+```
+
+### GET /api/match/{match_id}/replay
+
+Fetches round-by-round replay datasets including photo assets, true location coordinates and capture dates, reverse-geocoded place names, and every player's guess coordinates and scores.
+
+Path Parameters:
+
+* `match_id`: Unique identifier of the completed match.
+
+Response (`200 OK`):
+
+```json
+{
+  "match_id": "match-uuid-1234",
+  "played_at": "2026-09-12T19:30:00Z",
+  "play_mode": "local",
+  "game_mode": "pinpoint",
+  "rounds_count": 3,
+  "round_length": "1m",
+  "duration_seconds": 124.0,
+  "config": {
+    "location_mode": true,
+    "date_mode": true,
+    "libraries": ["Family"]
+  },
+  "players": [
+    { "player_name": "Alice", "avatar_color": "#f25f5c", "final_score": 2840, "rank": 1, "is_winner": true },
+    { "player_name": "Bob", "avatar_color": "#ffe066", "final_score": 2410, "rank": 2, "is_winner": false }
+  ],
+  "rounds": [
+    {
+      "round_number": 1,
+      "game_mode": "pinpoint",
+      "asset_id": "asset-uuid-1",
+      "media_url": "/api/media/asset-uuid-1",
+      "actual_latitude": 48.8584,
+      "actual_longitude": 2.2945,
+      "actual_date": "2024-07-14",
+      "actual_year": 2024,
+      "actual_month": 7,
+      "actual_city": "Paris",
+      "actual_country": "France",
+      "batch_photos": [],
+      "player_guesses": [
+        {
+          "player_name": "Alice",
+          "player_color": "#f25f5c",
+          "location_score": 980,
+          "date_score": 1000,
+          "round_score": 1980,
+          "cumulative_score": 1980,
+          "time_taken_seconds": 8.5,
+          "timed_out": false,
+          "guess_latitude": 48.8580,
+          "guess_longitude": 2.2950,
+          "distance_km": 0.06,
+          "guess_date": "2024-07",
+          "date_diff_days": 0,
+          "is_correct_location": true,
+          "is_correct_date_order": true,
+          "assigned_pin_id": null,
+          "assigned_timeline_index": null
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
 ## Flagged Asset Management
 
 ### POST /api/assets/flag

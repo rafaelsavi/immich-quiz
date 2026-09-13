@@ -1968,7 +1968,6 @@ def test_match_replays_catalog_player_chips_and_styling() -> None:
     determine winners from m.winners, and have complete CSS styling for chips and avatars.
     """
     replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
-    stats_css = (STATIC_DIR / 'css' / 'components' / 'stats.css').read_text(encoding='utf-8')
     en_locale = (STATIC_DIR / 'js' / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
     pt_locale = (STATIC_DIR / 'js' / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
 
@@ -1983,30 +1982,30 @@ def test_match_replays_catalog_player_chips_and_styling() -> None:
     assert 'class="replay-player-name"' in replay_js
     assert 'class="replay-winner-crown"' in replay_js
 
-    # 3. CSS rules exist in stats.css
-    assert '.replay-catalog-item {' in stats_css
-    assert '.replay-item-header {' in stats_css
-    assert '.replay-item-body {' in stats_css
-    assert '.replay-player-chip {' in stats_css
-    assert '.replay-player-chip.is-winner {' in stats_css
-    assert '.replay-player-avatar {' in stats_css
-    assert '.replay-player-name {' in stats_css
-    assert '.replay-winner-crown {' in stats_css
-    assert '.replay-item-footer {' in stats_css
+    # 3. CSS rules exist in replay.css
+    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
+    assert '.replay-catalog-item {' in replay_css
+    assert '.replay-item-header {' in replay_css
+    assert '.replay-item-body {' in replay_css
+    assert '.replay-player-chip {' in replay_css
+    assert '.replay-player-chip.is-winner {' in replay_css
+    assert '.replay-player-avatar {' in replay_css
+    assert '.replay-player-name {' in replay_css
+    assert '.replay-winner-crown {' in replay_css
+    assert '.replay-item-footer {' in replay_css
 
     # 4. Locale strings exist
     assert '"replay.winner"' in en_locale
     assert '"replay.winner"' in pt_locale
 
     # 5. Challenge chip formatting in replay and catalog
-    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
     challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
 
     assert 'badge-type-challenge' in replay_js
     assert '.badge-type.badge-type-challenge' in replay_css
-    assert '.replay-item-badges .badge-tag.badge-type-challenge' in stats_css
-    assert 'text-transform: none;' in stats_css
-    assert 'border-radius: 6px;' in stats_css
+    assert '.replay-item-badges .badge-tag.badge-type-challenge' in replay_css
+    assert 'text-transform: none;' in replay_css
+    assert 'border-radius: 6px;' in replay_css
 
     # challenge.css scopes .badge-challenge and does not have an unscoped bare `.badge-challenge {`
     assert not re.search(r'^\.badge-challenge\s*\{', challenge_css, re.MULTILINE)

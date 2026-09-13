@@ -7,7 +7,8 @@
 /* ----------------------------------------------------------------- Hub Card Containers */
 #challenges-page-card,
 #stats-page-card,
-#replays-page-card {
+#replays-page-card,
+#reported-page-card {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -56,9 +57,11 @@
 #challenges-page-card .badge-challenge,
 #stats-page-card .badge-stats,
 #replays-page-card .badge-stats,
+#reported-page-card .badge-reported,
 .badge-challenges,
 .badge-players,
-.badge-replays {
+.badge-replays,
+.badge-reported {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -102,6 +105,14 @@
   border-color: rgba(79, 70, 229, 0.25);
 }
 
+/* Reported Moderation Theme (Rose / Crimson) */
+.badge-reported,
+#reported-page-card .badge-reported {
+  background: rgba(225, 29, 72, 0.12);
+  color: #e11d48;
+  border-color: rgba(225, 29, 72, 0.25);
+}
+
 /* ----------------------------------------------------------------- Headings */
 .hub-page-heading,
 .challenges-page-title-group h2,
@@ -141,7 +152,8 @@
 @media (max-width: 768px) {
   #challenges-page-card,
   #stats-page-card,
-  #replays-page-card {
+  #replays-page-card,
+  #reported-page-card {
     padding: 1rem;
     gap: 1rem;
   }
@@ -197,4 +209,11 @@
   background: rgba(129, 140, 248, 0.16);
   color: #a5b4fc;
   border-color: rgba(129, 140, 248, 0.35);
+}
+
+[data-theme="dark"] .badge-reported,
+[data-theme="dark"] #reported-page-card .badge-reported {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.35);
 }
