@@ -17,9 +17,7 @@ This document lists planned features, design ideas, and technical debt items for
   - [x] Interactive match replay view allowing players to step through past games round-by-round with maps and polaroid cards.
 
 - Phisically block sync from being triggered too often
-- Rename unshufle files
 - review unshuffle mode in replay
-- remove exit button from challenge games
 - add real home button and move current home to a "game" page; formulate 3 levels of access rights: creator / user / guest:
   - (limited user list) creator can access all
   - (broader user list) user can see players page, replays page, challenges page, but cannot create any game or fetch any image not belonging to an existing game created by creator
