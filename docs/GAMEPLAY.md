@@ -11,7 +11,7 @@ The game supports two distinct play modes:
 
 ## Setting Up a Game
 
-All games begin on the main setup screen. Once configured, clicking **🎮 Prepare Game** opens a dialog allowing you to choose between launching a **Local Game** or creating a **Challenge Link**.
+All games begin on the main setup screen. Once configured, clicking **🎮 Prepare Game** opens a dialog allowing you to choose between launching a **Local Game** or creating a **Challenge**.
 
 ### 1. Game Mode
 

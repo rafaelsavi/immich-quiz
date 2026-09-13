@@ -734,26 +734,6 @@
   border-radius: 999px;
 }
 
-.replay-item-meta {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.replay-meta-pill {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted, #64748b);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.replay-acc-pill {
-  color: #10b981;
-}
-
 .replay-item-footer {
   display: flex;
   align-items: center;

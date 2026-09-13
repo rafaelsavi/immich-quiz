@@ -49,39 +49,37 @@
       </div>
       <div class="header-controls">
         <button type="button" id="pwa-install-btn" class="header-icon-btn pwa-install-btn hidden"
-          data-i18n-title="pwa.install_title" data-i18n-aria-label="pwa.install_title"
-          title="Install App" aria-label="Install App">
+          data-i18n-title="pwa.install_title" data-i18n-aria-label="pwa.install_title" title="Install App"
+          aria-label="Install App">
           <span id="pwa-install-icon">📲</span>
         </button>
-        <a href="/" id="home-nav-btn" class="header-icon-btn home-nav-btn"
-          data-i18n-title="nav.home_title" data-i18n-aria-label="nav.home_title"
-          title="Home" aria-label="Home">
+        <a href="/" id="home-nav-btn" class="header-icon-btn home-nav-btn" data-i18n-title="nav.home_title"
+          data-i18n-aria-label="nav.home_title" title="Home" aria-label="Home">
           <span id="home-nav-icon">🏠</span>
         </a>
         <a href="/challenges" id="challenges-nav-btn" class="header-icon-btn challenges-nav-btn"
-          data-i18n-title="nav.challenges_title" data-i18n-aria-label="nav.challenges_title"
-          title="Challenges" aria-label="Challenges">
+          data-i18n-title="nav.challenges_title" data-i18n-aria-label="nav.challenges_title" title="Challenges"
+          aria-label="Challenges">
           <span id="challenges-nav-icon">⚔️</span>
           <span id="header-challenges-badge" class="header-challenges-badge hidden">0</span>
         </a>
-        <a href="/players" id="stats-nav-btn" class="header-icon-btn stats-nav-btn"
-          data-i18n-title="nav.players" data-i18n-aria-label="nav.players"
-          title="Players" aria-label="Players">
+        <a href="/players" id="stats-nav-btn" class="header-icon-btn stats-nav-btn" data-i18n-title="nav.players"
+          data-i18n-aria-label="nav.players" title="Players" aria-label="Players">
           <span id="stats-nav-icon">👥</span>
         </a>
-        <a href="/replays" id="replays-nav-btn" class="header-icon-btn replays-nav-btn"
-          data-i18n-title="nav.replays" data-i18n-aria-label="nav.replays"
-          title="Match Replays" aria-label="Match Replays">
+        <a href="/replays" id="replays-nav-btn" class="header-icon-btn replays-nav-btn" data-i18n-title="nav.replays"
+          data-i18n-aria-label="nav.replays" title="Match Replays" aria-label="Match Replays">
           <span id="replays-nav-icon">🎬</span>
         </a>
         <div class="settings-dropdown" id="settings-dropdown">
           <button type="button" id="settings-toggle-btn" class="header-icon-btn settings-toggle-btn"
-            aria-haspopup="true" aria-expanded="false" aria-label="Settings" data-i18n-title="nav.settings" data-i18n-aria-label="nav.settings" title="Settings">
+            aria-haspopup="true" aria-expanded="false" aria-label="Settings" data-i18n-title="nav.settings"
+            data-i18n-aria-label="nav.settings" title="Settings">
             <span id="settings-icon">⚙️</span>
           </button>
           <div class="settings-menu" id="settings-menu" role="menu" aria-label="Settings">
-            <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn settings-menu-btn" title="Language: English"
-              aria-label="Switch Language">
+            <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn settings-menu-btn"
+              title="Language: English" aria-label="Switch Language">
               <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"
                   aria-hidden="true">
                   <rect width="60" height="60" fill="#012169" />
@@ -117,17 +115,21 @@
                   <span class="mode-desc" data-i18n="mode.pinpoint_desc">1 photo per round</span>
                 </div>
               </button>
-              <button type="button" class="mode-help-btn" id="help-pinpoint-btn" aria-label="Pinpoint Help" title="Pinpoint Help" data-i18n-title="game.pinpoint_help_title" data-i18n-aria-label="game.pinpoint_help_title">?</button>
+              <button type="button" class="mode-help-btn" id="help-pinpoint-btn" aria-label="Pinpoint Help"
+                title="Pinpoint Help" data-i18n-title="game.pinpoint_help_title"
+                data-i18n-aria-label="game.pinpoint_help_title">?</button>
             </div>
             <div class="mode-option">
               <button type="button" class="mode-btn" data-mode="album_shuffle" id="mode-album-shuffle-btn">
                 <span class="mode-icon-wrap" aria-hidden="true">🔀</span>
                 <div class="mode-text-wrap">
-                  <span class="mode-title" data-i18n="mode.album_shuffle">Album Shuffle</span>
+                  <span class="mode-title" data-i18n="mode.album_shuffle">Unshuffle</span>
                   <span class="mode-desc" data-i18n="mode.album_shuffle_desc">3 photos per round</span>
                 </div>
               </button>
-              <button type="button" class="mode-help-btn" id="help-album-shuffle-btn" aria-label="Album Shuffle Help" title="Album Shuffle Help" data-i18n-title="game.shuffle_help_title" data-i18n-aria-label="game.shuffle_help_title">?</button>
+              <button type="button" class="mode-help-btn" id="help-album-shuffle-btn" aria-label="Unshuffle Help"
+                title="Unshuffle Help" data-i18n-title="game.shuffle_help_title"
+                data-i18n-aria-label="game.shuffle_help_title">?</button>
             </div>
           </div>
         </div>
@@ -149,7 +151,8 @@
               <div class="field-head-inline">
                 <label data-i18n="setup.rounds_label">Rounds</label>
               </div>
-              <div class="segmented-control" id="round-count" role="radiogroup" aria-label="Rounds" data-i18n-aria-label="setup.rounds_label">
+              <div class="segmented-control" id="round-count" role="radiogroup" aria-label="Rounds"
+                data-i18n-aria-label="setup.rounds_label">
                 <button type="button" class="segmented-btn" data-value="5">5</button>
                 <button type="button" class="segmented-btn active" data-value="10">10</button>
                 <button type="button" class="segmented-btn" data-value="20">20</button>
@@ -159,12 +162,15 @@
               <div class="field-head-inline">
                 <label data-i18n="setup.round_length_label">Time per Round</label>
               </div>
-              <div class="segmented-control" id="round-length" role="radiogroup" aria-label="Time per Round" data-i18n-aria-label="setup.round_length_label">
+              <div class="segmented-control" id="round-length" role="radiogroup" aria-label="Time per Round"
+                data-i18n-aria-label="setup.round_length_label">
                 <button type="button" class="segmented-btn" data-value="30s" data-i18n="setup.round_30s">30s</button>
-                <button type="button" class="segmented-btn active" data-value="1m" data-i18n="setup.round_1m">1 min</button>
+                <button type="button" class="segmented-btn active" data-value="1m" data-i18n="setup.round_1m">1
+                  min</button>
                 <button type="button" class="segmented-btn" data-value="2m" data-i18n="setup.round_2m">2 min</button>
                 <button type="button" class="segmented-btn" data-value="5m" data-i18n="setup.round_5m">5 min</button>
-                <button type="button" class="segmented-btn" data-value="unlimited" data-i18n="setup.round_unlimited">Unlimited</button>
+                <button type="button" class="segmented-btn" data-value="unlimited"
+                  data-i18n="setup.round_unlimited">Unlimited</button>
               </div>
             </div>
           </div>
@@ -173,7 +179,8 @@
         <!-- Relocated Media & Library Filters Section (Directly Above Action CTA) -->
         <div class="filters-accordion" id="filters-accordion">
           <div class="filters-accordion-header" id="filters-accordion-header">
-            <button type="button" class="accordion-toggle-btn" id="filters-toggle-btn" aria-expanded="false" aria-controls="filters-accordion-content">
+            <button type="button" class="accordion-toggle-btn" id="filters-toggle-btn" aria-expanded="false"
+              aria-controls="filters-accordion-content">
               <div class="accordion-title-wrap">
                 <span class="accordion-icon">
                   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2">
@@ -187,8 +194,8 @@
                 data-i18n="setup.filters_summary_default">All photos</span>
             </button>
             <div class="accordion-meta-wrap">
-              <button type="button" class="sync-library-btn" id="sync-library-btn"
-                data-i18n-title="setup.sync_title" title="Sync metadata from Immich">
+              <button type="button" class="sync-library-btn" id="sync-library-btn" data-i18n-title="setup.sync_title"
+                title="Sync metadata from Immich">
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"
                   class="sync-icon">
                   <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
@@ -316,7 +323,8 @@
         <div class="fullscreen-timer" id="fs-timer-image">
           <div class="fs-timer-head">
             <span class="timer-title-wrap">
-              <svg class="timer-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="timer-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
@@ -352,7 +360,8 @@
                 <div class="fullscreen-timer" id="fs-timer-guess-map">
                   <div class="fs-timer-head">
                     <span class="timer-title-wrap">
-                      <svg class="timer-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <svg class="timer-icon" viewBox="0 0 24 24" width="15" height="15" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="12" cy="12" r="10"></circle>
                         <polyline points="12 6 12 12 16 14"></polyline>
                       </svg>
@@ -396,7 +405,8 @@
         <div class="timer-row">
           <div class="timer-head">
             <span class="timer-title-wrap">
-              <svg class="timer-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg class="timer-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
                 <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
@@ -420,7 +430,8 @@
         <div id="pinpoint-reveal-ui" class="pinpoint-reveal-container">
           <div class="reveal-actual-row pinpoint-actual-row">
             <div id="reveal-actual" class="reveal-actual pinpoint-actual"></div>
-            <button type="button" id="reveal-report-btn" class="btn-report-discrete" title="Report issue with photo" data-i18n-title="report.modal_title" aria-label="Report issue with photo">
+            <button type="button" id="reveal-report-btn" class="btn-report-discrete" title="Report issue with photo"
+              data-i18n-title="report.modal_title" aria-label="Report issue with photo">
               <span aria-hidden="true">🚩</span>
               <span class="report-discrete-text" data-i18n="report.btn_label">Report Issue</span>
             </button>
@@ -469,8 +480,7 @@
 
         <button id="next-round" class="btn-primary next-round-btn" data-i18n="reveal.next_round_btn">Next Round</button>
         <div class="game-actions">
-          <button type="button" id="reveal-restart-btn" class="btn-danger"
-            data-i18n="game.restart_btn">Restart</button>
+          <button type="button" id="reveal-restart-btn" class="btn-danger" data-i18n="game.restart_btn">Restart</button>
           <button type="button" id="reveal-exit-btn" class="btn-danger" data-i18n="game.exit_btn">Exit</button>
         </div>
       </div>
@@ -522,8 +532,10 @@
         <h2 id="game-ended-title">Game Ended</h2>
         <p id="game-ended-msg" class="ended-card-msg">This game session is no longer active.</p>
         <div class="ended-actions">
-          <button type="button" id="game-ended-summary-btn" class="btn-primary" data-i18n="game_ended.view_summary_btn">View Game Summary</button>
-          <button type="button" id="game-ended-lobby-btn" class="btn-secondary" data-i18n="game_ended.return_lobby_btn">Return to Home</button>
+          <button type="button" id="game-ended-summary-btn" class="btn-primary"
+            data-i18n="game_ended.view_summary_btn">View Game Summary</button>
+          <button type="button" id="game-ended-lobby-btn" class="btn-secondary"
+            data-i18n="game_ended.return_lobby_btn">Return to Home</button>
         </div>
       </div>
     </section>
@@ -533,14 +545,19 @@
       <div class="challenges-page-header hub-page-header">
         <div class="challenges-page-title-group hub-page-title-group">
           <div class="challenges-title-badge-row hub-title-badge-row">
-            <span class="badge-challenge hub-page-badge badge-challenges" data-i18n="nav.challenges_title">Challenges</span>
+            <span class="badge-challenge hub-page-badge badge-challenges"
+              data-i18n="nav.challenges_title">Challenges</span>
           </div>
           <h2 class="hub-page-heading" data-i18n="challenges_page.heading">Challenges</h2>
-          <p class="challenges-page-desc hub-page-desc" data-i18n="challenges_page.subtitle">Create, share, and track challenge links to play with friends and family.</p>
+          <p class="challenges-page-desc hub-page-desc" data-i18n="challenges_page.subtitle">Create, share, and track
+            challenge links to play with friends and family.</p>
         </div>
         <div class="challenges-page-head-actions hub-page-head-actions">
-          <button type="button" id="challenges-page-refresh-btn" class="btn-icon-action" title="Refresh list" aria-label="Refresh list" data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+          <button type="button" id="challenges-page-refresh-btn" class="btn-icon-action" title="Refresh list"
+            aria-label="Refresh list" data-i18n-title="challenges_page.refresh_btn"
+            data-i18n-aria-label="challenges_page.refresh_btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
+              class="sync-icon" aria-hidden="true">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
             </svg>
           </button>
@@ -550,29 +567,34 @@
       <!-- Toolbar: Search, Filters & Sorting -->
       <div class="challenges-toolbar">
         <div class="hub-search-box challenges-search-wrap">
-          <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
           <input type="search" id="challenges-search-input" class="hub-search-input challenges-search-input"
             placeholder="Search by title, host, album, person..."
             data-i18n-placeholder="challenges_page.search_placeholder" />
-          <button type="button" id="challenges-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
+          <button type="button" id="challenges-search-clear" class="hub-search-clear hidden" aria-label="Clear search"
+            title="Clear search">✕</button>
         </div>
 
         <div class="hub-filters-group challenges-filters-group">
           <!-- Status filter tabs -->
           <div id="challenges-status-tabs" class="hub-segmented-pills challenges-filter-pills">
-            <button type="button" class="filter-pill active" data-status="all" data-i18n="challenges_page.filter_all">All</button>
-            <button type="button" class="filter-pill" data-status="active" data-i18n="challenges_page.filter_active">Active</button>
-            <button type="button" class="filter-pill" data-status="expired" data-i18n="challenges_page.filter_expired">Expired</button>
+            <button type="button" class="filter-pill active" data-status="all"
+              data-i18n="challenges_page.filter_all">All</button>
+            <button type="button" class="filter-pill" data-status="active"
+              data-i18n="challenges_page.filter_active">Active</button>
+            <button type="button" class="filter-pill" data-status="expired"
+              data-i18n="challenges_page.filter_expired">Expired</button>
           </div>
 
           <!-- Mode filter dropdown -->
           <select id="challenges-mode-filter" class="hub-select select-input challenges-mode-select">
             <option value="all" data-i18n="challenges_page.mode_all">All Game Modes</option>
             <option value="pinpoint" data-i18n="challenges_page.mode_pinpoint">🎯 Pinpoint</option>
-            <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Album Shuffle</option>
+            <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Unshuffle</option>
           </select>
 
           <!-- Sort dropdown -->
@@ -602,11 +624,15 @@
             <span class="badge-reported hub-page-badge" data-i18n="reported_page.badge">Moderation</span>
           </div>
           <h2 class="hub-page-heading" data-i18n="reported_page.heading">Reported Photos</h2>
-          <p class="reported-page-desc hub-page-desc" data-i18n="reported_page.subtitle">Review flagged photos, inspect reported issues, and open Immich Web to fix metadata or resolve reports.</p>
+          <p class="reported-page-desc hub-page-desc" data-i18n="reported_page.subtitle">Review flagged photos, inspect
+            reported issues, and open Immich Web to fix metadata or resolve reports.</p>
         </div>
         <div class="reported-page-head-actions hub-page-head-actions">
-          <button type="button" id="reported-page-refresh-btn" class="btn-icon-action" title="Refresh list" aria-label="Refresh list" data-i18n-title="reported_page.refresh_btn" data-i18n-aria-label="reported_page.refresh_btn">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+          <button type="button" id="reported-page-refresh-btn" class="btn-icon-action" title="Refresh list"
+            aria-label="Refresh list" data-i18n-title="reported_page.refresh_btn"
+            data-i18n-aria-label="reported_page.refresh_btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
+              class="sync-icon" aria-hidden="true">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
             </svg>
           </button>
@@ -616,23 +642,29 @@
       <!-- Toolbar: Search, Filters & Sorting -->
       <div class="reported-toolbar">
         <div class="hub-search-box reported-search-wrap">
-          <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
           <input type="search" id="reported-search-input" class="hub-search-input reported-search-input"
             placeholder="Search by asset ID, reporter, reason..."
             data-i18n-placeholder="reported_page.search_placeholder" />
-          <button type="button" id="reported-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
+          <button type="button" id="reported-search-clear" class="hub-search-clear hidden" aria-label="Clear search"
+            title="Clear search">✕</button>
         </div>
 
         <div class="hub-filters-group reported-filters-group">
           <!-- Issue filter tabs -->
           <div id="reported-issue-tabs" class="hub-segmented-pills reported-filter-pills">
-            <button type="button" class="filter-pill active" data-issue="all" data-i18n="reported_page.filter_all">All</button>
-            <button type="button" class="filter-pill" data-issue="location" data-i18n="reported_page.filter_location">📍 Location</button>
-            <button type="button" class="filter-pill" data-issue="date" data-i18n="reported_page.filter_date">📅 Date</button>
-            <button type="button" class="filter-pill" data-issue="custom" data-i18n="reported_page.filter_custom">📝 Notes</button>
+            <button type="button" class="filter-pill active" data-issue="all"
+              data-i18n="reported_page.filter_all">All</button>
+            <button type="button" class="filter-pill" data-issue="location" data-i18n="reported_page.filter_location">📍
+              Location</button>
+            <button type="button" class="filter-pill" data-issue="date" data-i18n="reported_page.filter_date">📅
+              Date</button>
+            <button type="button" class="filter-pill" data-issue="custom" data-i18n="reported_page.filter_custom">📝
+              Notes</button>
           </div>
 
           <!-- Sort dropdown -->
@@ -667,8 +699,11 @@
           <h2 data-i18n="leaderboard.heading">Leaderboard</h2>
           <span id="leaderboard-scope-pill" class="leaderboard-scope-pill"></span>
         </div>
-        <button type="button" id="refresh-leaderboard" class="btn-icon-action" title="Refresh leaderboard" aria-label="Refresh leaderboard" data-i18n-title="leaderboard.refresh_btn" data-i18n-aria-label="leaderboard.refresh_btn">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+        <button type="button" id="refresh-leaderboard" class="btn-icon-action" title="Refresh leaderboard"
+          aria-label="Refresh leaderboard" data-i18n-title="leaderboard.refresh_btn"
+          data-i18n-aria-label="leaderboard.refresh_btn">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
+            class="sync-icon" aria-hidden="true">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
           </svg>
         </button>
@@ -700,12 +735,16 @@
           <div class="stats-title-badge-row hub-title-badge-row">
             <span class="badge-stats hub-page-badge badge-players" data-i18n="nav.players">Players</span>
           </div>
-          <h2 id="stats-page-heading" class="hub-page-heading" data-i18n="stats.hub_title">Player Directory & Statistics</h2>
-          <p id="stats-page-desc" class="stats-page-desc hub-page-desc" data-i18n="stats.hub_subtitle">Player legacy, career accuracy analytics, and competitive profiles.</p>
+          <h2 id="stats-page-heading" class="hub-page-heading" data-i18n="stats.hub_title">Player Directory & Statistics
+          </h2>
+          <p id="stats-page-desc" class="stats-page-desc hub-page-desc" data-i18n="stats.hub_subtitle">Player legacy,
+            career accuracy analytics, and competitive profiles.</p>
         </div>
         <div class="stats-page-head-actions hub-page-head-actions">
-          <button type="button" id="stats-page-refresh-btn" class="btn-icon-action" title="Refresh" aria-label="Refresh" data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+          <button type="button" id="stats-page-refresh-btn" class="btn-icon-action" title="Refresh" aria-label="Refresh"
+            data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
+              class="sync-icon" aria-hidden="true">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
             </svg>
           </button>
@@ -716,14 +755,15 @@
       <div id="stats-players-view" class="stats-tab-view">
         <div class="hub-toolbar stats-toolbar">
           <div class="hub-search-box stats-search-wrap">
-            <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input type="search" id="stats-players-search" class="hub-search-input stats-search-input"
-              placeholder="Search players by name..."
-              data-i18n-placeholder="stats.directory_search_placeholder" />
-            <button type="button" id="stats-players-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
+              placeholder="Search players by name..." data-i18n-placeholder="stats.directory_search_placeholder" />
+            <button type="button" id="stats-players-search-clear" class="hub-search-clear hidden"
+              aria-label="Clear search" title="Clear search">✕</button>
           </div>
           <div class="hub-filters-group stats-sort-wrap">
             <select id="stats-players-sort" class="hub-select select-input">
@@ -750,11 +790,16 @@
             <span class="badge-stats badge-replays hub-page-badge" data-i18n="nav.replays">Match Replays</span>
           </div>
           <h2 id="replays-page-heading" class="hub-page-heading" data-i18n="replay.catalog_title">Match Replays</h2>
-          <p id="replays-page-desc" class="stats-page-desc replays-page-desc hub-page-desc" data-i18n="replay.catalog_subtitle">Relive past games with round-by-round interactive maps and photo reviews.</p>
+          <p id="replays-page-desc" class="stats-page-desc replays-page-desc hub-page-desc"
+            data-i18n="replay.catalog_subtitle">Relive past games with round-by-round interactive maps and photo
+            reviews.</p>
         </div>
         <div class="stats-page-head-actions replays-page-head-actions hub-page-head-actions">
-          <button type="button" id="replays-page-refresh-btn" class="btn-icon-action" title="Refresh" aria-label="Refresh" data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+          <button type="button" id="replays-page-refresh-btn" class="btn-icon-action" title="Refresh"
+            aria-label="Refresh" data-i18n-title="challenges_page.refresh_btn"
+            data-i18n-aria-label="challenges_page.refresh_btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
+              class="sync-icon" aria-hidden="true">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
             </svg>
           </button>
@@ -765,25 +810,26 @@
       <div id="replays-catalog-view" class="replays-catalog-view">
         <div class="hub-toolbar stats-toolbar replays-toolbar">
           <div class="hub-search-box stats-search-wrap">
-            <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input type="search" id="stats-replays-player-search" class="hub-search-input stats-search-input"
-              placeholder="Filter by player..."
-              data-i18n-placeholder="replay.filter_player_placeholder" />
-            <button type="button" id="stats-replays-search-clear" class="hub-search-clear hidden" aria-label="Clear search" title="Clear search">✕</button>
+              placeholder="Filter by player..." data-i18n-placeholder="replay.filter_player_placeholder" />
+            <button type="button" id="stats-replays-search-clear" class="hub-search-clear hidden"
+              aria-label="Clear search" title="Clear search">✕</button>
           </div>
           <div class="hub-filters-group stats-filters-wrap">
             <select id="stats-replays-mode-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_modes">All Modes</option>
               <option value="pinpoint" data-i18n="challenges_page.mode_pinpoint">🎯 Pinpoint</option>
-              <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Album Shuffle</option>
+              <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Unshuffle</option>
             </select>
             <select id="stats-replays-type-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_types">All Types</option>
               <option value="local" data-i18n="replay.filter_type_local">👥 Local Match</option>
-              <option value="challenge" data-i18n="replay.filter_type_challenge">⚔️ Challenge Link</option>
+              <option value="challenge" data-i18n="replay.filter_type_challenge">⚔️ Challenge</option>
             </select>
             <span id="stats-replays-total-badge" class="hub-counter-pill stats-counter-pill hidden">0 replays</span>
           </div>
@@ -816,9 +862,11 @@
       </div>
 
       <div id="replay-content-container" class="replay-content-container">
-        <div id="replay-loading-state" class="challenges-loading hidden" data-i18n="challenges_page.loading">Loading...</div>
+        <div id="replay-loading-state" class="challenges-loading hidden" data-i18n="challenges_page.loading">Loading...
+        </div>
         <div id="replay-error-state" class="empty-state hidden" style="padding: 3rem 1rem; text-align: center;">
-          <p style="color: var(--text-muted); font-size: 1.1rem;" id="replay-error-text" data-i18n="replay.not_found">Match replay not found.</p>
+          <p style="color: var(--text-muted); font-size: 1.1rem;" id="replay-error-text" data-i18n="replay.not_found">
+            Match replay not found.</p>
           <button type="button" class="btn-secondary" style="margin-top: 1rem;" id="replay-error-back-btn">
             ← <span data-i18n="replay.exit">Exit Replay</span>
           </button>
@@ -827,12 +875,20 @@
         <div id="replay-content-grid" class="replay-content-grid">
           <div class="replay-header-controls">
             <div class="replay-round-stepper">
-              <button type="button" id="replay-prev-round-btn" class="btn-icon-control" title="Previous Round" aria-label="Previous Round" data-i18n-title="replay.prev_round">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 20 8 12 16 4"></polyline></svg>
+              <button type="button" id="replay-prev-round-btn" class="btn-icon-control" title="Previous Round"
+                aria-label="Previous Round" data-i18n-title="replay.prev_round">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="16 20 8 12 16 4"></polyline>
+                </svg>
               </button>
               <span id="replay-round-indicator" class="replay-round-indicator">Round 1 of 10</span>
-              <button type="button" id="replay-next-round-btn" class="btn-icon-control" title="Next Round" aria-label="Next Round" data-i18n-title="replay.next_round">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 20 16 12 8 4"></polyline></svg>
+              <button type="button" id="replay-next-round-btn" class="btn-icon-control" title="Next Round"
+                aria-label="Next Round" data-i18n-title="replay.next_round">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="8 20 16 12 8 4"></polyline>
+                </svg>
               </button>
             </div>
           </div>
@@ -883,11 +939,13 @@
       </div>
     </section>
 
-    <div id="report-issue-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="report-modal-title" aria-hidden="true">
+    <div id="report-issue-modal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+      aria-labelledby="report-modal-title" aria-hidden="true">
       <div class="modal-card report-modal-card">
         <div class="modal-header">
           <h3 id="report-modal-title" data-i18n="report.modal_title">Report Photo Issue</h3>
-          <button type="button" id="report-modal-close-btn" class="modal-close-btn" aria-label="Close" title="Close" data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
+          <button type="button" id="report-modal-close-btn" class="modal-close-btn" aria-label="Close" title="Close"
+            data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
         </div>
         <div class="modal-body">
           <div class="report-preview-row">
@@ -903,7 +961,8 @@
           <div class="report-fields">
             <label class="report-checkbox-label" for="report-flag-coordinates">
               <input type="checkbox" id="report-flag-coordinates" />
-              <span class="report-checkbox-text" data-i18n="report.flag_coordinates">Inaccurate GPS / Map Location</span>
+              <span class="report-checkbox-text" data-i18n="report.flag_coordinates">Inaccurate GPS / Map
+                Location</span>
             </label>
 
             <label class="report-checkbox-label" for="report-flag-date">
@@ -912,20 +971,26 @@
             </label>
 
             <div class="form-group report-other-group">
-              <label for="report-flag-other" class="report-other-label" data-i18n="report.other_label">Other (optional notes or description)</label>
-              <textarea id="report-flag-other" class="report-textarea" rows="3" maxlength="500" placeholder="Describe any other issue with this photo..." data-i18n-placeholder="report.other_placeholder"></textarea>
+              <label for="report-flag-other" class="report-other-label" data-i18n="report.other_label">Other (optional
+                notes or description)</label>
+              <textarea id="report-flag-other" class="report-textarea" rows="3" maxlength="500"
+                placeholder="Describe any other issue with this photo..."
+                data-i18n-placeholder="report.other_placeholder"></textarea>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" id="report-cancel-btn" class="btn-secondary" data-i18n="report.cancel_btn">Cancel</button>
-          <button type="button" id="report-submit-btn" class="btn-primary" data-i18n="report.submit_btn" disabled>Submit Report</button>
+          <button type="button" id="report-cancel-btn" class="btn-secondary"
+            data-i18n="report.cancel_btn">Cancel</button>
+          <button type="button" id="report-submit-btn" class="btn-primary" data-i18n="report.submit_btn" disabled>Submit
+            Report</button>
         </div>
       </div>
     </div>
 
     <!-- Prepare Game Modal (Local Match & Multiplayer Challenge) -->
-    <div id="prepare-game-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="prepare-modal-title" aria-hidden="true">
+    <div id="prepare-game-modal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+      aria-labelledby="prepare-modal-title" aria-hidden="true">
       <div class="modal-card prepare-game-card">
         <div class="modal-sheet-handle" aria-hidden="true"></div>
         <div class="modal-header">
@@ -933,7 +998,8 @@
             <span class="modal-title-icon" aria-hidden="true">🎮</span>
             <h3 id="prepare-modal-title" data-i18n="setup.prepare_modal_title">Prepare Game</h3>
           </div>
-          <button type="button" id="prepare-modal-close-btn" class="modal-close-btn" aria-label="Close" title="Close" data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
+          <button type="button" id="prepare-modal-close-btn" class="modal-close-btn" aria-label="Close" title="Close"
+            data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
         </div>
 
         <div class="modal-tabs">
@@ -943,14 +1009,15 @@
           </button>
           <button type="button" id="tab-challenge-game" class="modal-tab-btn" data-tab="challenge">
             <span class="tab-icon" aria-hidden="true">⚔️</span>
-            <span data-i18n="setup.tab_challenge">Challenge Link</span>
+            <span data-i18n="setup.tab_challenge">Challenge</span>
           </button>
         </div>
 
         <!-- Tab 1: Local Game Pane -->
         <div id="pane-local-game" class="modal-body modal-pane">
-          <p class="modal-section-desc" data-i18n="setup.local_match_desc">Pass the device between players on each round.</p>
-          
+          <p class="modal-section-desc" data-i18n="setup.local_match_desc">Pass the device between players on each
+            round.</p>
+
           <div class="form-group player-input-group" id="local-player-input-group">
             <div class="field-head-inline">
               <label data-i18n="setup.players_label">Players</label>
@@ -964,16 +1031,20 @@
         <!-- Tab 2: Challenge Game Pane -->
         <div id="pane-challenge-game" class="modal-body modal-pane hidden">
           <div id="challenge-form-view">
-            <p class="modal-section-desc" data-i18n="setup.challenge_match_desc">Create a challenge link to share with friends and family.</p>
+            <p class="modal-section-desc" data-i18n="setup.challenge_match_desc">Create a challenge link to share with
+              friends and family.</p>
 
             <div class="form-group">
               <label for="challenge-creator-name-input" data-i18n="admin.creator_name_label">Your Name (Creator)</label>
-              <input type="text" id="challenge-creator-name-input" class="text-input" placeholder="Your name" data-i18n-placeholder="admin.creator_name_placeholder" maxlength="50" required />
+              <input type="text" id="challenge-creator-name-input" class="text-input" placeholder="Your name"
+                data-i18n-placeholder="admin.creator_name_placeholder" maxlength="50" required />
             </div>
 
             <div class="form-group">
               <label for="challenge-title-input" data-i18n="admin.title_label">Challenge Title (Optional)</label>
-              <input type="text" id="challenge-title-input" class="text-input" placeholder="Auto-generated from filters..." data-i18n-placeholder="admin.title_placeholder" maxlength="100" />
+              <input type="text" id="challenge-title-input" class="text-input"
+                placeholder="Auto-generated from filters..." data-i18n-placeholder="admin.title_placeholder"
+                maxlength="100" />
             </div>
 
             <div class="form-group">
@@ -992,26 +1063,35 @@
           <!-- Share Result View (shown after creation) -->
           <div id="challenge-share-box" class="challenge-share-box hidden">
             <div class="share-success-icon">🎉</div>
-            <h4 id="challenge-created-title" class="share-created-title" data-i18n="admin.ready_to_share">Challenge Ready to Share!</h4>
-            <p class="share-instructions" data-i18n="admin.share_instruction">Send this link to friends on Discord, WhatsApp, or group chat:</p>
-            
+            <h4 id="challenge-created-title" class="share-created-title" data-i18n="admin.ready_to_share">Challenge
+              Ready to Share!</h4>
+            <p class="share-instructions" data-i18n="admin.share_instruction">Send this link to friends on Discord,
+              WhatsApp, or group chat:</p>
+
             <div class="share-url-container">
               <div class="share-link-box" id="challenge-share-link-box" title="Click to copy link">
                 <span class="share-link-icon" aria-hidden="true">🔗</span>
-                <input type="text" id="challenge-created-url" class="share-url-input" readonly value="" spellcheck="false" autocomplete="off" />
+                <input type="text" id="challenge-created-url" class="share-url-input" readonly value=""
+                  spellcheck="false" autocomplete="off" />
               </div>
               <div class="share-action-buttons">
-                <button type="button" id="challenge-copy-link-btn" class="btn-secondary btn-copy-link" data-i18n-title="challenge.copy_link" data-i18n-aria-label="challenge.copy_link" title="Copy Link" aria-label="Copy Link">
+                <button type="button" id="challenge-copy-link-btn" class="btn-secondary btn-copy-link"
+                  data-i18n-title="challenge.copy_link" data-i18n-aria-label="challenge.copy_link" title="Copy Link"
+                  aria-label="Copy Link">
                   <span class="btn-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round">
                       <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                     </svg>
                   </span>
                 </button>
-                <button type="button" id="challenge-share-native-btn" class="btn-secondary btn-native-share hidden" data-i18n-title="challenge.share_native" data-i18n-aria-label="challenge.share_native" title="Share via..." aria-label="Share via...">
+                <button type="button" id="challenge-share-native-btn" class="btn-secondary btn-native-share hidden"
+                  data-i18n-title="challenge.share_native" data-i18n-aria-label="challenge.share_native"
+                  title="Share via..." aria-label="Share via...">
                   <span class="btn-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round">
                       <circle cx="18" cy="5" r="3"></circle>
                       <circle cx="6" cy="12" r="3"></circle>
                       <circle cx="18" cy="19" r="3"></circle>
@@ -1020,9 +1100,13 @@
                     </svg>
                   </span>
                 </button>
-                <button type="button" id="challenge-qr-btn" class="btn-secondary btn-qr-code" data-i18n-title="challenge.qr_code_title" data-i18n-aria-label="challenge.qr_code_title" title="Show QR Code" aria-label="Show QR Code" aria-expanded="false" aria-controls="challenge-qr-container">
+                <button type="button" id="challenge-qr-btn" class="btn-secondary btn-qr-code"
+                  data-i18n-title="challenge.qr_code_title" data-i18n-aria-label="challenge.qr_code_title"
+                  title="Show QR Code" aria-label="Show QR Code" aria-expanded="false"
+                  aria-controls="challenge-qr-container">
                   <span class="btn-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"
+                      stroke-linecap="round" stroke-linejoin="round">
                       <rect width="5" height="5" x="3" y="3" rx="1"></rect>
                       <rect width="5" height="5" x="16" y="3" rx="1"></rect>
                       <rect width="5" height="5" x="3" y="16" rx="1"></rect>
@@ -1054,14 +1138,16 @@
             </div>
 
             <div class="share-actions-row">
-              <button type="button" id="challenge-open-link-btn" class="btn-primary" data-i18n="admin.play_now_btn">Play Now</button>
+              <button type="button" id="challenge-open-link-btn" class="btn-primary" data-i18n="admin.play_now_btn">Play
+                Now</button>
             </div>
           </div>
         </div>
 
         <!-- Footers -->
         <div id="modal-local-footer" class="modal-footer">
-          <button type="button" id="local-cancel-btn" class="btn-secondary" data-i18n="report.cancel_btn">Cancel</button>
+          <button type="button" id="local-cancel-btn" class="btn-secondary"
+            data-i18n="report.cancel_btn">Cancel</button>
           <button type="button" id="start-match-btn" class="btn-primary">
             <span class="btn-icon" aria-hidden="true">🚀</span>
             <span data-i18n="setup.start_btn">Start Game</span>
@@ -1069,7 +1155,8 @@
         </div>
 
         <div id="modal-challenge-footer" class="modal-footer hidden">
-          <button type="button" id="challenge-cancel-btn" class="btn-secondary" data-i18n="report.cancel_btn">Cancel</button>
+          <button type="button" id="challenge-cancel-btn" class="btn-secondary"
+            data-i18n="report.cancel_btn">Cancel</button>
           <button type="button" id="challenge-generate-btn" class="btn-primary">
             <span class="btn-icon" aria-hidden="true">✨</span>
             <span data-i18n="admin.generate_label">Create Challenge Link</span>
@@ -1079,22 +1166,26 @@
     </div>
 
     <!-- Album Shuffle Help Modal -->
-    <div id="album-shuffle-help-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="shuffle-help-title" aria-hidden="true">
+    <div id="album-shuffle-help-modal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+      aria-labelledby="shuffle-help-title" aria-hidden="true">
       <div class="modal-card mode-help-card shuffle-help-card">
         <div class="modal-header">
-          <h3 id="shuffle-help-title" data-i18n="game.shuffle_help_title">Album Shuffle Help</h3>
-          <button type="button" id="shuffle-help-close-btn" class="modal-close-btn" aria-label="Close" title="Close" data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
+          <h3 id="shuffle-help-title" data-i18n="game.shuffle_help_title">Unshuffle Help</h3>
+          <button type="button" id="shuffle-help-close-btn" class="modal-close-btn" aria-label="Close" title="Close"
+            data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
         </div>
         <div class="modal-body mode-help-body shuffle-help-body"></div>
       </div>
     </div>
 
     <!-- Pinpoint Help Modal -->
-    <div id="pinpoint-help-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pinpoint-help-title" aria-hidden="true">
+    <div id="pinpoint-help-modal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+      aria-labelledby="pinpoint-help-title" aria-hidden="true">
       <div class="modal-card mode-help-card pinpoint-help-card">
         <div class="modal-header">
           <h3 id="pinpoint-help-title" data-i18n="game.pinpoint_help_title">Pinpoint Help</h3>
-          <button type="button" id="pinpoint-help-close-btn" class="modal-close-btn" aria-label="Close" title="Close" data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
+          <button type="button" id="pinpoint-help-close-btn" class="modal-close-btn" aria-label="Close" title="Close"
+            data-i18n-title="modal.close" data-i18n-aria-label="modal.close">&times;</button>
         </div>
         <div class="modal-body mode-help-body pinpoint-help-body"></div>
       </div>

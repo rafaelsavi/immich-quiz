@@ -1,6 +1,6 @@
 /**
  * Unified Prepare Game & Challenge Creator Module for Immich Quiz.
- * Handles opening the 2-tab "Prepare Game" modal (Local Match & Challenge Link),
+ * Handles opening the 2-tab "Prepare Game" modal (Local Match & Challenge),
  * local player name configuration, preflight checking, auto-title generation,
  * async multiplayer challenge creation, and clipboard link sharing.
  */
@@ -265,7 +265,7 @@ async function handleGenerateChallenge(e) {
   // Save creator name for future sessions
   try {
     localStorage.setItem(CREATOR_NAME_STORAGE_KEY, creatorName);
-  } catch (_) {}
+  } catch (_) { }
 
   let title = _titleInput?.value?.trim() || generateAutoChallengeTitle();
   if (title.length > 100) {
@@ -411,7 +411,7 @@ function displayShareResult(challengeData) {
   // Refresh challenges list in hub if open
   try {
     loadChallengesList();
-  } catch (_) {}
+  } catch (_) { }
 }
 
 /**

@@ -776,9 +776,6 @@ function renderMatchesHistory(matches) {
           ? `<span class="replay-more-players" title="${escapeHtml(remainingNames)}">+${remainingCount}</span>`
           : "");
 
-      const roundsCount = m.rounds || m.rounds_count || (m.rounds_data ? m.rounds_data.length : 0);
-      const roundsText = `${roundsCount} ${t("setup.rounds_label")}`;
-
       return `
         <div class="replay-catalog-item" data-match-id="${escapeHtml(m.match_id)}" role="button" tabindex="0" aria-label="${escapeHtml(modeLabel)} - ${escapeHtml(playedStr)}">
           <div class="replay-item-header">
@@ -793,10 +790,6 @@ function renderMatchesHistory(matches) {
             ${m.challenge_title ? `<div class="replay-item-challenge-title">${escapeHtml(m.challenge_title)}</div>` : ""}
             <div class="replay-item-players">
               ${playersListHtml}
-            </div>
-            <div class="replay-item-meta">
-              <span class="replay-meta-pill">🎯 ${roundsText}</span>
-              ${m.top_accuracy_pct != null && m.top_accuracy_pct > 0 ? `<span class="replay-meta-pill replay-acc-pill">📊 ${m.top_accuracy_pct}% ${t("stats.accuracy_col")}</span>` : ""}
             </div>
           </div>
 

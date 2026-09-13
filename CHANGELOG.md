@@ -21,7 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rendered the challenge title in `#replay-heading-title` and host badge/name in `#replay-match-title` within `.replay-header-main`.
   - Preserved full dynamic re-translation on language toggle via `refreshReplayPageLanguage`.
 
+### Changed
+- **Rebranded Batch Photo Game Mode to "Unshuffle"**:
+  - Renamed the English user-facing game mode title from "Album Shuffle" to "Unshuffle" across home setup screen, challenges hub filter, replay catalog filters, and help modals.
+  - Synchronized English locale resources (`locales/en-US.json`, `static/js/modules/locales/en_US.js`) and Portuguese help titles (`locales/pt-BR.json`, `static/js/modules/locales/pt_BR.js`).
+
 ### Removed
+- **Match Replay Catalog Card Metadata Row (`.replay-item-meta`)**:
+  - Removed redundant `.replay-item-meta` container, round count pill (`.replay-meta-pill`), accuracy pill (`.replay-acc-pill`), and associated styles from `replay.js` and `replay.css` to streamline replay catalog cards.
 - **Grand Reveal Redundant Action Buttons (`#grand-reveal-home-btn`, `#grand-reveal-hub-btn`)**:
   - Removed duplicate Home and Challenges Hub buttons and their associated event listeners from the challenge grand reveal summary screen, leaving the focused Watch Replay action and standard navigation.
 

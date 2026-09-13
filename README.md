@@ -4,7 +4,7 @@
 [![GHCR Container](https://img.shields.io/badge/docker-ghcr.io%2Frafaelsavi%2Fimmich--quiz-blue?logo=docker)](https://github.com/rafaelsavi/immich-quiz/pkgs/container/immich-quiz)
 [![CI](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml)
 
-Immich Quiz is a trivia game that generates quiz rounds directly from your Immich photo collection. Players guess where and when photos were taken in **Pinpoint** mode, or match photo batches to map pins and timeline dates in **Album Shuffle** mode.
+Immich Quiz is a trivia game that generates quiz rounds directly from your Immich photo collection. Players guess where and when photos were taken in **Pinpoint** mode, or match photo batches to map pins and timeline dates in **Unshuffle** mode.
 
 Play locally with friends on a single screen via **👥 Pass & Play**, or share **⚔️ Multiplayer Challenge Links** (with unguessable capability URLs and instant QR codes) for multi-device asynchronous or hybrid competition!
 
@@ -17,7 +17,7 @@ Play locally with friends on a single screen via **👥 Pass & Play**, or share 
 ### Game Modes & Targets
 
 - **🎯 Pinpoint**: 1 photo per round. Place a pin on the interactive Leaflet map and/or guess the capture month and year.
-- **🔀 Album Shuffle**: 3 photos per round. Match photos to lettered map pins and/or arrange them in chronological sequence along a timeline.
+- **🔀 Unshuffle**: 3 photos per round. Match photos to lettered map pins and/or arrange them in chronological sequence along a timeline.
 - **Targets**: Guess **Location only**, **Date only**, or **Location & Date**.
 
 ### Play Modes

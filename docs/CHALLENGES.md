@@ -33,7 +33,7 @@ are computed **once** at challenge creation time from the selected photo pool an
 
 1. Open the game setup screen and configure game settings (Mode: **Pinpoint** or **Album Shuffle**, Targets: **Location**, **Date**, or **Both**, Rounds, Round Length, and Library Filters).
 2. Click **🎮 Prepare Game** to open the match preparation modal.
-3. Switch to the **Challenge Link** tab:
+3. Switch to the **Challenge** tab:
    - **Challenge Title**: Auto-generated from active filter criteria (e.g. *"Summer Vacation 2024 (10 Rounds)"*) or custom-edited.
    - **Expiration Window**: Choose when the challenge closes:
      - `1h` — Quick party match
@@ -160,6 +160,7 @@ Immich Quiz implements defense-in-depth protections for challenge matches:
 ## 5. Reverse Proxy & Zero Trust Deployment
 
 Immich Quiz consolidates all public player traffic under two clean prefixes:
+
 1. **`/play/*`**: Challenge SPA pages, player APIs, in-game photo flagging, and scoped media streaming.
 2. **`/static/*`**: Frontend assets (JavaScript bundles, CSS stylesheets, sound effects, favicons).
 
@@ -183,6 +184,7 @@ All administrative, host-only, and moderation routes (`/`, `/challenges`, `/repo
 If you run Immich Quiz behind Cloudflare Zero Trust (Cloudflare Access), protecting your instance requires zero reverse-proxy regexes or priority conflicts:
 
 #### 1. Public Challenge Bypass Application
+
 - **Application Type**: Self-hosted
 - **Application Name**: `Immich Quiz - Challenge Player`
 - **Application Domain**: `quiz.example.com`
@@ -193,6 +195,7 @@ If you run Immich Quiz behind Cloudflare Zero Trust (Cloudflare Access), protect
   - Rule (Include): **Everyone**
 
 #### 2. Default Protected Application
+
 - **Application Type**: Self-hosted
 - **Application Name**: `Immich Quiz - Host`
 - **Application Domain**: `quiz.example.com`
@@ -274,4 +277,3 @@ services:
       - "traefik.http.routers.quiz-admin.service=quiz-service"
       - "traefik.http.services.quiz-service.loadbalancer.server.port=8010"
 ```
-
