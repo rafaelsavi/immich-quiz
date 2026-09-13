@@ -198,3 +198,60 @@ async def test_replay_reuses_media_frame_and_map_shell(page: Page) -> None:
 
     # Reset viewport
     await page.set_viewport_size({'width': 1280, 'height': 800})
+
+
+@pytest.mark.asyncio
+async def test_replay_header_challenge_vs_local(page: Page) -> None:
+    """Verify replay header omits badge row and round counts from subtitle,
+    and displays challenge title + creator for challenge replays.
+    """
+
+    # 1. Local match replay header
+    async def handle_local_replay(route):
+        await route.fulfill(
+            status=200,
+            content_type='application/json',
+            body=json.dumps(MOCK_REPLAY_DATA),
+        )
+
+    await page.route('**/api/match/local-match-123/replay', handle_local_replay)
+    await page.goto('/game/local-match-123/replay')
+    await expect(page.locator('#replay-page-card')).to_be_visible()
+
+    # Replay badge row does not exist
+    await expect(page.locator('.replay-badge-row')).to_have_count(0)
+    await expect(page.locator('#replay-mode-badge')).to_have_count(0)
+    await expect(page.locator('#replay-type-badge')).to_have_count(0)
+
+    # Subtitle has date, but does NOT contain round count like "2 rounds"
+    title_el = page.locator('#replay-match-title')
+    await expect(title_el).to_be_visible()
+    title_text = await title_el.inner_text()
+    assert 'round' not in title_text.lower()
+
+    # 2. Challenge match replay header
+    mock_challenge_replay = dict(MOCK_REPLAY_DATA)
+    mock_challenge_replay.update(
+        {
+            'match_id': 'ch-match-456',
+            'play_mode': 'challenge',
+            'challenge_id': 'ch_789',
+            'challenge_title': 'Summer Roadtrip 2026',
+            'challenge_creator': 'Rafael',
+        }
+    )
+
+    async def handle_ch_replay(route):
+        await route.fulfill(
+            status=200,
+            content_type='application/json',
+            body=json.dumps(mock_challenge_replay),
+        )
+
+    await page.route('**/api/match/ch-match-456/replay', handle_ch_replay)
+    await page.goto('/game/ch-match-456/replay')
+    await expect(page.locator('#replay-page-card')).to_be_visible()
+
+    # Subtitle contains challenge title and creator name
+    await expect(page.locator('#replay-match-title .replay-challenge-title')).to_have_text('Summer Roadtrip 2026')
+    await expect(page.locator('#replay-match-title .replay-challenge-host')).to_contain_text('Rafael')

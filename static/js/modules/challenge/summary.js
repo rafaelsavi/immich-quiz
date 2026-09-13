@@ -137,7 +137,7 @@ export const challengeSummary = {
                 ${challengeSession.challengeData.location_mode !== false ? `<th class="col-score text-right">${t("summary.col_location")}</th>` : ""}
                 ${challengeSession.challengeData.date_mode !== false ? `<th class="col-score text-right">${t("summary.col_date")}</th>` : ""}
                 <th class="col-score text-right">${t("summary.col_total")}</th>
-                <th class="col-accuracy text-right hide-on-mobile">${t("summary.col_accuracy")}</th>
+                <th class="col-acc text-right hide-on-mobile">${t("summary.col_accuracy")}</th>
               </tr>
             </thead>
             <tbody>
@@ -149,7 +149,7 @@ export const challengeSummary = {
 
       const callerCompletedRound = typeof data.up_to_round === "number" ? data.up_to_round : (challengeSession.currentRoundIndex - 1);
       const canReplay = Boolean(isConcluded || data.is_game_over || (callerCompletedRound >= 0 && callerCompletedRound >= totalRoundsCount - 1));
-      const replayMatchId = data.match_id || (capToken ? challengeSession.loadSession(capToken)?.matchId : null) || capToken || data.challenge_id;
+      const replayMatchId = data.challenge_id || data.match_id || (capToken ? challengeSession.loadSession(capToken)?.matchId : null) || capToken;
 
       el.challengeCard.innerHTML = `
         <div class="challenge-grand-reveal">
@@ -169,29 +169,16 @@ export const challengeSummary = {
 
           ${standingsTableHtml}
 
-          <div class="summary-actions">
-            ${
-              canReplay
-                ? `
+          ${canReplay
+            ? `
+            <div class="summary-actions">
               <button type="button" class="btn btn-primary" id="grand-reveal-replay-action-btn">
                 🎬 ${t("challenge.watch_replay_btn")}
               </button>
+            </div>
             `
-                : ""
-            }
-            <button type="button" class="btn btn-secondary" id="grand-reveal-share-btn">
-              📋 ${t("challenge.copy_invite_link")}
-            </button>
-            <button type="button" class="btn btn-secondary" id="grand-reveal-share-summary-btn">
-              🏆 ${t("challenge.copy_summary_link")}
-            </button>
-            <button type="button" class="btn btn-secondary" id="grand-reveal-hub-btn">
-              ⚔️ ${t("challenge.challenges_hub")}
-            </button>
-            <button type="button" class="btn btn-secondary" id="grand-reveal-home-btn">
-              🏠 ${t("challenge.back_home")}
-            </button>
-          </div>
+            : ""
+          }
         </div>
       `;
 
@@ -230,34 +217,6 @@ export const challengeSummary = {
         navigate(`/game/${encodeURIComponent(replayMatchId)}/replay`);
       };
       document.getElementById("grand-reveal-replay-action-btn")?.addEventListener("click", handleReplayClick);
-
-      // Share button (Invite link)
-      document.getElementById("grand-reveal-share-btn")?.addEventListener("click", async () => {
-        const btn = document.getElementById("grand-reveal-share-btn");
-        await copyToClipboard(playUrl, {
-          button: btn,
-          copiedText: `✅ ${t("challenge.link_copied")}`,
-        });
-      });
-
-      // Share button (Summary link)
-      document.getElementById("grand-reveal-share-summary-btn")?.addEventListener("click", async () => {
-        const btn = document.getElementById("grand-reveal-share-summary-btn");
-        await copyToClipboard(summaryUrl, {
-          button: btn,
-          copiedText: `🏆 ${t("challenge.summary_link_copied")}`,
-        });
-      });
-
-      // Challenges Hub button
-      document.getElementById("grand-reveal-hub-btn")?.addEventListener("click", () => {
-        navigate("/challenges");
-      });
-
-      // Home button
-      document.getElementById("grand-reveal-home-btn")?.addEventListener("click", () => {
-        navigate("/");
-      });
 
       // Start background polling if the challenge is active and unsettled or has unfinished players
       if ((!isSettled || hasUnfinishedPlayers) && !isConcluded) {
@@ -335,7 +294,7 @@ export const challengeSummary = {
         try {
           unregisterActiveMap(challengeSession.carouselMap);
           challengeSession.carouselMap.remove();
-        } catch (_) {}
+        } catch (_) { }
         challengeSession.carouselMap = null;
       }
       challengeSession.carouselLayers = [];
@@ -362,7 +321,7 @@ export const challengeSummary = {
           (challengeSession.carouselLayers || []).forEach((layer) => {
             try {
               challengeSession.carouselMap.removeLayer(layer);
-            } catch (_) {}
+            } catch (_) { }
           });
           challengeSession.carouselLayers = [];
         }
@@ -496,23 +455,22 @@ export const challengeSummary = {
                     </tr>
                   </thead>
                   <tbody>
-                    ${
-                      validGuesses.length === 0
-                        ? `<tr><td colspan="4" class="text-center text-muted py-2">${t("fmt.no_guess")}</td></tr>`
-                        : validGuesses
-                            .map((g, idx) => {
-                              const pp = g.pinpoint || g;
-                              const pDateStr = formatMonth(pp.guessed_year, pp.guessed_month);
-                              const guessWithActual = {
-                                ...pp,
-                                player_name: g.player_name,
-                                actual_year: pp.actual_year ?? sampleP.actual_year,
-                                actual_month: pp.actual_month ?? sampleP.actual_month,
-                              };
-                              const errStr = formatMonthError(guessWithActual);
-                              const isCurrent = g.player_name === challengeSession.sessionPlayerName;
-                              const isWinner = idx === 0 && topScore > 0 && validGuesses.length > 1;
-                              return `
+                    ${validGuesses.length === 0
+              ? `<tr><td colspan="4" class="text-center text-muted py-2">${t("fmt.no_guess")}</td></tr>`
+              : validGuesses
+                .map((g, idx) => {
+                  const pp = g.pinpoint || g;
+                  const pDateStr = formatMonth(pp.guessed_year, pp.guessed_month);
+                  const guessWithActual = {
+                    ...pp,
+                    player_name: g.player_name,
+                    actual_year: pp.actual_year ?? sampleP.actual_year,
+                    actual_month: pp.actual_month ?? sampleP.actual_month,
+                  };
+                  const errStr = formatMonthError(guessWithActual);
+                  const isCurrent = g.player_name === challengeSession.sessionPlayerName;
+                  const isWinner = idx === 0 && topScore > 0 && validGuesses.length > 1;
+                  return `
                                 <tr class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
                                   <td class="col-player">
                                     ${formatPlayerCellHtml(g.player_name, { isWinner, isCurrent })}
@@ -522,9 +480,9 @@ export const challengeSummary = {
                                   <td class="col-score text-right font-bold">+${g.date_points || 0} pts</td>
                                 </tr>
                               `;
-                            })
-                            .join("")
-                    }
+                })
+                .join("")
+            }
                   </tbody>
                 </table>
               </div>
@@ -661,7 +619,7 @@ export const challengeSummary = {
             ${challengeSession.challengeData?.location_mode !== false ? `<td class="col-score text-right">${p.location_score !== null && p.location_score !== undefined ? `${p.location_score}` : "—"}</td>` : ""}
             ${challengeSession.challengeData?.date_mode !== false ? `<td class="col-score text-right">${p.date_score !== null && p.date_score !== undefined ? `${p.date_score}` : "—"}</td>` : ""}
             <td class="col-score col-total-score text-right font-bold">${p.total_score}</td>
-            <td class="col-accuracy text-right hide-on-mobile">${p.accuracy_pct}%</td>
+            <td class="col-acc text-right hide-on-mobile">${p.accuracy_pct}%</td>
           </tr>
         `;
       })

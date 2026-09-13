@@ -8,6 +8,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Consolidated Challenge Replays in Catalog (`/replays`, `/api/matches`)**:
+  - Grouped multi-player challenge sessions into a single match item in `list_matches_history` by `COALESCE(challenge_id, match_id)` so individual players' plays do not spawn disjoint replay entries.
+  - Aggregated participating players, top scores, and calculated overall winners across all challenge sessions.
+  - Displayed challenge name, creator, and player roster chips on challenge replay cards in the catalog.
+  - Set `replay_match_id` in challenge results to `challenge_id` so completion links lead directly to the consolidated replay.
+- **Accurate Media Filters in Match Replay Meta (`match-meta-items`)**:
+  - Populated parent `matches` table rows in `record_challenge_round_guess` from `challenges.config_json` and `challenges.libraries_json` instead of default `NULL`s.
+  - Added database migration to backfill `challenge_id` and filter columns from `challenges` to any existing challenge match rows.
+  - Enhanced `get_match_replay` and `get_match_summary` to read authoritative filters and metadata directly from `challenges.config_json` and `challenges.libraries_json`, preventing incorrect fallback to "Full Library".
+- **Challenge Name & Creator in Replay Header (`.replay-header-main`)**:
+  - Rendered the challenge title in `#replay-heading-title` and host badge/name in `#replay-match-title` within `.replay-header-main`.
+  - Preserved full dynamic re-translation on language toggle via `refreshReplayPageLanguage`.
+
+### Removed
+- **Grand Reveal Redundant Action Buttons (`#grand-reveal-home-btn`, `#grand-reveal-hub-btn`)**:
+  - Removed duplicate Home and Challenges Hub buttons and their associated event listeners from the challenge grand reveal summary screen, leaving the focused Watch Replay action and standard navigation.
+
+### Fixed
+- **Challenges Hub Toolbar Responsive Layout (`.challenges-toolbar`)**:
+  - Resolved multi-column wrapping bug on viewports $\le 900\text{px}$ (and split screens) where `.hub-toolbar` retained `flex-wrap: wrap` in column direction and search box expanded vertically to 100% height, pushing filter pills and selects off-screen to the right.
+  - Standardized `.hub-search-box` height to `var(--toolbar-control-height, 38px)` (`flex: none; width: 100%`) under column layouts and set `flex-wrap: nowrap`.
+  - Added dedicated $\le 1100\text{px}$ breakpoint for `.challenges-toolbar` to ensure full-width search on row 1 and balanced multi-control filters on row 2.
+  - Added full-width fluid segmented pills on mobile ($\le 480\text{px}$) with equal-width tab buttons (`flex: 1 1 0`).
+  - Proactively purged dead legacy media query rules for `.challenges-toolbar` from `challenge.css`.
+
+- **Table Mobile Optimization & Replay Icon Unification**:
+  - Replaced verbose "Watch replay" text across table rows with a compact clapper icon button (`🎬`) in both the Homepage Leaderboard (`#leaderboard-table`) and Player Profile Recent Matches (`.recent-matches-table`), preserving accessible `aria-label` and localized `title` tooltips.
+  - Omitted `.playmode-badge .playmode-label` on mobile screens (`<= 768px`) in the Homepage Leaderboard, showing only the mode icon (`🎯` / `🔀`) and allocating freed horizontal space to player names and accuracy columns to eliminate awkward text wrapping and date line breaks.
+  - Reallocated mobile column widths for `#leaderboard-table` (Date 23%, Mode 11%, Player 37%, Accuracy 18%, Replay 11%) and `.recent-matches-table` (Date 24%, Mode 11%, Rank 11%, Score 16%, Accuracy 24%, Replay 14%).
+  - Wrapped `.recent-matches-table` in `.table-scroll` container for resilient horizontal overflow protection on narrow devices.
+  - Styled compact `.replay-action-btn` (32x28px rounded icon button) with elevation hover effects and dark theme contrast.
+- **Match Replay Header & Stepper Optimization**:
+  - Simplified the guesses & scoreboard section header to a unified "Player Guesses" heading (`replay.player_guess_heading`), removing the redundant `replay.scoreboard` key across all 4 locale files and ensuring clean real-time dynamic language toggling.
+  - Relocated `.replay-header-controls` (round stepper) from the top-level match metadata header into `.replay-content-grid`, placing it directly above the active round's photo and map stage where its state changes apply.
+  - Removed redundant round count from `#replay-match-title` subtitle, relying on the unified `match-meta-section` specification panel.
+  - Removed redundant `#replay-badge-row` (`#replay-mode-badge` and `#replay-type-badge`) from `.replay-header-main`.
+  - Cleaned up dead CSS rules and media queries for `.replay-badge-row` and `.replay-title-row` in `replay.css`.
 - **Dedicated Players and Replays Pages (`/players`, `/replays`)**:
   - Split the Statistics Hub into two distinct, dedicated pages: **Players** (`/players`) and **Match Replays** (`/replays`), removing the segmented `#stats-tabs-bar`.
   - Added dedicated top header navigation buttons: Players (`👥`, `#stats-nav-btn`) and Replays (`🎬`, `#replays-nav-btn`) with active route indicators.
@@ -41,6 +78,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added case-insensitive indices `idx_match_entries_player_nocase` and `idx_match_round_guesses_player` directly to `LEADERBOARD_SCHEMA_SQL` in `src/storage/leaderboard.py`.
 
 ### Fixed
+- **Player Accuracy Tiers & Analytics Translation Fixes**:
+  - Fixed unlinked translation keys and `undefined` badges on the Player Profile page (`/players/:name`):
+    - Resolved `stats.tier_undefined` by correcting `tier.tier` to `tier.tier_key` in `stats.js:createTiersHtml`, mapping backend `AccuracyTierBucket` tiers (`top`, `great`, `moderate`, `low`) properly.
+    - Added missing pluralization keys `stats.round_single` and `stats.rounds_plural` across all 4 locale files (`locales/en-US.json`, `locales/pt-BR.json`, `static/js/modules/locales/en_US.js`, `static/js/modules/locales/pt_BR.js`), eliminating raw translation keys.
+    - Resolved `undefined` values in Location and Date accuracy highlights by mapping `PlayerAccuracyAnalytics` properties correctly: `perfect_location_rounds_count` (instead of nonexistent `perfect_location_guesses`), `exact_year_month_pct` and `perfect_date_rounds_count` (instead of nonexistent `best_date_diff_days` and `perfect_date_guesses`).
+    - Fixed player KPI cards mapping `player.matches_won` (instead of nonexistent `player.wins_count`).
+    - Added missing translation keys across all 4 locale files: `game.date_label`, `stats.best_date_diff`, `stats.best_match`, `stats.days_plural`, `stats.days_single`, `stats.last_played`, `stats.matches_played_count`, `stats.perfect_guesses`, `stats.podium_rate`, `stats.response_time`, `stats.round_single`, `stats.rounds_plural`, `stats.speed_and_timing`, `stats.wins_count`.
+    - Maintained 100% 4-file parity across backend and frontend English and Portuguese dictionaries.
 - **Client-Side Localization Sync & Counter Badges**:
   - Synchronized `summary.share_failed` into client locales (`en_US.js` and `pt_BR.js`), ensuring clipboard failure messages display properly in Portuguese.
   - Localized telemetry counter badges across Player Directory (`#stats-players-total-badge`) and Match Replays (`#stats-replays-total-badge`) using dynamic pluralized `t(...)` keys in English and Portuguese.

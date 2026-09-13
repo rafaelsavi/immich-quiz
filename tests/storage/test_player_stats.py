@@ -585,3 +585,146 @@ def test_multiple_challenge_sessions_do_not_duplicate_player_stats(tmp_path: Pat
     assert len(suggestions) == 1
     assert suggestions[0].match_count == 1
     assert suggestions[0].avatar_color == '#f25f5c'
+
+
+def test_consolidated_challenge_replays_and_metadata(tmp_path: Path) -> None:
+    """Verify that multiple player sessions for a challenge appear as a single catalog item
+
+    with aggregated players/winners and accurate filters from challenges table.
+    """
+    import json
+
+    store = LeaderboardStore(tmp_path / 'test_challenge_replay.db')
+    ch_id = 'ch-consolidated-100'
+
+    with store.db.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO challenges (
+                challenge_id, capability_token, title, creator_name,
+                libraries_json, config_json, asset_ids_json, is_active, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, '2026-09-13T10:00:00Z')
+            """,
+            (
+                ch_id,
+                'cap-tok-100',
+                'Roadtrip Challenge',
+                'HostRafael',
+                json.dumps(['FamilyVault']),
+                json.dumps(
+                    {
+                        'round_count': 3,
+                        'round_length': '1m',
+                        'game_mode': 'pinpoint',
+                        'album_names': ['Roadtrip 2024'],
+                        'libraries': ['FamilyVault'],
+                        'location_mode': True,
+                        'date_mode': True,
+                        'filter_summary': 'FamilyVault • Roadtrip 2024',
+                    }
+                ),
+                json.dumps(['photo-1', 'photo-2', 'photo-3']),
+            ),
+        )
+
+        # Player 1 (Alice) session
+        conn.execute(
+            """
+            INSERT INTO challenge_sessions (
+                session_token, match_id, challenge_id, player_name,
+                current_round, location_score, date_score, total_score,
+                started_at, completed_at, player_color
+            ) VALUES (?, ?, ?, ?, 3, 250, 250, 500, '2026-09-13T10:05:00Z', '2026-09-13T10:10:00Z', '#ff0000')
+            """,
+            ('tok-alice-100', 'm-alice-100', ch_id, 'Alice'),
+        )
+        # Player 2 (Bob) session
+        conn.execute(
+            """
+            INSERT INTO challenge_sessions (
+                session_token, match_id, challenge_id, player_name,
+                current_round, location_score, date_score, total_score,
+                started_at, completed_at, player_color
+            ) VALUES (?, ?, ?, ?, 3, 150, 150, 300, '2026-09-13T10:15:00Z', '2026-09-13T10:20:00Z', '#0000ff')
+            """,
+            ('tok-bob-100', 'm-bob-100', ch_id, 'Bob'),
+        )
+
+    # Record round guesses for both players
+    store.record_challenge_round_guess(
+        match_id='m-alice-100',
+        challenge_id=ch_id,
+        player_name='Alice',
+        round_index=0,
+        asset_id='photo-1',
+        guess_latitude=10.0,
+        guess_longitude=20.0,
+        actual_latitude=10.0,
+        actual_longitude=20.0,
+        round_score=200,
+        is_correct_location=1,
+        time_taken_seconds=5.0,
+    )
+    store.record_challenge_round_guess(
+        match_id='m-bob-100',
+        challenge_id=ch_id,
+        player_name='Bob',
+        round_index=0,
+        asset_id='photo-1',
+        guess_latitude=12.0,
+        guess_longitude=22.0,
+        actual_latitude=10.0,
+        actual_longitude=20.0,
+        round_score=100,
+        is_correct_location=0,
+        time_taken_seconds=8.0,
+    )
+
+    # Record finished match entries for both players
+    with store.db.connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO match_entries (
+                match_id, player_name, player_color, location_score, date_score,
+                total_score, max_possible_score, accuracy_pct, rank, is_winner, total_time_seconds
+            ) VALUES
+            ('m-alice-100', 'Alice', '#ff0000', 250, 250, 500, 600, 83.3, 1, 1, 15.0),
+            ('m-bob-100', 'Bob', '#0000ff', 150, 150, 300, 600, 50.0, 1, 1, 25.0)
+            """
+        )
+
+    # 1. Verify list_matches_history consolidation
+    history = store.list_matches_history(limit=10)
+    assert len(history) == 1
+    item = history[0]
+
+    assert item.match_id == ch_id
+    assert item.challenge_id == ch_id
+    assert item.challenge_title == 'Roadtrip Challenge'
+    assert item.challenge_creator == 'HostRafael'
+    assert item.player_count == 2
+    assert set(item.players) == {'Alice', 'Bob'}
+    assert item.top_score == 500
+    assert item.winners == ['Alice']
+
+    # 2. Verify get_match_replay via challenge_id
+    replay_by_ch = store.get_match_replay(ch_id)
+    assert replay_by_ch is not None
+    assert replay_by_ch.challenge_id == ch_id
+    assert replay_by_ch.challenge_title == 'Roadtrip Challenge'
+    assert replay_by_ch.challenge_creator == 'HostRafael'
+    assert replay_by_ch.config.libraries == ['FamilyVault']
+    assert replay_by_ch.config.album_names == ['Roadtrip 2024']
+    assert len(replay_by_ch.players) == 2
+    assert replay_by_ch.winners == ['Alice']
+
+    # 3. Verify get_match_replay via a participant's session match_id
+    replay_by_session = store.get_match_replay('m-bob-100')
+    assert replay_by_session is not None
+    assert replay_by_session.challenge_id == ch_id
+    assert replay_by_session.challenge_title == 'Roadtrip Challenge'
+    assert replay_by_session.challenge_creator == 'HostRafael'
+    assert replay_by_session.config.libraries == ['FamilyVault']
+    assert replay_by_session.config.album_names == ['Roadtrip 2024']
+    assert len(replay_by_session.players) == 2

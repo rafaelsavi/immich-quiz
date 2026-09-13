@@ -987,6 +987,9 @@ class MatchHistoryItem(BaseModel):
     players: list[str] = Field(default_factory=list)
     top_score: int = Field(ge=0)
     top_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    challenge_id: str | None = None
+    challenge_title: str | None = None
+    challenge_creator: str | None = None
 
 
 class MatchReplayPlayerGuess(BaseModel):
@@ -1062,6 +1065,9 @@ class MatchReplayResponse(BaseModel):
     round_length: str
     location_mode: bool
     date_mode: bool
+    challenge_id: str | None = None
+    challenge_title: str | None = None
+    challenge_creator: str | None = None
     winners: list[str] = Field(default_factory=list)
     players: list[MatchSummaryPlayer] = Field(default_factory=list)
     rounds_data: list[MatchReplayRound] = Field(default_factory=list)

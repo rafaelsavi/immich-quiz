@@ -193,7 +193,7 @@ export function renderLeaderboard() {
     accBadge.textContent = formatAccuracy(row.accuracy_pct);
 
     const cellAcc = buildCell(accBadge);
-    cellAcc.className = "col-accuracy";
+    cellAcc.className = "col-acc";
 
     // Replay cell with watch action
     const cellReplay = document.createElement("td");
@@ -202,8 +202,10 @@ export function renderLeaderboard() {
       const replayBtn = document.createElement("a");
       replayBtn.href = `/game/${encodeURIComponent(row.match_id)}/replay`;
       replayBtn.className = "leaderboard-replay-btn";
-      replayBtn.title = t("replay.watch_replay") !== "replay.watch_replay" ? t("replay.watch_replay") : "Watch Replay";
-      replayBtn.innerHTML = `<span class="replay-icon" aria-hidden="true">🎬</span><span class="replay-text">${t("leaderboard.col_replay") !== "leaderboard.col_replay" ? t("leaderboard.col_replay") : "Replay"}</span>`;
+      const replayTitle = t("replay.watch_replay") !== "replay.watch_replay" ? t("replay.watch_replay") : "Watch Replay";
+      replayBtn.title = replayTitle;
+      replayBtn.setAttribute("aria-label", replayTitle);
+      replayBtn.innerHTML = `<span class="replay-icon" aria-hidden="true">🎬</span>`;
       replayBtn.addEventListener("click", (e) => {
         e.preventDefault();
         navigate(`/game/${encodeURIComponent(row.match_id)}/replay`);

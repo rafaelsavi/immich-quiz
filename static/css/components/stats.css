@@ -507,11 +507,34 @@
 }
 
 .replay-action-btn {
-  padding: 0.3rem 0.65rem;
-  font-size: 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  font-size: 0.85rem;
   font-weight: 600;
   border-radius: 6px;
   text-decoration: none;
+  border: 1px solid var(--border-color, #cbd5e1);
+  background: var(--bg-card, #ffffff);
+  color: var(--text-color, #1e293b);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.replay-action-btn:hover {
+  background: var(--bg-hover, #f8fafc);
+  border-color: var(--accent, #0f7c7f);
+  color: var(--accent, #0f7c7f);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+
+.replay-action-btn:active {
+  transform: translateY(0) scale(0.97);
 }
 
 /* Dark theme adjustments */
@@ -536,6 +559,24 @@
 
 [data-theme="dark"] .recent-matches-table td {
   border-color: #334155;
+  color: var(--ink, #f1f5f9);
+}
+
+[data-theme="dark"] .recent-matches-table th {
+  border-color: #334155;
+  color: var(--text-muted, #94a3b8);
+}
+
+[data-theme="dark"] .replay-action-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .replay-action-btn:hover {
+  background: #334155;
+  border-color: var(--accent, #0f7c7f);
+  color: #38bdf8;
 }
 
 [data-theme="dark"] .player-card-name,
@@ -688,4 +729,120 @@
 [data-theme="dark"] .stats-empty-feature-title {
   color: #f1f5f9;
 }
+
+/* Responsive adjustments for Player Directory, Profile & Recent Matches */
+@media (max-width: 768px) {
+  .player-hero-avatar {
+    width: 64px;
+    height: 64px;
+    font-size: 1.8rem;
+  }
+
+  .player-hero-name {
+    font-size: 1.5rem;
+  }
+
+  .accuracy-analytics-grid,
+  .meta-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recent-matches-table {
+    table-layout: fixed;
+    width: 100%;
+    font-size: 0.78rem;
+  }
+
+  .recent-matches-table th {
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.72rem;
+  }
+
+  .recent-matches-table th,
+  .recent-matches-table td {
+    padding: 0.4rem 0.15rem;
+    font-size: 0.74rem;
+  }
+
+  /* Date column */
+  .recent-matches-table th.col-date,
+  .recent-matches-table td:first-child {
+    width: 24%;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    word-break: normal;
+    padding-left: 0.35rem;
+  }
+
+  /* Mode column - hide mode-label text, keep icon */
+  .recent-matches-table th.col-mode,
+  .recent-matches-table td.col-mode {
+    width: 11%;
+    text-align: center;
+    padding: 0.4rem 0.05rem;
+    font-size: 0.68rem;
+  }
+
+  .recent-matches-table .col-mode .mode-label {
+    display: none;
+  }
+
+  .recent-matches-table .col-mode .mode-icon {
+    font-size: 0.85rem;
+  }
+
+  /* Rank column */
+  .recent-matches-table th.col-rank,
+  .recent-matches-table td.col-rank {
+    width: 11%;
+    padding: 0.4rem 0.05rem;
+    text-align: center;
+    font-size: 0.68rem;
+  }
+
+  /* Score column */
+  .recent-matches-table th.col-score,
+  .recent-matches-table td.col-score {
+    width: 16%;
+    text-align: center;
+    padding: 0.4rem 0.05rem;
+    font-size: 0.72rem;
+  }
+
+  /* Accuracy column */
+  .recent-matches-table th.col-acc,
+  .recent-matches-table td.col-acc {
+    width: 24%;
+    text-align: center;
+    padding: 0.4rem 0.05rem;
+    font-size: 0.7rem;
+  }
+
+  /* Replay column */
+  .recent-matches-table th.col-replay,
+  .recent-matches-table td.col-replay {
+    width: 14%;
+    text-align: center;
+    padding: 0.4rem 0.05rem;
+    padding-right: 0.35rem;
+  }
+
+  .recent-matches-table th.col-replay {
+    font-size: 0;
+  }
+
+  .recent-matches-table th.col-replay::after {
+    content: "🎬";
+    font-size: 0.75rem;
+  }
+
+  .recent-matches-table .replay-action-btn {
+    width: 28px;
+    height: 25px;
+    padding: 0;
+    font-size: 0.8rem;
+  }
+}
+
 

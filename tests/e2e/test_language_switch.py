@@ -354,14 +354,14 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
     await expect(page.locator('#replay-round-indicator')).to_contain_text(re.compile(r'Rodada 1 de 1', re.IGNORECASE))
     await expect(page.locator('#replay-scoreboard-round-tag')).to_contain_text(re.compile(r'Após R1', re.IGNORECASE))
     await expect(page.locator('#replay-back-btn')).to_contain_text('Sair do Replay')
-    await expect(page.locator("span[data-i18n='replay.scoreboard']")).to_have_text('Placar da Partida')
+    await expect(page.locator("span[data-i18n='replay.player_guess_heading']")).to_have_text('Palpites dos Jogadores')
 
     # Realtime toggle replay to English
     await _toggle_language(page)
     await expect(page.locator('#replay-round-indicator')).to_contain_text(re.compile(r'Round 1 of 1', re.IGNORECASE))
     await expect(page.locator('#replay-scoreboard-round-tag')).to_contain_text(re.compile(r'After R1', re.IGNORECASE))
     await expect(page.locator('#replay-back-btn')).to_contain_text('Exit Replay')
-    await expect(page.locator("span[data-i18n='replay.scoreboard']")).to_have_text('Live Scoreboard')
+    await expect(page.locator("span[data-i18n='replay.player_guess_heading']")).to_have_text('Player Guesses')
 
     # 4. Test Player Profile with mocked data
     async def handle_profile_route(route):

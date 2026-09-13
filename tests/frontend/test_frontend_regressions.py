@@ -1,3 +1,4 @@
+import json
 import re
 from collections import Counter
 from html.parser import HTMLParser
@@ -45,8 +46,6 @@ DYNAMIC_IDS = frozenset(
         'finisher-count-text',
         'goal-date',
         'goal-location',
-        'grand-reveal-home-btn',
-        'grand-reveal-hub-btn',
         'grand-reveal-live-pill',
         'grand-reveal-live-status',
         'grand-reveal-meta-tally',
@@ -1091,8 +1090,8 @@ def test_challenge_summary_replay_unification_and_mobile_optimization() -> None:
     assert 'capabilityToken' not in summary_js
 
     # 2. Grand reveal standings table hides accuracy column on mobile screens and excludes unnecessary avg-round column
-    assert '<th class="col-accuracy text-right hide-on-mobile">' in challenge_js
-    assert '<td class="col-accuracy text-right hide-on-mobile">' in challenge_js
+    assert '<th class="col-acc text-right hide-on-mobile">' in challenge_js
+    assert '<td class="col-acc text-right hide-on-mobile">' in challenge_js
     assert 'col-avg-round' not in challenge_js
     assert 'summary.col_avg_round' not in challenge_js
 
@@ -1232,9 +1231,9 @@ def test_challenge_gameplay_flow_and_label_integrity() -> None:
     assert '${t("challenge.true_date")}:' in summary_js
     assert '${t("challenge.true_location")}:' not in summary_js
 
-    # 2. Grand Reveal summary includes Challenges Hub navigation button
-    assert 'grand-reveal-hub-btn' in summary_js
-    assert 'navigate("/challenges");' in summary_js
+    # 2. Grand Reveal summary does not render redundant hub/home navigation buttons
+    assert 'grand-reveal-hub-btn' not in summary_js
+    assert 'grand-reveal-home-btn' not in summary_js
 
     # 3. reveal.js updates state.lastReveal for state consistency
     assert 'state.lastReveal = formattedReveal;' in reveal_js
@@ -2009,3 +2008,116 @@ def test_match_replays_catalog_player_chips_and_styling() -> None:
 
     # challenge.css scopes .badge-challenge and does not have an unscoped bare `.badge-challenge {`
     assert not re.search(r'^\.badge-challenge\s*\{', challenge_css, re.MULTILINE)
+
+
+def test_player_stats_translations_and_tier_rendering_parity() -> None:
+    """Verify that all translation keys used in stats.js exist in both English and Portuguese
+    locales, that Accuracy Tier rendering uses tier_key (preventing stats.tier_undefined),
+    and that singular/plural round counters exist and are correctly used.
+    """
+    stats_js = (JS_DIR / 'modules' / 'screens' / 'stats.js').read_text(encoding='utf-8')
+    locales_dir = Path(__file__).resolve().parents[2] / 'locales'
+    en_json = json.loads((locales_dir / 'en-US.json').read_text(encoding='utf-8'))
+    pt_json = json.loads((locales_dir / 'pt-BR.json').read_text(encoding='utf-8'))
+
+    # 1. Tier key extraction must not produce 'tier_undefined'
+    assert 'tier.tier_key' in stats_js
+    assert 'stats.tier_${tierKey}' in stats_js
+    for tier in ['stats.tier_top', 'stats.tier_great', 'stats.tier_moderate', 'stats.tier_low']:
+        assert tier in en_json, f'Missing {tier} in en-US.json'
+        assert tier in pt_json, f'Missing {tier} in pt-BR.json'
+
+    # 2. Singular / plural counters exist and are used
+    assert 'stats.round_single' in en_json and 'stats.round_single' in pt_json
+    assert 'stats.rounds_plural' in en_json and 'stats.rounds_plural' in pt_json
+    assert 't("stats.round_single"' in stats_js
+    assert 't("stats.rounds_plural"' in stats_js
+
+    # 3. KPI and profile metrics exist in locales
+    for key in [
+        'stats.matches_played_count',
+        'stats.wins_count',
+        'stats.podium_rate',
+        'stats.best_match',
+        'stats.perfect_guesses',
+        'stats.last_played',
+        'stats.speed_and_timing',
+        'stats.best_date_diff',
+        'stats.days_plural',
+    ]:
+        assert key in en_json, f'Missing {key} in en-US.json'
+        assert key in pt_json, f'Missing {key} in pt-BR.json'
+
+
+def test_tables_mobile_optimization_and_replay_icon_unification() -> None:
+    """Verify table mobile optimizations across homepage leaderboard, recent matches, and standings:
+    - Replay buttons in table rows use icon-only (🎬) with proper titles/aria-labels.
+    - Playmode labels are omitted on mobile in the homepage leaderboard.
+    - Recent matches table wraps in .table-scroll and fits mobile viewports without overflowing.
+    - Standings tables define mobile responsive rules.
+    - Dark mode styling maintains high contrast on table surfaces and text.
+    """
+    leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
+    leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    stats_js = (JS_DIR / 'modules' / 'screens' / 'stats.js').read_text(encoding='utf-8')
+    stats_css = (STATIC_DIR / 'css' / 'components' / 'stats.css').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. Homepage leaderboard replay button: icon-only markup with aria-label
+    assert 'replayBtn.innerHTML = `<span class="replay-icon" aria-hidden="true">🎬</span>`;' in leaderboard_js
+    assert 'replayBtn.setAttribute("aria-label", replayTitle);' in leaderboard_js
+
+    # 2. Homepage leaderboard mobile styles: omit playmode-label, tighten mode/replay columns, enlarge player col
+    assert '.playmode-badge .playmode-label' in leaderboard_css
+    assert 'display: none !important;' in leaderboard_css
+    assert '#leaderboard-table th[data-sort="play_mode"]' in leaderboard_css
+    assert '#leaderboard-table th[data-sort="player_name"]' in leaderboard_css
+    assert '.leaderboard-player-link' in leaderboard_css
+
+    # 3. Stats page recent matches table: icon-only button and standard Replay column header
+    assert 'title="${t("replay.watch_replay")}"' in stats_js
+    assert 'aria-label="${t("replay.watch_replay")}"' in stats_js
+    assert '<span class="replay-icon" aria-hidden="true">🎬</span>' in stats_js
+    assert 'data-i18n="leaderboard.col_replay"' in stats_js
+    assert '<div class="table-scroll">' in stats_js
+
+    # 4. Stats CSS: responsive rules for recent-matches-table and compact replay-action-btn
+    assert '.recent-matches-table .col-mode .mode-label' in stats_css
+    assert '.recent-matches-table th.col-replay' in stats_css
+    assert '.recent-matches-table th.col-replay::after' in stats_css
+    assert '.replay-action-btn' in stats_css
+    assert '[data-theme="dark"] .recent-matches-table td' in stats_css
+
+    # 5. Challenges hub standings table has mobile responsive rules
+    assert '.standings-table th' in challenge_css
+    assert '.standings-table .col-score .max-score' in challenge_css
+
+
+def test_replay_screen_header_and_title_rendering() -> None:
+    """Verify that the replay screen header omits redundant round count from subtitle and
+    omits replay-badge-row, and renders challenge title and creator for challenge replays.
+    """
+    index_html = (STATIC_DIR / 'index.html').read_text(encoding='utf-8')
+    replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
+    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
+
+    # 1. HTML omits replay-badge-row and retains replay-main-heading + replay-match-title
+    assert '<div class="replay-badge-row">' not in index_html
+    assert 'id="replay-mode-badge"' not in index_html
+    assert 'id="replay-type-badge"' not in index_html
+    assert '<h2 class="replay-main-heading">' in index_html
+    assert '<p id="replay-match-title" class="replay-match-meta"></p>' in index_html
+
+    # 2. replay.js uses renderReplayTitleHeader and handles challenge vs local matches
+    assert 'function renderReplayTitleHeader()' in replay_js
+    assert 'const isChallenge =' in replay_js
+    assert 'replay-challenge-title' in replay_js
+    assert 'replay-challenge-host' in replay_js
+    assert 'stats.rounds_count' not in replay_js  # Round count removed from replay subtitle
+
+    # 3. replay.css defines replay-match-meta layout and clean dark mode
+    assert '.replay-match-meta {' in replay_css
+    assert '.replay-challenge-title' in replay_css
+    assert '.replay-challenge-host' in replay_css
+    assert '.meta-separator' in replay_css
+    assert '.replay-badge-row' not in replay_css

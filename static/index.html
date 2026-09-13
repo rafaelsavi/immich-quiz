@@ -800,31 +800,14 @@
             <span aria-hidden="true">←</span>
             <span data-i18n="replay.exit">Exit Replay</span>
           </button>
-          <div class="replay-header-controls">
-            <div class="replay-round-stepper">
-              <button type="button" id="replay-prev-round-btn" class="btn-icon-control" title="Previous Round" aria-label="Previous Round" data-i18n-title="replay.prev_round">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
-              </button>
-              <span id="replay-round-indicator" class="replay-round-indicator">Round 1 of 10</span>
-              <button type="button" id="replay-next-round-btn" class="btn-icon-control" title="Next Round" aria-label="Next Round" data-i18n-title="replay.next_round">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-              </button>
-            </div>
-          </div>
         </div>
 
         <div class="replay-header-main">
           <div class="replay-title-block">
-            <div class="replay-title-row">
-              <h2 class="replay-main-heading">
-                <span class="replay-heading-icon" aria-hidden="true">🎬</span>
-                <span data-i18n="replay.title">Match Replay</span>
-              </h2>
-              <div class="replay-badge-row">
-                <span id="replay-mode-badge" class="badge-tag badge-mode"></span>
-                <span id="replay-type-badge" class="badge-tag badge-type"></span>
-              </div>
-            </div>
+            <h2 class="replay-main-heading">
+              <span class="replay-heading-icon" aria-hidden="true">🎬</span>
+              <span id="replay-heading-title" data-i18n="replay.title">Match Replay</span>
+            </h2>
             <p id="replay-match-title" class="replay-match-meta"></p>
           </div>
         </div>
@@ -842,6 +825,17 @@
         </div>
 
         <div id="replay-content-grid" class="replay-content-grid">
+          <div class="replay-header-controls">
+            <div class="replay-round-stepper">
+              <button type="button" id="replay-prev-round-btn" class="btn-icon-control" title="Previous Round" aria-label="Previous Round" data-i18n-title="replay.prev_round">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 20 8 12 16 4"></polyline></svg>
+              </button>
+              <span id="replay-round-indicator" class="replay-round-indicator">Round 1 of 10</span>
+              <button type="button" id="replay-next-round-btn" class="btn-icon-control" title="Next Round" aria-label="Next Round" data-i18n-title="replay.next_round">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 20 16 12 8 4"></polyline></svg>
+              </button>
+            </div>
+          </div>
           <!-- Left Stage -->
           <div class="replay-stage">
             <!-- Photo & Map Split -->
@@ -878,7 +872,7 @@
             <div class="replay-guesses-card">
               <div class="replay-guesses-header">
                 <h4>
-                  <span>👥 <span data-i18n="replay.player_guess_heading">Player Guesses</span> &amp; 🏆 <span data-i18n="replay.scoreboard">Scoreboard</span></span>
+                  <span>👥 <span data-i18n="replay.player_guess_heading">Player Guesses</span></span>
                   <span id="replay-scoreboard-round-tag" class="replay-round-tag"></span>
                 </h4>
               </div>

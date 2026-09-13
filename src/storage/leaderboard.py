@@ -187,9 +187,17 @@ def _canonicalize_filter_list(items: list[str] | None) -> str | None:
     return json.dumps(sorted(cleaned)) if cleaned else None
 
 
-def _parse_json_list(val: str | None) -> list[str]:
-    """Parse JSON array string to Python list of strings."""
-    return json.loads(val) if val else []
+def _parse_json_list(val: str | list[Any] | None) -> list[str]:
+    """Parse JSON array string or return Python list of strings."""
+    if not val:
+        return []
+    if isinstance(val, list):
+        return [str(x) for x in val]
+    try:
+        loaded = json.loads(val)
+        return [str(x) for x in loaded] if isinstance(loaded, list) else []
+    except Exception:
+        return []
 
 
 def _build_round_history_from_guesses(
@@ -375,6 +383,101 @@ class LeaderboardStore:
                     ON match_entries(player_name COLLATE NOCASE)
                 """
             )
+            # Backfill challenge_id in matches from challenge_sessions if missing
+            conn.execute(
+                """
+                UPDATE matches
+                SET challenge_id = (
+                    SELECT cs.challenge_id
+                    FROM challenge_sessions cs
+                    WHERE cs.match_id = matches.match_id
+                    LIMIT 1
+                )
+                WHERE challenge_id IS NULL
+                  AND match_id IN (SELECT match_id FROM challenge_sessions)
+                """
+            )
+            # Backfill filter configuration for challenge matches
+            ch_matches = conn.execute(
+                """
+                SELECT m.match_id, m.challenge_id, c.libraries_json, c.config_json
+                FROM matches m
+                JOIN challenges c ON c.challenge_id = m.challenge_id
+                WHERE m.libraries_json IS NULL
+                   OR (m.album_names_json IS NULL AND m.person_names_json IS NULL AND m.countries_json IS NULL)
+                """
+            ).fetchall()
+            for cm in ch_matches:
+                m_id = cm[0]
+                lib_json = cm[2]
+                cfg_json = cm[3]
+                if cfg_json:
+                    with contextlib.suppress(Exception):
+                        cfg = json.loads(cfg_json)
+                        an_json = _canonicalize_filter_list(cfg.get('album_names'))
+                        aid_json = _canonicalize_filter_list(cfg.get('albums'))
+                        pid_json = _canonicalize_filter_list(cfg.get('people'))
+                        pn_json = _canonicalize_filter_list(cfg.get('person_names'))
+                        pm = cfg.get('people_mode', 'ANY')
+                        co_json = _canonicalize_filter_list(cfg.get('countries'))
+                        ci_json = _canonicalize_filter_list(cfg.get('cities'))
+                        mind = cfg.get('min_date')
+                        maxd = cfg.get('max_date')
+                        inc_sh = 1 if cfg.get('include_shared') else 0
+                        f_sum = cfg.get('filter_summary')
+                        is_cust = (
+                            1
+                            if (an_json or pid_json or co_json or ci_json or mind or maxd or inc_sh or lib_json)
+                            else 0
+                        )
+                        rnd_cnt = int(cfg.get('round_count') or cfg.get('rounds') or 5)
+                        rnd_len = cfg.get('round_length', '1m')
+                        loc_m = 1 if cfg.get('location_mode', True) else 0
+                        dat_m = 1 if cfg.get('date_mode', True) else 0
+
+                        conn.execute(
+                            """
+                            UPDATE matches SET
+                                libraries_json = COALESCE(libraries_json, ?),
+                                album_names_json = COALESCE(album_names_json, ?),
+                                album_ids_json = COALESCE(album_ids_json, ?),
+                                person_ids_json = COALESCE(person_ids_json, ?),
+                                person_names_json = COALESCE(person_names_json, ?),
+                                people_mode = COALESCE(people_mode, ?),
+                                countries_json = COALESCE(countries_json, ?),
+                                cities_json = COALESCE(cities_json, ?),
+                                min_date = COALESCE(min_date, ?),
+                                max_date = COALESCE(max_date, ?),
+                                include_shared = COALESCE(include_shared, ?),
+                                is_custom_filtered = COALESCE(is_custom_filtered, ?),
+                                filter_summary = COALESCE(filter_summary, ?),
+                                rounds = CASE WHEN rounds <= 1 THEN ? ELSE rounds END,
+                                round_length = COALESCE(round_length, ?),
+                                location_mode = COALESCE(location_mode, ?),
+                                date_mode = COALESCE(date_mode, ?)
+                            WHERE match_id = ?
+                            """,
+                            (
+                                lib_json,
+                                an_json,
+                                aid_json,
+                                pid_json,
+                                pn_json,
+                                pm,
+                                co_json,
+                                ci_json,
+                                mind,
+                                maxd,
+                                inc_sh,
+                                is_cust,
+                                f_sum,
+                                rnd_cnt,
+                                rnd_len,
+                                loc_m,
+                                dat_m,
+                                m_id,
+                            ),
+                        )
 
     def append_match(
         self,
@@ -845,29 +948,100 @@ class LeaderboardStore:
 
     def get_match_summary(self, match_id: str, language: str | None = None) -> MatchSummaryResponse | None:
         """Retrieve full match replay data and podium summary from SQLite."""
+        ch_row = None
+        challenge_id = None
+
+        # 1. Direct challenge lookup
+        ch_row = self._db.fetch_one('SELECT * FROM challenges WHERE challenge_id = ?', (match_id,))
+        if ch_row:
+            challenge_id = match_id
+        else:
+            # 2. Check if match_id is a challenge session match_id
+            cs_row = self._db.fetch_one('SELECT challenge_id FROM challenge_sessions WHERE match_id = ?', (match_id,))
+            if cs_row and cs_row.get('challenge_id'):
+                challenge_id = cs_row['challenge_id']
+                ch_row = self._db.fetch_one('SELECT * FROM challenges WHERE challenge_id = ?', (challenge_id,))
+
         match_row = self._db.fetch_one('SELECT * FROM matches WHERE match_id = ?', (match_id,))
+        if not match_row and challenge_id:
+            match_row = self._db.fetch_one(
+                'SELECT * FROM matches WHERE challenge_id = ? ORDER BY played_at DESC LIMIT 1',
+                (challenge_id,),
+            )
         if not match_row:
             return None
 
-        entry_rows = self._db.fetch_all(
-            'SELECT * FROM match_entries WHERE match_id = ? ORDER BY rank ASC, player_name ASC',
-            (match_id,),
-        )
-        winners = [r['player_name'] for r in entry_rows if r['is_winner']]
+        if not challenge_id and match_row.get('challenge_id'):
+            challenge_id = match_row['challenge_id']
+            ch_row = self._db.fetch_one('SELECT * FROM challenges WHERE challenge_id = ?', (challenge_id,))
+
+        ch_config: dict[str, Any] = {}
+        if ch_row and ch_row.get('config_json'):
+            with contextlib.suppress(Exception):
+                ch_config = json.loads(ch_row['config_json'])
+
+        if challenge_id:
+            raw_entries = self._db.fetch_all(
+                """
+                SELECT * FROM match_entries
+                WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
+                ORDER BY total_score DESC, accuracy_pct DESC, player_name ASC
+                """,
+                (challenge_id,),
+            )
+            seen_p: set[str] = set()
+            entry_rows: list[dict[str, Any]] = []
+            for r in raw_entries:
+                p_name = r['player_name']
+                if p_name not in seen_p:
+                    seen_p.add(p_name)
+                    entry_rows.append(r)
+            for rank_idx, r in enumerate(entry_rows, start=1):
+                r['rank'] = rank_idx
+            top_score = max((r['total_score'] for r in entry_rows), default=0)
+            winners = [r['player_name'] for r in entry_rows if r['total_score'] == top_score and top_score > 0]
+            for r in entry_rows:
+                r['is_winner'] = 1 if r['player_name'] in winners else 0
+        else:
+            entry_rows = self._db.fetch_all(
+                'SELECT * FROM match_entries WHERE match_id = ? ORDER BY rank ASC, player_name ASC',
+                (match_id,),
+            )
+            winners = [r['player_name'] for r in entry_rows if r['is_winner']]
 
         player_colors: dict[str, str] = {
             r['player_name']: r['player_color'] for r in entry_rows if r.get('player_color')
         }
+        if challenge_id:
+            session_rows = self._db.fetch_all(
+                """
+                SELECT player_name, player_color FROM challenge_sessions
+                WHERE challenge_id = ? ORDER BY started_at ASC
+                """,
+                (challenge_id,),
+            )
+            for s in session_rows:
+                if s.get('player_name') and s.get('player_color') and s['player_name'] not in player_colors:
+                    player_colors[s['player_name']] = s['player_color']
+
         if len(player_colors) < len(entry_rows):
             guess_order_rows = self._db.fetch_all(
                 """
+                SELECT player_name, MIN(id) as first_id
+                FROM match_round_guesses
+                WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
+                GROUP BY player_name
+                ORDER BY first_id ASC
+                """
+                if challenge_id
+                else """
                 SELECT player_name, MIN(id) as first_id
                 FROM match_round_guesses
                 WHERE match_id = ?
                 GROUP BY player_name
                 ORDER BY first_id ASC
                 """,
-                (match_id,),
+                (challenge_id or match_id,),
             )
             ordered_match_players: list[str] = [r['player_name'] for r in guess_order_rows]
             for r in entry_rows:
@@ -892,28 +1066,40 @@ class LeaderboardStore:
             for r in entry_rows
         ]
 
-        guess_rows = self._db.fetch_all(
-            'SELECT * FROM match_round_guesses WHERE match_id = ? '
-            'ORDER BY round_index ASC, photo_index ASC, player_name ASC',
-            (match_id,),
-        )
+        if challenge_id:
+            guess_rows = self._db.fetch_all(
+                """
+                SELECT * FROM match_round_guesses
+                WHERE match_id IN (SELECT match_id FROM challenge_sessions WHERE challenge_id = ?)
+                ORDER BY round_index ASC, photo_index ASC, player_name ASC
+                """,
+                (challenge_id,),
+            )
+        else:
+            guess_rows = self._db.fetch_all(
+                'SELECT * FROM match_round_guesses WHERE match_id = ? '
+                'ORDER BY round_index ASC, photo_index ASC, player_name ASC',
+                (match_id,),
+            )
         round_history = _build_round_history_from_guesses(guess_rows, match_row)
 
-        round_len_str = match_row.get('round_length') or '1m'
+        round_len_str = ch_config.get('round_length') or match_row.get('round_length') or '1m'
         try:
             round_len_enum = RoundLength(round_len_str)
         except ValueError:
             round_len_enum = RoundLength.minute_1
 
-        people_mode_str = match_row.get('people_mode') or 'ANY'
+        people_mode_str = ch_config.get('people_mode') or match_row.get('people_mode') or 'ANY'
         try:
             people_mode_enum = PeopleMode(people_mode_str)
         except ValueError:
             people_mode_enum = PeopleMode.ANY
 
-        # Resolve person names from person_names_json, or fallback to resolving person_ids via metadata store
-        person_names = _parse_json_list(match_row.get('person_names_json'))
-        person_ids = _parse_json_list(match_row.get('person_ids_json'))
+        # Resolve person names and IDs
+        person_names = _parse_json_list(ch_config.get('person_names')) or _parse_json_list(
+            match_row.get('person_names_json')
+        )
+        person_ids = _parse_json_list(ch_config.get('people')) or _parse_json_list(match_row.get('person_ids_json'))
         if not person_names and person_ids:
             if self._metadata_store:
                 person_map = self._metadata_store.get_person_names(person_ids)
@@ -921,9 +1107,11 @@ class LeaderboardStore:
             else:
                 person_names = person_ids
 
-        # Resolve album names from album_names_json, or fallback to resolving album_ids via metadata store
-        album_names = _parse_json_list(match_row.get('album_names_json'))
-        album_ids = _parse_json_list(match_row.get('album_ids_json'))
+        # Resolve album names and IDs
+        album_names = _parse_json_list(ch_config.get('album_names')) or _parse_json_list(
+            match_row.get('album_names_json')
+        )
+        album_ids = _parse_json_list(ch_config.get('albums')) or _parse_json_list(match_row.get('album_ids_json'))
         if not album_names and album_ids:
             if self._metadata_store:
                 album_map = self._metadata_store.get_album_names(album_ids)
@@ -931,55 +1119,88 @@ class LeaderboardStore:
             else:
                 album_names = album_ids
 
+        libraries = (
+            _parse_json_list(ch_row.get('libraries_json'))
+            if ch_row and ch_row.get('libraries_json')
+            else (
+                _parse_json_list(ch_config.get('libraries'))
+                if ch_config.get('libraries')
+                else _parse_json_list(match_row.get('libraries_json'))
+            )
+        )
+        countries = _parse_json_list(ch_config.get('countries')) or _parse_json_list(match_row.get('countries_json'))
+        cities = _parse_json_list(ch_config.get('cities')) or _parse_json_list(match_row.get('cities_json'))
+        min_date = _parse_iso_date(ch_config.get('min_date')) or _parse_iso_date(match_row.get('min_date'))
+        max_date = _parse_iso_date(ch_config.get('max_date')) or _parse_iso_date(match_row.get('max_date'))
+        include_shared = bool(
+            ch_config.get('include_shared') if 'include_shared' in ch_config else match_row.get('include_shared')
+        )
+        round_count = int(ch_config.get('round_count') or ch_config.get('rounds') or match_row.get('rounds') or 5)
+        location_mode = bool(
+            ch_config.get('location_mode') if 'location_mode' in ch_config else match_row.get('location_mode')
+        )
+        date_mode = bool(ch_config.get('date_mode') if 'date_mode' in ch_config else match_row.get('date_mode'))
+        game_mode_str = str(ch_config.get('game_mode') or match_row.get('game_mode') or 'pinpoint')
+        try:
+            game_mode_enum = GameMode(game_mode_str)
+        except ValueError:
+            game_mode_enum = GameMode.pinpoint
+
         match_config = MatchConfig(
-            round_count=int(match_row['rounds']),
+            round_count=round_count,
             round_length=round_len_enum,
-            location_mode=bool(match_row['location_mode']),
-            date_mode=bool(match_row['date_mode']),
-            game_mode=GameMode(match_row['game_mode']),
-            libraries=_parse_json_list(match_row['libraries_json']),
+            location_mode=location_mode,
+            date_mode=date_mode,
+            game_mode=game_mode_enum,
+            libraries=libraries,
             albums=album_ids,
             album_names=album_names,
             people=person_ids,
             person_names=person_names,
             people_mode=people_mode_enum,
-            countries=_parse_json_list(match_row.get('countries_json')),
-            cities=_parse_json_list(match_row.get('cities_json')),
-            min_date=_parse_iso_date(match_row.get('min_date')),
-            max_date=_parse_iso_date(match_row.get('max_date')),
-            include_shared=bool(match_row.get('include_shared')),
+            countries=countries,
+            cities=cities,
+            min_date=min_date,
+            max_date=max_date,
+            include_shared=include_shared,
         )
 
-        filter_tooltip = None
-        if match_row['is_custom_filtered']:
+        filter_summary = ch_config.get('filter_summary') or match_row.get('filter_summary')
+        is_custom_filtered = bool(
+            (libraries or album_names or person_names or countries or cities or min_date or max_date or include_shared)
+            or match_row.get('is_custom_filtered')
+        )
+
+        filter_tooltip = ch_config.get('filter_tooltip')
+        if not filter_tooltip and is_custom_filtered:
             lang_enum = SupportedLanguage.from_str(language) if language else SupportedLanguage.EN
             setup_obj = GameSetupRequest(
-                round_count=int(match_row['rounds']),
+                round_count=round_count,
                 players=[p.player_name for p in players] if players else ['Player 1'],
-                game_mode=GameMode(match_row['game_mode']),
-                libraries=_parse_json_list(match_row['libraries_json']),
+                game_mode=game_mode_enum,
+                libraries=libraries,
                 album_names=album_names,
                 person_names=person_names,
-                countries=_parse_json_list(match_row.get('countries_json')),
-                cities=_parse_json_list(match_row.get('cities_json')),
-                min_date=_parse_iso_date(match_row.get('min_date')),
-                max_date=_parse_iso_date(match_row.get('max_date')),
-                include_shared=bool(match_row.get('include_shared')),
+                countries=countries,
+                cities=cities,
+                min_date=min_date,
+                max_date=max_date,
+                include_shared=include_shared,
             )
             filter_tooltip = setup_obj.format_filter_tooltip(language=lang_enum)
 
         return MatchSummaryResponse(
-            match_id=match_row['match_id'],
-            rounds_played=int(match_row['rounds']),
-            location_mode=bool(match_row['location_mode']),
-            date_mode=bool(match_row['date_mode']),
-            game_mode=GameMode(match_row['game_mode']),
+            match_id=challenge_id or match_row['match_id'],
+            rounds_played=round_count,
+            location_mode=location_mode,
+            date_mode=date_mode,
+            game_mode=game_mode_enum,
             finished=True,
             winners=winners,
             players=players,
-            filter_summary=match_row['filter_summary'],
+            filter_summary=filter_summary,
             filter_tooltip=filter_tooltip,
-            is_custom_filtered=bool(match_row['is_custom_filtered']),
+            is_custom_filtered=is_custom_filtered,
             config=match_config,
             round_history=round_history if round_history else None,
         )
@@ -1018,10 +1239,70 @@ class LeaderboardStore:
         """Persist a single player's guess for a challenge round."""
         now_iso = submitted_at or datetime.now(UTC).isoformat()
         with self._db.connection() as conn:
+            # Query challenge configuration so parent match row has accurate filter metadata
+            ch_cursor = conn.execute(
+                'SELECT libraries_json, config_json FROM challenges WHERE challenge_id = ?',
+                (challenge_id,),
+            )
+            ch_data = ch_cursor.fetchone()
+            libraries_json = None
+            album_names_json = None
+            album_ids_json = None
+            person_ids_json = None
+            person_names_json = None
+            people_mode = 'ANY'
+            countries_json = None
+            cities_json = None
+            min_date = None
+            max_date = None
+            include_shared = 0
+            is_custom_filtered = 0
+            filter_summary = None
+            rounds = 1
+            round_length = '1m'
+            location_mode = 1
+            date_mode = 1
+
+            if ch_data:
+                libraries_json = ch_data[0]
+                cfg_json = ch_data[1]
+                if cfg_json:
+                    with contextlib.suppress(Exception):
+                        cfg = json.loads(cfg_json)
+                        album_names_json = _canonicalize_filter_list(cfg.get('album_names'))
+                        album_ids_json = _canonicalize_filter_list(cfg.get('albums'))
+                        person_ids_json = _canonicalize_filter_list(cfg.get('people'))
+                        person_names_json = _canonicalize_filter_list(cfg.get('person_names'))
+                        people_mode = cfg.get('people_mode', 'ANY')
+                        countries_json = _canonicalize_filter_list(cfg.get('countries'))
+                        cities_json = _canonicalize_filter_list(cfg.get('cities'))
+                        min_date = cfg.get('min_date')
+                        max_date = cfg.get('max_date')
+                        include_shared = 1 if cfg.get('include_shared') else 0
+                        filter_summary = cfg.get('filter_summary')
+                        is_custom_filtered = (
+                            1
+                            if (
+                                album_names_json
+                                or person_ids_json
+                                or countries_json
+                                or cities_json
+                                or min_date
+                                or max_date
+                                or include_shared
+                                or libraries_json
+                            )
+                            else 0
+                        )
+                        rounds = int(cfg.get('round_count') or cfg.get('rounds') or 1)
+                        round_length = cfg.get('round_length', '1m')
+                        location_mode = 1 if cfg.get('location_mode', True) else 0
+                        date_mode = 1 if cfg.get('date_mode', True) else 0
+
             # Ensure parent match row exists in matches table for foreign key integrity
             conn.execute(
                 """
-                INSERT OR IGNORE INTO matches (
+                INSERT INTO matches (
                     match_id, challenge_id, room_id, room_name, play_mode, played_at,
                     libraries_json, game_mode,
                     rounds, round_length, player_count, location_mode, date_mode,
@@ -1029,15 +1310,51 @@ class LeaderboardStore:
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
                 ) VALUES (
-                    ?, ?, NULL, NULL, 'challenge', ?, NULL, ?, 1, '1m', 1, 1, 1,
-                    NULL, NULL, NULL, NULL, 'ANY', NULL, NULL, NULL, NULL, 0, 0, NULL, NULL
+                    ?, ?, NULL, NULL, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?,
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
                 )
+                ON CONFLICT(match_id) DO UPDATE SET
+                    challenge_id = excluded.challenge_id,
+                    libraries_json = COALESCE(excluded.libraries_json, matches.libraries_json),
+                    album_names_json = COALESCE(excluded.album_names_json, matches.album_names_json),
+                    album_ids_json = COALESCE(excluded.album_ids_json, matches.album_ids_json),
+                    person_ids_json = COALESCE(excluded.person_ids_json, matches.person_ids_json),
+                    person_names_json = COALESCE(excluded.person_names_json, matches.person_names_json),
+                    people_mode = COALESCE(excluded.people_mode, matches.people_mode),
+                    countries_json = COALESCE(excluded.countries_json, matches.countries_json),
+                    cities_json = COALESCE(excluded.cities_json, matches.cities_json),
+                    min_date = COALESCE(excluded.min_date, matches.min_date),
+                    max_date = COALESCE(excluded.max_date, matches.max_date),
+                    include_shared = COALESCE(excluded.include_shared, matches.include_shared),
+                    is_custom_filtered = COALESCE(excluded.is_custom_filtered, matches.is_custom_filtered),
+                    filter_summary = COALESCE(excluded.filter_summary, matches.filter_summary),
+                    rounds = CASE WHEN matches.rounds <= 1 THEN excluded.rounds ELSE matches.rounds END,
+                    round_length = COALESCE(excluded.round_length, matches.round_length),
+                    location_mode = COALESCE(excluded.location_mode, matches.location_mode),
+                    date_mode = COALESCE(excluded.date_mode, matches.date_mode)
                 """,
                 (
                     match_id,
                     challenge_id,
                     now_iso,
+                    libraries_json,
                     game_mode,
+                    rounds,
+                    round_length,
+                    location_mode,
+                    date_mode,
+                    album_names_json,
+                    album_ids_json,
+                    person_ids_json,
+                    person_names_json,
+                    people_mode,
+                    countries_json,
+                    cities_json,
+                    min_date,
+                    max_date,
+                    include_shared,
+                    is_custom_filtered,
+                    filter_summary,
                 ),
             )
             conn.execute(
@@ -2014,24 +2331,39 @@ class LeaderboardStore:
             clauses.append('m.play_mode = ?')
             params.append(play_mode)
         if player_name:
-            clauses.append('m.match_id IN (SELECT match_id FROM match_entries WHERE player_name = ? COLLATE NOCASE)')
-            params.append(player_name)
+            clauses.append(
+                """(
+                    m.match_id IN (SELECT match_id FROM match_entries WHERE player_name = ? COLLATE NOCASE)
+                    OR (
+                        m.challenge_id IS NOT NULL
+                        AND m.challenge_id IN (
+                            SELECT challenge_id FROM challenge_sessions WHERE player_name = ? COLLATE NOCASE
+                        )
+                    )
+                )"""
+            )
+            params.extend([player_name, player_name])
 
         where_sql = f'WHERE {" AND ".join(clauses)}' if clauses else ''
 
         sql = f"""
         SELECT
-            m.match_id,
-            m.played_at,
-            m.play_mode,
-            m.game_mode,
-            m.rounds,
-            m.round_length,
-            m.player_count,
-            m.duration_seconds
+            COALESCE(m.challenge_id, m.match_id) AS catalog_id,
+            m.challenge_id,
+            c.title AS challenge_title,
+            c.creator_name AS challenge_creator,
+            MAX(m.played_at) AS played_at,
+            MAX(m.play_mode) AS play_mode,
+            MAX(m.game_mode) AS game_mode,
+            MAX(m.rounds) AS rounds,
+            MAX(m.round_length) AS round_length,
+            SUM(m.duration_seconds) AS duration_seconds,
+            GROUP_CONCAT(m.match_id, ',') AS session_match_ids
         FROM matches m
+        LEFT JOIN challenges c ON c.challenge_id = m.challenge_id
         {where_sql}
-        ORDER BY m.played_at DESC
+        GROUP BY COALESCE(m.challenge_id, m.match_id)
+        ORDER BY MAX(m.played_at) DESC
         LIMIT ? OFFSET ?
         """
         params.extend([max(1, min(limit, 200)), max(0, offset)])
@@ -2039,16 +2371,27 @@ class LeaderboardStore:
         if not match_rows:
             return []
 
-        match_ids = [r['match_id'] for r in match_rows]
-        placeholders = ', '.join('?' for _ in match_ids)
-        entry_rows = self._db.fetch_all(
-            f"""
-            SELECT match_id, player_name, total_score, accuracy_pct, is_winner
-            FROM match_entries
-            WHERE match_id IN ({placeholders})
-            ORDER BY rank ASC
-            """,
-            match_ids,
+        all_match_ids: list[str] = []
+        for mr in match_rows:
+            raw_ids = mr.get('session_match_ids') or ''
+            for mid in raw_ids.split(','):
+                mid = mid.strip()
+                if mid and mid not in all_match_ids:
+                    all_match_ids.append(mid)
+
+        placeholders = ', '.join('?' for _ in all_match_ids)
+        entry_rows = (
+            self._db.fetch_all(
+                f"""
+                SELECT match_id, player_name, total_score, accuracy_pct, is_winner
+                FROM match_entries
+                WHERE match_id IN ({placeholders})
+                ORDER BY rank ASC, total_score DESC
+                """,
+                all_match_ids,
+            )
+            if all_match_ids
+            else []
         )
         entries_by_match: dict[str, list[dict[str, Any]]] = {}
         for er in entry_rows:
@@ -2056,45 +2399,90 @@ class LeaderboardStore:
 
         items: list[MatchHistoryItem] = []
         for mr in match_rows:
-            m_id = mr['match_id']
-            m_entries = entries_by_match.get(m_id, [])
+            cat_id = mr['catalog_id']
+            raw_ids = mr.get('session_match_ids') or ''
+            m_ids = [x.strip() for x in raw_ids.split(',') if x.strip()]
+
+            m_entries: list[dict[str, Any]] = []
+            seen_players: set[str] = set()
+            for mid in m_ids:
+                for er in entries_by_match.get(mid, []):
+                    p_name = er['player_name']
+                    if p_name not in seen_players:
+                        seen_players.add(p_name)
+                        m_entries.append(er)
+
+            is_challenge = bool(mr.get('challenge_id'))
             players = [e['player_name'] for e in m_entries]
-            winners = [e['player_name'] for e in m_entries if e['is_winner']]
             top_score = max((int(e['total_score']) for e in m_entries), default=0)
             top_acc = max((float(e['accuracy_pct']) for e in m_entries), default=0.0)
 
+            if is_challenge:
+                winners = [e['player_name'] for e in m_entries if int(e['total_score']) == top_score and top_score > 0]
+            else:
+                winners = [e['player_name'] for e in m_entries if e['is_winner']]
+
             items.append(
                 MatchHistoryItem(
-                    match_id=m_id,
+                    match_id=cat_id,
                     played_at=mr['played_at'],
                     play_mode=mr['play_mode'],
                     game_mode=mr['game_mode'],
                     rounds=int(mr['rounds']),
                     round_length=mr.get('round_length') or '1m',
-                    player_count=int(mr['player_count']),
+                    player_count=len(players) if is_challenge else max(len(players), 1),
                     duration_seconds=float(mr['duration_seconds']) if mr.get('duration_seconds') is not None else None,
                     winners=winners,
                     players=players,
                     top_score=top_score,
                     top_accuracy_pct=top_acc,
+                    challenge_id=mr.get('challenge_id'),
+                    challenge_title=mr.get('challenge_title'),
+                    challenge_creator=mr.get('challenge_creator'),
                 )
             )
         return items
 
     def get_match_replay(self, match_id: str) -> MatchReplayResponse | None:
         """Query and reconstruct full round-by-round replay data with player guesses and running scores."""
+        ch_row = None
+        challenge_id = None
+
+        # 1. Direct challenge lookup
+        ch_row = self._db.fetch_one('SELECT * FROM challenges WHERE challenge_id = ?', (match_id,))
+        if ch_row:
+            challenge_id = match_id
+        else:
+            # 2. Check if match_id is a challenge session match_id
+            cs_row = self._db.fetch_one('SELECT challenge_id FROM challenge_sessions WHERE match_id = ?', (match_id,))
+            if cs_row and cs_row.get('challenge_id'):
+                challenge_id = cs_row['challenge_id']
+                ch_row = self._db.fetch_one('SELECT * FROM challenges WHERE challenge_id = ?', (challenge_id,))
+
         match_row = self._db.fetch_one('SELECT * FROM matches WHERE match_id = ?', (match_id,))
-        if not match_row:
+        if not match_row and challenge_id:
             match_row = self._db.fetch_one(
                 'SELECT * FROM matches WHERE challenge_id = ? ORDER BY played_at DESC LIMIT 1',
-                (match_id,),
+                (challenge_id,),
             )
         if not match_row:
             return None
 
-        challenge_id = match_row.get('challenge_id')
+        if not challenge_id and match_row.get('challenge_id'):
+            challenge_id = match_row['challenge_id']
+            ch_row = self._db.fetch_one('SELECT * FROM challenges WHERE challenge_id = ?', (challenge_id,))
 
-        if challenge_id:
+        challenge_title: str | None = None
+        challenge_creator: str | None = None
+        ch_config: dict[str, Any] = {}
+
+        if ch_row:
+            challenge_title = ch_row.get('title')
+            challenge_creator = ch_row.get('creator_name')
+            if ch_row.get('config_json'):
+                with contextlib.suppress(Exception):
+                    ch_config = json.loads(ch_row['config_json'])
+
             raw_entries = self._db.fetch_all(
                 """
                 SELECT * FROM match_entries
@@ -2314,20 +2702,23 @@ class LeaderboardStore:
                 )
             )
 
-        round_len_str = match_row.get('round_length') or '1m'
+        round_len_str = ch_config.get('round_length') or match_row.get('round_length') or '1m'
         try:
             round_len_enum = RoundLength(round_len_str)
         except ValueError:
             round_len_enum = RoundLength.minute_1
 
-        people_mode_str = match_row.get('people_mode') or 'ANY'
+        people_mode_str = ch_config.get('people_mode') or match_row.get('people_mode') or 'ANY'
         try:
             people_mode_enum = PeopleMode(people_mode_str)
         except ValueError:
             people_mode_enum = PeopleMode.ANY
 
-        person_names = _parse_json_list(match_row.get('person_names_json'))
-        person_ids = _parse_json_list(match_row.get('person_ids_json'))
+        # Resolve person names and IDs
+        person_names = _parse_json_list(ch_config.get('person_names')) or _parse_json_list(
+            match_row.get('person_names_json')
+        )
+        person_ids = _parse_json_list(ch_config.get('people')) or _parse_json_list(match_row.get('person_ids_json'))
         if not person_names and person_ids:
             if self._metadata_store:
                 person_map = self._metadata_store.get_person_names(person_ids)
@@ -2335,8 +2726,11 @@ class LeaderboardStore:
             else:
                 person_names = person_ids
 
-        album_names = _parse_json_list(match_row.get('album_names_json'))
-        album_ids = _parse_json_list(match_row.get('album_ids_json'))
+        # Resolve album names and IDs
+        album_names = _parse_json_list(ch_config.get('album_names')) or _parse_json_list(
+            match_row.get('album_names_json')
+        )
+        album_ids = _parse_json_list(ch_config.get('albums')) or _parse_json_list(match_row.get('album_ids_json'))
         if not album_names and album_ids:
             if self._metadata_store:
                 album_map = self._metadata_store.get_album_names(album_ids)
@@ -2344,34 +2738,64 @@ class LeaderboardStore:
             else:
                 album_names = album_ids
 
+        libraries = (
+            _parse_json_list(ch_row.get('libraries_json'))
+            if ch_row and ch_row.get('libraries_json')
+            else (
+                _parse_json_list(ch_config.get('libraries'))
+                if ch_config.get('libraries')
+                else _parse_json_list(match_row.get('libraries_json'))
+            )
+        )
+        countries = _parse_json_list(ch_config.get('countries')) or _parse_json_list(match_row.get('countries_json'))
+        cities = _parse_json_list(ch_config.get('cities')) or _parse_json_list(match_row.get('cities_json'))
+        min_date = _parse_iso_date(ch_config.get('min_date')) or _parse_iso_date(match_row.get('min_date'))
+        max_date = _parse_iso_date(ch_config.get('max_date')) or _parse_iso_date(match_row.get('max_date'))
+        include_shared = bool(
+            ch_config.get('include_shared') if 'include_shared' in ch_config else match_row.get('include_shared')
+        )
+        round_count = int(ch_config.get('round_count') or ch_config.get('rounds') or match_row.get('rounds') or 5)
+        location_mode = bool(
+            ch_config.get('location_mode') if 'location_mode' in ch_config else match_row.get('location_mode')
+        )
+        date_mode = bool(ch_config.get('date_mode') if 'date_mode' in ch_config else match_row.get('date_mode'))
+        game_mode_str = str(ch_config.get('game_mode') or match_row.get('game_mode') or 'pinpoint')
+        try:
+            game_mode_enum = GameMode(game_mode_str)
+        except ValueError:
+            game_mode_enum = GameMode.pinpoint
+
         match_config = MatchConfig(
-            round_count=int(match_row['rounds']),
+            round_count=round_count,
             round_length=round_len_enum,
-            location_mode=bool(match_row['location_mode']),
-            date_mode=bool(match_row['date_mode']),
-            game_mode=GameMode(match_row['game_mode']),
-            libraries=_parse_json_list(match_row.get('libraries_json')),
+            location_mode=location_mode,
+            date_mode=date_mode,
+            game_mode=game_mode_enum,
+            libraries=libraries,
             albums=album_ids,
             album_names=album_names,
             people=person_ids,
             person_names=person_names,
             people_mode=people_mode_enum,
-            countries=_parse_json_list(match_row.get('countries_json')),
-            cities=_parse_json_list(match_row.get('cities_json')),
-            min_date=_parse_iso_date(match_row.get('min_date')),
-            max_date=_parse_iso_date(match_row.get('max_date')),
-            include_shared=bool(match_row.get('include_shared')),
+            countries=countries,
+            cities=cities,
+            min_date=min_date,
+            max_date=max_date,
+            include_shared=include_shared,
         )
 
         return MatchReplayResponse(
-            match_id=match_row['match_id'],
+            match_id=challenge_id or match_row['match_id'],
             played_at=match_row['played_at'],
-            play_mode=match_row['play_mode'],
-            game_mode=match_row['game_mode'],
-            rounds=int(match_row['rounds']),
-            round_length=match_row.get('round_length') or '1m',
-            location_mode=bool(match_row['location_mode']),
-            date_mode=bool(match_row['date_mode']),
+            play_mode='challenge' if challenge_id else match_row['play_mode'],
+            game_mode=game_mode_enum.value,
+            rounds=round_count,
+            round_length=round_len_enum.value,
+            location_mode=location_mode,
+            date_mode=date_mode,
+            challenge_id=challenge_id,
+            challenge_title=challenge_title,
+            challenge_creator=challenge_creator,
             winners=winners,
             players=players,
             rounds_data=rounds_data,

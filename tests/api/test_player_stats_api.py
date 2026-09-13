@@ -184,14 +184,18 @@ def test_match_replay_api(tmp_path: Path) -> None:
     store = client.app.state.leaderboard_store
     _create_sample_matches(store)
 
-    # 1. Existing match replay
+    # 1. Existing match replay (local match)
     res = client.get('/api/match/match-1/replay')
     assert res.status_code == 200
     data = res.json()
 
     assert data['match_id'] == 'match-1'
+    assert data['play_mode'] == 'local'
     assert data['game_mode'] == 'pinpoint'
     assert data['rounds'] == 5
+    assert data['challenge_id'] is None
+    assert data['challenge_title'] is None
+    assert data['challenge_creator'] is None
     assert len(data['players']) == 2
     assert len(data['rounds_data']) == 2
 
@@ -211,7 +215,68 @@ def test_match_replay_api(tmp_path: Path) -> None:
     assert guesses['Bob']['distance_km'] == 5800.0
     assert guesses['Bob']['cumulative_score'] == 30
 
-    # 2. Non-existent match replay 404
+    # 2. Challenge replay with challenge metadata
+    ch_store = client.app.state.challenge_store
+    ch_rec = ch_store.create_challenge(
+        creator_name='Rafael',
+        title='Paris Vacation 2026',
+        libraries=['Family'],
+        config={'round_count': 2, 'game_mode': 'pinpoint', 'location_mode': True, 'date_mode': True},
+        asset_ids=['photo-1', 'photo-2'],
+    )
+    ch_id = ch_rec['challenge_id']
+
+    # Create session and record guesses
+    s_fin = ch_store.get_or_resume_player_session(ch_id, 'Rafael')
+    ch_store.advance_session(
+        s_fin['session_token'],
+        round_index=0,
+        location_points=95,
+        date_points=95,
+        round_score=190,
+        time_taken_seconds=10.0,
+        is_final=True,
+    )
+    store.finalize_challenge_player_match(
+        match_id=s_fin['match_id'],
+        challenge_id=ch_id,
+        config=ch_rec['config'],
+        player_name='Rafael',
+        location_score=95,
+        date_score=95,
+        total_score=190,
+        total_rounds=2,
+        libraries=['Family'],
+    )
+    store.record_challenge_round_guess(
+        match_id=s_fin['match_id'],
+        challenge_id=ch_id,
+        player_name='Rafael',
+        round_index=0,
+        photo_index=0,
+        asset_id='photo-1',
+        actual_latitude=48.8560,
+        actual_longitude=2.3520,
+        actual_date='2023-06-15',
+        guess_latitude=48.8570,
+        guess_longitude=2.3530,
+        guess_date='2023-06-15',
+        distance_km=0.1,
+        location_points=95,
+        date_points=95,
+        round_score=190,
+    )
+
+    res_ch = client.get(f'/api/match/{ch_id}/replay')
+    assert res_ch.status_code == 200
+    ch_data = res_ch.json()
+    assert ch_data['play_mode'] == 'challenge'
+    assert ch_data['challenge_id'] == ch_id
+    assert ch_data['challenge_title'] == 'Paris Vacation 2026'
+    assert ch_data['challenge_creator'] == 'Rafael'
+    assert len(ch_data['rounds_data']) == 1
+
+    # 3. Non-existent match replay 404
     res_404 = client.get('/api/match/non-existent-match/replay')
     assert res_404.status_code == 404
     assert 'not found' in res_404.json()['detail'].lower()

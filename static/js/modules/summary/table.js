@@ -33,7 +33,7 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
       } else if (label === t("summary.col_player")) {
         cell.className = "col-player";
       } else if (label === t("summary.col_accuracy")) {
-        cell.className = "col-accuracy hide-on-mobile";
+        cell.className = "col-acc hide-on-mobile";
       } else if (label === t("summary.col_total")) {
         cell.className = "col-score";
       }
@@ -88,7 +88,7 @@ export function renderSummaryTable(summary, perfectCounts = {}) {
       row.appendChild(totalCell);
 
       const accCell = buildCell(`${player.accuracy_pct}%`);
-      accCell.className = "col-accuracy hide-on-mobile";
+      accCell.className = "col-acc hide-on-mobile";
       row.appendChild(accCell);
 
       el.summaryTableBody.appendChild(row);

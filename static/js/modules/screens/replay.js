@@ -147,31 +147,69 @@ export async function showMatchReplay(matchId) {
   }
 }
 
+function renderReplayTitleHeader() {
+  const headingTitleEl = document.getElementById("replay-heading-title");
+  const titleEl = document.getElementById("replay-match-title");
+  if (!titleEl || !_matchData) return;
+
+  const isChallenge =
+    _matchData.play_mode === "challenge" ||
+    Boolean(_matchData.challenge_id || _matchData.challenge_title || _matchData.challenge_creator);
+
+  if (isChallenge) {
+    const challengeTitle =
+      _matchData.challenge_title ||
+      (_matchData.challenge_creator ? `${_matchData.challenge_creator}'s Challenge` : t("challenge.badge"));
+    const hostText = _matchData.challenge_creator
+      ? t("challenges_page.host_label", _matchData.challenge_creator)
+      : "";
+    const dateText = formatDateTime(_matchData.played_at);
+
+    if (headingTitleEl) {
+      headingTitleEl.removeAttribute("data-i18n");
+      headingTitleEl.textContent = challengeTitle;
+    }
+
+    const parts = [
+      `<span class="badge-tag badge-type badge-type-challenge">⚔️ ${t("replay.play_mode_challenge")}</span>`,
+      `<span class="replay-challenge-title">${escapeHtml(challengeTitle)}</span>`,
+    ];
+    if (hostText) {
+      parts.push(`<span class="replay-challenge-host">${escapeHtml(hostText)}</span>`);
+    }
+    if (dateText) {
+      parts.push(`<span class="replay-match-date">${escapeHtml(dateText)}</span>`);
+    }
+    titleEl.innerHTML = parts.join(` <span class="meta-separator" aria-hidden="true">•</span> `);
+  } else if (_matchData.play_mode === "room" && _matchData.room_name) {
+    if (headingTitleEl) {
+      headingTitleEl.removeAttribute("data-i18n");
+      headingTitleEl.textContent = _matchData.room_name;
+    }
+    const dateText = formatDateTime(_matchData.played_at);
+    titleEl.innerHTML = `
+      <span class="badge-tag badge-type">🏠 ${t("replay.play_mode_room")}</span>
+      <span class="meta-separator" aria-hidden="true">•</span>
+      <span class="replay-match-date">${escapeHtml(dateText)}</span>
+    `;
+  } else {
+    if (headingTitleEl) {
+      headingTitleEl.setAttribute("data-i18n", "replay.title");
+      headingTitleEl.textContent = t("replay.title");
+    }
+    const dateText = formatDateTime(_matchData.played_at);
+    titleEl.innerHTML = `
+      <span class="badge-tag badge-type">👥 ${t("replay.play_mode_local")}</span>
+      <span class="meta-separator" aria-hidden="true">•</span>
+      <span class="replay-match-date">${escapeHtml(dateText)}</span>
+    `;
+  }
+}
+
 function renderReplayShell() {
   if (!_matchData) return;
 
-  const modeBadge = document.getElementById("replay-mode-badge");
-  const typeBadge = document.getElementById("replay-type-badge");
-  const titleEl = document.getElementById("replay-match-title");
-
-  const modeIcon = _matchData.game_mode === "album_shuffle" ? "🔀" : "🎯";
-  const modeLabel = _matchData.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
-  const isChallenge = _matchData.play_mode === "challenge";
-  const typeLabel = isChallenge ? t("replay.play_mode_challenge") : t("replay.play_mode_local");
-  const typeIcon = isChallenge ? "⚔️" : "👥";
-
-  if (modeBadge) {
-    modeBadge.textContent = `${modeIcon} ${modeLabel}`;
-    modeBadge.className = "badge-tag badge-mode";
-  }
-  if (typeBadge) {
-    typeBadge.textContent = `${typeIcon} ${typeLabel}`;
-    typeBadge.className = `badge-tag badge-type${isChallenge ? " badge-type-challenge" : ""}`;
-  }
-  if (titleEl) {
-    const totalCount = _matchData.rounds || (_matchData.rounds_data ? _matchData.rounds_data.length : 0);
-    titleEl.textContent = `${t("stats.rounds_count", totalCount)} • ${formatDateTime(_matchData.played_at)}`;
-  }
+  renderReplayTitleHeader();
 
   const metaContainer = document.getElementById("replay-match-meta-container");
   if (metaContainer) {
@@ -752,6 +790,7 @@ function renderMatchesHistory(matches) {
           </div>
 
           <div class="replay-item-body">
+            ${m.challenge_title ? `<div class="replay-item-challenge-title">${escapeHtml(m.challenge_title)}</div>` : ""}
             <div class="replay-item-players">
               ${playersListHtml}
             </div>
@@ -810,28 +849,7 @@ export function refreshReplayPageLanguage() {
   if (!card || card.classList.contains("hidden")) return;
 
   if (_matchData) {
-    const modeBadge = document.getElementById("replay-mode-badge");
-    const typeBadge = document.getElementById("replay-type-badge");
-    const titleEl = document.getElementById("replay-match-title");
-
-    const modeIcon = _matchData.game_mode === "album_shuffle" ? "🔀" : "🎯";
-    const modeLabel = _matchData.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
-    const isChallenge = _matchData.play_mode === "challenge";
-    const typeLabel = isChallenge ? t("replay.play_mode_challenge") : t("replay.play_mode_local");
-    const typeIcon = isChallenge ? "⚔️" : "👥";
-
-    if (modeBadge) {
-      modeBadge.textContent = `${modeIcon} ${modeLabel}`;
-      modeBadge.className = "badge-tag badge-mode";
-    }
-    if (typeBadge) {
-      typeBadge.textContent = `${typeIcon} ${typeLabel}`;
-      typeBadge.className = `badge-tag badge-type${isChallenge ? " badge-type-challenge" : ""}`;
-    }
-    if (titleEl) {
-      const totalCount = _matchData.rounds || (_matchData.rounds_data ? _matchData.rounds_data.length : 0);
-      titleEl.textContent = `${t("stats.rounds_count", totalCount)} • ${formatDateTime(_matchData.played_at)}`;
-    }
+    renderReplayTitleHeader();
 
     const metaContainer = document.getElementById("replay-match-meta-container");
     if (metaContainer) {

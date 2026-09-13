@@ -4,6 +4,7 @@
  */
 
 import { state, el } from "../state.js";
+import { api } from "../api.js";
 import { t, tOr, formatDateTime } from "../i18n.js";
 import { showCard } from "./common.js";
 import { navigate } from "../router.js";
@@ -101,9 +102,8 @@ async function loadPlayerDirectory() {
   container.innerHTML = `<div class="challenges-loading">${t("challenges_page.loading")}</div>`;
 
   try {
-    const res = await fetch(`/api/players?search=${encodeURIComponent(search)}&sort_by=${encodeURIComponent(sortBy)}&limit=60`);
-    if (!res.ok) throw new Error("Failed to fetch players directory");
-    _cachedPlayers = await res.json();
+    const players = await api(`/api/players?search=${encodeURIComponent(search)}&sort_by=${encodeURIComponent(sortBy)}&limit=60`);
+    _cachedPlayers = Array.isArray(players) ? players : [];
     renderPlayerDirectory(_cachedPlayers);
   } catch (err) {
     console.error("Error loading players:", err);
@@ -288,11 +288,7 @@ export async function showPlayerProfile(playerName) {
   }
 
   try {
-    const res = await fetch(`/api/players/${encodeURIComponent(playerName)}/profile`);
-    if (!res.ok) {
-      throw new Error(`Player not found`);
-    }
-    const profileData = await res.json();
+    const profileData = await api(`/api/players/${encodeURIComponent(playerName)}/profile`);
     _cachedProfileData = profileData;
     renderPlayerProfile(profileData);
   } catch (err) {
@@ -351,10 +347,11 @@ function createTiersHtml(tiers) {
     <div class="tiers-container">
       ${tiers
         .map((tier) => {
-          const fillClass = fillClassMap[tier.tier] || "tier-fill-moderate";
-          const countStr = `${tier.count} ${tier.count === 1 ? t("stats.round_single") : t("stats.rounds_plural")}`;
-          let tierLabel = t(`stats.tier_${tier.tier}`);
-          if (tier.min_pct !== undefined && tier.max_pct !== undefined) {
+          const tierKey = tier.tier_key || tier.tier || "moderate";
+          const fillClass = fillClassMap[tierKey] || "tier-fill-moderate";
+          const countStr = tier.count === 1 ? t("stats.round_single", 1) : t("stats.rounds_plural", tier.count);
+          let tierLabel = tOr(`stats.tier_${tierKey}`, tier.label || tierKey);
+          if (tier.min_pct !== undefined && tier.max_pct !== undefined && !tierLabel.includes("%")) {
             tierLabel += ` (${tier.min_pct}–${tier.max_pct}%)`;
           }
 
@@ -417,14 +414,14 @@ function renderPlayerProfile(data) {
 
           return `
             <tr>
-              <td>${dateStr}</td>
-              <td>${modeIcon} ${modeLabel}</td>
+              <td class="col-date">${dateStr}</td>
+              <td class="col-mode"><span class="mode-icon" aria-hidden="true">${modeIcon}</span> <span class="mode-label">${modeLabel}</span></td>
               <td class="col-rank">${rankBadge}</td>
-              <td>${m.total_score.toLocaleString()}</td>
-              <td><strong>${m.accuracy_pct}%</strong></td>
-              <td style="text-align: right;">
-                <a href="/game/${encodeURIComponent(m.match_id)}/replay" class="btn-secondary replay-action-btn" data-match-id="${escapeHtml(m.match_id)}">
-                  🎬 ${t("replay.watch_replay")}
+              <td class="col-score">${m.total_score.toLocaleString()}</td>
+              <td class="col-acc"><strong>${m.accuracy_pct}%</strong></td>
+              <td class="col-replay text-right">
+                <a href="/game/${encodeURIComponent(m.match_id)}/replay" class="btn-secondary replay-action-btn" data-match-id="${escapeHtml(m.match_id)}" title="${t("replay.watch_replay")}" aria-label="${t("replay.watch_replay")}">
+                  <span class="replay-icon" aria-hidden="true">🎬</span>
                 </a>
               </td>
             </tr>
@@ -463,17 +460,17 @@ function renderPlayerProfile(data) {
         <div class="player-kpi-card">
           <span class="player-kpi-label">${t("stats.career_points")}</span>
           <span class="player-kpi-value">${careerPoints}</span>
-          <span class="player-kpi-sub">${t("stats.matches_played_count", player.matches_played)}</span>
+          <span class="player-kpi-sub">${t("stats.matches_played_count", player.matches_played ?? 0)}</span>
         </div>
         <div class="player-kpi-card">
           <span class="player-kpi-label">${t("stats.win_rate")}</span>
           <span class="player-kpi-value">${winRate}</span>
-          <span class="player-kpi-sub">${t("stats.wins_count", player.wins_count)}</span>
+          <span class="player-kpi-sub">${t("stats.wins_count", player.matches_won ?? player.wins_count ?? 0)}</span>
         </div>
         <div class="player-kpi-card">
           <span class="player-kpi-label">${t("stats.podiums")}</span>
           <span class="player-kpi-value">🏆 ${podiums}</span>
-          <span class="player-kpi-sub">${t("stats.podium_rate", ((podiums / Math.max(1, player.matches_played)) * 100).toFixed(0))}</span>
+          <span class="player-kpi-sub">${t("stats.podium_rate", ((podiums / Math.max(1, player.matches_played || 1)) * 100).toFixed(0))}</span>
         </div>
         <div class="player-kpi-card">
           <span class="player-kpi-label">${t("stats.peak_accuracy")}</span>
@@ -497,7 +494,7 @@ function renderPlayerProfile(data) {
             </div>
             <div class="accuracy-highlight-box">
               <span class="accuracy-highlight-lbl">${t("stats.perfect_guesses")}</span>
-              <span class="accuracy-highlight-val">${analytics.perfect_location_guesses}</span>
+              <span class="accuracy-highlight-val">${analytics.perfect_location_rounds_count ?? analytics.perfect_location_guesses ?? 0}</span>
             </div>
           </div>
           ${locTiersHtml}
@@ -511,12 +508,12 @@ function renderPlayerProfile(data) {
           </div>
           <div class="accuracy-highlight-row">
             <div class="accuracy-highlight-box">
-              <span class="accuracy-highlight-lbl">${t("stats.best_date_diff")}</span>
-              <span class="accuracy-highlight-val">${analytics.best_date_diff_days !== null ? `${analytics.best_date_diff_days} ${t("stats.days_plural")}` : "-"}</span>
+              <span class="accuracy-highlight-lbl">${t("stats.exact_month_year")}</span>
+              <span class="accuracy-highlight-val">${analytics.exact_year_month_pct !== undefined ? `${analytics.exact_year_month_pct}%` : (analytics.best_date_diff_days != null ? `${analytics.best_date_diff_days} ${t("stats.days_plural")}` : "-")}</span>
             </div>
             <div class="accuracy-highlight-box">
               <span class="accuracy-highlight-lbl">${t("stats.perfect_guesses")}</span>
-              <span class="accuracy-highlight-val">${analytics.perfect_date_guesses}</span>
+              <span class="accuracy-highlight-val">${analytics.perfect_date_rounds_count ?? analytics.perfect_date_guesses ?? 0}</span>
             </div>
           </div>
           ${dateTiersHtml}
@@ -569,16 +566,16 @@ function renderPlayerProfile(data) {
       <!-- Recent Matches Log -->
       <div class="recent-matches-card">
         <h3>📜 ${t("stats.recent_matches")}</h3>
-        <div style="overflow-x: auto;">
+        <div class="table-scroll">
           <table class="recent-matches-table">
             <thead>
               <tr>
-                <th>${t("stats.date_col")}</th>
-                <th>${t("stats.mode_col")}</th>
+                <th class="col-date">${t("stats.date_col")}</th>
+                <th class="col-mode">${t("stats.mode_col")}</th>
                 <th class="col-rank">${t("stats.rank_col")}</th>
-                <th>${t("stats.score_col")}</th>
-                <th>${t("stats.accuracy_col")}</th>
-                <th style="text-align: right;">${t("replay.watch_replay")}</th>
+                <th class="col-score">${t("stats.score_col")}</th>
+                <th class="col-acc">${t("stats.accuracy_col")}</th>
+                <th class="col-replay text-right" data-i18n="leaderboard.col_replay">${t("leaderboard.col_replay")}</th>
               </tr>
             </thead>
             <tbody>

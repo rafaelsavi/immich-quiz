@@ -716,7 +716,10 @@ Response (`200 OK`):
     "winners": ["Alice"],
     "players": ["Alice", "Bob", "Charlie"],
     "top_score": 4820,
-    "top_accuracy_pct": 96.4
+    "top_accuracy_pct": 96.4,
+    "challenge_id": "ch_7b8fd9a46828",
+    "challenge_title": "Summer Roadtrip 2024",
+    "challenge_creator": "Rafael"
   }
 ]
 ```
@@ -1381,7 +1384,10 @@ Response (`200 OK`):
     "winners": ["Rafael"],
     "players": ["Rafael", "Alice", "Bob"],
     "top_score": 1850,
-    "top_accuracy_pct": 92.5
+    "top_accuracy_pct": 92.5,
+    "challenge_id": "ch_7b8fd9a46828",
+    "challenge_title": "Summer Roadtrip 2024",
+    "challenge_creator": "Rafael"
   }
 ]
 ```
@@ -1396,10 +1402,13 @@ Response (`200 OK`):
 {
   "match_id": "m_12345",
   "played_at": "2026-09-11T20:15:00Z",
-  "play_mode": "local",
+  "play_mode": "challenge",
   "game_mode": "pinpoint",
   "rounds": 10,
   "round_length": "1m",
+  "challenge_id": "ch_98765",
+  "challenge_title": "Summer Roadtrip 2026",
+  "challenge_creator": "Rafael",
   "players": ["Rafael", "Alice", "Bob"],
   "rounds_data": [
     {
