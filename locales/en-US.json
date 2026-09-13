@@ -653,6 +653,8 @@
   "stats.sort_by_points": "Total Career Points",
   "stats.sort_by_name": "Name",
   "stats.no_players_found": "No players found",
+  "stats.error_loading_players": "Failed to load players directory",
+  "stats.retry": "Try Again",
   "stats.view_profile": "View Profile",
   "stats.profile_title": "Player Profile",
   "stats.career_points": "Career Points",

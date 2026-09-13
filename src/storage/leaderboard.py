@@ -1579,10 +1579,15 @@ class LeaderboardStore:
             e.player_name,
             COUNT(DISTINCT e.match_id) as match_count,
             MAX(m.played_at) as last_played_at,
-            MAX(cs.player_color) as custom_color
+            COALESCE(MAX(e.player_color), MAX(cs.custom_color)) as custom_color
         FROM match_entries e
         JOIN matches m ON e.match_id = m.match_id
-        LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name COLLATE NOCASE
+        LEFT JOIN (
+            SELECT player_name, MAX(player_color) as custom_color
+            FROM challenge_sessions
+            WHERE player_color IS NOT NULL AND player_color != ''
+            GROUP BY player_name COLLATE NOCASE
+        ) cs ON e.player_name = cs.player_name COLLATE NOCASE
         """
         if query and query.strip():
             sql += ' WHERE e.player_name LIKE ? COLLATE NOCASE '
@@ -1620,10 +1625,15 @@ class LeaderboardStore:
             ROUND(AVG(e.accuracy_pct), 1) as avg_accuracy_pct,
             SUM(e.total_score) as career_points,
             MAX(m.played_at) as last_played_at,
-            MAX(cs.player_color) as custom_color
+            COALESCE(MAX(e.player_color), MAX(cs.custom_color)) as custom_color
         FROM match_entries e
         JOIN matches m ON e.match_id = m.match_id
-        LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name COLLATE NOCASE
+        LEFT JOIN (
+            SELECT player_name, MAX(player_color) as custom_color
+            FROM challenge_sessions
+            WHERE player_color IS NOT NULL AND player_color != ''
+            GROUP BY player_name COLLATE NOCASE
+        ) cs ON e.player_name = cs.player_name COLLATE NOCASE
         """
         if search and search.strip():
             sql += ' WHERE e.player_name LIKE ? COLLATE NOCASE '
@@ -1653,7 +1663,10 @@ class LeaderboardStore:
         for r in rows:
             m_played = int(r['matches_played'] or 0)
             m_won = int(r['matches_won'] or 0)
-            win_rate = round((m_won / m_played) * 100.0, 1) if m_played > 0 else 0.0
+            raw_win_rate = (m_won / m_played) * 100.0 if m_played > 0 else 0.0
+            win_rate = min(100.0, max(0.0, round(raw_win_rate, 1)))
+            raw_acc = float(r['avg_accuracy_pct'] or 0.0)
+            avg_acc = min(100.0, max(0.0, raw_acc))
             items.append(
                 PlayerSummaryItem(
                     player_name=r['player_name'],
@@ -1661,7 +1674,7 @@ class LeaderboardStore:
                     matches_played=m_played,
                     matches_won=m_won,
                     win_rate_pct=win_rate,
-                    avg_accuracy_pct=float(r['avg_accuracy_pct'] or 0.0),
+                    avg_accuracy_pct=avg_acc,
                     career_points=int(r['career_points'] or 0),
                     last_played_at=r['last_played_at'],
                 )
@@ -1682,10 +1695,15 @@ class LeaderboardStore:
                 SUM(e.total_score) as career_points,
                 MIN(m.played_at) as first_played_at,
                 MAX(m.played_at) as last_played_at,
-                MAX(cs.player_color) as custom_color
+                COALESCE(MAX(e.player_color), MAX(cs.custom_color)) as custom_color
             FROM match_entries e
             JOIN matches m ON e.match_id = m.match_id
-            LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name COLLATE NOCASE
+            LEFT JOIN (
+                SELECT player_name, MAX(player_color) as custom_color
+                FROM challenge_sessions
+                WHERE player_color IS NOT NULL AND player_color != ''
+                GROUP BY player_name COLLATE NOCASE
+            ) cs ON e.player_name = cs.player_name COLLATE NOCASE
             WHERE e.player_name = ? COLLATE NOCASE
             GROUP BY e.player_name COLLATE NOCASE
             """,
@@ -1697,8 +1715,9 @@ class LeaderboardStore:
         canonical_name = str(overall_row['player_name'])
         m_played = int(overall_row['matches_played'])
         m_won = int(overall_row['matches_won'] or 0)
-        win_rate = round((m_won / m_played) * 100.0, 1) if m_played > 0 else 0.0
-        avg_acc = float(overall_row['avg_accuracy_pct'] or 0.0)
+        raw_win_rate = (m_won / m_played) * 100.0 if m_played > 0 else 0.0
+        win_rate = min(100.0, max(0.0, round(raw_win_rate, 1)))
+        avg_acc = min(100.0, max(0.0, float(overall_row['avg_accuracy_pct'] or 0.0)))
 
         rounds_row = self._db.fetch_one(
             'SELECT COUNT(id) as cnt FROM match_round_guesses WHERE player_name = ? COLLATE NOCASE',

@@ -12,7 +12,9 @@
   margin-bottom: 1.5rem;
 }
 
-.badge-challenge {
+.challenge-header .badge-challenge,
+.challenge-landing .badge-challenge,
+.badge.badge-challenge {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -831,35 +833,7 @@ tr.highlight-player-row {
 }
 
 /* ----------------------------------------------------------------- Challenges Hub Page */
-#challenges-page-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding: 1.5rem;
-}
-
-.challenges-page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.challenges-page-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-width: 720px;
-}
-
-.challenges-title-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
+/* Note: Page card container and header are standardized in components/hub_header.css */
 
 .challenges-counter-pill {
   display: inline-flex;
@@ -873,27 +847,6 @@ tr.highlight-player-row {
   border: 1px solid rgba(15, 124, 127, 0.25);
   white-space: nowrap;
   line-height: 1.2;
-}
-
-.challenges-page-title-group h2 {
-  margin: 0;
-  font-size: 1.85rem;
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.2;
-}
-
-.challenges-page-desc {
-  margin: 0;
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
-.challenges-page-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
 }
 
 /* Toolbar: Standardized via components/toolbar.css (.hub-toolbar) */
@@ -1541,23 +1494,6 @@ tr.highlight-player-row {
 
 /* ----------------------------------------------------------------- Mobile Responsive Adjustments */
 @media (max-width: 768px) {
-  #challenges-page-card {
-    padding: 1rem;
-  }
-
-  .challenges-page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .challenges-page-head-actions {
-    justify-content: stretch;
-  }
-
-  .challenges-page-head-actions button {
-    flex: 1;
-  }
-
   .challenges-toolbar {
     flex-direction: column;
     align-items: stretch;

@@ -23,13 +23,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added direct match replay link button (`🎬 Replay`) to `.footer-left-actions` of `.detailed-challenge-card` in the Challenges Hub (`#challenges-page-card`).
   - Enables single-click navigation to `/game/:challengeId/replay` directly from any challenge card on both desktop and mobile viewports.
   - Fully localized in English (`en-US`) and Portuguese (`pt-BR`).
+- **Standardized Hub Page Headers (`.hub-page-header`)**:
+  - Unified header layout, title hierarchy, subtitle typography, section badges, and card container padding across **Challenges** (`/challenges`), **Match Replays** (`/replays`), and **Player Directory & Statistics** (`/players`).
+  - Standardized card container padding to `1.5rem` (24px) with responsive `1rem` on mobile, eliminating cramped card margins on Players and Replays.
+  - Standardized headings (`h2`) to `1.85rem` bold with `line-height: 1.2` and unified `0.35rem` vertical gap above descriptions, eliminating the unstyled browser default and `0.8rem` margin gap on Players and Replays.
+  - Standardized section badges with cohesive soft pill styling (`0.75rem` uppercase, `0.24rem 0.65rem` padding, `999px` border radius) and dedicated section theme accents: Teal for Challenges (`.badge-challenges`), Indigo for Match Replays (`.badge-replays`), and Purple for Players (`.badge-players`).
+  - Removed outdated `border-bottom` divider line from `#challenges-page-card` to eliminate duplicate borders above the shaded `.hub-toolbar` deck.
+  - Implemented full mobile responsiveness with pinned top-right refresh buttons and dark theme (`[data-theme="dark"]`) support.
 
 ### Fixed
+- **Player Directory & Statistics Cartesian Product Multiplication**:
+  - Fixed a Cartesian product in `get_all_players_directory`, `get_player_profile`, and `get_known_player_names` where a direct `LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name` caused players who participated in multiple challenges to have their match records duplicated.
+  - Resolved Pydantic `ValidationError` on `PlayerSummaryItem` where duplicated win counts caused `win_rate_pct` to exceed 100% (e.g. 120%), triggering an HTTP 500 error that manifested in the UI as "No players found".
+  - Refactored the join to group `challenge_sessions` by player prior to joining, added defensive bounds clamping `[0.0, 100.0]` on `win_rate_pct` and `avg_accuracy_pct`, and updated the frontend error catch block in `stats.js` to show an actionable error state with a retry button.
 - **Match Replay Catalog Card Rendering & Styling**:
   - Fixed player name extraction in the Match Replays catalog (`/replays`), which erroneously assumed player array items were objects instead of player name strings returned by `/api/matches`, causing empty player names, fallback initial `?`, and broken red avatar blocks.
   - Fixed winner identification in catalog items to compare player names against the `m.winners` list rather than `p.player_name === winnerName` (which evaluated to `undefined === undefined` and awarded crowns to every player).
   - Added full CSS styling for `.replay-catalog-item`, `.replay-item-header`, `.replay-item-body`, `.replay-player-chip`, `.replay-player-avatar`, `.replay-player-name`, `.replay-winner-crown`, and `.replay-item-footer`.
   - Added mobile responsive layout and dark mode support for the Match Replays catalog cards.
+- **Challenge Chip & Badge Design Standardization**:
+  - Resolved CSS collision where an unscoped `.badge-challenge` rule in `challenge.css` applied landing page banner styling (`text-transform: uppercase`, `letter-spacing: 0.08em`, `border-radius: 999px`, and `box-shadow: 0 4px 12px rgba(...)`) to replay match chips.
+  - Replaced `badge-challenge` with `badge-type-challenge` in `replay.js` and scoped `challenge.css` banner styles to header and landing containers.
+  - Standardized challenge chips in `replay.css` and `stats.css` to use the standard 6px border radius, Title Case typography ("Challenge" / "Desafio"), zero drop-shadow, and harmonious violet badge styling with light and dark mode support, matching the styling of `Pinpoint`, `Album Shuffle`, and `Local` match chips.
 
 ## [3.1.0] - 2026-09-13
 

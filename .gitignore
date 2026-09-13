@@ -15,4 +15,5 @@ data/
 docs/next-milestones
 *.ipynb
 .ipynb_checkpoints/
-notebooks/
+notebooks/
+scratch/

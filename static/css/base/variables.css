@@ -43,3 +43,16 @@
     --quiz-map-height: 350px;
   }
 }
+
+[data-theme="dark"] {
+  --bg: #0f172a;
+  --ink: #f8fafc;
+  --card: #1e293b;
+  --text-dark: #f8fafc;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --border-light: #334155;
+  --bg-surface-secondary: #0f172a;
+  --shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+}

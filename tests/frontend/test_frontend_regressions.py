@@ -79,6 +79,7 @@ DYNAMIC_IDS = frozenset(
         'stats-empty-play-btn',
         'stats-replay-challenge-btn',
         'stats-replay-play-btn',
+        'stats-retry-btn',
         'sync-popup',
         'sync-popup-close-btn',
     }
@@ -1996,3 +1997,16 @@ def test_match_replays_catalog_player_chips_and_styling() -> None:
     # 4. Locale strings exist
     assert '"replay.winner"' in en_locale
     assert '"replay.winner"' in pt_locale
+
+    # 5. Challenge chip formatting in replay and catalog
+    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    assert 'badge-type-challenge' in replay_js
+    assert '.badge-type.badge-type-challenge' in replay_css
+    assert '.replay-item-badges .badge-tag.badge-type-challenge' in stats_css
+    assert 'text-transform: none;' in stats_css
+    assert 'border-radius: 6px;' in stats_css
+
+    # challenge.css scopes .badge-challenge and does not have an unscoped bare `.badge-challenge {`
+    assert not re.search(r'^\.badge-challenge\s*\{', challenge_css, re.MULTILINE)

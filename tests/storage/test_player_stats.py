@@ -528,3 +528,60 @@ def test_get_match_replay_challenge_multiplayer(tmp_path: Path) -> None:
     assert len(replay_ch.players) == 2
     assert replay_ch.winners == ['Alice']
     assert len(replay_ch.rounds_data[0].player_guesses) == 2
+
+
+def test_multiple_challenge_sessions_do_not_duplicate_player_stats(tmp_path: Path) -> None:
+    """Verify that players with multiple challenge sessions do not have inflated stats or invalid win rates."""
+    db_path = tmp_path / 'leaderboard.db'
+    store = LeaderboardStore(db_path)
+    _create_sample_matches(store)
+
+    # Insert multiple challenge sessions for 'Alice' across multiple challenges
+    with store.db.connection() as conn:
+        for i in range(1, 4):
+            ch_id = f'ch-multi-{i}'
+            conn.execute(
+                """
+                INSERT INTO challenges (
+                    challenge_id, capability_token, title, creator_name,
+                    config_json, asset_ids_json, is_active, created_at
+                )
+                VALUES (?, ?, ?, 'Alice', '{}', '["p1"]', 1, '2026-03-01T12:00:00')
+                """,
+                (ch_id, f'tok-{i}', f'Challenge {i}'),
+            )
+            conn.execute(
+                """
+                INSERT INTO challenge_sessions (
+                    session_token, match_id, challenge_id, player_name,
+                    current_round, location_score, date_score, total_score,
+                    started_at, player_color
+                )
+                VALUES (?, ?, ?, 'Alice', 1, 100, 100, 200, '2026-03-01T12:00:00', '#ff0000')
+                """,
+                (f'tok-alice-{i}', f'm-ch-multi-{i}', ch_id),
+            )
+
+    # Directory query must not crash with Pydantic ValidationError and must retain accurate numbers
+    directory = store.get_all_players_directory()
+    alice = next((p for p in directory if p.player_name == 'Alice'), None)
+    assert alice is not None
+    # Alice played 1 sample match in _create_sample_matches and won it
+    assert alice.matches_played == 1
+    assert alice.matches_won == 1
+    assert alice.win_rate_pct == 100.0
+
+    # Profile query must not multiply stats
+    profile = store.get_player_profile('Alice')
+    assert profile is not None
+    assert profile.player.matches_played == 1
+    assert profile.player.matches_won == 1
+    assert profile.player.win_rate_pct == 100.0
+    assert profile.player.podiums_count == 1
+    assert profile.player.avatar_color == '#f25f5c'
+
+    # Known player names autocomplete must also succeed
+    suggestions = store.get_known_player_names('Alice')
+    assert len(suggestions) == 1
+    assert suggestions[0].match_count == 1
+    assert suggestions[0].avatar_color == '#f25f5c'

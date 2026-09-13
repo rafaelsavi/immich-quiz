@@ -653,6 +653,8 @@
   "stats.sort_by_points": "Pontos na Carreira",
   "stats.sort_by_name": "Nome",
   "stats.no_players_found": "Nenhum jogador encontrado",
+  "stats.error_loading_players": "Falha ao carregar o diretório de jogadores",
+  "stats.retry": "Tentar novamente",
   "stats.view_profile": "Ver Perfil",
   "stats.profile_title": "Perfil do Jogador",
   "stats.career_points": "Pontos na Carreira",

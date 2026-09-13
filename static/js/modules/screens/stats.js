@@ -107,7 +107,17 @@ async function loadPlayerDirectory() {
     renderPlayerDirectory(_cachedPlayers);
   } catch (err) {
     console.error("Error loading players:", err);
-    container.innerHTML = `<div class="empty-state">${t("stats.no_players_found")}</div>`;
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>${escapeHtml(tOr("stats.error_loading_players", "Failed to load players directory."))}</p>
+        <button type="button" id="stats-retry-btn" class="btn-secondary btn-sm" style="margin-top: 12px;">
+          <span>${escapeHtml(tOr("stats.retry", "Try Again"))}</span>
+        </button>
+      </div>
+    `;
+    document.getElementById("stats-retry-btn")?.addEventListener("click", () => {
+      loadPlayerDirectory();
+    });
   }
 }
 

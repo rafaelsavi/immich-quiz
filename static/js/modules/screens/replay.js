@@ -166,7 +166,7 @@ function renderReplayShell() {
   }
   if (typeBadge) {
     typeBadge.textContent = `${typeIcon} ${typeLabel}`;
-    typeBadge.className = `badge-tag badge-type${isChallenge ? " badge-challenge" : ""}`;
+    typeBadge.className = `badge-tag badge-type${isChallenge ? " badge-type-challenge" : ""}`;
   }
   if (titleEl) {
     const totalCount = _matchData.rounds || (_matchData.rounds_data ? _matchData.rounds_data.length : 0);
@@ -744,7 +744,7 @@ function renderMatchesHistory(matches) {
           <div class="replay-item-header">
             <div class="replay-item-badges">
               <span class="badge-tag badge-mode">${modeIcon} ${modeLabel}</span>
-              <span class="badge-tag badge-type${isChallenge ? " badge-challenge" : ""}">${typeIcon} ${typeLabel}</span>
+              <span class="badge-tag badge-type${isChallenge ? " badge-type-challenge" : ""}">${typeIcon} ${typeLabel}</span>
             </div>
             <div class="replay-item-time">${playedStr}</div>
           </div>
@@ -824,7 +824,7 @@ export function refreshReplayPageLanguage() {
     }
     if (typeBadge) {
       typeBadge.textContent = `${typeIcon} ${typeLabel}`;
-      typeBadge.className = `badge-tag badge-type${isChallenge ? " badge-challenge" : ""}`;
+      typeBadge.className = `badge-tag badge-type${isChallenge ? " badge-type-challenge" : ""}`;
     }
     if (titleEl) {
       const totalCount = _matchData.rounds || (_matchData.rounds_data ? _matchData.rounds_data.length : 0);
