@@ -48,6 +48,7 @@ import {
 import { getActiveMode } from "./modules/modes/index.js";
 import {
   showCard,
+  scrollToGameCard,
   isGameActive,
   handleBeforeUnload,
 } from "./modules/screens/common.js";
@@ -84,15 +85,17 @@ import {
 } from "./modules/screens/reported.js";
 import {
   initStats,
-  showStatsHub,
+  showPlayerDirectory,
   showPlayerProfile,
   refreshStatsPageLanguage,
 } from "./modules/screens/stats.js";
 import {
   initReplay,
+  showReplaysCatalog,
   showMatchReplay,
   refreshReplayPageLanguage,
 } from "./modules/screens/replay.js";
+import { initSettingsMenu } from "./modules/components/settings_menu.js";
 
 // Re-export / configure global mode accessor
 
@@ -104,6 +107,7 @@ async function routeToActiveGame(matchId) {
   if (state.matchId === matchId && !state.matchFinished && isGameActive()) {
     showCard(el.gameCard);
     el.leaderboardCard.classList.add("hidden");
+    scrollToGameCard("smooth");
     return;
   }
 
@@ -113,6 +117,7 @@ async function routeToActiveGame(matchId) {
 
     el.leaderboardCard.classList.add("hidden");
     showCard(el.gameCard);
+    scrollToGameCard("smooth");
 
     const activeMode = getActiveMode();
     activeMode.mount(el.guessingUi, state.lastMatchConfig || {});
@@ -126,6 +131,7 @@ async function routeToActiveGame(matchId) {
       el.nextRound.textContent = session.lastReveal.match_finished
         ? t("reveal.see_results_btn")
         : t("reveal.next_round_btn");
+      scrollToGameCard("smooth");
       return;
     }
 
@@ -185,16 +191,29 @@ async function handleRoute(route) {
   if (el.statsNavBtn) {
     el.statsNavBtn.classList.toggle(
       "active",
-      route.type === RouteType.STATS ||
-      route.type === RouteType.PLAYER_PROFILE ||
+      route.type === RouteType.PLAYERS ||
+      route.type === RouteType.PLAYER_PROFILE
+    );
+  }
+  if (el.replaysNavBtn) {
+    el.replaysNavBtn.classList.toggle(
+      "active",
+      route.type === RouteType.REPLAYS ||
       route.type === RouteType.GAME_REPLAY
     );
   }
   switch (route.type) {
-    case RouteType.STATS: {
+    case RouteType.PLAYERS: {
       challenge.reset();
       clearActiveMatchSession();
-      showStatsHub(route.params.subTab || "players");
+      showPlayerDirectory();
+      break;
+    }
+
+    case RouteType.REPLAYS: {
+      challenge.reset();
+      clearActiveMatchSession();
+      showReplaysCatalog();
       break;
     }
 
@@ -302,6 +321,7 @@ bindClick(el.readyBtn, () => {
   state.currentScreen = "guessing";
   state.passConfirmed = true;
   el.passOverlay?.classList.add("hidden");
+  scrollToGameCard("smooth");
   const activeMode = getActiveMode();
   activeMode.onReady(state.currentQuestion);
 
@@ -591,11 +611,19 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
   initReportedPage();
   initStats();
   initReplay();
+  initSettingsMenu();
 
   if (el.statsNavBtn) {
     el.statsNavBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      navigate("/stats");
+      navigate("/players");
+    });
+  }
+
+  if (el.replaysNavBtn) {
+    el.replaysNavBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/replays");
     });
   }
 

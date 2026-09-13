@@ -17,16 +17,21 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     await expect(page.locator('#leaderboard-card')).to_be_visible()
     await expect(page.locator('#home-nav-btn')).to_have_class(re.compile(r'active'))
 
-    # 2. /stats route
-    await page.goto('/stats')
+    # 2. /players route
+    await page.goto('/players')
     await expect(page.locator('#stats-page-card')).to_be_visible()
     await expect(page.locator('#setup-card')).to_be_hidden()
     await expect(page.locator('#stats-nav-btn')).to_have_class(re.compile(r'active'))
-    await expect(page.locator('#stats-tabs-bar button[data-tab="players"]')).to_have_class(re.compile(r'active'))
     await expect(page.locator('#stats-players-view')).to_be_visible()
-    await expect(page.locator('#stats-replays-view')).to_be_hidden()
 
-    # 3. /challenges route
+    # 3. /replays route
+    await page.goto('/replays')
+    await expect(page.locator('#replays-page-card')).to_be_visible()
+    await expect(page.locator('#setup-card')).to_be_hidden()
+    await expect(page.locator('#replays-nav-btn')).to_have_class(re.compile(r'active'))
+    await expect(page.locator('#replays-catalog-view')).to_be_visible()
+
+    # 4. /challenges route
     await page.goto('/challenges')
     await expect(page.locator('#challenges-page-card')).to_be_visible()
     await expect(page.locator('#setup-card')).to_be_hidden()
@@ -35,7 +40,8 @@ async def test_client_side_deep_links_and_fallback_routes(page: Page) -> None:
     # Verify nav items are standard links with href attributes
     await expect(page.locator('#home-nav-btn')).to_have_attribute('href', '/')
     await expect(page.locator('#challenges-nav-btn')).to_have_attribute('href', '/challenges')
-    await expect(page.locator('#stats-nav-btn')).to_have_attribute('href', '/stats')
+    await expect(page.locator('#stats-nav-btn')).to_have_attribute('href', '/players')
+    await expect(page.locator('#replays-nav-btn')).to_have_attribute('href', '/replays')
 
     # Click home navigation link to return to lobby
     await page.locator('#home-nav-btn').click()

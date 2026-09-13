@@ -16,7 +16,9 @@ export const RouteType = {
   CHALLENGE_SUMMARY: "CHALLENGE_SUMMARY",
   CHALLENGES: "CHALLENGES",
   REPORTED: "REPORTED",
-  STATS: "STATS",
+  PLAYERS: "PLAYERS",
+  STATS: "PLAYERS",
+  REPLAYS: "REPLAYS",
   PLAYER_PROFILE: "PLAYER_PROFILE",
   UNKNOWN: "UNKNOWN",
 };
@@ -29,19 +31,25 @@ const ROUTE_DEFINITIONS = [
   },
   {
     type: RouteType.PLAYER_PROFILE,
-    pattern: /^\/stats\/players\/([^/]+)$/,
+    pattern: /^\/players\/([^/]+)$/,
     paramKeys: ["playerName"],
+    canonicalPath: (params) => `/players/${encodeURIComponent(params.playerName)}`,
   },
   {
-    type: RouteType.STATS,
-    pattern: /^\/stats(?:\/(players|replays|leaderboard))?\/?$/,
-    paramKeys: ["subTab"],
-    canonicalPath: (params) => (params.subTab ? `/stats/${params.subTab}` : "/stats"),
+    type: RouteType.PLAYERS,
+    pattern: /^\/players\/?$/,
+    canonicalPath: () => "/players",
+  },
+  {
+    type: RouteType.REPLAYS,
+    pattern: /^\/replays\/?$/,
+    canonicalPath: () => "/replays",
   },
   {
     type: RouteType.GAME_REPLAY,
     pattern: /^\/game\/([^/]+)\/replay$/,
     paramKeys: ["matchId"],
+    canonicalPath: (params) => `/game/${params.matchId}/replay`,
   },
   {
     type: RouteType.CHALLENGES,

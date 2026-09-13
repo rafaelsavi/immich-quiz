@@ -11,7 +11,7 @@ import { t, showAlert } from "../i18n.js";
 import { playSubmitTone } from "../audio.js";
 import { playerColor, registerPlayerColor, renderRoundMeta } from "../formatters.js";
 import { startTimer, clearTimer, resetTimerBar } from "../timer.js";
-import { showCard } from "../screens/common.js";
+import { showCard, scrollToGameCard } from "../screens/common.js";
 import { updateSubmitState } from "../maps.js";
 import { getActiveMode } from "../modes/index.js";
 import { navigate } from "../router.js";
@@ -230,7 +230,7 @@ export const challengeGame = {
       null
     );
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollToGameCard("smooth");
   },
 
   /**

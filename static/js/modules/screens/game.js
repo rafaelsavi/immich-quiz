@@ -8,6 +8,7 @@ import { clearTimer, resetTimerBar, startTimer, refreshTimerLanguage } from "../
 import { markShortcutCooldown } from "../shortcuts.js";
 import { getActiveMode } from "../modes/index.js";
 import { showRoundReveal } from "./reveal.js";
+import { scrollToGameCard } from "./common.js";
 import { challenge } from "../challenge/index.js";
 
 export function updateRoundMeta() {
@@ -190,7 +191,7 @@ export async function loadQuestion() {
   activeMode.renderQuestion(data);
   el.guessingUi.classList.remove("hidden");
   el.revealUi.classList.add("hidden");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  scrollToGameCard("smooth");
   updateSubmitState();
 
   const session = loadActiveMatchSession();

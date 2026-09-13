@@ -86,3 +86,38 @@ async def test_pinpoint_two_tap_pin_placement_and_reveal(page: Page) -> None:
     next_round_btn = page.locator('#next-round')
     await expect(next_round_btn).to_be_visible()
     await expect(next_round_btn).to_be_enabled()
+
+
+async def test_pinpoint_gameplay_auto_scrolls_to_game_card(page: Page) -> None:
+    """Verify that starting a game and playing rounds scrolls the viewport automatically to #game-card,
+    scrolling app-header out of view.
+    """
+    await page.goto('/')
+    await expect(page.locator('#setup-card')).to_be_visible()
+
+    # Initial scroll position at lobby top
+    scroll_y_lobby = await page.evaluate('() => window.scrollY')
+    assert scroll_y_lobby == 0
+
+    # Start match
+    await page.locator('#prepare-game-btn').click()
+    await page.locator('#start-match-btn').click()
+
+    await expect(page.locator('#game-card')).to_be_visible()
+    if await page.locator('#pass-overlay').is_visible():
+        await page.locator('#ready-btn').click()
+        await expect(page.locator('#pass-overlay')).to_be_hidden()
+
+    # Wait for scroll to settle
+    await page.wait_for_function(
+        '() => { const r = document.getElementById("game-card").getBoundingClientRect(); return r.top <= 30; }',
+        timeout=5000,
+    )
+
+    # Verify scroll position has moved down past the top header
+    scroll_y_game = await page.evaluate('() => window.scrollY')
+    assert scroll_y_game > 0
+
+    # Verify game-card top is at or near the top of the viewport
+    card_top = await page.evaluate('() => document.getElementById("game-card").getBoundingClientRect().top')
+    assert card_top <= 30

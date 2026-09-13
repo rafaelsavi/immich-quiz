@@ -159,12 +159,12 @@ export function renderLeaderboard() {
 
     const nameLink = document.createElement("a");
     nameLink.className = "player-name-text leaderboard-player-link";
-    nameLink.href = `/stats/players/${encodeURIComponent(row.player_name)}`;
+    nameLink.href = `/players/${encodeURIComponent(row.player_name)}`;
     nameLink.textContent = row.player_name;
     nameLink.title = t("stats.view_profile") !== "stats.view_profile" ? t("stats.view_profile") : "View Player Profile";
     nameLink.addEventListener("click", (e) => {
       e.preventDefault();
-      navigate(`/stats/players/${encodeURIComponent(row.player_name)}`);
+      navigate(`/players/${encodeURIComponent(row.player_name)}`);
     });
 
     playerWrap.append(rankSpan, nameLink);

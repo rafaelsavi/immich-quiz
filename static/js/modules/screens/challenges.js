@@ -157,7 +157,18 @@ export function initChallengesPage() {
         return;
       }
 
-      // 5. Deactivate challenge button
+      // 5. Replay challenge button
+      const replayBtn = e.target.closest(".btn-replay-challenge");
+      if (replayBtn) {
+        e.preventDefault();
+        const id = replayBtn.getAttribute("data-id");
+        if (id) {
+          navigate(`/game/${encodeURIComponent(id)}/replay`);
+        }
+        return;
+      }
+
+      // 6. Deactivate challenge button
       const deactivateBtn = e.target.closest(".btn-deactivate-challenge-hub");
       if (deactivateBtn) {
         e.stopPropagation();
@@ -530,6 +541,10 @@ export function renderChallenges() {
             <a href="/play/${ch.capability_token}/summary" class="btn-secondary btn-results-challenge" data-token="${ch.capability_token}">
               <span class="btn-icon">🏆</span>
               ${t("challenges_page.results_btn")}
+            </a>
+            <a href="/game/${encodeURIComponent(ch.challenge_id)}/replay" class="btn-secondary btn-replay-challenge" data-id="${escapeHtml(ch.challenge_id)}">
+              <span class="btn-icon">🎬</span>
+              ${t("challenges_page.replay_btn")}
             </a>
           </div>
 

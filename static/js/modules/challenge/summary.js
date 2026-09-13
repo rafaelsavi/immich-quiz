@@ -147,35 +147,9 @@ export const challengeSummary = {
         </div>
       `;
 
-      const canReplay = Boolean(isConcluded || data.is_game_over || callerCompletedRound >= totalRoundsCount - 1);
-      const replayMatchId = data.match_id || challengeSession.loadSession(capabilityToken)?.matchId || capabilityToken;
-
-      const replayBannerHtml = `
-        <div class="challenge-replay-banner">
-          <div class="challenge-replay-banner-info">
-            <h3 class="challenge-replay-banner-title">🎬 ${t("challenge.watch_replay_btn")}</h3>
-            <p class="challenge-replay-banner-desc">${data.title ? escapeHtml(data.title) : t("challenge.badge")} • ${totalRoundsCount} ${t("challenge.rounds")}</p>
-          </div>
-          ${
-            canReplay
-              ? `
-            <button type="button" class="btn btn-primary challenge-replay-cta-btn" id="grand-reveal-replay-btn">
-              🎬 ${t("challenge.watch_replay_btn")} →
-            </button>
-          `
-              : `
-            <button type="button" class="btn btn-secondary challenge-replay-cta-btn" id="grand-reveal-replay-btn" disabled title="${escapeHtml(t("challenge.replay_locked"))}">
-              🔒 ${t("challenge.watch_replay_btn")}
-            </button>
-          `
-          }
-        </div>
-      `;
-
-      const middleContentHtml = `
-        ${replayBannerHtml}
-        ${standingsTableHtml}
-      `;
+      const callerCompletedRound = typeof data.up_to_round === "number" ? data.up_to_round : (challengeSession.currentRoundIndex - 1);
+      const canReplay = Boolean(isConcluded || data.is_game_over || (callerCompletedRound >= 0 && callerCompletedRound >= totalRoundsCount - 1));
+      const replayMatchId = data.match_id || (capToken ? challengeSession.loadSession(capToken)?.matchId : null) || capToken || data.challenge_id;
 
       el.challengeCard.innerHTML = `
         <div class="challenge-grand-reveal">
@@ -193,7 +167,7 @@ export const challengeSummary = {
 
           ${podiumHtml}
 
-          ${middleContentHtml}
+          ${standingsTableHtml}
 
           <div class="summary-actions">
             ${
@@ -250,12 +224,11 @@ export const challengeSummary = {
         );
       }
 
-      // Replay action button click listeners
+      // Replay action button click listener
       const handleReplayClick = () => {
         if (!canReplay) return;
         navigate(`/game/${encodeURIComponent(replayMatchId)}/replay`);
       };
-      document.getElementById("grand-reveal-replay-btn")?.addEventListener("click", handleReplayClick);
       document.getElementById("grand-reveal-replay-action-btn")?.addEventListener("click", handleReplayClick);
 
       // Share button (Invite link)

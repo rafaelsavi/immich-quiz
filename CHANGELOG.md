@@ -5,7 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.1.0] - 2026-09-12
+## [Unreleased]
+
+### Added
+- **Dedicated Players and Replays Pages (`/players`, `/replays`)**:
+  - Split the Statistics Hub into two distinct, dedicated pages: **Players** (`/players`) and **Match Replays** (`/replays`), removing the segmented `#stats-tabs-bar`.
+  - Added dedicated top header navigation buttons: Players (`👥`, `#stats-nav-btn`) and Replays (`🎬`, `#replays-nav-btn`) with active route indicators.
+  - Extracted the Match Replays catalog from `#stats-page-card` into its own dedicated `#replays-page-card`.
+  - Updated player profile routes to `/players/:playerName` with return navigation to `/players`.
+  - Updated SPA catch-all and direct deep-linking on FastAPI backend to serve `/players` and `/replays`.
+- **Header Settings Dropdown Menu (`#settings-dropdown`)**:
+  - Consolidated standalone language (`#lang-toggle-btn`) and audio (`#audio-toggle-btn`) header buttons into a space-saving gear settings icon (`⚙️`, `#settings-toggle-btn`).
+  - Hovering over or clicking the gear reveals an animated dropdown menu containing the language flag button and sound effects toggle.
+  - Supports hover bridge on desktop, touch/click toggle on mobile, outside click dismissal, and Escape key dismissal.
+  - Fully localized in English (`en-US`) and Portuguese (`pt-BR`).
+- **Detailed Challenge Card Replay Link (`.btn-replay-challenge`)**:
+  - Added direct match replay link button (`🎬 Replay`) to `.footer-left-actions` of `.detailed-challenge-card` in the Challenges Hub (`#challenges-page-card`).
+  - Enables single-click navigation to `/game/:challengeId/replay` directly from any challenge card on both desktop and mobile viewports.
+  - Fully localized in English (`en-US`) and Portuguese (`pt-BR`).
+
+### Fixed
+- **Match Replay Catalog Card Rendering & Styling**:
+  - Fixed player name extraction in the Match Replays catalog (`/replays`), which erroneously assumed player array items were objects instead of player name strings returned by `/api/matches`, causing empty player names, fallback initial `?`, and broken red avatar blocks.
+  - Fixed winner identification in catalog items to compare player names against the `m.winners` list rather than `p.player_name === winnerName` (which evaluated to `undefined === undefined` and awarded crowns to every player).
+  - Added full CSS styling for `.replay-catalog-item`, `.replay-item-header`, `.replay-item-body`, `.replay-player-chip`, `.replay-player-avatar`, `.replay-player-name`, `.replay-winner-crown`, and `.replay-item-footer`.
+  - Added mobile responsive layout and dark mode support for the Match Replays catalog cards.
+
+## [3.1.0] - 2026-09-13
+
+- **Automatic Gameplay Viewport Auto-Scroll (`#game-card`)**:
+  - Automatically smooth-scrolls the viewport to `#game-card` when starting matches, loading questions, and advancing rounds in both local multiplayer and challenge modes.
+  - Scrolls `.app-header` out of view during active gameplay to maximize vertical screen real estate for maps, photo media frames, and interactive inputs.
+  - Preserves top-of-page scroll on Lobby Setup, Summary, and Hub pages where header navigation remains relevant.
+  - Configured `scroll-margin-top: env(safe-area-inset-top, 0px)` on `#game-card` in `layout.css` for optimal mobile status bar / notch alignment.
+
+- **Challenge Play Mode Icon Unification (`⚔️`)**:
+  - Unified the challenge play mode icon to crossed swords (`⚔️`) across all UI elements, including modal tabs (`#tab-challenge-game`), leaderboard play mode badges (`.playmode-badge.mode-challenge`), match replay headers, challenge grand reveal navigation, and documentation.
+  - Resolved inconsistent icon usage where globe (`🌐`) or trophy (`🏆`) were previously displayed for challenge play modes.
 
 - **Unified Hub Toolbar Design System (`.hub-toolbar`)**:
   - Standardized the search, sort, and filter toolbars across **Challenges Hub** (`#challenges-page-card`) and **Player Statistics & Replays** (`#stats-page-card`) with a cohesive shaded deck container (`background: var(--bg-surface-secondary)`, subtle borders, rounded corners).
@@ -21,7 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Backed by backend `last_sync_summary` telemetry in `SyncStateResponse` and `SyncEngine`.
   - Fully localized in English and Portuguese (`en-US`, `pt-BR`).
 - **Challenge Summary Match Replay Unification (`/challenges/:token/summary`)**:
-  - Replaced the legacy single-column `.challenge-carousel-card` and static journey map on the Challenge Grand Reveal summary screen with a modern "🎬 Watch Match Replay" banner (`.challenge-replay-banner`) linking directly to `/game/:matchId/replay`.
+  - Replaced the legacy single-column `.challenge-carousel-card` and static journey map on the Challenge Grand Reveal summary screen with direct integration into the Match Replay engine via the primary action button (`#grand-reveal-replay-action-btn`) linking directly to `/game/:matchId/replay`.
+  - Removed redundant middle banner (`.challenge-replay-banner`) in favor of the unified `#grand-reveal-replay-action-btn` action bar button.
   - Added multi-player challenge replay aggregation to `get_match_replay` in `src/storage/leaderboard.py`, enabling challenge replays to display all participants' guesses, distance lines, round scores, and dynamic standings simultaneously across all completed challenge sessions.
   - Added `match_id` field to `ChallengeLeaderboardEntry` and `ChallengeLeaderboardResponse` models in `src/models.py`.
   - Resolved Album Shuffle games rendering blank space in challenge summaries by leveraging the full Match Replay engine with batch photo navigation tabs.
@@ -43,6 +80,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Challenge Summary Grand Reveal Undefined Variables (`capabilityToken` / `callerCompletedRound`)**:
+  - Fixed runtime `ReferenceError: capabilityToken is not defined` and `ReferenceError: callerCompletedRound is not defined` when opening challenge game summaries (`/play/:token/summary`), which previously displayed an error screen ("Desafio Indisponível").
+  - Corrected `callerCompletedRound` derivation from `data.up_to_round` and updated `replayMatchId` resolution to safely use `capToken` with fallback to `data.challenge_id`.
 - **Challenge Card & Modal Autocomplete Dropdown Overflow (`cards.css`, `modals.css`)**:
   - Allowed `#challenge-card` and `#pane-challenge-game` to have `overflow: visible`, ensuring the player name autocomplete dropdown extends cleanly beyond the challenge card boundary without being clipped by container overflow rules.
 - **Stats Hub Routing Parameter Bug (`router.js`)**:

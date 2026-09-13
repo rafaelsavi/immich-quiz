@@ -1529,7 +1529,8 @@ def test_spa_catch_all_routes_return_html(client: TestClient) -> None:
         '/game/abc-123',
         '/game/abc-123/summary',
         '/play/challenge-tok-123',
-        '/stats',
+        '/players',
+        '/replays',
     ):
         response = client.get(path)
         assert response.status_code == 200

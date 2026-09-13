@@ -7,13 +7,18 @@ import re
 from playwright.async_api import Page, expect
 
 
+async def _toggle_language(page: Page) -> None:
+    """Toggle language between English and Portuguese without page reload."""
+    await page.evaluate("() => document.getElementById('lang-toggle-btn')?.click()")
+    # Brief tick for DOM dispatch
+    await page.wait_for_timeout(150)
+
+
 async def _ensure_language(page: Page, target_lang: str) -> None:
     """Ensure page is set to target_lang ('en-US' or 'pt-BR') without page reload."""
     current_lang = await page.evaluate("() => localStorage.getItem('immich_quiz_language') || 'en-US'")
     if current_lang != target_lang:
-        await page.locator('#lang-toggle-btn').click()
-        # Brief tick for DOM dispatch
-        await page.wait_for_timeout(100)
+        await _toggle_language(page)
 
 
 async def test_lobby_setup_dynamic_language_switch(page: Page) -> None:
@@ -57,7 +62,7 @@ async def test_lobby_setup_dynamic_language_switch(page: Page) -> None:
     await expect(empty_cell).to_contain_text('No games recorded for this configuration yet.')
 
     # 2. Toggle to Portuguese
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
 
     # Verify Portuguese updates dynamically WITHOUT reloading the page
     await expect(setup_heading).to_have_text('Configuração do Jogo')
@@ -73,7 +78,7 @@ async def test_lobby_setup_dynamic_language_switch(page: Page) -> None:
     await expect(empty_cell).to_contain_text('Nenhum jogo registrado para esta configuração ainda.')
 
     # 3. Toggle back to English
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
 
     await expect(setup_heading).to_have_text('Game Setup')
     await expect(prepare_btn.locator('.btn-icon')).to_have_text('🎮')
@@ -147,7 +152,7 @@ async def test_pinpoint_gameplay_and_reveal_dynamic_language_switch(page: Page) 
     await expect(timer_label).to_contain_text(re.compile(r'Time left|Unlimited', re.IGNORECASE))
 
     # Toggle language to PT during active guessing
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
 
     # Verify dynamic updates during guessing
     await expect(round_meta).to_contain_text(re.compile(r'Rodada 1 de'))
@@ -155,7 +160,7 @@ async def test_pinpoint_gameplay_and_reveal_dynamic_language_switch(page: Page) 
     await expect(timer_label).to_contain_text(re.compile(r'Tempo restante|Sem limite', re.IGNORECASE))
 
     # Toggle back to EN
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
     await expect(round_meta).to_contain_text(re.compile(r'Round 1 of'))
     await expect(submit_btn).to_have_text('Submit Guess')
 
@@ -177,13 +182,13 @@ async def test_pinpoint_gameplay_and_reveal_dynamic_language_switch(page: Page) 
     await expect(reveal_table).to_contain_text('Score')
 
     # Toggle language on reveal screen
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
 
     await expect(next_round_btn).to_contain_text(re.compile(r'Próxima Rodada|Ver Resultados'))
     await expect(reveal_table).to_contain_text('Pontuação')
 
     # Toggle back to English
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
     await expect(next_round_btn).to_contain_text(re.compile(r'Next Round|See Results'))
     await expect(reveal_table).to_contain_text('Score')
 
@@ -227,7 +232,7 @@ async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> Non
     await expect(up_btn).to_have_attribute('title', 'Move Up (Earlier)')
 
     # 2. Toggle language to PT during active Album Shuffle guessing
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
 
     if await oldest_header.is_visible():
         await expect(oldest_header).to_contain_text('Primeira')
@@ -239,7 +244,7 @@ async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> Non
     await expect(up_btn).to_have_attribute('title', 'Mover para Cima (Mais Antiga)')
 
     # 3. Toggle back to English
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
     if await oldest_header.is_visible():
         await expect(oldest_header).to_contain_text('First')
     if await newest_header.is_visible():
@@ -249,41 +254,53 @@ async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> Non
 
 
 async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
-    """Verify that all new v3.1.0 pages (/stats directory, replays, leaderboard,
+    """Verify that all new v3.1.0 pages (/players directory, replays, leaderboard,
     player profile, and round replay) support realtime translation.
     """
-    await page.goto('/stats')
+    await page.goto('/players')
     await page.wait_for_selector('#stats-page-card')
     await _ensure_language(page, 'en-US')
 
-    # 1. /stats Hub in English
-    await expect(page.locator('#stats-page-heading')).to_have_text('Player Statistics & Replays')
-    await expect(page.locator('#stats-tabs-bar button[data-tab="players"]')).to_have_text('Player Directory')
-    await expect(page.locator('#stats-tabs-bar button[data-tab="replays"]')).to_have_text('Match Replays')
+    # 1. /players Page in English
+    await expect(page.locator('#stats-page-heading')).to_have_text('Player Directory & Statistics')
     await expect(page.locator('#stats-players-search')).to_have_attribute('placeholder', 'Search players by name...')
 
-    # Replays tab in English
-    await page.locator('#stats-tabs-bar button[data-tab="replays"]').click()
+    # Replays page in English
+    await page.goto('/replays')
+    await page.wait_for_selector('#replays-page-card')
+    await expect(page.locator('#replays-page-heading')).to_have_text('Match Replays')
     await expect(page.locator('#stats-replays-player-search')).to_have_attribute('placeholder', 'Filter by player...')
     await expect(page.locator('#stats-replays-mode-filter option[value="all"]')).to_have_text('All Modes')
+    await expect(page.locator('#stats-replays-mode-filter option[value="pinpoint"]')).to_have_text('🎯 Pinpoint')
+    await expect(page.locator('#stats-replays-mode-filter option[value="album_shuffle"]')).to_have_text(
+        '🔀 Album Shuffle'
+    )
     await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('All Types')
+    await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('👥 Local Match')
+    await expect(page.locator('#stats-replays-type-filter option[value="challenge"]')).to_have_text('⚔️ Challenge Link')
 
     # 2. Toggle to Portuguese in realtime
-    await page.locator('#lang-toggle-btn').click()
-    await expect(page.locator('#stats-page-heading')).to_have_text('Estatísticas & Replays')
-    await expect(page.locator('#stats-page-desc')).to_have_text(
-        'Histórico de jogadores, precisão na carreira e replays interativos de partidas.'
+    await _toggle_language(page)
+    await expect(page.locator('#replays-page-heading')).to_have_text('Replays de Partidas')
+    await expect(page.locator('#replays-page-desc')).to_have_text(
+        'Reviva partidas passadas com mapas interativos rodada a rodada e fotos.'
     )
-    await expect(page.locator('#stats-tabs-bar button[data-tab="players"]')).to_have_text('Diretório de Jogadores')
-    await expect(page.locator('#stats-tabs-bar button[data-tab="replays"]')).to_have_text('Replays de Partidas')
     await expect(page.locator('#stats-replays-player-search')).to_have_attribute(
         'placeholder', 'Filtrar por jogador...'
     )
     await expect(page.locator('#stats-replays-mode-filter option[value="all"]')).to_have_text('Todos os Modos')
+    await expect(page.locator('#stats-replays-mode-filter option[value="pinpoint"]')).to_have_text('🎯 Pinpoint')
+    await expect(page.locator('#stats-replays-mode-filter option[value="album_shuffle"]')).to_have_text(
+        '🔀 Álbum Embaralhado'
+    )
     await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('Todos os Tipos')
+    await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('👥 Partida Local')
+    await expect(page.locator('#stats-replays-type-filter option[value="challenge"]')).to_have_text('⚔️ Link de Desafio')
 
-    # Directory tab in Portuguese
-    await page.locator('#stats-tabs-bar button[data-tab="players"]').click()
+    # Players page in Portuguese
+    await page.goto('/players')
+    await page.wait_for_selector('#stats-page-card')
+    await expect(page.locator('#stats-page-heading')).to_have_text('Diretório de Jogadores & Estatísticas')
     await expect(page.locator('#stats-players-search')).to_have_attribute('placeholder', 'Buscar jogadores por nome...')
 
     # 3. Test Match Replay page with mocked data
@@ -340,7 +357,7 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
     await expect(page.locator("span[data-i18n='replay.scoreboard']")).to_have_text('Placar da Partida')
 
     # Realtime toggle replay to English
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
     await expect(page.locator('#replay-round-indicator')).to_contain_text(re.compile(r'Round 1 of 1', re.IGNORECASE))
     await expect(page.locator('#replay-scoreboard-round-tag')).to_contain_text(re.compile(r'After R1', re.IGNORECASE))
     await expect(page.locator('#replay-back-btn')).to_contain_text('Exit Replay')
@@ -402,24 +419,71 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
 
     await page.route('**/api/players/Alice/profile', handle_profile_route)
 
-    # Navigate to /stats/players/Alice
-    await page.goto('/stats/players/Alice')
+    # Navigate to /players/Alice
+    await page.goto('/players/Alice')
     await expect(page.locator('#stats-page-card')).to_be_visible()
     await expect(page.locator('#stats-profile-view')).to_be_visible()
 
     # In English
     await expect(page.locator('#stats-page-heading')).to_have_text('Player Profile')
-    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Back to Stats Hub')
+    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Back to Players')
     await expect(page.locator('.player-profile-view h3').first).to_contain_text('Location Accuracy')
 
     # Realtime toggle profile to Portuguese
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
     await expect(page.locator('#stats-page-heading')).to_have_text('Perfil do Jogador')
-    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Voltar ao Hub')
+    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Voltar para Jogadores')
     await expect(page.locator('.player-profile-view h3').first).to_contain_text('Precisão de Localização')
 
     # Realtime toggle back to English
-    await page.locator('#lang-toggle-btn').click()
+    await _toggle_language(page)
     await expect(page.locator('#stats-page-heading')).to_have_text('Player Profile')
-    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Back to Stats Hub')
+    await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Back to Players')
     await expect(page.locator('.player-profile-view h3').first).to_contain_text('Location Accuracy')
+
+
+async def test_settings_menu_dropdown_interaction(page: Page) -> None:
+    """Verify that settings gear dropdown opens on hover/click, switches language/audio,
+    and dismisses on outside click.
+    """
+    await page.goto('/')
+    await page.wait_for_selector('#setup-card')
+    await _ensure_language(page, 'en-US')
+
+    settings_toggle = page.locator('#settings-toggle-btn')
+    settings_menu = page.locator('#settings-menu')
+    lang_btn = page.locator('#lang-toggle-btn')
+    audio_btn = page.locator('#audio-toggle-btn')
+
+    await expect(settings_toggle).to_be_visible()
+    await expect(settings_menu).not_to_be_visible()
+
+    # 1. Desktop Hover Interaction: hover over gear reveals menu
+    await settings_toggle.hover()
+    await expect(settings_menu).to_be_visible()
+    await expect(lang_btn).to_be_visible()
+    await expect(audio_btn).to_be_visible()
+
+    # Moving mouse away hides menu
+    await page.mouse.move(0, 0)
+    await expect(settings_menu).not_to_be_visible()
+
+    # 2. Click Interaction: toggle open
+    await settings_toggle.click()
+    await expect(settings_menu).to_be_visible()
+    await expect(settings_toggle).to_have_attribute('aria-expanded', 'true')
+
+    # 3. Toggle language from inside the open menu
+    await lang_btn.click()
+    setup_heading = page.locator('#setup-card h2').first
+    await expect(setup_heading).to_have_text('Configuração do Jogo')
+
+    # 4. Test outside click dismiss
+    await settings_toggle.click()
+    await expect(settings_menu).to_be_visible()
+    await page.locator('#setup-card').click()
+    await expect(settings_menu).not_to_be_visible()
+    await expect(settings_toggle).to_have_attribute('aria-expanded', 'false')
+
+    # Restore language to English
+    await _ensure_language(page, 'en-US')

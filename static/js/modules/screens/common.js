@@ -29,11 +29,26 @@ export function showCard(cardEl) {
     el.reportedPageCard,
     el.leaderboardCard,
     el.statsPageCard,
+    el.replaysPageCard,
     el.replayPageCard,
   ].forEach((c) => {
     if (c) c.classList.add("hidden");
   });
   if (cardEl) cardEl.classList.remove("hidden");
+}
+
+export function scrollToGameCard(behavior = "smooth") {
+  if (!el.gameCard || el.gameCard.classList.contains("hidden")) return;
+  const doScroll = () => {
+    if (!el.gameCard || el.gameCard.classList.contains("hidden")) return;
+    try {
+      el.gameCard.scrollIntoView({ behavior, block: "start" });
+    } catch (_) {
+      el.gameCard.scrollIntoView(true);
+    }
+  };
+  doScroll();
+  requestAnimationFrame(doScroll);
 }
 
 

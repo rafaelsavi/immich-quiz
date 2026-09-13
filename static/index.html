@@ -64,27 +64,40 @@
           <span id="challenges-nav-icon">⚔️</span>
           <span id="header-challenges-badge" class="header-challenges-badge hidden">0</span>
         </a>
-        <a href="/stats" id="stats-nav-btn" class="header-icon-btn stats-nav-btn"
-          data-i18n-title="nav.stats" data-i18n-aria-label="nav.stats"
-          title="Statistics & Replays" aria-label="Statistics & Replays">
-          <span id="stats-nav-icon">🏆</span>
+        <a href="/players" id="stats-nav-btn" class="header-icon-btn stats-nav-btn"
+          data-i18n-title="nav.players" data-i18n-aria-label="nav.players"
+          title="Players" aria-label="Players">
+          <span id="stats-nav-icon">👥</span>
         </a>
-        <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn" title="Language: English"
-          aria-label="Switch Language">
-          <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"
-              aria-hidden="true">
-              <rect width="60" height="60" fill="#012169" />
-              <path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10" />
-              <path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6" />
-              <path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16" />
-              <path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10" />
-            </svg></span>
-        </button>
-        <button type="button" id="audio-toggle-btn" class="header-icon-btn audio-toggle-btn"
-          data-i18n-title="audio.toggle_title" data-i18n-aria-label="audio.toggle_title"
-          title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
-          <span id="audio-icon">🔊</span>
-        </button>
+        <a href="/replays" id="replays-nav-btn" class="header-icon-btn replays-nav-btn"
+          data-i18n-title="nav.replays" data-i18n-aria-label="nav.replays"
+          title="Match Replays" aria-label="Match Replays">
+          <span id="replays-nav-icon">🎬</span>
+        </a>
+        <div class="settings-dropdown" id="settings-dropdown">
+          <button type="button" id="settings-toggle-btn" class="header-icon-btn settings-toggle-btn"
+            aria-haspopup="true" aria-expanded="false" aria-label="Settings" data-i18n-title="nav.settings" data-i18n-aria-label="nav.settings" title="Settings">
+            <span id="settings-icon">⚙️</span>
+          </button>
+          <div class="settings-menu" id="settings-menu" role="menu" aria-label="Settings">
+            <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn settings-menu-btn" title="Language: English"
+              aria-label="Switch Language">
+              <span id="lang-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60" class="flag-svg"
+                  aria-hidden="true">
+                  <rect width="60" height="60" fill="#012169" />
+                  <path d="M0,0 L60,60 M60,0 L0,60" stroke="#FFFFFF" stroke-width="10" />
+                  <path d="M0,0 L60,60 M60,0 L0,60" stroke="#C8102E" stroke-width="6" />
+                  <path d="M30,0 V60 M0,30 H60" stroke="#FFFFFF" stroke-width="16" />
+                  <path d="M30,0 V60 M0,30 H60" stroke="#C8102E" stroke-width="10" />
+                </svg></span>
+            </button>
+            <button type="button" id="audio-toggle-btn" class="header-icon-btn audio-toggle-btn settings-menu-btn"
+              data-i18n-title="audio.toggle_title" data-i18n-aria-label="audio.toggle_title"
+              title="Toggle Sound Effects" aria-label="Toggle Sound Effects">
+              <span id="audio-icon">🔊</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -680,15 +693,15 @@
       </div>
     </section>
 
-    <!-- Dedicated Player Statistics & Match Replays Page -->
+    <!-- Dedicated Player Directory & Statistics Page -->
     <section id="stats-page-card" class="card hidden">
       <div class="stats-page-header">
         <div class="stats-page-title-group">
           <div class="stats-title-badge-row">
-            <span class="badge-stats" data-i18n="nav.stats">Statistics & Replays</span>
+            <span class="badge-stats" data-i18n="nav.players">Players</span>
           </div>
-          <h2 id="stats-page-heading" data-i18n="stats.hub_title">Player Statistics & Replays</h2>
-          <p id="stats-page-desc" class="stats-page-desc" data-i18n="stats.hub_subtitle">Player legacy, career accuracy analytics, and interactive match replays.</p>
+          <h2 id="stats-page-heading" data-i18n="stats.hub_title">Player Directory & Statistics</h2>
+          <p id="stats-page-desc" class="stats-page-desc" data-i18n="stats.hub_subtitle">Player legacy, career accuracy analytics, and competitive profiles.</p>
         </div>
         <div class="stats-page-head-actions">
           <button type="button" id="stats-page-refresh-btn" class="btn-icon-action" title="Refresh" aria-label="Refresh" data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
@@ -699,13 +712,7 @@
         </div>
       </div>
 
-      <!-- Stats Tabs (Player Directory, Match Replays) -->
-      <div id="stats-tabs-bar" class="stats-tabs-bar" role="tablist" aria-label="Statistics navigation">
-        <button type="button" class="stats-tab-btn active" role="tab" aria-selected="true" aria-controls="stats-players-view" data-tab="players" data-i18n="stats.tab_players">Player Directory</button>
-        <button type="button" class="stats-tab-btn" role="tab" aria-selected="false" aria-controls="stats-replays-view" data-tab="replays" data-i18n="stats.tab_replays">Match Replays</button>
-      </div>
-
-      <!-- Tab View 1: Player Directory -->
+      <!-- Player Directory View -->
       <div id="stats-players-view" class="stats-tab-view">
         <div class="hub-toolbar stats-toolbar">
           <div class="hub-search-box stats-search-wrap">
@@ -731,9 +738,32 @@
         <div id="stats-players-grid" class="stats-players-grid"></div>
       </div>
 
-      <!-- Tab View 2: Match Replays Catalog -->
-      <div id="stats-replays-view" class="stats-tab-view hidden">
-        <div class="hub-toolbar stats-toolbar">
+      <!-- Dedicated Player Profile View -->
+      <div id="stats-profile-view" class="stats-profile-view hidden"></div>
+    </section>
+
+    <!-- Dedicated Match Replays Catalog Page -->
+    <section id="replays-page-card" class="card hidden">
+      <div class="stats-page-header replays-page-header">
+        <div class="stats-page-title-group">
+          <div class="stats-title-badge-row">
+            <span class="badge-stats" data-i18n="nav.replays">Match Replays</span>
+          </div>
+          <h2 id="replays-page-heading" data-i18n="replay.catalog_title">Match Replays</h2>
+          <p id="replays-page-desc" class="stats-page-desc" data-i18n="replay.catalog_subtitle">Relive past games with round-by-round interactive maps and photo reviews.</p>
+        </div>
+        <div class="stats-page-head-actions">
+          <button type="button" id="replays-page-refresh-btn" class="btn-icon-action" title="Refresh" aria-label="Refresh" data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" class="sync-icon" aria-hidden="true">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Replays Catalog View -->
+      <div id="replays-catalog-view" class="replays-catalog-view">
+        <div class="hub-toolbar stats-toolbar replays-toolbar">
           <div class="hub-search-box stats-search-wrap">
             <svg class="hub-search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="11" cy="11" r="8"></circle>
@@ -747,22 +777,19 @@
           <div class="hub-filters-group stats-filters-wrap">
             <select id="stats-replays-mode-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_modes">All Modes</option>
-              <option value="pinpoint" data-i18n="mode.pinpoint">🎯 Pinpoint</option>
-              <option value="album_shuffle" data-i18n="mode.album_shuffle">🔀 Album Shuffle</option>
+              <option value="pinpoint" data-i18n="challenges_page.mode_pinpoint">🎯 Pinpoint</option>
+              <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Album Shuffle</option>
             </select>
             <select id="stats-replays-type-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_types">All Types</option>
-              <option value="local" data-i18n="replay.filter_type_local">Local Match</option>
-              <option value="challenge" data-i18n="replay.filter_type_challenge">Challenge Link</option>
+              <option value="local" data-i18n="replay.filter_type_local">👥 Local Match</option>
+              <option value="challenge" data-i18n="replay.filter_type_challenge">⚔️ Challenge Link</option>
             </select>
             <span id="stats-replays-total-badge" class="hub-counter-pill stats-counter-pill hidden">0 replays</span>
           </div>
         </div>
         <div id="stats-replays-list" class="stats-replays-list"></div>
       </div>
-
-      <!-- Dedicated Player Profile View -->
-      <div id="stats-profile-view" class="stats-profile-view hidden"></div>
     </section>
 
     <!-- Dedicated Match Replay View -->
@@ -810,7 +837,7 @@
         <div id="replay-error-state" class="empty-state hidden" style="padding: 3rem 1rem; text-align: center;">
           <p style="color: var(--text-muted); font-size: 1.1rem;" id="replay-error-text" data-i18n="replay.not_found">Match replay not found.</p>
           <button type="button" class="btn-secondary" style="margin-top: 1rem;" id="replay-error-back-btn">
-            ← <span data-i18n="stats.back_to_hub">Back to Hub</span>
+            ← <span data-i18n="replay.exit">Exit Replay</span>
           </button>
         </div>
 

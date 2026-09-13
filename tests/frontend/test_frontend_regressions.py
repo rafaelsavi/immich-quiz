@@ -54,7 +54,6 @@ DYNAMIC_IDS = frozenset(
         'grand-reveal-podium-section',
         'grand-reveal-provisional',
         'grand-reveal-replay-action-btn',
-        'grand-reveal-replay-btn',
         'grand-reveal-share-btn',
         'grand-reveal-share-summary-btn',
         'grand-reveal-table',
@@ -64,6 +63,8 @@ DYNAMIC_IDS = frozenset(
         'preflight-warning',
         'profile-back-btn',
         'profile-back-to-hub-btn',
+        'replay-empty-challenge-btn',
+        'replay-empty-play-btn',
         'replay-error-back-btn',
         'retry-load-challenges-btn',
         'reveal-shuffle-map-shell',
@@ -1046,36 +1047,47 @@ def test_challenges_page_share_drawer_and_results_button() -> None:
     assert '.challenge-hub-share-drawer' in challenge_css
     assert 'renderShareUrlContainerHtml(ch.play_url' in challenges_page_js
 
-    # 4. Challenge cards render Results button (both active & inactive) deep linking to /play/:token/summary
+    # 4. Challenge cards render Results and Replay buttons (both active & inactive)
+    #    deep linking to /play/:token/summary and /game/:id/replay
     assert 'btn-results-challenge' in challenges_page_js
     assert '.btn-results-challenge' in challenge_css
+    assert 'btn-replay-challenge' in challenges_page_js
+    assert '.btn-replay-challenge' in challenge_css
     assert 'btn-play-challenge' in challenges_page_js
     assert '/play/${ch.capability_token}/summary' in challenges_page_js
+    assert '/game/${encodeURIComponent(ch.challenge_id)}/replay' in challenges_page_js
     assert 'navigate(`/play/${token}/summary`)' in challenges_page_js
     assert 'navigate(`/play/${token}`)' in challenges_page_js
+    assert 'navigate(`/game/${encodeURIComponent(id)}/replay`)' in challenges_page_js
 
     # 5. Redundant footer copy button removed
     assert '.footer-left-actions .btn-copy-challenge-link' not in challenge_css
 
-    # 6. Locale strings for share & results exist in both locales
+    # 6. Locale strings for share, results & replay exist in both locales
     for locale in (en_us, pt_br):
         assert '"challenges_page.share_btn"' in locale
         assert '"challenges_page.results_btn"' in locale
+        assert '"challenges_page.replay_btn"' in locale
         assert '"challenges_page.share_drawer_title"' in locale
         assert '"challenges_page.scan_qr_hint"' in locale
 
 
 def test_challenge_summary_replay_unification_and_mobile_optimization() -> None:
     """Verify that challenge summary unifies round review with the match replay engine,
-    includes the replay banner and CTA button, and maintains mobile responsiveness.
+    includes the grand-reveal-replay-action-btn, and maintains mobile responsiveness.
     """
     challenge_js = read_challenge_bundle_js()
     challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
 
-    # 1. Challenge summary includes replay banner and CTA button navigating to /game/:id/replay
-    assert 'grand-reveal-replay-btn' in challenge_js
-    assert 'challenge-replay-banner' in challenge_js
+    # 1. Challenge summary includes replay action button navigating to /game/:id/replay and no duplicate banner
+    assert 'grand-reveal-replay-action-btn' in challenge_js
+    assert 'grand-reveal-replay-btn' not in challenge_js
+    assert 'challenge-replay-banner' not in challenge_js
     assert '/game/${encodeURIComponent(replayMatchId)}/replay' in challenge_js
+    assert 'callerCompletedRound' in challenge_js
+    summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
+    assert 'loadSession(capabilityToken)' not in summary_js
+    assert 'capabilityToken' not in summary_js
 
     # 2. Grand reveal standings table hides accuracy column on mobile screens and excludes unnecessary avg-round column
     assert '<th class="col-accuracy text-right hide-on-mobile">' in challenge_js
@@ -1083,9 +1095,9 @@ def test_challenge_summary_replay_unification_and_mobile_optimization() -> None:
     assert 'col-avg-round' not in challenge_js
     assert 'summary.col_avg_round' not in challenge_js
 
-    # 3. Challenge replay banner styling in challenge.css
-    assert '.challenge-replay-banner {' in challenge_css
-    assert '.challenge-replay-cta-btn {' in challenge_css
+    # 3. Challenge replay banner styling removed from challenge.css
+    assert '.challenge-replay-banner' not in challenge_css
+    assert '.challenge-replay-cta-btn' not in challenge_css
 
     # 4. Mobile responsive rules defined for grand reveal, table, and summary actions
     assert '.challenge-grand-reveal' in challenge_css
@@ -1919,3 +1931,68 @@ def test_modal_backdrop_drag_selection_no_close() -> None:
     # Pinpoint help modal
     assert 'isBackdropPress' in pinpoint_js
     assert 'modal.addEventListener("pointerdown"' in pinpoint_js
+
+
+def test_gameplay_auto_scroll_to_game_card() -> None:
+    """Verify that during active games, the interface scrolls automatically to #game-card,
+    hiding the top app-header to maximize screen estate for gameplay.
+    """
+    common_js = (JS_DIR / 'modules' / 'screens' / 'common.js').read_text(encoding='utf-8')
+    game_js = (JS_DIR / 'modules' / 'screens' / 'game.js').read_text(encoding='utf-8')
+    challenge_game_js = (JS_DIR / 'modules' / 'challenge' / 'game.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    layout_css = (STATIC_DIR / 'css' / 'base' / 'layout.css').read_text(encoding='utf-8')
+
+    # 1. common.js exports scrollToGameCard helper
+    assert 'export function scrollToGameCard(' in common_js
+    assert 'scrollIntoView' in common_js
+    assert 'block: "start"' in common_js
+
+    # 2. game.js calls scrollToGameCard instead of window.scrollTo(top: 0)
+    assert 'import { scrollToGameCard } from "./common.js";' in game_js
+    assert 'scrollToGameCard("smooth");' in game_js
+
+    # 3. challenge/game.js calls scrollToGameCard instead of window.scrollTo(top: 0)
+    assert 'scrollToGameCard' in challenge_game_js
+
+    # 4. app.js calls scrollToGameCard in readyBtn and routeToActiveGame
+    assert 'scrollToGameCard' in app_js
+
+    # 5. layout.css specifies scroll-margin-top on #game-card for clean viewport alignment
+    assert '#game-card {\n  scroll-margin-top: env(safe-area-inset-top, 0px);\n}' in layout_css
+
+
+def test_match_replays_catalog_player_chips_and_styling() -> None:
+    """Verify that match replay catalog items correctly extract player names (from strings or objects),
+    determine winners from m.winners, and have complete CSS styling for chips and avatars.
+    """
+    replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
+    stats_css = (STATIC_DIR / 'css' / 'components' / 'stats.css').read_text(encoding='utf-8')
+    en_locale = (STATIC_DIR / 'js' / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_locale = (STATIC_DIR / 'js' / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Player name extraction handles both strings and objects
+    assert 'typeof a === "string"' in replay_js or 'typeof p === "string"' in replay_js
+    assert 'playerInitial(playerName)' in replay_js
+    assert 'winners.includes(playerName)' in replay_js
+
+    # 2. Chips and avatar classes are rendered
+    assert 'class="replay-player-chip' in replay_js
+    assert 'class="replay-player-avatar"' in replay_js
+    assert 'class="replay-player-name"' in replay_js
+    assert 'class="replay-winner-crown"' in replay_js
+
+    # 3. CSS rules exist in stats.css
+    assert '.replay-catalog-item {' in stats_css
+    assert '.replay-item-header {' in stats_css
+    assert '.replay-item-body {' in stats_css
+    assert '.replay-player-chip {' in stats_css
+    assert '.replay-player-chip.is-winner {' in stats_css
+    assert '.replay-player-avatar {' in stats_css
+    assert '.replay-player-name {' in stats_css
+    assert '.replay-winner-crown {' in stats_css
+    assert '.replay-item-footer {' in stats_css
+
+    # 4. Locale strings exist
+    assert '"replay.winner"' in en_locale
+    assert '"replay.winner"' in pt_locale
