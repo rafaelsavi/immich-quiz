@@ -125,8 +125,8 @@ def test_player_profile_api(tmp_path: Path) -> None:
     assert 'pinpoint' in modes
     assert modes['pinpoint']['matches_played'] == 1
     assert modes['pinpoint']['wins'] == 1
-    assert 'album_shuffle' in modes
-    assert modes['album_shuffle']['matches_played'] == 0
+    assert 'unshuffle' in modes
+    assert modes['unshuffle']['matches_played'] == 0
 
     # Recent matches list
     recent = data['recent_matches']

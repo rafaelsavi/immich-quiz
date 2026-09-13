@@ -13,7 +13,7 @@ This guide documents all end-of-match performance awards in **Immich Quiz**, the
 | **Speed Demon**   | ⚡    | `≥ 1 fast round`; `Timed game`; `0 timeouts` | Awarded to the player with the maximum number of fast rounds (submitted within **≤ 50% of the max round time limit**). | Lower total duration  |
 
 > [!NOTE]
-> In **Unshuffle** mode (`game_mode == 'album_shuffle'`), only the **⚡ Speed Demon** award is active.
+> In **Unshuffle** mode (`game_mode == 'unshuffle'`), only the **⚡ Speed Demon** award is active.
 > If a tie cannot be broken, the award is not given to any player.
 
 ---

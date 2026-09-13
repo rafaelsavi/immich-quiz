@@ -105,7 +105,7 @@
 #setup-form,
 #reveal-ui,
 #pinpoint-reveal-ui,
-#album-shuffle-reveal-ui {
+#unshuffle-reveal-ui {
   display: grid;
   gap: 0.75rem;
 }

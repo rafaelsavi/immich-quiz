@@ -69,7 +69,7 @@ immich-quiz/
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
     │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, round_stage.css, reveal_table.css, replay.css).
-    │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
+    │   └── modes/       Game mode styles (pinpoint.css, unshuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
     └── js/modules/      Modular ES modules:
@@ -97,7 +97,7 @@ immich-quiz/
         ├── modes/       Game mode strategy definitions & registry:
         │   ├── index.js     Mode registry and getActiveMode() strategy accessor.
         │   ├── pinpoint.js  Pinpoint single-photo mode strategy.
-        │   ├── album_shuffle.js Unshuffle multi-photo mode strategy.
+        │   ├── unshuffle.js Unshuffle multi-photo mode strategy.
         │   └── common.js    Shared mode helpers.
         ├── screens/     Screen lifecycle controllers:
         │   ├── common.js    Card switching (showCard), DOM resets (resetGameUi), and navigation guards.
@@ -137,7 +137,7 @@ immich-quiz/
     │   ├── conftest.py  Live FastAPI test server fixture and async page context manager.
     │   ├── test_pinpoint_gameplay.py Pinpoint Leaflet pin placement, polyline, and reveal.
     │   ├── test_date_selection.py Timeline range slider and single year/month selection.
-    │   ├── test_album_shuffle_gameplay.py Photo card reordering and multi-pin placement.
+    │   ├── test_unshuffle_gameplay.py Photo card reordering and multi-pin placement.
     │   ├── test_challenge_gameplay.py Challenge lobby, rounds, polling, and Grand Reveal.
     │   ├── test_report_issue.py Report Issue modal dialog, form validation, and submission.
     │   ├── test_reported_moderation.py Moderation dashboard list, search, filter, and resolve.

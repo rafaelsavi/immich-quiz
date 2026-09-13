@@ -736,7 +736,7 @@ export const pinpointMode = {
 
   renderReveal(revealUi, revealData) {
     const pinpointReveal = document.getElementById("pinpoint-reveal-ui");
-    const shuffleReveal = document.getElementById("album-shuffle-reveal-ui");
+    const shuffleReveal = document.getElementById("unshuffle-reveal-ui");
     if (pinpointReveal) pinpointReveal.classList.remove("hidden");
     if (shuffleReveal) shuffleReveal.classList.add("hidden");
 

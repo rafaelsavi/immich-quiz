@@ -68,7 +68,7 @@ let _shareBoxController = null;
  */
 export function generateAutoChallengeTitle() {
   const mode = state.gameMode || "pinpoint";
-  const modeName = mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+  const modeName = mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
   const rounds = el.roundCount ? el.roundCount.value : "5";
   const summary = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : "";
   const fullLibLabel = tOr("filters.full_library", t("leaderboard.scope_all"));

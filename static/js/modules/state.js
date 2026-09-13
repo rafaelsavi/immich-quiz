@@ -61,7 +61,7 @@ export const state = {
     dateRangeSlider: null,
   },
   // Unshuffle mode batch assignment state
-  albumShuffleState: {
+  unshuffleState: {
     assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
   },
   guessMap: null,
@@ -205,8 +205,8 @@ export const el = {
   get dateGuessMonth() {
     return document.getElementById("date-guess-month");
   },
-  get albumShuffleUi() {
-    return document.getElementById("album-shuffle-ui");
+  get unshuffleUi() {
+    return document.getElementById("unshuffle-ui");
   },
   get shuffleCardsList() {
     return document.getElementById("shuffle-cards-list");
@@ -217,8 +217,8 @@ export const el = {
   get shuffleMapShell() {
     return document.getElementById("shuffle-map-shell");
   },
-  get albumShuffleRevealUi() {
-    return document.getElementById("album-shuffle-reveal-ui");
+  get unshuffleRevealUi() {
+    return document.getElementById("unshuffle-reveal-ui");
   },
   get revealShuffleMapShell() {
     return document.getElementById("reveal-shuffle-map-shell");
@@ -232,8 +232,8 @@ export const el = {
   get shuffleRevealTableBody() {
     return document.querySelector("#shuffle-reveal-table tbody");
   },
-  get albumShuffleHelpModal() {
-    return document.getElementById("album-shuffle-help-modal");
+  get unshuffleHelpModal() {
+    return document.getElementById("unshuffle-help-modal");
   },
   get shuffleHelpCloseBtn() {
     return document.getElementById("shuffle-help-close-btn");

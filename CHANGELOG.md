@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unified the split layout (`.replay-stage` / `.round-stage`) across Pinpoint reveal, Unshuffle reveal, and Match Replay.
   - Standardized `.replay-media-map-row` (interactive photo card with tabs, zoom/lightbox, fullscreen toggles, metadata captions, and report button alongside Leaflet map shell) in both live round reviews and replays.
   - Replaced ad-hoc flex rows in Match Replay and redundant vertical card breakdowns in Unshuffle with standard 2-tier grouped reveal tables (`.reveal-table`), displaying aligned player rankings, location errors, date differences, and points.
-  - Extracted modular component stylesheets `static/css/components/round_stage.css` and `reveal_table.css`, eliminating duplicate layout rules from `replay.css` and `album_shuffle.css`.
+  - Extracted modular component stylesheets `static/css/components/round_stage.css` and `reveal_table.css`, eliminating duplicate layout rules from `replay.css` and `unshuffle.css`.
 - **Challenge Name & Creator in Replay Header (`.replay-header-main`)**:
   - Rendered the challenge title in `#replay-heading-title` and host badge/name in `#replay-match-title` within `.replay-header-main`.
   - Preserved full dynamic re-translation on language toggle via `refreshReplayPageLanguage`.
@@ -238,7 +238,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Modal Backdrop Drag-Selection Dismissal Protection**:
-  - Prevented modals (`#prepare-game-modal`, `#report-issue-modal`, `#album-shuffle-help-modal`, `#pinpoint-help-modal`) from prematurely closing when dragging a text selection from inside an input (e.g. `challenge-creator-name-input`) and releasing the mouse outside the modal card.
+  - Prevented modals (`#prepare-game-modal`, `#report-issue-modal`, `#unshuffle-help-modal`, `#pinpoint-help-modal`) from prematurely closing when dragging a text selection from inside an input (e.g. `challenge-creator-name-input`) and releasing the mouse outside the modal card.
   - Required that mouse/touch down events originate directly on the backdrop overlay before a backdrop click dismisses the modal.
 - **Match Replay Standard Avatar Color Sequence**:
   - Fixed avatar colors inside match replay (`/game/:matchId/replay`) to strictly follow the standard application palette sequence (`PLAYER_COLORS`: Coral Red `#f25f5c`, Teal `#0f7c7f`, Purple `#7048e8`, etc.) rather than string ASCII character hashing.
@@ -397,7 +397,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Live FastAPI test harness with simulated Immich client (`tests/e2e/conftest.py`).
   - Pinpoint map pin placement, distance lines, and round reveal tests (`test_pinpoint_gameplay.py`).
   - Dual-handle timeline range slider and single-year/month date guessing tests (`test_date_selection.py`).
-  - Album Shuffle photo card reordering and multi-pin (A, B, C) placement tests (`test_album_shuffle_gameplay.py`).
+  - Album Shuffle photo card reordering and multi-pin (A, B, C) placement tests (`test_unshuffle_gameplay.py`).
   - Client routing, deep links, reload recovery, and guard tests (`test_routing_and_recovery.py`).
   - Score rollup animations, podium rendering, and polaroid gallery tests (`test_summary_and_effects.py`).
   - Playwright Chromium installation in CI workflow and pre-push git hook.

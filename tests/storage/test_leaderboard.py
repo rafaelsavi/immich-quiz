@@ -224,7 +224,7 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
             round_length=RoundLength.seconds_30,
             location_mode=False,
             date_mode=True,
-            game_mode=GameMode.album_shuffle,
+            game_mode=GameMode.unshuffle,
             countries=['France'],
         ),
         player_scores={'Bob': {'total': 400}},
@@ -264,7 +264,7 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
     assert [entry.match_id for entry in res] == ['m1']
 
     # Filter by game_mode
-    res = store.list_entries(LeaderboardQuery(game_mode=GameMode.album_shuffle))
+    res = store.list_entries(LeaderboardQuery(game_mode=GameMode.unshuffle))
     assert len(res) == 1
     assert res[0].match_id == 'm2'
 
@@ -278,7 +278,7 @@ def test_leaderboard_filtering(tmp_path: Path) -> None:
     assert {entry.match_id for entry in custom_entries} == {'m2', 'm3'}
 
 
-def test_leaderboard_album_shuffle_round_guesses(tmp_path: Path) -> None:
+def test_leaderboard_unshuffle_round_guesses(tmp_path: Path) -> None:
     db_path = tmp_path / 'leaderboard.db'
     store = LeaderboardStore(db_path)
 
@@ -331,7 +331,7 @@ def test_leaderboard_album_shuffle_round_guesses(tmp_path: Path) -> None:
         round_length=RoundLength.minute_1,
         location_mode=True,
         date_mode=False,
-        game_mode=GameMode.album_shuffle,
+        game_mode=GameMode.unshuffle,
     )
 
     store.append_match(
@@ -735,7 +735,7 @@ def test_leaderboard_player_count_and_play_mode_filters(tmp_path: Path) -> None:
     assert len(res_today) == 3  # Alice, Bob, Charlie
 
 
-def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> None:
+def test_leaderboard_unshuffle_round_guesses_fidelity(tmp_path: Path) -> None:
     db_path = tmp_path / 'leaderboard.db'
     store = LeaderboardStore(db_path)
 
@@ -746,7 +746,7 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
             'player_name': 'Alice',
             'round_index': 0,
             'photo_index': 0,
-            'game_mode': 'album_shuffle',
+            'game_mode': 'unshuffle',
             'asset_id': 'photo-1',
             'guess_latitude': 48.8566,
             'guess_longitude': 2.3522,
@@ -768,7 +768,7 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
             'player_name': 'Alice',
             'round_index': 0,
             'photo_index': 1,
-            'game_mode': 'album_shuffle',
+            'game_mode': 'unshuffle',
             'asset_id': 'photo-2',
             'guess_latitude': 40.7128,
             'guess_longitude': -74.0060,
@@ -790,7 +790,7 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
             'player_name': 'Alice',
             'round_index': 0,
             'photo_index': 2,
-            'game_mode': 'album_shuffle',
+            'game_mode': 'unshuffle',
             'asset_id': 'photo-3',
             'guess_latitude': 51.5074,
             'guess_longitude': -0.1278,
@@ -812,7 +812,7 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
     config = BaseGameConfig(
         libraries=['main'],
         round_count=5,
-        game_mode=GameMode.album_shuffle,
+        game_mode=GameMode.unshuffle,
     )
 
     store.append_match(
@@ -832,7 +832,7 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
 
     # Photo 0
     assert guesses[0]['photo_index'] == 0
-    assert guesses[0]['game_mode'] == 'album_shuffle'
+    assert guesses[0]['game_mode'] == 'unshuffle'
     assert guesses[0]['round_score'] == 66
     assert guesses[0]['is_correct_location'] == 1
     assert guesses[0]['is_correct_date_order'] == 1
@@ -840,14 +840,14 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
 
     # Photo 1
     assert guesses[1]['photo_index'] == 1
-    assert guesses[1]['game_mode'] == 'album_shuffle'
+    assert guesses[1]['game_mode'] == 'unshuffle'
     assert guesses[1]['round_score'] == 0
     assert guesses[1]['is_correct_location'] == 0
     assert guesses[1]['is_correct_date_order'] == 0
 
     # Photo 2
     assert guesses[2]['photo_index'] == 2
-    assert guesses[2]['game_mode'] == 'album_shuffle'
+    assert guesses[2]['game_mode'] == 'unshuffle'
     assert guesses[2]['round_score'] == 66
     assert guesses[2]['is_correct_location'] == 1
     assert guesses[2]['is_correct_date_order'] == 1
@@ -975,7 +975,7 @@ def test_leaderboard_round_history_persists_city_and_country(tmp_path: Path) -> 
             'player_name': 'Bob',
             'round_index': 0,
             'photo_index': 0,
-            'game_mode': 'album_shuffle',
+            'game_mode': 'unshuffle',
             'asset_id': 'tokyo-photo',
             'actual_latitude': 35.6762,
             'actual_longitude': 139.6503,
@@ -990,7 +990,7 @@ def test_leaderboard_round_history_persists_city_and_country(tmp_path: Path) -> 
             'player_name': 'Bob',
             'round_index': 0,
             'photo_index': 1,
-            'game_mode': 'album_shuffle',
+            'game_mode': 'unshuffle',
             'asset_id': 'rome-photo',
             'actual_latitude': 41.9028,
             'actual_longitude': 12.4964,
@@ -1004,7 +1004,7 @@ def test_leaderboard_round_history_persists_city_and_country(tmp_path: Path) -> 
 
     store.append_match(
         match_id='m-shuffle-loc',
-        config=BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.album_shuffle),
+        config=BaseGameConfig(libraries=['main'], round_count=5, game_mode=GameMode.unshuffle),
         player_scores={'Bob': {'location': 100, 'date': 100, 'total': 200}},
         round_guesses=shuffle_guesses,
     )

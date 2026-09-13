@@ -38,10 +38,10 @@ class RoundLength(str, Enum):
 
 
 class GameMode(str, Enum):
-    """Supported gameplay mechanics ('pinpoint' single photo guess, 'album_shuffle' batch ordering)."""
+    """Supported gameplay mechanics ('pinpoint' single photo guess, 'unshuffle' batch ordering)."""
 
     pinpoint = 'pinpoint'
-    album_shuffle = 'album_shuffle'
+    unshuffle = 'unshuffle'
 
 
 class PeopleMode(str, Enum):
@@ -698,7 +698,7 @@ class BaseAnswerSubmission(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     pinpoint: PinpointAnswerItem | None = None
-    album_shuffle: list[UnshuffleAnswerItem] | None = None
+    unshuffle: list[UnshuffleAnswerItem] | None = None
     timed_out: bool = False
     time_taken_seconds: float | None = Field(default=None, ge=0.0)
 
@@ -744,7 +744,7 @@ class PlayerRoundResult(RoundScoreBreakdown):
     player_name: str = Field(min_length=1)
     timed_out: bool = False
     pinpoint: PinpointRoundResult | None = None
-    album_shuffle_guesses: list[UnshuffleAnswerItem] | None = None
+    unshuffle_guesses: list[UnshuffleAnswerItem] | None = None
 
 
 class RoundResultRequest(BaseModel):
@@ -1303,7 +1303,7 @@ class ChallengeRoundGuessData(BaseModel):
     time_taken_seconds: float
     timed_out: bool = False
     pinpoint: ChallengePinpointGuessData | None = None
-    album_shuffle: ChallengeUnshuffleGuessData | None = None
+    unshuffle: ChallengeUnshuffleGuessData | None = None
 
 
 class ChallengeLeaderboardEntry(BaseModel):

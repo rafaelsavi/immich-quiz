@@ -255,7 +255,7 @@ function renderReplayShell() {
       setTimeout(() => {
         try {
           _replayMap.invalidateSize();
-        } catch (_) {}
+        } catch (_) { }
       }, 50);
     }
   }
@@ -305,27 +305,27 @@ function renderPhotoCanvas(round) {
   const photos = round.batch_photos && round.batch_photos.length > 0
     ? round.batch_photos
     : [{
-        asset_id: round.asset_id,
-        actual_latitude: round.actual_latitude,
-        actual_longitude: round.actual_longitude,
-        actual_date: round.actual_date,
-        actual_city: round.actual_city,
-        actual_country: round.actual_country,
-      }];
+      asset_id: round.asset_id,
+      actual_latitude: round.actual_latitude,
+      actual_longitude: round.actual_longitude,
+      actual_date: round.actual_date,
+      actual_city: round.actual_city,
+      actual_country: round.actual_country,
+    }];
 
   if (tabsContainer) {
     if (photos.length > 1) {
       tabsContainer.innerHTML = `
         <div class="replay-photo-tabs">
           ${photos
-            .map(
-              (p, idx) => `
+          .map(
+            (p, idx) => `
               <button type="button" class="replay-photo-tab-btn ${idx === _currentPhotoIndex ? "active" : ""}" data-idx="${idx}">
-                ${t("replay.photo_label", idx + 1, photos.length)}
+                ${t("replay.photo_label", idx + 1)}
               </button>
             `
-            )
-            .join("")}
+          )
+          .join("")}
         </div>
       `;
       tabsContainer.querySelectorAll(".replay-photo-tab-btn").forEach((btn) => {
@@ -349,8 +349,8 @@ function renderPhotoCanvas(round) {
   const locStr = locParts.length > 0
     ? locParts.join(", ")
     : (curPhoto.actual_latitude != null
-        ? `${curPhoto.actual_latitude.toFixed(3)}, ${curPhoto.actual_longitude.toFixed(3)}`
-        : t("stats.location_unknown"));
+      ? `${curPhoto.actual_latitude.toFixed(3)}, ${curPhoto.actual_longitude.toFixed(3)}`
+      : t("stats.location_unknown"));
 
   if (locEl) locEl.textContent = locStr;
   if (dateEl) {
@@ -367,12 +367,12 @@ function renderRoundMap(round) {
   _mapMarkers.forEach((m) => {
     try {
       m.remove();
-    } catch (_) {}
+    } catch (_) { }
   });
   _mapPolylines.forEach((l) => {
     try {
       l.remove();
-    } catch (_) {}
+    } catch (_) { }
   });
   _mapMarkers = [];
   _mapPolylines = [];
@@ -380,11 +380,11 @@ function renderRoundMap(round) {
   const photos = round.batch_photos && round.batch_photos.length > 0
     ? round.batch_photos
     : [{
-        actual_latitude: round.actual_latitude,
-        actual_longitude: round.actual_longitude,
-        actual_city: round.actual_city,
-        actual_country: round.actual_country,
-      }];
+      actual_latitude: round.actual_latitude,
+      actual_longitude: round.actual_longitude,
+      actual_city: round.actual_city,
+      actual_country: round.actual_country,
+    }];
   const curPhoto = photos[_currentPhotoIndex] || photos[0];
 
   const mapShell = document.getElementById("replay-map-shell");
@@ -481,7 +481,7 @@ function renderRoundMap(round) {
       _replayMap.invalidateSize();
       _replayMap.setView(boundsPoints[0], 12);
       _replayMap._lastFitBounds = L.latLngBounds([boundsPoints[0], boundsPoints[0]]);
-    } catch (_) {}
+    } catch (_) { }
   } else if (boundsPoints.length > 1) {
     fitMapToBounds(_replayMap, boundsPoints, { padding: [35, 35], maxZoom: 15 });
   }
@@ -498,14 +498,14 @@ function renderPlayerGuesses(round) {
     return;
   }
 
-  const isShuffle = (_matchData?.game_mode || round.game_mode) === "album_shuffle";
+  const isShuffle = (_matchData?.game_mode || round.game_mode) === "unshuffle";
   const locationMode = _matchData?.location_mode !== false;
   const dateMode = _matchData?.date_mode !== false;
 
   renderRevealTableHeaders(table, {
     locationMode,
     dateMode,
-    gameMode: isShuffle ? "album_shuffle" : "pinpoint",
+    gameMode: isShuffle ? "unshuffle" : "pinpoint",
     showRank: guesses.length > 1,
   });
 
@@ -525,13 +525,13 @@ function renderPlayerGuesses(round) {
       guessed_year: g.guessed_year,
       guessed_month: g.guessed_month,
     },
-    album_shuffle_guesses: g.album_shuffle_guesses || [],
+    unshuffle_guesses: g.unshuffle_guesses || [],
   }));
 
   renderRevealTableRows(table, formattedResults, {
     locationMode,
     dateMode,
-    gameMode: isShuffle ? "album_shuffle" : "pinpoint",
+    gameMode: isShuffle ? "unshuffle" : "pinpoint",
     showRank: guesses.length > 1,
     skipEffects: true,
   });
@@ -732,8 +732,8 @@ function renderMatchesHistory(matches) {
 
   container.innerHTML = matches
     .map((m) => {
-      const modeIcon = m.game_mode === "album_shuffle" ? "🔀" : "🎯";
-      const modeLabel = m.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+      const modeIcon = m.game_mode === "unshuffle" ? "🔀" : "🎯";
+      const modeLabel = m.game_mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
       const isChallenge = m.play_mode === "challenge";
       const typeLabel = isChallenge ? t("replay.play_mode_challenge") : t("replay.play_mode_local");
       const typeIcon = isChallenge ? "⚔️" : "👥";

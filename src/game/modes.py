@@ -315,7 +315,7 @@ class PinpointEngine(BaseGameModeEngine):
                     total_score=cumulative,
                     timed_out=question.timed_out,
                     pinpoint=pinpoint_result,
-                    album_shuffle_guesses=None,
+                    unshuffle_guesses=None,
                 )
             )
         return None, results
@@ -401,7 +401,7 @@ class UnshuffleEngine(BaseGameModeEngine):
     ) -> MatchState:
         location_points = 0
         date_points = 0
-        answers = payload.album_shuffle or []
+        answers = payload.unshuffle or []
         batch_assets = question_state.round_data.assets
         batch_pins = question_state.round_data.pins
 
@@ -419,7 +419,7 @@ class UnshuffleEngine(BaseGameModeEngine):
         assigned_pins = {ans.photo_id: ans.assigned_pin_id for ans in answers}
         assigned_timeline = {ans.photo_id: ans.assigned_timeline_index for ans in answers}
 
-        album_shuffle_guesses: list[dict[str, Any]] = [
+        unshuffle_guesses: list[dict[str, Any]] = [
             {
                 'photo_id': ans.photo_id,
                 'assigned_pin_id': ans.assigned_pin_id,
@@ -473,14 +473,14 @@ class UnshuffleEngine(BaseGameModeEngine):
         )
 
         try:
-            return store.apply_album_shuffle_score(
+            return store.apply_unshuffle_score(
                 payload.match_id,
                 payload.question_id,
                 location_points,
                 date_points,
                 timed_out=payload.timed_out,
                 time_taken_seconds=payload.time_taken_seconds,
-                album_shuffle_guesses=album_shuffle_guesses,
+                unshuffle_guesses=unshuffle_guesses,
             )
         except QuestionAlreadyAnsweredError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -518,7 +518,7 @@ class UnshuffleEngine(BaseGameModeEngine):
                 if other.player_name == question.player_name and other.answered and other.round_index <= round_index
             )
             shuffle_guesses = None
-            if question.album_shuffle_guesses:
+            if question.unshuffle_guesses:
                 shuffle_guesses = [
                     UnshuffleAnswerItem(
                         photo_id=str(g['photo_id']),
@@ -527,7 +527,7 @@ class UnshuffleEngine(BaseGameModeEngine):
                         if g.get('assigned_timeline_index') is not None
                         else None,
                     )
-                    for g in question.album_shuffle_guesses
+                    for g in question.unshuffle_guesses
                 ]
             results.append(
                 PlayerRoundResult(
@@ -538,7 +538,7 @@ class UnshuffleEngine(BaseGameModeEngine):
                     total_score=cumulative,
                     timed_out=question.timed_out,
                     pinpoint=None,
-                    album_shuffle_guesses=shuffle_guesses,
+                    unshuffle_guesses=shuffle_guesses,
                 )
             )
 
@@ -564,4 +564,4 @@ class GameModeRegistry:
 
 default_game_mode_registry = GameModeRegistry()
 default_game_mode_registry.register(GameMode.pinpoint, PinpointEngine())
-default_game_mode_registry.register(GameMode.album_shuffle, UnshuffleEngine())
+default_game_mode_registry.register(GameMode.unshuffle, UnshuffleEngine())

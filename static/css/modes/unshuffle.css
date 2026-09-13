@@ -1,4 +1,4 @@
-#album-shuffle-ui {
+#unshuffle-ui {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
@@ -71,7 +71,8 @@
 
 #reveal-shuffle-map-shell {
   width: 100%;
-  height: var(--quiz-map-height);
+  height: 100%;
+  min-height: 420px;
   max-width: 100%;
   box-sizing: border-box;
   border-radius: var(--radius-lg, 14px);
@@ -173,17 +174,17 @@
   transition: all 0.2s ease;
 }
 
-#album-shuffle-ui.shuffle-disabled .shuffle-photo-column,
-#album-shuffle-ui.shuffle-disabled .shuffle-map-column {
+#unshuffle-ui.shuffle-disabled .shuffle-photo-column,
+#unshuffle-ui.shuffle-disabled .shuffle-map-column {
   opacity: 0.8;
 }
 
-#album-shuffle-ui.shuffle-disabled .shuffle-card-row,
+#unshuffle-ui.shuffle-disabled .shuffle-card-row,
 .shuffle-card-row.disabled {
   cursor: not-allowed;
 }
 
-#album-shuffle-ui.shuffle-disabled .custom-pin-icon {
+#unshuffle-ui.shuffle-disabled .custom-pin-icon {
   cursor: not-allowed;
   filter: opacity(0.8);
 }

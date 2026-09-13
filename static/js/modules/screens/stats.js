@@ -402,14 +402,14 @@ function renderPlayerProfile(data) {
     modeMap[m.game_mode] = m;
   });
   const pinpointStats = modeMap["pinpoint"] || { matches_played: 0, avg_accuracy_pct: 0, wins: 0, win_rate_pct: 0 };
-  const shuffleStats = modeMap["album_shuffle"] || { matches_played: 0, avg_accuracy_pct: 0, wins: 0, win_rate_pct: 0 };
+  const shuffleStats = modeMap["unshuffle"] || { matches_played: 0, avg_accuracy_pct: 0, wins: 0, win_rate_pct: 0 };
 
   const recentRowsHtml = recentMatches.length > 0
     ? recentMatches
         .map((m) => {
           const dateStr = formatDateTime(m.played_at);
-          const modeIcon = m.game_mode === "album_shuffle" ? "🔀" : "🎯";
-          const modeLabel = m.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+          const modeIcon = m.game_mode === "unshuffle" ? "🔀" : "🎯";
+          const modeLabel = m.game_mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
           const rankBadge = formatRankBadge(m.rank, { dot: true });
 
           return `
@@ -555,7 +555,7 @@ function renderPlayerProfile(data) {
               <span class="mode-mastery-sub">${t("stats.matches_and_wins", pinpointStats.matches_played, pinpointStats.wins)}</span>
             </div>
             <div class="mode-mastery-box">
-              <span class="mode-mastery-title">🔀 ${t("mode.album_shuffle")}</span>
+              <span class="mode-mastery-title">🔀 ${t("mode.unshuffle")}</span>
               <span class="mode-mastery-acc">${shuffleStats.avg_accuracy_pct}%</span>
               <span class="mode-mastery-sub">${t("stats.matches_and_wins", shuffleStats.matches_played, shuffleStats.wins)}</span>
             </div>

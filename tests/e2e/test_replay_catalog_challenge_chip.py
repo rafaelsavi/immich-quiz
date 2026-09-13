@@ -31,7 +31,7 @@ MOCK_MATCHES_DATA = [
     },
     {
         'match_id': 'match-local-3',
-        'game_mode': 'album_shuffle',
+        'game_mode': 'unshuffle',
         'play_mode': 'local',
         'played_at': 1739980000.0,
         'players': ['Ivana', 'Rafael'],

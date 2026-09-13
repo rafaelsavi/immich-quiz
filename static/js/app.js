@@ -169,7 +169,7 @@ async function routeToActiveGame(matchId) {
       );
       return;
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // Match does not exist in local session or backend -> 404 Match Not Found
   showGameEndedCard(
@@ -456,7 +456,7 @@ bindGlobalShortcuts({
   },
   onToggleFullscreen: () => {
     if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       return;
     }
     if (state.currentScreen === "reveal") {

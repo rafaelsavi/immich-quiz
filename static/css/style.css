@@ -25,4 +25,4 @@
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";
-@import "./modes/album_shuffle.css";
+@import "./modes/unshuffle.css";

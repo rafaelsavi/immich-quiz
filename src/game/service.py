@@ -62,8 +62,8 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
     for q in ordered_questions:
         if not q.answered:
             continue
-        if state.setup.game_mode == GameMode.album_shuffle and q.round_data.assets:
-            guess_map = {g['photo_id']: g for g in (q.album_shuffle_guesses or [])}
+        if state.setup.game_mode == GameMode.unshuffle and q.round_data.assets:
+            guess_map = {g['photo_id']: g for g in (q.unshuffle_guesses or [])}
             pin_by_id = {bp['pin_id']: bp for bp in q.round_data.pins}
             true_pin_map = {str(bp['true_asset_id']): str(bp['pin_id']) for bp in q.round_data.pins}
             sorted_by_date = sorted(q.round_data.assets, key=lambda a: a.answer.capture_date or date.min, reverse=False)
@@ -315,7 +315,7 @@ class GameService:
         if effective_min_date or effective_max_date:
             active_filters.append('date_range')
 
-        required = 3 * setup.round_count if setup.game_mode == GameMode.album_shuffle else setup.round_count
+        required = 3 * setup.round_count if setup.game_mode == GameMode.unshuffle else setup.round_count
 
         return PreflightResponse(
             eligible_count=eligible_count,

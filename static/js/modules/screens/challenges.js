@@ -394,13 +394,13 @@ export function renderChallenges() {
           <div class="empty-state-icon">⚔️</div>
           <h3>${t("challenges_page.empty_title")}</h3>
           <p>${t("challenges_page.empty_no_challenges")}</p>
-          <button type="button" class="btn-primary" id="empty-state-create-btn">
+
             <span class="btn-icon">✨</span>
             ${t("challenges_page.create_btn")}
           </button>
         </div>
       `;
-      const emptyBtn = document.getElementById("empty-state-create-btn");
+
       if (emptyBtn) {
         emptyBtn.addEventListener("click", () => openAdminModal("challenge"));
       }
@@ -441,9 +441,9 @@ export function renderChallenges() {
 
   filtered.forEach((ch) => {
     const isActive = isChallengeActive(ch);
-    const modeEmoji = ch.game_mode === "album_shuffle" ? "🔀" : "🎯";
-    const modeLabel = ch.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
-    const modeDesc = ch.game_mode === "album_shuffle" ? t("admin.shuffle_desc") : t("admin.pinpoint_desc");
+    const modeEmoji = ch.game_mode === "unshuffle" ? "🔀" : "🎯";
+    const modeLabel = ch.game_mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
+    const modeDesc = ch.game_mode === "unshuffle" ? t("admin.shuffle_desc") : t("admin.pinpoint_desc");
 
     // Status pill
     let statusPillHtml = "";

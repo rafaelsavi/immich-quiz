@@ -41,7 +41,7 @@ export const challengeReveal = {
 
     const pr = result.pinpoint_reveal;
     const pd = result.pinpoint_deviation;
-    const isShuffle = (result.game_mode || challengeSession.challengeData.game_mode) === "album_shuffle";
+    const isShuffle = (result.game_mode || challengeSession.challengeData.game_mode) === "unshuffle";
 
     const pinpointPlayerResult = !isShuffle ? {
       guessed_latitude: state.guessedLatLng?.lat ?? null,
@@ -75,9 +75,9 @@ export const challengeReveal = {
           date_score: result.date_score,
           timed_out: result.timed_out || false,
           pinpoint: pinpointPlayerResult,
-          album_shuffle_guesses: isShuffle ? (state.albumShuffleState?.orderedPhotoIds?.map((pid, idx) => ({
+          unshuffle_guesses: isShuffle ? (state.unshuffleState?.orderedPhotoIds?.map((pid, idx) => ({
             photo_id: pid,
-            assigned_pin_id: state.albumShuffleState.pinAssignments[pid] || null,
+            assigned_pin_id: state.unshuffleState.pinAssignments[pid] || null,
             assigned_timeline_index: idx,
           })) || null) : null,
         },
@@ -182,18 +182,18 @@ export const challengeReveal = {
     const updatedResults = [...challengeSession.currentRevealData.results];
 
     const isRoundUnshuffle =
-      leaderboardData.game_mode === "album_shuffle" ||
-      challengeSession.challengeData?.game_mode === "album_shuffle" ||
-      state.gameMode === "album_shuffle" ||
-      currentGuesses.some((g) => g.game_mode === "album_shuffle");
+      leaderboardData.game_mode === "unshuffle" ||
+      challengeSession.challengeData?.game_mode === "unshuffle" ||
+      state.gameMode === "unshuffle" ||
+      currentGuesses.some((g) => g.game_mode === "unshuffle");
 
     if (isRoundUnshuffle) {
-      // Defensively ensure local player's album_shuffle_guesses is populated if missing
+      // Defensively ensure local player's unshuffle_guesses is populated if missing
       const myResult = updatedResults.find((r) => r.player_name === challengeSession.sessionPlayerName);
-      if (myResult && (!myResult.album_shuffle_guesses || myResult.album_shuffle_guesses.length === 0)) {
+      if (myResult && (!myResult.unshuffle_guesses || myResult.unshuffle_guesses.length === 0)) {
         const myGuesses = currentGuesses.filter((g) => g.player_name === challengeSession.sessionPlayerName);
         if (myGuesses.length > 0 && myGuesses.some((g) => g.asset_id)) {
-          myResult.album_shuffle_guesses = myGuesses
+          myResult.unshuffle_guesses = myGuesses
             .filter((g) => g.asset_id)
             .map((g) => ({
               photo_id: g.asset_id,
@@ -221,23 +221,23 @@ export const challengeReveal = {
 
       const pinKey = `player_${playerName}`;
       const isUnshuffle =
-        leaderboardData.game_mode === "album_shuffle" ||
-        challengeSession.challengeData?.game_mode === "album_shuffle" ||
-        state.gameMode === "album_shuffle" ||
-        playerGuesses.some((g) => g.game_mode === "album_shuffle");
+        leaderboardData.game_mode === "unshuffle" ||
+        challengeSession.challengeData?.game_mode === "unshuffle" ||
+        state.gameMode === "unshuffle" ||
+        playerGuesses.some((g) => g.game_mode === "unshuffle");
 
       let opponentResult;
       if (isUnshuffle) {
         const totalRoundScore = playerGuesses.reduce((sum, g) => sum + (g.round_score || 0), 0);
         const totalLocationScore = playerGuesses.reduce((sum, g) => sum + (g.location_points || 0), 0);
         const totalDateScore = playerGuesses.reduce((sum, g) => sum + (g.date_points || 0), 0);
-        const albumShuffleGuesses = playerGuesses
-          .filter((g) => g.album_shuffle?.asset_id || g.asset_id)
+        const unshuffleGuesses = playerGuesses
+          .filter((g) => g.unshuffle?.asset_id || g.asset_id)
           .map((g) => ({
-            photo_id: g.album_shuffle?.asset_id || g.asset_id,
-            assigned_pin_id: g.album_shuffle?.assigned_pin_id || g.assigned_pin_id || null,
+            photo_id: g.unshuffle?.asset_id || g.asset_id,
+            assigned_pin_id: g.unshuffle?.assigned_pin_id || g.assigned_pin_id || null,
             assigned_timeline_index:
-              g.album_shuffle?.assigned_timeline_index ?? g.assigned_timeline_index ?? null,
+              g.unshuffle?.assigned_timeline_index ?? g.assigned_timeline_index ?? null,
           }));
 
         opponentResult = {
@@ -248,7 +248,7 @@ export const challengeReveal = {
           total_score:
             leaderboardData.leaderboard?.find((p) => p.player_name === playerName)?.total_score ?? totalRoundScore,
           timed_out: playerGuesses.some((g) => g.timed_out),
-          album_shuffle_guesses: albumShuffleGuesses.length > 0 ? albumShuffleGuesses : null,
+          unshuffle_guesses: unshuffleGuesses.length > 0 ? unshuffleGuesses : null,
         };
       } else {
         const guess = playerGuesses[0];
@@ -272,7 +272,7 @@ export const challengeReveal = {
             location_score: guess.location_points,
             date_score: guess.date_points,
           } : null,
-          album_shuffle_guesses: null,
+          unshuffle_guesses: null,
         };
       }
 

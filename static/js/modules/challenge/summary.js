@@ -123,7 +123,7 @@ export const challengeSummary = {
           </div>
         `;
 
-      const isUnshuffle = data.game_mode === "album_shuffle";
+      const isUnshuffle = data.game_mode === "unshuffle";
       const isLocationEnabled = challengeSession.challengeData.location_mode !== false && data.location_mode !== false;
 
       const standingsTableHtml = `
@@ -531,7 +531,7 @@ export const challengeSummary = {
       if (!pStats) return;
 
       const pp = g.pinpoint;
-      const ash = g.album_shuffle;
+      const ash = g.unshuffle;
 
       const isLocPerfect = Boolean(
         ash?.is_correct_location ||
@@ -838,7 +838,7 @@ export const challengeSummary = {
 
     challengeSession.cachedLeaderboardData = data;
 
-    if (document.getElementById("carousel-round-content") && data.game_mode !== "album_shuffle" && activeRoundIdx !== undefined) {
+    if (document.getElementById("carousel-round-content") && data.game_mode !== "unshuffle" && activeRoundIdx !== undefined) {
       const hasRoundGuessesChanged =
         prevGuesses.length !== newGuesses.length ||
         newGuesses.some((ng) => {

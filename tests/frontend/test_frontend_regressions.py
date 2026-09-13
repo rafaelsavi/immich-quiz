@@ -7,7 +7,7 @@ from pathlib import Path
 # Elements created at runtime by JS.
 DYNAMIC_IDS = frozenset(
     {
-        'album-shuffle-help-modal',
+        'unshuffle-help-modal',
         'card-goal-date',
         'card-goal-location',
         'carousel-indicator',
@@ -540,7 +540,7 @@ def test_score_rollup_timing_and_audio_coordination() -> None:
     """Verify that score rollup duration benchmarks, single-goal summary bounds, and audio coordination are in place."""
     effects_js = (JS_DIR / 'modules' / 'effects.js').read_text(encoding='utf-8')
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
-    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    unshuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
     table_js = (JS_DIR / 'modules' / 'summary' / 'table.js').read_text(encoding='utf-8')
 
     # 1. effects.js must implement centralized active rollup session management
@@ -549,9 +549,9 @@ def test_score_rollup_timing_and_audio_coordination() -> None:
     assert 'function unregisterRollupAnimation' in effects_js
     assert 'function triggerRollupAudioTick' in effects_js
 
-    # 2. pinpoint.js and album_shuffle.js must not dilute total score rollup duration by multiplying round_number
+    # 2. pinpoint.js and unshuffle.js must not dilute total score rollup duration by multiplying round_number
     assert 'maxScore: maxRoundPoints * (reveal.round_number || 1)' not in pinpoint_js
-    assert 'maxScore: maxRoundPoints * (revealData.round_number || 1)' not in album_shuffle_js
+    assert 'maxScore: maxRoundPoints * (revealData.round_number || 1)' not in unshuffle_js
 
     # 3. table.js must compute maxGoalScore for single-goal location/date animations
     assert 'maxGoalScore' in table_js
@@ -662,8 +662,8 @@ def test_screen_and_player_position_persistence_on_reload() -> None:
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
     assert 'el.quizImage.src = mediaUrl;' in pinpoint_js
 
-    # 5. album_shuffle.js hides single-photo mediaFrame on reveal
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    # 5. unshuffle.js hides single-photo mediaFrame on reveal
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
     assert 'if (el.mediaFrame) el.mediaFrame.classList.add("hidden");' in shuffle_js
 
 
@@ -1373,21 +1373,21 @@ def test_page_buttons_are_standard_links_and_not_toggles() -> None:
     assert 'bindClick(el.challengesNavBtn' not in app_js
 
 
-def test_challenge_album_shuffle_opponent_guesses_display() -> None:
-    """Verify that challenge reveal groups round guesses by player and populates album_shuffle_guesses."""
+def test_challenge_unshuffle_opponent_guesses_display() -> None:
+    """Verify that challenge reveal groups round guesses by player and populates unshuffle_guesses."""
     reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
 
-    # 1. reveal.js groups round_guesses by player and builds albumShuffleGuesses for opponents
+    # 1. reveal.js groups round_guesses by player and builds unshuffleGuesses for opponents
     assert 'const guessesByPlayer = new Map();' in reveal_js
     assert 'guessesByPlayer.set(guess.player_name, []);' in reveal_js
     assert 'const isUnshuffle =' in reveal_js
-    assert 'album_shuffle_guesses: albumShuffleGuesses.length > 0 ? albumShuffleGuesses : null' in reveal_js
+    assert 'unshuffle_guesses: unshuffleGuesses.length > 0 ? unshuffleGuesses : null' in reveal_js
     assert 'photo_id: g.asset_id' in reveal_js
     assert 'assigned_pin_id: g.assigned_pin_id || null' in reveal_js
     assert 'assigned_timeline_index:' in reveal_js
 
-    # 2. album_shuffle.js matches photo_id with robust string equality
+    # 2. unshuffle.js matches photo_id with robust string equality
     assert 'String(g.photo_id) === String(item.photo_id)' in shuffle_js
 
 
@@ -1637,7 +1637,7 @@ def test_dynamic_language_refresh_wiring() -> None:
     game_js = (JS_DIR / 'modules' / 'screens' / 'game.js').read_text(encoding='utf-8')
     reveal_js = (JS_DIR / 'modules' / 'screens' / 'reveal.js').read_text(encoding='utf-8')
     timer_js = (JS_DIR / 'modules' / 'timer.js').read_text(encoding='utf-8')
-    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    unshuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
 
     # 1. MultiSelect has updateLanguage method that updates placeholder & clear buttons
     assert 'updateLanguage()' in multi_select_js
@@ -1655,9 +1655,9 @@ def test_dynamic_language_refresh_wiring() -> None:
     assert 'activeMode.renderSettings(container)' in setup_filters_js
 
     # 4. Unshuffle mode implements refreshQuestionLanguage and localizes up/down buttons
-    assert 'refreshQuestionLanguage(questionData)' in album_shuffle_js
-    assert 'upBtn.title = t("game.move_up");' in album_shuffle_js
-    assert 'downBtn.title = t("game.move_down");' in album_shuffle_js
+    assert 'refreshQuestionLanguage(questionData)' in unshuffle_js
+    assert 'upBtn.title = t("game.move_up");' in unshuffle_js
+    assert 'downBtn.title = t("game.move_down");' in unshuffle_js
 
     # 5. Timer exports refreshTimerLanguage
     assert 'export function refreshTimerLanguage()' in timer_js
@@ -1689,7 +1689,7 @@ def test_all_missing_components_have_dynamic_language_support():
     maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
     timer_js = (JS_DIR / 'modules' / 'timer.js').read_text(encoding='utf-8')
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
 
     # 1. applyLanguage supports data-i18n-args
@@ -1726,7 +1726,7 @@ def test_all_missing_components_have_dynamic_language_support():
     assert 'data-i18n", "reveal.col_player"' in reveal_table_js
     assert 'data-i18n", col.key' in reveal_table_js
 
-    # 7. shuffle-reveal-table & shuffle-card-meta: album_shuffle.js tags table headers & card actions
+    # 7. shuffle-reveal-table & shuffle-card-meta: unshuffle.js tags table headers & card actions
     assert 'reportPhotoBtn.setAttribute("data-i18n-title", "report.btn_label");' in shuffle_js
     assert 'reportPhotoBtn.setAttribute("data-i18n-aria-label", "report.btn_label");' in shuffle_js
     assert 'refreshQuestionLanguage(questionData)' in shuffle_js
@@ -1820,7 +1820,7 @@ def test_multi_select_mode_btn_two_lines_wrap() -> None:
 def test_local_game_round_review_no_player_pill() -> None:
     """Verify that during round review in local games, activePlayer is null and player pill is omitted."""
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
 
     expected_pattern = (
         'const activePlayer = challenge && challenge.isActive() ? challenge.challengeSession?.sessionPlayerName : null;'
@@ -1914,7 +1914,7 @@ def test_modal_backdrop_drag_selection_no_close() -> None:
     """
     admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
     report_js = (JS_DIR / 'modules' / 'components' / 'report_modal.js').read_text(encoding='utf-8')
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
 
     # Prepare game modal

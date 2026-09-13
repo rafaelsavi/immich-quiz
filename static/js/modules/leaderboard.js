@@ -19,7 +19,7 @@ export function updateLeaderboardScope() {
   const lengthText = t(lengthKey) !== lengthKey ? t(lengthKey) : lengthVal;
 
   const gameMode = (state && state.gameMode) || "pinpoint";
-  const modeText = gameMode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+  const modeText = gameMode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
 
   const filterScope = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : t("leaderboard.scope_all");
 

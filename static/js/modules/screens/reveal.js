@@ -77,7 +77,7 @@ export async function showRoundReveal(roundNumber) {
   }
 
   const targetScrollEl =
-    reveal.game_mode === "album_shuffle"
+    reveal.game_mode === "unshuffle"
       ? (document.getElementById("shuffle-media-map-row") || el.nextRound)
       : (reveal.location_mode ? (document.getElementById("pinpoint-media-map-row") || el.revealMapShell) : el.nextRound);
   if (targetScrollEl && targetScrollEl.offsetParent !== null) {

@@ -1120,11 +1120,11 @@ def test_reusable_base_models_and_pinpoint_structures() -> None:
     assert sub_pinpoint.time_taken_seconds == 12.5
 
     sub_shuffle = BaseAnswerSubmission(
-        album_shuffle=[UnshuffleAnswerItem(photo_id='p1', assigned_pin_id='B', assigned_timeline_index=0)],
+        unshuffle=[UnshuffleAnswerItem(photo_id='p1', assigned_pin_id='B', assigned_timeline_index=0)],
         time_taken_seconds=15.0,
     )
-    assert sub_shuffle.album_shuffle is not None
-    assert len(sub_shuffle.album_shuffle) == 1
+    assert sub_shuffle.unshuffle is not None
+    assert len(sub_shuffle.unshuffle) == 1
 
 
 def test_round_data_and_question_state_delegation() -> None:

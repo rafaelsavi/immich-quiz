@@ -193,14 +193,14 @@ async def test_pinpoint_gameplay_and_reveal_dynamic_language_switch(page: Page) 
     await expect(reveal_table).to_contain_text('Score')
 
 
-async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> None:
+async def test_unshuffle_gameplay_dynamic_language_switch(page: Page) -> None:
     """Verify Unshuffle timeline headers and reordering button tooltips translate dynamically."""
     await page.goto('/')
     await _ensure_language(page, 'en-US')
 
     # Select Unshuffle mode
-    await page.locator('#mode-album-shuffle-btn').click()
-    await expect(page.locator('#mode-album-shuffle-btn')).to_have_class(re.compile(r'active'))
+    await page.locator('#mode-unshuffle-btn').click()
+    await expect(page.locator('#mode-unshuffle-btn')).to_have_class(re.compile(r'active'))
 
     # Start match
     await page.locator('#prepare-game-btn').click()
@@ -210,7 +210,7 @@ async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> Non
         await page.locator('#ready-btn').click()
         await expect(page.locator('#pass-overlay')).to_be_hidden()
 
-    shuffle_ui = page.locator('#album-shuffle-ui')
+    shuffle_ui = page.locator('#unshuffle-ui')
     await expect(shuffle_ui).to_be_visible()
 
     cards = page.locator('#shuffle-cards-list .shuffle-card-row')
@@ -272,7 +272,7 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
     await expect(page.locator('#stats-replays-player-search')).to_have_attribute('placeholder', 'Filter by player...')
     await expect(page.locator('#stats-replays-mode-filter option[value="all"]')).to_have_text('All Modes')
     await expect(page.locator('#stats-replays-mode-filter option[value="pinpoint"]')).to_have_text('🎯 Pinpoint')
-    await expect(page.locator('#stats-replays-mode-filter option[value="album_shuffle"]')).to_have_text('🔀 Unshuffle')
+    await expect(page.locator('#stats-replays-mode-filter option[value="unshuffle"]')).to_have_text('🔀 Unshuffle')
     await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('All Types')
     await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('👥 Local Match')
     await expect(page.locator('#stats-replays-type-filter option[value="challenge"]')).to_have_text('⚔️ Challenge')
@@ -288,9 +288,7 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
     )
     await expect(page.locator('#stats-replays-mode-filter option[value="all"]')).to_have_text('Todos os Modos')
     await expect(page.locator('#stats-replays-mode-filter option[value="pinpoint"]')).to_have_text('🎯 Pinpoint')
-    await expect(page.locator('#stats-replays-mode-filter option[value="album_shuffle"]')).to_have_text(
-        '🔀 Embaralhado'
-    )
+    await expect(page.locator('#stats-replays-mode-filter option[value="unshuffle"]')).to_have_text('🔀 Embaralhado')
     await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('Todos os Tipos')
     await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('👥 Partida Local')
     await expect(page.locator('#stats-replays-type-filter option[value="challenge"]')).to_have_text('⚔️ Desafio')

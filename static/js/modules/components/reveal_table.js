@@ -16,7 +16,7 @@ import { animateScoreRollup, createPerfectBadge } from "../effects.js";
  * @param {object} options
  * @param {boolean} options.locationMode
  * @param {boolean} options.dateMode
- * @param {string} [options.gameMode] - "pinpoint" or "album_shuffle"
+ * @param {string} [options.gameMode] - "pinpoint" or "unshuffle"
  * @param {boolean} [options.showRank=false] - If true, adds a Rank column (for multiplayer replay)
  */
 export function renderRevealTableHeaders(tableEl, { locationMode = true, dateMode = true, gameMode = "pinpoint", showRank = false } = {}) {
@@ -24,7 +24,7 @@ export function renderRevealTableHeaders(tableEl, { locationMode = true, dateMod
   const thead = tableEl.querySelector("thead");
   if (!thead) return;
 
-  const isShuffle = gameMode === "album_shuffle";
+  const isShuffle = gameMode === "unshuffle";
   const groups = [];
 
   if (locationMode) {
@@ -175,7 +175,7 @@ export function renderRevealTableRows(tableEl, results, {
 
   tbody.replaceChildren();
 
-  const isShuffle = gameMode === "album_shuffle";
+  const isShuffle = gameMode === "unshuffle";
   const maxRoundPoints = (locationMode ? maxPoints : 0) + (dateMode ? maxPoints : 0);
   let hasAnyPerfectInRound = false;
 

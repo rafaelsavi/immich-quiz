@@ -211,7 +211,7 @@ Request:
 }
 ```
 
-* `game_mode` supports `"pinpoint"` (default) or `"album_shuffle"`.
+* `game_mode` supports `"pinpoint"` (default) or `"unshuffle"`.
 * `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
 * `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
 * `album_names` (list) are resolved server-side from `albums`.
@@ -288,7 +288,7 @@ Unshuffle Response Example:
   "total_turns": 20,
   "location_mode": true,
   "date_mode": true,
-  "game_mode": "album_shuffle",
+  "game_mode": "unshuffle",
   "round_length": "1m",
   "batch_photos": [
     { "photo_id": "asset-uuid-101", "media_url": "/api/media/asset-uuid-101" },
@@ -339,7 +339,7 @@ Unshuffle Request:
   "question_id": "q-uuid-1",
   "time_taken_seconds": 18.6,
   "timed_out": false,
-  "album_shuffle": [
+  "unshuffle": [
     { "photo_id": "asset-uuid-101", "assigned_pin_id": "B", "assigned_timeline_index": 0 },
     { "photo_id": "asset-uuid-102", "assigned_pin_id": "A", "assigned_timeline_index": 1 },
     { "photo_id": "asset-uuid-103", "assigned_pin_id": "C", "assigned_timeline_index": 2 }
@@ -415,7 +415,7 @@ Response Example:
         "date_diff_months_part": 0,
         "date_diff_days_part": 0
       },
-      "album_shuffle_guesses": null
+      "unshuffle_guesses": null
     }
   ]
 }
@@ -498,7 +498,7 @@ Query Parameters:
 * `round_length`: Filter by timer setting (`30s`, `1m`, `2m`, `5m`, `unlimited`)
 * `location_mode`: Filter by location mode enabled (`true`/`false`)
 * `date_mode`: Filter by date mode enabled (`true`/`false`)
-* `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`)
+* `game_mode`: Filter by game mode (`pinpoint`, `unshuffle`)
 * `libraries`: Filter by JSON array or comma-separated library names
 * `albums`: Filter by JSON array or comma-separated album names or IDs
 * `player_name`: Filter by player name
@@ -663,7 +663,7 @@ Response (`200 OK`):
     "total_active_time_seconds": 496.0,
     "mode_mastery": [
       { "game_mode": "pinpoint", "rounds_played": 30, "avg_accuracy_pct": 92.5, "win_rate_pct": 66.7 },
-      { "game_mode": "album_shuffle", "rounds_played": 10, "avg_accuracy_pct": 91.0, "win_rate_pct": 60.0 }
+      { "game_mode": "unshuffle", "rounds_played": 10, "avg_accuracy_pct": 91.0, "win_rate_pct": 60.0 }
     ],
     "preferred_cadence": "1m"
   },
@@ -694,7 +694,7 @@ Returns a paginated list of completed matches for the Match Replays catalog.
 
 Query Parameters:
 
-* `game_mode`: Filter by game mode (`pinpoint`, `album_shuffle`).
+* `game_mode`: Filter by game mode (`pinpoint`, `unshuffle`).
 * `play_mode`: Filter by play mode (`local`, `challenge`).
 * `player`: Filter by participating player name.
 * `limit`: Page size (1–100, default `30`).
@@ -1068,7 +1068,7 @@ Request (Unshuffle Mode):
   "round_index": 0,
   "time_taken_seconds": 18.5,
   "timed_out": false,
-  "album_shuffle": [
+  "unshuffle": [
     { "photo_id": "asset-uuid-101", "assigned_pin_id": "B", "assigned_timeline_index": 0 },
     { "photo_id": "asset-uuid-102", "assigned_pin_id": "A", "assigned_timeline_index": 1 },
     { "photo_id": "asset-uuid-103", "assigned_pin_id": "C", "assigned_timeline_index": 2 }
@@ -1177,7 +1177,7 @@ Response (`200 OK`):
         "date_diff_days": 15,
         "date_diff_months": 0
       },
-      "album_shuffle": null
+      "unshuffle": null
     }
   ],
   "round_history": [
@@ -1336,7 +1336,7 @@ Response (`200 OK`):
     "total_active_time_seconds": 1008.0,
     "mode_mastery": [
       { "game_mode": "pinpoint", "matches_played": 10, "wins": 7, "win_rate_pct": 70.0, "avg_accuracy_pct": 85.0 },
-      { "game_mode": "album_shuffle", "matches_played": 4, "wins": 2, "win_rate_pct": 50.0, "avg_accuracy_pct": 76.2 }
+      { "game_mode": "unshuffle", "matches_played": 4, "wins": 2, "win_rate_pct": 50.0, "avg_accuracy_pct": 76.2 }
     ],
     "preferred_cadence": "10 rounds • 1m"
   },
@@ -1365,7 +1365,7 @@ List paginated past match records for the Match Replays catalog.
 
 Query Parameters:
 
-* `game_mode` (optional): Filter by `pinpoint` or `album_shuffle`.
+* `game_mode` (optional): Filter by `pinpoint` or `unshuffle`.
 * `play_mode` (optional): Filter by `local` or `challenge`.
 * `player` (optional): Filter matches where a player participated.
 * `limit` (optional, default: 30, max: 100): Results per page.

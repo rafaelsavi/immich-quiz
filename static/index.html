@@ -120,14 +120,14 @@
                 data-i18n-aria-label="game.pinpoint_help_title">?</button>
             </div>
             <div class="mode-option">
-              <button type="button" class="mode-btn" data-mode="album_shuffle" id="mode-album-shuffle-btn">
+              <button type="button" class="mode-btn" data-mode="unshuffle" id="mode-unshuffle-btn">
                 <span class="mode-icon-wrap" aria-hidden="true">🔀</span>
                 <div class="mode-text-wrap">
-                  <span class="mode-title" data-i18n="mode.album_shuffle">Unshuffle</span>
-                  <span class="mode-desc" data-i18n="mode.album_shuffle_desc">3 photos per round</span>
+                  <span class="mode-title" data-i18n="mode.unshuffle">Unshuffle</span>
+                  <span class="mode-desc" data-i18n="mode.unshuffle_desc">3 photos per round</span>
                 </div>
               </button>
-              <button type="button" class="mode-help-btn" id="help-album-shuffle-btn" aria-label="Unshuffle Help"
+              <button type="button" class="mode-help-btn" id="help-unshuffle-btn" aria-label="Unshuffle Help"
                 title="Unshuffle Help" data-i18n-title="game.shuffle_help_title"
                 data-i18n-aria-label="game.shuffle_help_title">?</button>
             </div>
@@ -140,7 +140,7 @@
             <span class="field-hint-badge" data-i18n="setup.challenges_hint">Select 1 or both</span>
           </div>
           <div id="game-settings-container" class="game-settings-container">
-            <!-- Dynamically populated by active game mode module (e.g. pinpoint.js, album_shuffle.js) -->
+            <!-- Dynamically populated by active game mode module (e.g. pinpoint.js, unshuffle.js) -->
           </div>
         </div>
 
@@ -386,8 +386,8 @@
         </div>
       </template>
 
-      <template id="tmpl-mode-album-shuffle">
-        <div id="album-shuffle-ui" class="hidden">
+      <template id="tmpl-mode-unshuffle">
+        <div id="unshuffle-ui" class="hidden">
           <div class="shuffle-board">
             <div class="shuffle-map-column">
               <div id="shuffle-map-shell" class="map-shell"></div>
@@ -428,7 +428,7 @@
 
       <div id="reveal-ui" class="hidden">
         <!-- Pinpoint Round Stage Review -->
-        <div id="pinpoint-reveal-ui" class="pinpoint-reveal-container">
+        <div id="pinpoint-reveal-ui" class="pinpoint-reveal-container replay-content-container">
           <div class="replay-stage round-stage pinpoint-stage">
             <div id="pinpoint-media-map-row" class="replay-media-map-row round-media-map-row">
               <div class="replay-photo-card round-photo-card" id="pinpoint-photo-card">
@@ -482,8 +482,8 @@
         </div>
 
         <!-- Album Shuffle Round Stage Review -->
-        <div id="album-shuffle-reveal-ui" class="hidden">
-          <div class="replay-stage round-stage album-shuffle-stage">
+        <div id="unshuffle-reveal-ui" class="hidden replay-content-container">
+          <div class="replay-stage round-stage unshuffle-stage">
             <div id="shuffle-media-map-row" class="replay-media-map-row round-media-map-row">
               <div class="replay-photo-card round-photo-card" id="shuffle-photo-card">
                 <div id="shuffle-photo-tabs-container" class="replay-photo-tabs-container round-photo-tabs-container"></div>
@@ -653,7 +653,7 @@
           <select id="challenges-mode-filter" class="hub-select select-input challenges-mode-select">
             <option value="all" data-i18n="challenges_page.mode_all">All Game Modes</option>
             <option value="pinpoint" data-i18n="challenges_page.mode_pinpoint">🎯 Pinpoint</option>
-            <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Unshuffle</option>
+            <option value="unshuffle" data-i18n="challenges_page.mode_unshuffle">🔀 Unshuffle</option>
           </select>
 
           <!-- Sort dropdown -->
@@ -883,7 +883,7 @@
             <select id="stats-replays-mode-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_modes">All Modes</option>
               <option value="pinpoint" data-i18n="challenges_page.mode_pinpoint">🎯 Pinpoint</option>
-              <option value="album_shuffle" data-i18n="challenges_page.mode_album_shuffle">🔀 Unshuffle</option>
+              <option value="unshuffle" data-i18n="challenges_page.mode_unshuffle">🔀 Unshuffle</option>
             </select>
             <select id="stats-replays-type-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_types">All Types</option>
@@ -1229,7 +1229,7 @@
     </div>
 
     <!-- Unshuffle Help Modal -->
-    <div id="album-shuffle-help-modal" class="modal-overlay hidden" role="dialog" aria-modal="true"
+    <div id="unshuffle-help-modal" class="modal-overlay hidden" role="dialog" aria-modal="true"
       aria-labelledby="shuffle-help-title" aria-hidden="true">
       <div class="modal-card mode-help-card shuffle-help-card">
         <div class="modal-header">

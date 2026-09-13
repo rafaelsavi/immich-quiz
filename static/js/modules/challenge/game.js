@@ -253,7 +253,7 @@ export const challengeGame = {
     const body = {
       round_index: challengeSession.currentRoundIndex,
       pinpoint: guessPayload.pinpoint ?? null,
-      album_shuffle: guessPayload.album_shuffle ?? null,
+      unshuffle: guessPayload.unshuffle ?? null,
       time_taken_seconds: elapsedSeconds,
       timed_out: fromTimeout || state.timedOut || Boolean(guessPayload.timed_out),
     };

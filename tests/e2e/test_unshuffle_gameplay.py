@@ -7,13 +7,13 @@ import re
 from playwright.async_api import Page, expect
 
 
-async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page) -> None:
+async def test_unshuffle_card_reordering_and_multi_pin_placement(page: Page) -> None:
     """Verify Unshuffle interactive photo reordering, map pin selection, and reveal scoring."""
     await page.goto('/')
 
     # Select Unshuffle mode
-    await page.locator('#mode-album-shuffle-btn').click()
-    await expect(page.locator('#mode-album-shuffle-btn')).to_have_class(re.compile(r'active'))
+    await page.locator('#mode-unshuffle-btn').click()
+    await expect(page.locator('#mode-unshuffle-btn')).to_have_class(re.compile(r'active'))
 
     # Start match
     await page.locator('#prepare-game-btn').click()
@@ -25,7 +25,7 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
         await expect(page.locator('#pass-overlay')).to_be_hidden()
 
     # Verify Unshuffle Board & Cards
-    shuffle_ui = page.locator('#album-shuffle-ui')
+    shuffle_ui = page.locator('#unshuffle-ui')
     await expect(shuffle_ui).to_be_visible()
 
     cards = page.locator('#shuffle-cards-list .shuffle-card-row')
@@ -88,7 +88,7 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
     await submit_btn.click()
 
     await expect(page.locator('#reveal-ui')).to_be_visible()
-    await expect(page.locator('#album-shuffle-reveal-ui')).to_be_visible()
+    await expect(page.locator('#unshuffle-reveal-ui')).to_be_visible()
 
     # Verify reveal score table rendered
     reveal_table = page.locator('#shuffle-reveal-table')

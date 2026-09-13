@@ -211,7 +211,7 @@ def _build_round_history_from_guesses(
     - Single photo mode (`pinpoint`):
         {round_number, media_url, actual_latitude, actual_longitude,
          actual_year, actual_month, location_mode, game_mode}
-    - Batch photo mode (`album_shuffle`):
+    - Batch photo mode (`unshuffle`):
         Includes above fields plus `batch_reveal`:
         [{photo_id, true_pin_id ('A', 'B', ...), actual_latitude,
           actual_longitude, actual_year, actual_month}, ...]
@@ -248,7 +248,7 @@ def _build_round_history_from_guesses(
             'game_mode': game_mode,
         }
 
-        if game_mode == 'album_shuffle':
+        if game_mode == 'unshuffle':
             unique_photos: dict[str, dict[str, Any]] = {}
             for g in r_guesses:
                 p_id = g['asset_id']
@@ -1582,7 +1582,7 @@ class LeaderboardStore:
         ch_config = json.loads(ch_row['config_json'])
         asset_ids = json.loads(ch_row['asset_ids_json']) if ch_row['asset_ids_json'] else []
         mode = ch_config.get('game_mode', 'pinpoint')
-        if str(mode).lower() in ('album_shuffle', 'gamemode.album_shuffle'):
+        if str(mode).lower() in ('unshuffle', 'gamemode.unshuffle'):
             total_rounds = len(ch_config.get('round_batches', [])) or int(ch_config.get('round_count', 5))
         else:
             total_rounds = len(asset_ids) if asset_ids else int(ch_config.get('round_count', 10))
@@ -1785,10 +1785,10 @@ class LeaderboardStore:
         for row in rows:
             g_mode = GameMode(row.get('game_mode', 'pinpoint'))
             pinpoint_data = None
-            album_shuffle_data = None
+            unshuffle_data = None
 
-            if g_mode == GameMode.album_shuffle:
-                album_shuffle_data = ChallengeUnshuffleGuessData(
+            if g_mode == GameMode.unshuffle:
+                unshuffle_data = ChallengeUnshuffleGuessData(
                     photo_index=int(row['photo_index']) if row.get('photo_index') is not None else 0,
                     asset_id=row.get('asset_id'),
                     assigned_pin_id=row.get('assigned_pin_id'),
@@ -1840,7 +1840,7 @@ class LeaderboardStore:
                     time_taken_seconds=float(row.get('time_taken_seconds') or 0.0),
                     timed_out=bool(row.get('timed_out', 0)),
                     pinpoint=pinpoint_data,
-                    album_shuffle=album_shuffle_data,
+                    unshuffle=unshuffle_data,
                 )
             )
 
@@ -2206,7 +2206,7 @@ class LeaderboardStore:
                 avg_accuracy_pct=float(mr['avg_accuracy_pct'] or 0.0),
             )
 
-        standard_modes = [GameMode.pinpoint.value, GameMode.album_shuffle.value]
+        standard_modes = [GameMode.pinpoint.value, GameMode.unshuffle.value]
         mode_mastery: list[GameModeStats] = []
         for sm in standard_modes:
             if sm in mode_data_map:
@@ -2616,7 +2616,7 @@ class LeaderboardStore:
             act_dt = _parse_iso_date(first_g.get('actual_date'))
 
             batch_photos: list[MatchReplayBatchPhoto] = []
-            if game_mode == 'album_shuffle':
+            if game_mode == 'unshuffle':
                 unique_pids: dict[str, dict[str, Any]] = {}
                 for g in r_guesses:
                     pid = g['asset_id']

@@ -104,7 +104,7 @@ export function resetGameUi() {
   if (el.revealMapShell) el.revealMapShell.classList.add("hidden");
   if (el.pinpointRevealUi) el.pinpointRevealUi.classList.add("hidden");
 
-  if (el.albumShuffleRevealUi) el.albumShuffleRevealUi.classList.add("hidden");
+  if (el.unshuffleRevealUi) el.unshuffleRevealUi.classList.add("hidden");
   if (el.shuffleRevealTableHead) el.shuffleRevealTableHead.replaceChildren();
   if (el.shuffleRevealTableBody) el.shuffleRevealTableBody.replaceChildren();
   if (el.revealShuffleMapShell) el.revealShuffleMapShell.classList.add("hidden");

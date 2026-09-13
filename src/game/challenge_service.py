@@ -95,7 +95,7 @@ def get_challenge_total_rounds(
         assets = asset_ids or []
 
     game_mode = config.get('game_mode', 'pinpoint')
-    if str(game_mode).lower() in ('album_shuffle', 'gamemode.album_shuffle'):
+    if str(game_mode).lower() in ('unshuffle', 'gamemode.unshuffle'):
         return len(config.get('round_batches', []))
     return len(assets)
 
@@ -137,7 +137,7 @@ class ChallengeService:
         game_mode = setup.game_mode
 
         # Determine required asset count
-        batch_size = 3 if game_mode == GameMode.album_shuffle else 1
+        batch_size = 3 if game_mode == GameMode.unshuffle else 1
         required = setup.round_count * batch_size
 
         candidates = self.metadata_store.fetch_candidate_assets(criteria, limit=max(250, required * 5))
@@ -174,7 +174,7 @@ class ChallengeService:
         config['filter_tooltip'] = filter_tooltip
 
         # Unshuffle: pre-assign batch groupings and randomized pins
-        if game_mode == GameMode.album_shuffle:
+        if game_mode == GameMode.unshuffle:
             round_batches = [list(range(i * batch_size, (i + 1) * batch_size)) for i in range(setup.round_count)]
             config['batch_size'] = batch_size
             config['round_batches'] = round_batches
@@ -220,7 +220,7 @@ class ChallengeService:
         asset_ids = challenge['asset_ids']
         game_mode = GameMode(config.get('game_mode', 'pinpoint'))
 
-        if game_mode == GameMode.album_shuffle:
+        if game_mode == GameMode.unshuffle:
             round_batches = config.get('round_batches', [])
             if round_index < 0 or round_index >= len(round_batches):
                 raise HTTPException(status_code=400, detail='Invalid round index for unshuffle.')
@@ -318,8 +318,8 @@ class ChallengeService:
             )
             body.timed_out = True
 
-        if game_mode == GameMode.album_shuffle:
-            return self._score_album_shuffle(
+        if game_mode == GameMode.unshuffle:
+            return self._score_unshuffle(
                 challenge,
                 session,
                 body,
@@ -499,7 +499,7 @@ class ChallengeService:
             player_color=session.get('player_color'),
         )
 
-    def _score_album_shuffle(
+    def _score_unshuffle(
         self,
         challenge: dict[str, Any],
         session: dict[str, Any],
@@ -528,7 +528,7 @@ class ChallengeService:
             batch_assets.append(RoundAsset(asset_id=aid, answer=ans))
 
         raw_pins = config.get('batch_pins', {}).get(str(body.round_index), [])
-        answers = body.album_shuffle or []
+        answers = body.unshuffle or []
         assigned_pins = {ans.photo_id: ans.assigned_pin_id for ans in answers}
         assigned_timeline = {ans.photo_id: ans.assigned_timeline_index for ans in answers}
 
@@ -642,7 +642,7 @@ class ChallengeService:
                 player_name=session['player_name'],
                 round_index=body.round_index,
                 photo_index=idx,
-                game_mode='album_shuffle',
+                game_mode='unshuffle',
                 asset_id=ba.asset_id,
                 guess_latitude=guess_lat,
                 guess_longitude=guess_lng,
@@ -709,7 +709,7 @@ class ChallengeService:
             round_score=round_score,
             location_score=location_points if location_mode else None,
             date_score=date_points if date_mode else None,
-            game_mode=GameMode.album_shuffle,
+            game_mode=GameMode.unshuffle,
             batch_reveal=batch_reveal,
             is_game_over=is_final,
             total_score=updated['total_score'] if updated else round_score,

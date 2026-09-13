@@ -101,9 +101,9 @@ export function updateSubmitState() {
     return;
   }
 
-  if (state.currentQuestion && state.currentQuestion.game_mode === "album_shuffle") {
+  if (state.currentQuestion && state.currentQuestion.game_mode === "unshuffle") {
     const needsPin = Boolean(state.currentQuestion.location_mode);
-    const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+    const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
     const totalPhotos = (state.currentQuestion.batch_photos || []).length;
     const assignedCount = Object.values(pinAssignments).filter(Boolean).length;
     const missingPin = needsPin && totalPhotos > 0 && assignedCount < totalPhotos;

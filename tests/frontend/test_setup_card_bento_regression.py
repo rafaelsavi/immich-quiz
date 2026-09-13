@@ -51,7 +51,7 @@ def test_setup_card_layout_and_filter_relocation_architecture():
     # 4. Game Mode Help "?" buttons
     assert 'class="mode-option"' in content
     assert 'id="help-pinpoint-btn"' in content
-    assert 'id="help-album-shuffle-btn"' in content
+    assert 'id="help-unshuffle-btn"' in content
     assert 'class="mode-help-btn"' in content
 
 
@@ -85,5 +85,5 @@ def test_css_and_js_layout_support():
 
     assert 'initSegmentedControls' in setup_filters
     assert 'help-pinpoint-btn' in setup_filters
-    assert 'help-album-shuffle-btn' in setup_filters
+    assert 'help-unshuffle-btn' in setup_filters
     assert 'challenge-share-native-btn' in admin

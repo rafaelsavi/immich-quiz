@@ -48,10 +48,10 @@ export function getMatchMetaCategories(data) {
 
   const filterConfig = data.config || data;
 
-  const isShuffle = (data.game_mode || filterConfig.game_mode) === "album_shuffle";
+  const isShuffle = (data.game_mode || filterConfig.game_mode) === "unshuffle";
   const modeEmoji = isShuffle ? "🔀" : "🎯";
-  const modeLabel = isShuffle ? t("mode.album_shuffle") : t("mode.pinpoint");
-  const modeDesc = isShuffle ? t("mode.album_shuffle_desc") : t("mode.pinpoint_desc");
+  const modeLabel = isShuffle ? t("mode.unshuffle") : t("mode.pinpoint");
+  const modeDesc = isShuffle ? t("mode.unshuffle_desc") : t("mode.pinpoint_desc");
 
   // 1. Targets / Guessing Mode
   const locMode = data.location_mode !== undefined ? data.location_mode : filterConfig.location_mode;

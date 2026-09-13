@@ -314,13 +314,13 @@ async def test_universal_scanner_pinpoint_gameplay_and_reveal(page: Page) -> Non
     await assert_universal_dynamic_language_switch(page, 'Pinpoint Reveal UI', min_expected_elements=5)
 
 
-async def test_universal_scanner_album_shuffle_gameplay_and_reveal(page: Page) -> None:
+async def test_universal_scanner_unshuffle_gameplay_and_reveal(page: Page) -> None:
     """Universal scanner dynamically verifies Unshuffle guessing UI, cards, and reveal table."""
     await page.goto('/')
     await _ensure_language(page, 'en-US')
 
     # Switch to Unshuffle
-    await page.locator('#mode-album-shuffle-btn').click()
+    await page.locator('#mode-unshuffle-btn').click()
     await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()
 
@@ -328,7 +328,7 @@ async def test_universal_scanner_album_shuffle_gameplay_and_reveal(page: Page) -
         await page.locator('#ready-btn').click()
         await expect(page.locator('#pass-overlay')).to_be_hidden()
 
-    await expect(page.locator('#album-shuffle-ui')).to_be_visible()
+    await expect(page.locator('#unshuffle-ui')).to_be_visible()
 
     # 1. Scan Unshuffle Guessing UI
     await assert_universal_dynamic_language_switch(page, 'Unshuffle Guessing UI', min_expected_elements=5)

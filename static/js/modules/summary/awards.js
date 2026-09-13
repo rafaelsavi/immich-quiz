@@ -59,7 +59,7 @@ export function renderAwards(summary, playerStats = {}, targetContainer = null, 
     return hasTie ? null : bestName;
   };
 
-  const isUnshuffle = summary.game_mode === "album_shuffle";
+  const isUnshuffle = summary.game_mode === "unshuffle";
 
   // 1. Sniper — most perfect location guesses (0 km / max points)
   if (summary.location_mode && !isUnshuffle) {

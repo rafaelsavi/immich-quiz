@@ -103,10 +103,10 @@ export class RoundStage {
       this.fullscreenBtn.addEventListener("click", () => {
         if (!document.fullscreenElement) {
           if (this.mediaFrame.requestFullscreen) {
-            this.mediaFrame.requestFullscreen().catch(() => {});
+            this.mediaFrame.requestFullscreen().catch(() => { });
           }
         } else if (document.exitFullscreen) {
-          document.exitFullscreen().catch(() => {});
+          document.exitFullscreen().catch(() => { });
         }
       });
     }
@@ -145,14 +145,14 @@ export class RoundStage {
         this.tabsContainer.innerHTML = `
           <div class="replay-photo-tabs round-photo-tabs">
             ${this.photos
-              .map(
-                (p, idx) => `
+            .map(
+              (p, idx) => `
                 <button type="button" class="replay-photo-tab-btn round-photo-tab-btn ${idx === this.currentPhotoIndex ? "active" : ""}" data-idx="${idx}">
-                  ${t("replay.photo_label", idx + 1, this.photos.length)}
+                  ${t("replay.photo_label", idx + 1)}
                 </button>
               `
-              )
-              .join("")}
+            )
+            .join("")}
           </div>
         `;
         this.tabsContainer.querySelectorAll(".round-photo-tab-btn, .replay-photo-tab-btn").forEach((btn) => {
@@ -181,8 +181,8 @@ export class RoundStage {
     const locStr = locParts.length > 0
       ? locParts.join(", ")
       : (curPhoto.actual_latitude != null
-          ? `${Number(curPhoto.actual_latitude).toFixed(3)}, ${Number(curPhoto.actual_longitude).toFixed(3)}`
-          : t("stats.location_unknown"));
+        ? `${Number(curPhoto.actual_latitude).toFixed(3)}, ${Number(curPhoto.actual_longitude).toFixed(3)}`
+        : t("stats.location_unknown"));
 
     if (this.locEl) this.locEl.textContent = locStr;
 

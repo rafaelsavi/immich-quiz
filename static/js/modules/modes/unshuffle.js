@@ -18,7 +18,7 @@ let _shuffleStage = null;
 let _revealMarkerByKey = {};
 
 function ensureShuffleHelpModal() {
-  const modal = el.albumShuffleHelpModal || document.getElementById("album-shuffle-help-modal");
+  const modal = el.unshuffleHelpModal || document.getElementById("unshuffle-help-modal");
   if (!modal) return null;
 
   if (!helpModalInitialized) {
@@ -104,8 +104,8 @@ function openShuffleHelpModal(questionData) {
   modal.setAttribute("aria-hidden", "false");
 }
 
-export const albumShuffleMode = {
-  name: "album_shuffle",
+export const unshuffleMode = {
+  name: "unshuffle",
 
   openHelp(questionData) {
     openShuffleHelpModal(questionData);
@@ -113,7 +113,7 @@ export const albumShuffleMode = {
 
   refreshHelpModal(questionData) {
     // If the help modal is currently visible, re-populate its body in the new language.
-    const modal = document.getElementById("album-shuffle-help-modal");
+    const modal = document.getElementById("unshuffle-help-modal");
     if (modal && !modal.classList.contains("hidden")) {
       openShuffleHelpModal(questionData);
     }
@@ -128,8 +128,8 @@ export const albumShuffleMode = {
   },
 
   setDisabled(disabled) {
-    state.albumShuffleDisabled = Boolean(disabled);
-    const uiContainer = document.getElementById("album-shuffle-ui");
+    state.unshuffleDisabled = Boolean(disabled);
+    const uiContainer = document.getElementById("unshuffle-ui");
     if (uiContainer) {
       if (disabled) {
         uiContainer.classList.add("shuffle-disabled");
@@ -144,7 +144,7 @@ export const albumShuffleMode = {
   },
 
   renderSettings(containerEl) {
-    renderGuessingModeSettings(containerEl, "album_shuffle");
+    renderGuessingModeSettings(containerEl, "unshuffle");
   },
 
   getModePayload() {
@@ -162,7 +162,7 @@ export const albumShuffleMode = {
     }
 
     return {
-      game_mode: "album_shuffle",
+      game_mode: "unshuffle",
       location_mode: locationMode,
       date_mode: dateMode,
     };
@@ -173,19 +173,19 @@ export const albumShuffleMode = {
     const host = document.getElementById("mode-active-host") || hostEl;
     if (host) {
       host.replaceChildren();
-      const tmpl = document.getElementById("tmpl-mode-album-shuffle");
+      const tmpl = document.getElementById("tmpl-mode-unshuffle");
       if (tmpl) {
         host.appendChild(tmpl.content.cloneNode(true));
       }
     }
-    const uiContainer = document.getElementById("album-shuffle-ui");
+    const uiContainer = document.getElementById("unshuffle-ui");
     if (uiContainer) {
       uiContainer.classList.remove("hidden");
     }
   },
 
   unmount() {
-    state.albumShuffleDisabled = false;
+    state.unshuffleDisabled = false;
     if (state.guessMap) {
       try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) { }
       state.guessMap = null;
@@ -197,12 +197,12 @@ export const albumShuffleMode = {
     shuffleMarkers = {};
     spiderLines = {};
     truePinCoords = {};
-    state.albumShuffleState = null;
+    state.unshuffleState = null;
     if (el.modeActiveHost) {
       el.modeActiveHost.replaceChildren();
     }
-    if (el.albumShuffleRevealUi) {
-      el.albumShuffleRevealUi.classList.add("hidden");
+    if (el.unshuffleRevealUi) {
+      el.unshuffleRevealUi.classList.add("hidden");
     }
     if (el.shuffleRevealTableHead) {
       el.shuffleRevealTableHead.replaceChildren();
@@ -234,17 +234,17 @@ export const albumShuffleMode = {
   },
 
   renderQuestion(questionData) {
-    state.albumShuffleDisabled = false;
+    state.unshuffleDisabled = false;
     if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
-    let uiContainer = document.getElementById("album-shuffle-ui");
+    let uiContainer = document.getElementById("unshuffle-ui");
     if (!uiContainer) {
       const host = document.getElementById("mode-active-host") || this.hostEl || el.guessingUi;
-      const tmpl = document.getElementById("tmpl-mode-album-shuffle");
+      const tmpl = document.getElementById("tmpl-mode-unshuffle");
       if (tmpl && host) {
         host.appendChild(tmpl.content.cloneNode(true));
       }
-      uiContainer = document.getElementById("album-shuffle-ui");
+      uiContainer = document.getElementById("unshuffle-ui");
     }
     if (uiContainer) {
       uiContainer.classList.remove("hidden");
@@ -253,13 +253,13 @@ export const albumShuffleMode = {
 
     // Initialize photo order & pin assignments
     const photos = questionData.batch_photos || [];
-    state.albumShuffleState = {
+    state.unshuffleState = {
       orderedPhotoIds: photos.map((p) => p.photo_id),
       pinAssignments: {}, // photoId -> pinId
     };
 
     photos.forEach((p) => {
-      state.albumShuffleState.pinAssignments[p.photo_id] = null;
+      state.unshuffleState.pinAssignments[p.photo_id] = null;
     });
 
     const boardEl = uiContainer ? uiContainer.querySelector(".shuffle-board") : null;
@@ -293,8 +293,8 @@ export const albumShuffleMode = {
   },
 
   buildAnswerPayload(questionData, timedOut) {
-    const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
-    const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+    const orderedIds = state.unshuffleState ? state.unshuffleState.orderedPhotoIds || [] : [];
+    const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
 
     const answers = orderedIds.map((photoId, timelineIndex) => {
       return {
@@ -307,7 +307,7 @@ export const albumShuffleMode = {
     return {
       match_id: state.matchId,
       question_id: questionData.question_id,
-      album_shuffle: answers,
+      unshuffle: answers,
       timed_out: timedOut,
     };
   },
@@ -316,7 +316,7 @@ export const albumShuffleMode = {
     if (el.pinpointRevealUi) el.pinpointRevealUi.classList.add("hidden");
     if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
-    const targetContainer = el.albumShuffleRevealUi;
+    const targetContainer = el.unshuffleRevealUi;
     if (targetContainer) targetContainer.classList.remove("hidden");
     revealUi.classList.remove("hidden");
 
@@ -351,7 +351,7 @@ export const albumShuffleMode = {
     // Compute player accuracy metrics
     const playerAccuracy = {};
     playerResults.forEach((pRes) => {
-      const pGuesses = pRes.album_shuffle_guesses || [];
+      const pGuesses = pRes.unshuffle_guesses || [];
       let correctPins = 0;
       let correctRanks = 0;
 
@@ -372,7 +372,7 @@ export const albumShuffleMode = {
     });
 
     // --- SECTION 1: ROUND STAGE (PHOTO TABS & MAP SPLIT) ---
-    const stageEl = document.querySelector("#album-shuffle-reveal-ui .round-stage");
+    const stageEl = document.querySelector("#unshuffle-reveal-ui .round-stage");
     if (stageEl) {
       if (!_shuffleStage) {
         _shuffleStage = new RoundStage(stageEl, {
@@ -405,7 +405,7 @@ export const albumShuffleMode = {
     renderRevealTableHeaders(table, {
       locationMode: Boolean(revealData.location_mode),
       dateMode: Boolean(revealData.date_mode),
-      gameMode: "album_shuffle",
+      gameMode: "unshuffle",
       showRank: false,
     });
 
@@ -413,7 +413,7 @@ export const albumShuffleMode = {
     renderRevealTableRows(table, playerResults, {
       locationMode: Boolean(revealData.location_mode),
       dateMode: Boolean(revealData.date_mode),
-      gameMode: "album_shuffle",
+      gameMode: "unshuffle",
       maxPoints,
       skipEffects,
       showRank: false,
@@ -475,10 +475,10 @@ export function getPinColor(pinId) {
 }
 
 function assignPinToPhoto(photoId, pinId, questionData, containerEl = null) {
-  if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-  if (!state.albumShuffleState) return;
+  if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
+  if (!state.unshuffleState) return;
 
-  const pinAssignments = state.albumShuffleState.pinAssignments || {};
+  const pinAssignments = state.unshuffleState.pinAssignments || {};
   const currentPinOfThisPhoto = pinAssignments[photoId];
 
   if (currentPinOfThisPhoto === pinId) {
@@ -509,9 +509,9 @@ function assignPinToPhoto(photoId, pinId, questionData, containerEl = null) {
 function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
   containerEl.replaceChildren();
 
-  const isDisabled = Boolean(state.timedOut || state.albumShuffleDisabled);
-  const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
-  const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+  const isDisabled = Boolean(state.timedOut || state.unshuffleDisabled);
+  const orderedIds = state.unshuffleState ? state.unshuffleState.orderedPhotoIds || [] : [];
+  const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
   const photosMap = {};
   (questionData.batch_photos || []).forEach((p) => {
     photosMap[p.photo_id] = p;
@@ -647,7 +647,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     upBtn.disabled = index === 0 || isDisabled;
     upBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+      if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
       if (index > 0) {
         const temp = orderedIds[index - 1];
         orderedIds[index - 1] = orderedIds[index];
@@ -667,7 +667,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     downBtn.disabled = index === orderedIds.length - 1 || isDisabled;
     downBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+      if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
       if (index < orderedIds.length - 1) {
         const temp = orderedIds[index + 1];
         orderedIds[index + 1] = orderedIds[index];
@@ -711,8 +711,8 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 }
 
 function getPinMarkerDetails(pinId) {
-  const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
-  const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
+  const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
+  const orderedIds = state.unshuffleState ? state.unshuffleState.orderedPhotoIds || [] : [];
   const assignedPhotoId = Object.keys(pinAssignments).find(
     (photoId) => pinAssignments[photoId] === pinId
   );
@@ -802,8 +802,8 @@ function renderShuffleMap(containerEl, pins, questionData) {
     shuffleMarkers[pin.pin_id] = marker;
 
     marker.on("click", () => {
-      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-      const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+      if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
+      const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
       const assignedPhotoId = Object.keys(pinAssignments).find((pid) => pinAssignments[pid] === pin.pin_id);
       if (assignedPhotoId) {
         const photo = (questionData.batch_photos || []).find((p) => p.photo_id === assignedPhotoId);

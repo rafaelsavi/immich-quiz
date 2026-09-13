@@ -51,7 +51,7 @@ class QuestionState:
     # Mode-specific player answers and evaluations
     pinpoint_guess: PinpointAnswerItem | None = None
     pinpoint_deviation: PinpointDeviation | None = None
-    album_shuffle_guesses: list[dict[str, Any]] | None = None
+    unshuffle_guesses: list[dict[str, Any]] | None = None
 
 
 @dataclass
@@ -234,13 +234,13 @@ class SessionStore:
             state, question, location_points, date_points, timed_out, time_taken_seconds
         )
 
-    def apply_album_shuffle_score(
+    def apply_unshuffle_score(
         self,
         match_id: str,
         question_id: str,
         location_points: int,
         date_points: int,
-        album_shuffle_guesses: list[dict[str, Any]],
+        unshuffle_guesses: list[dict[str, Any]],
         timed_out: bool = False,
         time_taken_seconds: float | None = None,
     ) -> MatchState:
@@ -252,7 +252,7 @@ class SessionStore:
         if question.answered:
             raise QuestionAlreadyAnsweredError(f'Question already answered: {question_id}')
 
-        question.album_shuffle_guesses = album_shuffle_guesses
+        question.unshuffle_guesses = unshuffle_guesses
         return self._finalize_question_score(
             state, question, location_points, date_points, timed_out, time_taken_seconds
         )

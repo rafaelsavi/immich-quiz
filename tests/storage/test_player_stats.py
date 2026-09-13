@@ -142,7 +142,7 @@ def _create_sample_matches(store: LeaderboardStore) -> None:
         round_length=RoundLength.minute_2,
         location_mode=True,
         date_mode=True,
-        game_mode=GameMode.album_shuffle,
+        game_mode=GameMode.unshuffle,
         people=[],
         people_mode=PeopleMode.ANY,
         countries=[],
@@ -307,7 +307,7 @@ def test_get_player_profile(tmp_path: Path) -> None:
     assert analytics.mode_mastery is not None
     mode_map = {m.game_mode: m for m in analytics.mode_mastery}
     assert mode_map['pinpoint'].matches_played == 1
-    assert mode_map['album_shuffle'].matches_played == 0
+    assert mode_map['unshuffle'].matches_played == 0
 
     # Recent matches
     assert len(profile.recent_matches) == 1
