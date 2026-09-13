@@ -220,18 +220,6 @@ export const el = {
   get albumShuffleRevealUi() {
     return document.getElementById("album-shuffle-reveal-ui");
   },
-  get shuffleBreakdownHead() {
-    return document.getElementById("shuffle-breakdown-head");
-  },
-  get shuffleBreakdownContainer() {
-    return document.getElementById("shuffle-breakdown-container");
-  },
-  get shuffleBreakdownGrid() {
-    return document.getElementById("shuffle-breakdown-grid");
-  },
-  get shuffleRevealMapHead() {
-    return document.getElementById("shuffle-reveal-map-head");
-  },
   get revealShuffleMapShell() {
     return document.getElementById("reveal-shuffle-map-shell");
   },
@@ -270,9 +258,6 @@ export const el = {
   revealTableBody: document.querySelector("#reveal-table tbody"),
   get revealMapShell() {
     return document.getElementById("reveal-map-shell");
-  },
-  get revealMapHead() {
-    return document.getElementById("reveal-map-head");
   },
   get revealMapFullscreen() {
     return document.getElementById("reveal-map-fullscreen");

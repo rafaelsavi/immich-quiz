@@ -427,54 +427,113 @@
       </div>
 
       <div id="reveal-ui" class="hidden">
+        <!-- Pinpoint Round Stage Review -->
         <div id="pinpoint-reveal-ui" class="pinpoint-reveal-container">
-          <div class="reveal-actual-row pinpoint-actual-row">
-            <div id="reveal-actual" class="reveal-actual pinpoint-actual"></div>
-            <button type="button" id="reveal-report-btn" class="btn-report-discrete" title="Report issue with photo"
-              data-i18n-title="report.modal_title" aria-label="Report issue with photo">
-              <span aria-hidden="true">🚩</span>
-              <span class="report-discrete-text" data-i18n="report.btn_label">Report Issue</span>
-            </button>
-          </div>
-          <div class="field-head" id="reveal-map-head">
-            <label data-i18n="reveal.map_label">Round Map</label>
-          </div>
-          <div id="reveal-map-shell" class="map-shell pinpoint-map-shell">
-            <div id="reveal-map"></div>
-            <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
-              title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
-              <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
-                stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="15 3 21 3 21 9"></polyline>
-                <polyline points="9 21 3 21 3 15"></polyline>
-                <line x1="21" y1="3" x2="14" y2="10"></line>
-                <line x1="3" y1="21" x2="10" y2="14"></line>
-              </svg>
-            </button>
-          </div>
-          <div class="table-scroll">
-            <table id="reveal-table" class="pinpoint-reveal-table">
-              <thead></thead>
-              <tbody></tbody>
-            </table>
+          <div class="replay-stage round-stage pinpoint-stage">
+            <div id="pinpoint-media-map-row" class="replay-media-map-row round-media-map-row">
+              <div class="replay-photo-card round-photo-card" id="pinpoint-photo-card">
+                <div class="media-frame replay-media-frame round-media-frame" id="pinpoint-reveal-media-frame">
+                  <img id="pinpoint-reveal-img" class="quiz-image replay-photo-img round-photo-img" src="" alt="Round photo" />
+                  <button type="button" id="pinpoint-photo-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                    title="Toggle fullscreen image" data-i18n-title="game.fullscreen_image_title">
+                    <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                      stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <polyline points="9 21 3 21 3 15"></polyline>
+                      <line x1="21" y1="3" x2="14" y2="10"></line>
+                      <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                  </button>
+                </div>
+                <div class="replay-photo-caption round-photo-caption">
+                  <div class="reveal-actual-row pinpoint-actual-row">
+                    <div id="reveal-actual" class="reveal-actual pinpoint-actual"></div>
+                    <button type="button" id="reveal-report-btn" class="btn-report-discrete" title="Report issue with photo"
+                      data-i18n-title="report.modal_title" aria-label="Report issue with photo">
+                      <span aria-hidden="true">🚩</span>
+                      <span class="report-discrete-text" data-i18n="report.btn_label">Report Issue</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="reveal-map-shell" class="map-shell replay-map-shell round-map-shell pinpoint-map-shell">
+                <div id="reveal-map"></div>
+                <button type="button" id="reveal-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                  title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+                  <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                    stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="table-scroll reveal-table-scroll">
+              <table id="reveal-table" class="reveal-table pinpoint-reveal-table">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </div>
+
+        <!-- Album Shuffle Round Stage Review -->
         <div id="album-shuffle-reveal-ui" class="hidden">
-          <div class="field-head" id="shuffle-breakdown-head">
-            <label data-i18n="reveal.photo_breakdown_title">Photo Breakdown</label>
-          </div>
-          <div id="shuffle-breakdown-container" class="shuffle-breakdown-container">
-            <div id="shuffle-breakdown-grid" class="shuffle-breakdown-grid"></div>
-          </div>
-          <div class="field-head hidden" id="shuffle-reveal-map-head">
-            <label data-i18n="reveal.map_label">Round Map</label>
-          </div>
-          <div id="reveal-shuffle-map-shell" class="map-shell hidden"></div>
-          <div class="table-scroll">
-            <table id="shuffle-reveal-table" class="reveal-table shuffle-reveal-table">
-              <thead></thead>
-              <tbody></tbody>
-            </table>
+          <div class="replay-stage round-stage album-shuffle-stage">
+            <div id="shuffle-media-map-row" class="replay-media-map-row round-media-map-row">
+              <div class="replay-photo-card round-photo-card" id="shuffle-photo-card">
+                <div id="shuffle-photo-tabs-container" class="replay-photo-tabs-container round-photo-tabs-container"></div>
+                <div class="media-frame replay-media-frame round-media-frame" id="shuffle-reveal-media-frame">
+                  <img id="shuffle-reveal-img" class="quiz-image replay-photo-img round-photo-img" src="" alt="Round photo" />
+                  <button type="button" id="shuffle-photo-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                    title="Toggle fullscreen image" data-i18n-title="game.fullscreen_image_title">
+                    <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                      stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <polyline points="9 21 3 21 3 15"></polyline>
+                      <line x1="21" y1="3" x2="14" y2="10"></line>
+                      <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                  </button>
+                </div>
+                <div class="replay-photo-caption round-photo-caption">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;width:100%;">
+                    <span id="shuffle-photo-loc" class="round-photo-loc replay-photo-loc">-</span>
+                    <button type="button" id="shuffle-report-btn" class="btn-report-discrete" title="Report issue with photo"
+                      data-i18n-title="report.modal_title" aria-label="Report issue with photo">
+                      <span aria-hidden="true">🚩</span>
+                      <span class="report-discrete-text" data-i18n="report.btn_label">Report Issue</span>
+                    </button>
+                  </div>
+                  <span id="shuffle-photo-date" class="round-photo-date replay-photo-date">-</span>
+                </div>
+              </div>
+
+              <div id="reveal-shuffle-map-shell" class="map-shell replay-map-shell round-map-shell">
+                <div id="reveal-shuffle-map" style="width:100%;height:100%;min-height:420px;"></div>
+                <button type="button" id="reveal-shuffle-map-fullscreen" class="map-fullscreen-btn" aria-pressed="false"
+                  title="Toggle fullscreen map" data-i18n-title="game.fullscreen_map_title">
+                  <svg class="fs-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor"
+                    stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="15 3 21 3 21 9"></polyline>
+                    <polyline points="9 21 3 21 3 15"></polyline>
+                    <line x1="21" y1="3" x2="14" y2="10"></line>
+                    <line x1="3" y1="21" x2="10" y2="14"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="table-scroll reveal-table-scroll">
+              <table id="shuffle-reveal-table" class="reveal-table shuffle-reveal-table">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -912,9 +971,16 @@
                     </svg>
                   </button>
                 </div>
-                <div class="replay-photo-caption">
-                  <span id="replay-photo-loc" class="replay-photo-loc">-</span>
-                  <span id="replay-photo-date" class="replay-photo-date">-</span>
+                <div class="replay-photo-caption round-photo-caption">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;width:100%;">
+                    <span id="replay-photo-loc" class="replay-photo-loc round-photo-loc">-</span>
+                    <button type="button" id="replay-report-btn" class="btn-report-discrete" title="Report issue with photo"
+                      data-i18n-title="report.modal_title" aria-label="Report issue with photo">
+                      <span aria-hidden="true">🚩</span>
+                      <span class="report-discrete-text" data-i18n="report.btn_label">Report Issue</span>
+                    </button>
+                  </div>
+                  <span id="replay-photo-date" class="replay-photo-date round-photo-date">-</span>
                 </div>
               </div>
 
@@ -924,15 +990,12 @@
               </div>
             </div>
 
-            <!-- Consolidated Guesses & Scoreboard Breakdown Card -->
-            <div class="replay-guesses-card">
-              <div class="replay-guesses-header">
-                <h4>
-                  <span>👥 <span data-i18n="replay.player_guess_heading">Player Guesses</span></span>
-                  <span id="replay-scoreboard-round-tag" class="replay-round-tag"></span>
-                </h4>
-              </div>
-              <div id="replay-guesses-list" class="replay-guesses-list"></div>
+            <!-- Consolidated Guesses & Scoreboard Breakdown Table -->
+            <div class="table-scroll reveal-table-scroll">
+              <table id="replay-reveal-table" class="reveal-table replay-reveal-table">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
             </div>
           </div>
         </div>

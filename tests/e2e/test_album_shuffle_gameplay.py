@@ -95,15 +95,17 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
     await expect(reveal_table).to_be_visible()
     await expect(reveal_table.locator('tbody tr')).to_have_count(1)
 
-    # Verify photo breakdown cards rendered and positioned side-by-side on wide viewport
-    breakdown_cards = page.locator('#shuffle-breakdown-grid .shuffle-photo-card')
-    await expect(breakdown_cards).to_have_count(3)
-    card0_offset_left = await breakdown_cards.nth(0).evaluate('el => el.offsetLeft')
-    card1_offset_left = await breakdown_cards.nth(1).evaluate('el => el.offsetLeft')
-    card0_offset_top = await breakdown_cards.nth(0).evaluate('el => el.offsetTop')
-    card1_offset_top = await breakdown_cards.nth(1).evaluate('el => el.offsetTop')
-    assert card0_offset_left < card1_offset_left, 'Cards should be laid out horizontally side-by-side'
-    assert card0_offset_top == card1_offset_top, 'Cards should be on the same row on desktop viewports'
+    # Verify stage photo & map row rendered alongside score table
+    stage_row = page.locator('#shuffle-media-map-row')
+    await expect(stage_row).to_be_visible()
+    photo_tabs = page.locator('#shuffle-photo-tabs-container .round-photo-tab-btn')
+    await expect(photo_tabs).to_have_count(3)
+    await expect(page.locator('#shuffle-reveal-img')).to_be_visible()
+    await expect(page.locator('#reveal-shuffle-map-shell')).to_be_visible()
+
+    # Verify photo tab switching updates active tab
+    await photo_tabs.nth(1).click()
+    await expect(photo_tabs.nth(1)).to_have_class(re.compile(r'active'))
 
     # Verify round meta in reveal shows round number and reveal badge, but no player chip in local match
     await expect(page.locator('#round-meta .round-meta-number')).to_be_visible()

@@ -1720,12 +1720,13 @@ def test_all_missing_components_have_dynamic_language_support():
     assert 'data-i18n", "reveal.actual_date"' in pinpoint_js
     assert 'data-i18n", "reveal.actual_location"' in pinpoint_js
 
-    # 6. reveal-table: pinpoint.js tags table headers with data-i18n
-    assert 'data-i18n", "reveal.col_player"' in pinpoint_js
-    assert 'data-i18n", col.key' in pinpoint_js
+    reveal_table_js = (JS_DIR / 'modules' / 'components' / 'reveal_table.js').read_text(encoding='utf-8')
+
+    # 6. reveal-table: reveal_table.js tags table headers with data-i18n
+    assert 'data-i18n", "reveal.col_player"' in reveal_table_js
+    assert 'data-i18n", col.key' in reveal_table_js
 
     # 7. shuffle-reveal-table & shuffle-card-meta: album_shuffle.js tags table headers & card actions
-    assert 'data-i18n", "reveal.col_player"' in shuffle_js
     assert 'reportPhotoBtn.setAttribute("data-i18n-title", "report.btn_label");' in shuffle_js
     assert 'reportPhotoBtn.setAttribute("data-i18n-aria-label", "report.btn_label");' in shuffle_js
     assert 'refreshQuestionLanguage(questionData)' in shuffle_js

@@ -29,7 +29,9 @@ import {
   toggleMapFullscreen,
 } from "../maps.js";
 import { openPhotoLightbox } from "../components/lightbox.js";
+import { openReportModal } from "../components/report_modal.js";
 import { renderMatchMeta } from "../components/match_meta.js";
+import { renderRevealTableHeaders, renderRevealTableRows } from "../components/reveal_table.js";
 
 let _matchData = null;
 let _currentRoundIndex = 0;
@@ -89,6 +91,21 @@ export function initReplay() {
     photoFullscreen.addEventListener("click", (e) => {
       e.stopPropagation();
       toggleMapFullscreen(mediaFrame);
+    });
+  }
+  const reportBtn = document.getElementById("replay-report-btn");
+  if (reportBtn) {
+    reportBtn.addEventListener("click", () => {
+      const imgEl = document.getElementById("replay-photo-img");
+      const round = _matchData?.rounds_data?.[_currentRoundIndex];
+      if (!round) return;
+      const photos = round.batch_photos && round.batch_photos.length > 0
+        ? round.batch_photos
+        : [{ asset_id: round.asset_id }];
+      const curPhoto = photos[_currentPhotoIndex] || photos[0];
+      const assetId = curPhoto?.asset_id;
+      const previewUrl = imgEl?.src || null;
+      if (assetId) openReportModal(assetId, previewUrl);
     });
   }
 }
@@ -267,9 +284,6 @@ function renderCurrentRound() {
   const nextBtn = document.getElementById("replay-next-round-btn");
   if (prevBtn) prevBtn.disabled = _currentRoundIndex === 0;
   if (nextBtn) nextBtn.disabled = _currentRoundIndex === _matchData.rounds_data.length - 1;
-
-  const roundTag = document.getElementById("replay-scoreboard-round-tag");
-  if (roundTag) roundTag.textContent = t("replay.after_round", round.round_number);
 
   // Render Image Canvas / Photo frame
   renderPhotoCanvas(round);
@@ -474,60 +488,53 @@ function renderRoundMap(round) {
 }
 
 function renderPlayerGuesses(round) {
-  const container = document.getElementById("replay-guesses-list");
-  if (!container) return;
+  const table = document.getElementById("replay-reveal-table");
+  if (!table) return;
 
   const guesses = round.player_guesses || [];
   if (guesses.length === 0) {
-    container.innerHTML = `<div style="color: var(--text-muted); font-size: 0.85rem;">${t("replay.no_guesses")}</div>`;
+    const tbody = table.querySelector("tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="99" style="color: var(--text-muted); font-size: 0.85rem; padding: 0.75rem;">${t("replay.no_guesses")}</td></tr>`;
     return;
   }
 
-  // Sort by cumulative score descending (with round_score as secondary tie-breaker)
-  const sorted = [...guesses].sort((a, b) => {
-    const diff = (b.cumulative_score ?? 0) - (a.cumulative_score ?? 0);
-    if (diff !== 0) return diff;
-    return (b.round_score ?? 0) - (a.round_score ?? 0);
+  const isShuffle = (_matchData?.game_mode || round.game_mode) === "album_shuffle";
+  const locationMode = _matchData?.location_mode !== false;
+  const dateMode = _matchData?.date_mode !== false;
+
+  renderRevealTableHeaders(table, {
+    locationMode,
+    dateMode,
+    gameMode: isShuffle ? "album_shuffle" : "pinpoint",
+    showRank: guesses.length > 1,
   });
 
-  const isMultiplayer = sorted.length > 1;
+  const formattedResults = guesses.map((g) => ({
+    player_name: g.player_name,
+    timed_out: g.timed_out,
+    round_score: g.round_score,
+    cumulative_score: g.cumulative_score,
+    total_score: g.cumulative_score,
+    location_score: g.location_score,
+    date_score: g.date_score,
+    pinpoint: {
+      distance_km: g.distance_km,
+      guessed_latitude: g.guess_latitude,
+      guessed_longitude: g.guess_longitude,
+      date_diff_days: g.date_diff_days,
+      guessed_year: g.guessed_year,
+      guessed_month: g.guessed_month,
+    },
+    album_shuffle_guesses: g.album_shuffle_guesses || [],
+  }));
 
-  container.innerHTML = sorted
-    .map((g, idx) => {
-      const rank = idx + 1;
-      const rankBadgeHtml = isMultiplayer ? formatRankBadge(rank, { showNumber: false }) : "";
-      const initial = playerInitial(g.player_name);
-      const pColor = g.player_color || playerColor(g.player_name);
-      const distStr = g.distance_km != null ? formatDistance(g.distance_km) : "";
-      const dateStr = g.date_diff_days != null ? formatMonthError({ date_diff_days: g.date_diff_days }) : "";
-      const timeStr = g.time_taken_seconds != null ? `${Number(g.time_taken_seconds).toFixed(1)}s` : "";
-      const cumulativeScore = g.cumulative_score != null ? g.cumulative_score.toLocaleString() : null;
-
-      return `
-        <div class="replay-guess-row ${isMultiplayer && rank === 1 ? "rank-1" : ""}">
-          <div class="replay-guess-player">
-            ${isMultiplayer ? `<span class="replay-standing-rank">${rankBadgeHtml}</span>` : ""}
-            <span class="legend-badge replay-guess-avatar" style="background:${escapeHtml(pColor)};">
-              ${escapeHtml(initial)}
-            </span>
-            <span class="replay-guess-name">${escapeHtml(g.player_name)}</span>
-            ${g.timed_out ? `<span class="timed-out-tag">${t("fmt.timed_out_tag")}</span>` : ""}
-          </div>
-
-          <div class="replay-guess-metrics">
-            ${distStr ? `<span class="replay-guess-metric-item" title="${escapeHtml(t("stats.best_distance"))}">📍 ${escapeHtml(distStr)}</span>` : ""}
-            ${dateStr ? `<span class="replay-guess-metric-item" title="${escapeHtml(t("game.date_label"))}">📅 ${escapeHtml(dateStr)}</span>` : ""}
-            ${timeStr ? `<span class="replay-guess-metric-item" title="${escapeHtml(t("stats.response_time"))}">⏱️ ${escapeHtml(timeStr)}</span>` : ""}
-          </div>
-
-          <div class="replay-guess-score-col">
-            <span class="replay-guess-score">+${g.round_score.toLocaleString()}</span>
-            ${cumulativeScore != null ? `<span class="replay-guess-cumulative">${escapeHtml(t("summary.col_total"))}: ${cumulativeScore}</span>` : ""}
-          </div>
-        </div>
-      `;
-    })
-    .join("");
+  renderRevealTableRows(table, formattedResults, {
+    locationMode,
+    dateMode,
+    gameMode: isShuffle ? "album_shuffle" : "pinpoint",
+    showRank: guesses.length > 1,
+    skipEffects: true,
+  });
 }
 
 let _cachedMatches = [];

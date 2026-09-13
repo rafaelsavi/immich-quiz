@@ -1,0 +1,179 @@
+/* ==========================================================================
+   Reveal Table Component Styles
+   Shared styling for 2-tier grouped header reveal tables across
+   Pinpoint Round Reveal, Album Shuffle Round Reveal, and Match Replay.
+   ========================================================================== */
+
+.reveal-table-scroll {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border-light, #e0e5f2);
+  border-radius: 12px;
+  background: var(--card, #ffffff);
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-theme="dark"] .reveal-table-scroll {
+  border-color: var(--border-light, #334155);
+  background: var(--card, #1e293b);
+}
+
+.reveal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.reveal-table th,
+.reveal-table td {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border-light, #e0e5f2);
+  vertical-align: middle;
+}
+
+[data-theme="dark"] .reveal-table th {
+  color: var(--text-muted, #94a3b8);
+}
+
+[data-theme="dark"] .reveal-table td {
+  color: var(--ink, #f8fafc);
+  border-bottom-color: var(--border-light, #334155);
+}
+
+.reveal-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.reveal-table tbody tr:hover {
+  background-color: rgba(15, 124, 127, 0.04);
+}
+
+[data-theme="dark"] .reveal-table tbody tr:hover {
+  background-color: rgba(56, 189, 248, 0.08);
+}
+
+/* Two-tier Grouped Header System */
+.reveal-table .group-head-row th {
+  background: var(--bg-surface-secondary, #f8fafc);
+  border-bottom: 1px solid var(--border-light, #e0e5f2);
+  padding: 0.45rem 0.75rem;
+}
+
+[data-theme="dark"] .reveal-table .group-head-row th {
+  background: #0f172a;
+  border-bottom-color: #334155;
+}
+
+.reveal-table .group-head {
+  text-align: center;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-muted, #4a5570);
+}
+
+[data-theme="dark"] .reveal-table .group-head {
+  color: #94a3b8;
+}
+
+.reveal-table .group-start {
+  border-left: 2px solid var(--border-light, #cfd6e6);
+}
+
+[data-theme="dark"] .reveal-table .group-start {
+  border-left-color: #334155;
+}
+
+.reveal-table .column-head-row th {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+  background: var(--card, #ffffff);
+  border-bottom: 1.5px solid var(--border-light, #cfd6e6);
+  padding: 0.4rem 0.75rem;
+}
+
+[data-theme="dark"] .reveal-table .column-head-row th {
+  background: var(--card, #1e293b);
+  border-bottom-color: #334155;
+}
+
+/* Perfect score badges and row highlights */
+.reveal-table tr.is-perfect-row {
+  background: rgba(245, 158, 11, 0.06);
+}
+
+[data-theme="dark"] .reveal-table tr.is-perfect-row {
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.reveal-table td.is-perfect-cell {
+  color: var(--accent, #0f7c7f);
+  font-weight: 700;
+}
+
+.reveal-table .timed-out-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  vertical-align: middle;
+}
+
+/* Replay-specific standings rank column */
+.reveal-table .col-rank-cell {
+  width: 32px;
+  text-align: center;
+  font-weight: 700;
+}
+
+/* Mobile responsive transformations */
+@media (max-width: 768px) {
+  .reveal-table .group-start-mobile {
+    border-left: 2px solid var(--border-light, #cfd6e6) !important;
+  }
+
+  [data-theme="dark"] .reveal-table .group-start-mobile {
+    border-left-color: #334155 !important;
+  }
+
+  .reveal-table .hide-on-desktop,
+  .reveal-table th.hide-on-desktop,
+  .reveal-table td.hide-on-desktop {
+    display: table-cell !important;
+  }
+
+  .reveal-table .hide-on-mobile,
+  .reveal-table th.hide-on-mobile,
+  .reveal-table td.hide-on-mobile {
+    display: none !important;
+  }
+
+  .reveal-table tr.group-head-row {
+    display: none !important;
+  }
+
+  .reveal-table th[data-mobile-label]::before {
+    content: attr(data-mobile-label);
+  }
+
+  .reveal-table th[data-mobile-label] .desktop-head-label {
+    display: none !important;
+  }
+
+  .reveal-table th,
+  .reveal-table td {
+    padding: 0.4rem 0.35rem;
+    font-size: 0.78rem;
+  }
+}

@@ -9,7 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Consolidated Challenge Replays in Catalog (`/replays`, `/api/matches`)**:
+- **Unified Round Review & Match Replay Architecture**:
+  - Extracted two reusable components: `round_stage.js` (split photo+map layout controller) and `reveal_table.js` (standardized 2-tier grouped reveal table).
+  - `replay.js` now targets a static `#replay-reveal-table` element; report button (`#replay-report-btn`) added to the match replay photo caption, opening `openReportModal` for the current photo.
+  - Pinpoint and Album Shuffle live round reveals use the same `replay-stage round-stage` and `.reveal-table` structure as the match replay screen.
+
+### Removed
+
+- **Dead CSS in `replay.css`**: Deleted unused `.replay-guesses-card`, `.replay-guesses-header`, `.replay-round-tag`, `.replay-polaroid-*`, `.replay-guess-cumulative`, and associated dark mode blocks.
+
+### Added
+
+
   - Grouped multi-player challenge sessions into a single match item in `list_matches_history` by `COALESCE(challenge_id, match_id)` so individual players' plays do not spawn disjoint replay entries.
   - Aggregated participating players, top scores, and calculated overall winners across all challenge sessions.
   - Displayed challenge name, creator, and player roster chips on challenge replay cards in the catalog.
@@ -18,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Populated parent `matches` table rows in `record_challenge_round_guess` from `challenges.config_json` and `challenges.libraries_json` instead of default `NULL`s.
   - Added database migration to backfill `challenge_id` and filter columns from `challenges` to any existing challenge match rows.
   - Enhanced `get_match_replay` and `get_match_summary` to read authoritative filters and metadata directly from `challenges.config_json` and `challenges.libraries_json`, preventing incorrect fallback to "Full Library".
+- **Unified Replay Stage Architecture in Live Rounds and Match Replay (`.replay-stage`, `.round-stage`, `reveal_table`)**:
+  - Unified the split layout (`.replay-stage` / `.round-stage`) across Pinpoint reveal, Unshuffle reveal, and Match Replay.
+  - Standardized `.replay-media-map-row` (interactive photo card with tabs, zoom/lightbox, fullscreen toggles, metadata captions, and report button alongside Leaflet map shell) in both live round reviews and replays.
+  - Replaced ad-hoc flex rows in Match Replay and redundant vertical card breakdowns in Unshuffle with standard 2-tier grouped reveal tables (`.reveal-table`), displaying aligned player rankings, location errors, date differences, and points.
+  - Extracted modular component stylesheets `static/css/components/round_stage.css` and `reveal_table.css`, eliminating duplicate layout rules from `replay.css` and `album_shuffle.css`.
 - **Challenge Name & Creator in Replay Header (`.replay-header-main`)**:
   - Rendered the challenge title in `#replay-heading-title` and host badge/name in `#replay-match-title` within `.replay-header-main`.
   - Preserved full dynamic re-translation on language toggle via `refreshReplayPageLanguage`.

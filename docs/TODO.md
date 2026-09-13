@@ -16,6 +16,9 @@ This document lists planned features, design ideas, and technical debt items for
     - Lifetime peak match accuracy, podium finishes, average response time, and Game Mode Mastery.
   - [x] Interactive match replay view allowing players to step through past games round-by-round with maps and polaroid cards.
 
+Phisically block sync from being triggered too often
+Rename unshufle files
+
 - [ ] v3.2.0 **Improve Share Functionality & Social Scorecards**
 
 - [ ] v3.3.0 **Add Support for Videos**

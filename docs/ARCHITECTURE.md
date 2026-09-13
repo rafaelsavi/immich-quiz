@@ -68,7 +68,7 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, replay.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, round_stage.css, reveal_table.css, replay.css).
     │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
@@ -83,6 +83,8 @@ immich-quiz/
         │   ├── qrcode.js    Zero-dependency SVG QR code generator for challenge links.
         │   ├── range_slider.js Dual-handle Year-Month range slider.
         │   ├── report_modal.js Photo issue reporting dialog with 3-field validation & Immich Web link.
+        │   ├── reveal_table.js Standardized 2-tier grouped header reveal table with score rollups.
+        │   ├── round_stage.js Reusable split photo canvas and Leaflet map stage layout (.replay-stage / .round-stage).
         │   └── share_box.js Reusable, standardized share URL box, icon-only action button row, and QR code component.
         ├── challenge/   Modular challenge play mode sub-package:
         │   ├── session.js   Challenge state store, localStorage keys, reset, and map cleanup.

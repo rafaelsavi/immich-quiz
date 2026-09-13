@@ -102,15 +102,12 @@ export function resetGameUi() {
   if (el.revealTableHead) el.revealTableHead.replaceChildren();
   if (el.revealTableBody) el.revealTableBody.replaceChildren();
   if (el.revealMapShell) el.revealMapShell.classList.add("hidden");
-  if (el.revealMapHead) el.revealMapHead.classList.add("hidden");
   if (el.pinpointRevealUi) el.pinpointRevealUi.classList.add("hidden");
 
   if (el.albumShuffleRevealUi) el.albumShuffleRevealUi.classList.add("hidden");
-  if (el.shuffleBreakdownGrid) el.shuffleBreakdownGrid.replaceChildren();
   if (el.shuffleRevealTableHead) el.shuffleRevealTableHead.replaceChildren();
   if (el.shuffleRevealTableBody) el.shuffleRevealTableBody.replaceChildren();
   if (el.revealShuffleMapShell) el.revealShuffleMapShell.classList.add("hidden");
-  if (el.shuffleRevealMapHead) el.shuffleRevealMapHead.classList.add("hidden");
 
   if (state.revealLayers && Array.isArray(state.revealLayers)) {
     state.revealLayers.forEach((l) => {
