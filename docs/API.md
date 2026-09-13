@@ -243,7 +243,7 @@ Body: `{"match_id": "match-uuid-1234", "played_asset_ids": []}`
 
 * Returns the sanitized question payload (no EXIF, coordinates or capture date).
 * In **Pinpoint** mode: returns a single photo (`asset_id`, `media_url`).
-* In **Album Shuffle** mode: returns a batch of 3 photos (`batch_photos`) and lettered map pins (`batch_pins`).
+* In **Unshuffle** mode: returns a batch of 3 photos (`batch_photos`) and lettered map pins (`batch_pins`).
 * One photo (or batch) is drawn per round and shared by every player in that round so scores are comparable.
 * Tracks candidate diversity ($\ge 100\text{m}$ distance, $\ge 60\text{s}$ time separation) and prioritizes least-played photos (`times_played ASC`).
 * `409` when the match is finished or has no remaining turns.
@@ -272,7 +272,7 @@ Pinpoint Response Example:
 }
 ```
 
-Album Shuffle Response Example:
+Unshuffle Response Example:
 
 ```json
 {
@@ -331,7 +331,7 @@ Pinpoint Request:
 }
 ```
 
-Album Shuffle Request:
+Unshuffle Request:
 
 ```json
 {
@@ -1061,7 +1061,7 @@ Request (Pinpoint Mode):
 }
 ```
 
-Request (Album Shuffle Mode):
+Request (Unshuffle Mode):
 
 ```json
 {
@@ -1244,6 +1244,7 @@ Response (`200 OK` / `304 Not Modified`): Image stream (`image/jpeg`, etc.).
 Query autocomplete suggestions for known player names ordered by recency and match frequency.
 
 Query Parameters:
+
 * `q` (optional): Filter prefix/substring (case-insensitive).
 * `limit` (optional, default: 10, max: 50): Number of items to return.
 
@@ -1265,6 +1266,7 @@ Response (`200 OK`):
 Query the player directory roster with lifetime summary metrics and sorting options.
 
 Query Parameters:
+
 * `search` (optional): Filter player names by substring.
 * `sort_by` (optional, default: `matches`): Sort order (`matches`, `win_rate`, `points`, `name`).
 * `limit` (optional, default: 50, max: 200): Limit results.
@@ -1362,6 +1364,7 @@ Response (`200 OK`):
 List paginated past match records for the Match Replays catalog.
 
 Query Parameters:
+
 * `game_mode` (optional): Filter by `pinpoint` or `album_shuffle`.
 * `play_mode` (optional): Filter by `local` or `challenge`.
 * `player` (optional): Filter matches where a player participated.
@@ -1479,4 +1482,3 @@ In Challenge mode, opponent guesses and true round coordinates are withheld unti
 ### 5. Server-Side Timer Grace Window
 
 Turn durations (`time_taken_seconds`) are tracked on the client and validated on the backend against `round_length_seconds + 5.0s` (grace period for network latency). Excessively delayed submissions are scored with zero points.
-

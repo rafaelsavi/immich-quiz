@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from src.models import (
-    AlbumShuffleAnswerItem,
+    UnshuffleAnswerItem,
     ChallengeAnswerRequest,
     ChallengeCreateRequest,
     ChallengeExpirationOption,
@@ -426,12 +426,12 @@ def test_challenge_models_validation() -> None:
             guessed_month=None,
         )
 
-    # Valid album shuffle answer
+    # Valid unshuffle answer
     ans_shuffle = ChallengeAnswerRequest(
         round_index=0,
         album_shuffle=[
-            AlbumShuffleAnswerItem(photo_id='p1', assigned_pin_id='A', assigned_timeline_index=0),
-            AlbumShuffleAnswerItem(photo_id='p2', assigned_pin_id='B', assigned_timeline_index=1),
+            UnshuffleAnswerItem(photo_id='p1', assigned_pin_id='A', assigned_timeline_index=0),
+            UnshuffleAnswerItem(photo_id='p2', assigned_pin_id='B', assigned_timeline_index=1),
         ],
         time_taken_seconds=15.0,
     )

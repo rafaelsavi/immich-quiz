@@ -12,7 +12,7 @@ from src.app_logging import LOGGER_STORAGE, get_logger
 from src.models import (
     AccuracyTierBucket,
     BaseGameConfig,
-    ChallengeAlbumShuffleGuessData,
+    ChallengeUnshuffleGuessData,
     ChallengeLeaderboardEntry,
     ChallengePinpointGuessData,
     ChallengeRoundGuessData,
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     match_id           TEXT NOT NULL,
     player_name        TEXT NOT NULL,
     round_index        INTEGER NOT NULL,              -- 0-indexed
-    photo_index        INTEGER NOT NULL,              -- 0-indexed (0 for pinpoint; 0, 1, 2 for album shuffle)
+    photo_index        INTEGER NOT NULL,              -- 0-indexed (0 for pinpoint; 0, 1, 2 for unshuffle)
     game_mode          TEXT NOT NULL,
     asset_id           TEXT NOT NULL,
     guess_latitude     REAL,
@@ -135,8 +135,8 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     time_taken_seconds REAL,                          -- Time spent answering this specific turn/question
     timed_out          INTEGER NOT NULL DEFAULT 0,    -- 1 if timed out, 0 otherwise
     submitted_at       TEXT NOT NULL,
-    assigned_pin_id    TEXT,                          -- Pin ID assigned in album shuffle mode
-    assigned_timeline_index INTEGER,                  -- Timeline order index assigned in album shuffle mode
+    assigned_pin_id    TEXT,                          -- Pin ID assigned in unshuffle mode
+    assigned_timeline_index INTEGER,                  -- Timeline order index assigned in unshuffle mode
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
 
@@ -205,7 +205,7 @@ def _build_round_history_from_guesses(
     match_row: dict[str, Any],
     capability_token: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Reconstruct round history and album shuffle batch reveal data from stored guess records.
+    """Reconstruct round history and unshuffle batch reveal data from stored guess records.
 
     Returns a list of round objects for match summary replay:
     - Single photo mode (`pinpoint`):
@@ -1788,7 +1788,7 @@ class LeaderboardStore:
             album_shuffle_data = None
 
             if g_mode == GameMode.album_shuffle:
-                album_shuffle_data = ChallengeAlbumShuffleGuessData(
+                album_shuffle_data = ChallengeUnshuffleGuessData(
                     photo_index=int(row['photo_index']) if row.get('photo_index') is not None else 0,
                     asset_id=row.get('asset_id'),
                     assigned_pin_id=row.get('assigned_pin_id'),

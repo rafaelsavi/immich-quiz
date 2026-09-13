@@ -244,7 +244,7 @@ class SessionStore:
         timed_out: bool = False,
         time_taken_seconds: float | None = None,
     ) -> MatchState:
-        """Apply points and album shuffle assignments to an active question."""
+        """Apply points and unshuffle assignments to an active question."""
         state = self.get_match(match_id)
         question = state.questions.get(question_id)
         if question is None:

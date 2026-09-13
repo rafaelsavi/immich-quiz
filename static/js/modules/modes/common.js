@@ -19,7 +19,7 @@ import { t } from "../i18n.js";
 
 /**
  * Renders multi-selection card buttons for Guessing mode (Location & Date).
- * Used across game modes (Pinpoint, Album Shuffle).
+ * Used across game modes (Pinpoint, Unshuffle).
  * @param {HTMLElement} containerEl 
  * @param {string} [modeName="pinpoint"]
  */

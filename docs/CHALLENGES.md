@@ -31,7 +31,7 @@ are computed **once** at challenge creation time from the selected photo pool an
 
 ### Creating a Challenge
 
-1. Open the game setup screen and configure game settings (Mode: **Pinpoint** or **Album Shuffle**, Targets: **Location**, **Date**, or **Both**, Rounds, Round Length, and Library Filters).
+1. Open the game setup screen and configure game settings (Mode: **Pinpoint** or **Unshuffle**, Targets: **Location**, **Date**, or **Both**, Rounds, Round Length, and Library Filters).
 2. Click **🎮 Prepare Game** to open the match preparation modal.
 3. Switch to the **Challenge** tab:
    - **Challenge Title**: Auto-generated from active filter criteria (e.g. *"Summer Vacation 2024 (10 Rounds)"*) or custom-edited.
@@ -53,7 +53,7 @@ The **Challenges Hub** provides an administrative overview of all challenges:
 - **Toolbar & Filtering**:
   - **Search**: Live filter by challenge title, host name, album, or tagged person.
   - **Status Pills**: Filter by **All**, **Active**, or **Expired**.
-  - **Game Mode Filter**: Filter by **Pinpoint** or **Album Shuffle**.
+  - **Game Mode Filter**: Filter by **Pinpoint** or **Unshuffle**.
   - **Sorting**: Sort by *Newest First*, *Most Players*, *Ending Soonest*, or *Title (A–Z)*.
 - **Card Actions**:
   - **Share Drawer**: Click the share icon (`🔗`) in the header to expand a drawer with the full URL, 1-click clipboard copy, and high-resolution SVG QR code.
@@ -94,7 +94,7 @@ Grand Reveal Summary (/play/:token/summary)
 
 ### 2. In-Game Round Gameplay
 
-- Single-player experience matching local game rules (Pinpoint map pin & date picker, or Album Shuffle card reordering and pin matching).
+- Single-player experience matching local game rules (Pinpoint map pin & date picker, or Unshuffle card reordering and pin matching).
 - Local restart buttons are hidden to prevent accidental session abandonment.
 - Turn timer features smooth 60 FPS transitions with audible ticks under 10s. If the timer expires, inputs freeze and zero points are scored cleanly.
 
@@ -121,7 +121,7 @@ Grand Reveal Summary (/play/:token/summary)
 - **Awards Section**: Awards such as 🎯 *Sniper*, ⏳ *Time Traveler*, and ⚡ *Speed Demon*.
 - **Visual Match Review**:
   - **Pinpoint Mode**: An interactive **Round Carousel** with photo preview, fullscreen SVG lightbox, scatter map of all players' guesses and connector lines, and date comparison chips.
-  - **Album Shuffle Mode**: A **World Journey Map** with spiderfy pin clustering and a **Polaroid Gallery** of all round photos.
+  - **Unshuffle Mode**: A **World Journey Map** with spiderfy pin clustering and a **Polaroid Gallery** of all round photos.
 - **Navigation Actions**: 1-click buttons to *Copy Invite Link*, *Copy Summary Link*, visit the *Challenges Hub*, or return *Home*.
 
 ---

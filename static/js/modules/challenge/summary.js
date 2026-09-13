@@ -123,7 +123,7 @@ export const challengeSummary = {
           </div>
         `;
 
-      const isAlbumShuffle = data.game_mode === "album_shuffle";
+      const isUnshuffle = data.game_mode === "album_shuffle";
       const isLocationEnabled = challengeSession.challengeData.location_mode !== false && data.location_mode !== false;
 
       const standingsTableHtml = `
@@ -170,15 +170,15 @@ export const challengeSummary = {
           ${standingsTableHtml}
 
           ${canReplay
-            ? `
+          ? `
             <div class="summary-actions">
               <button type="button" class="btn btn-primary" id="grand-reveal-replay-action-btn">
                 🎬 ${t("challenge.watch_replay_btn")}
               </button>
             </div>
             `
-            : ""
-          }
+          : ""
+        }
         </div>
       `;
 

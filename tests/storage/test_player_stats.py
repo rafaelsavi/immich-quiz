@@ -135,7 +135,7 @@ def _create_sample_matches(store: LeaderboardStore) -> None:
         play_mode=PlayMode.local,
     )
 
-    # Match 2: Bob vs Charlie in Album Shuffle
+    # Match 2: Bob vs Charlie in Unshuffle
     shuffle_config = BaseGameConfig(
         libraries=['main'],
         round_count=3,

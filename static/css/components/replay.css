@@ -320,7 +320,7 @@
   line-height: 1.4;
 }
 
-/* Album Shuffle Photo Selector Tabs */
+/* Unshuffle Photo Selector Tabs */
 .replay-photo-tabs {
   display: flex;
   gap: 0.4rem;

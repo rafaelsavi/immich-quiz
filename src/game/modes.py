@@ -1,4 +1,4 @@
-"""Gameplay mode engine implementations for Pinpoint and Album Shuffle modes."""
+"""Gameplay mode engine implementations for Pinpoint and Unshuffle modes."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from src.config import AppSettings
 from src.game.selector import select_batch_round_assets, select_pinpoint_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
-    AlbumShuffleAnswerItem,
+    UnshuffleAnswerItem,
     AnswerRequest,
     BatchPhotoItem,
     BatchPinItem,
@@ -321,8 +321,8 @@ class PinpointEngine(BaseGameModeEngine):
         return None, results
 
 
-class AlbumShuffleEngine(BaseGameModeEngine):
-    """Album shuffle game mode engine (batch photo-to-pin mapping and timeline ordering)."""
+class UnshuffleEngine(BaseGameModeEngine):
+    """Unshuffle game mode engine (batch photo-to-pin mapping and timeline ordering)."""
 
     async def select_question(
         self,
@@ -465,7 +465,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             else 'N/A'
         )
         logger.info(
-            'Match %s (R%d) Album Shuffle evaluated: location=[%s], date=[%s]',
+            'Match %s (R%d) Unshuffle evaluated: location=[%s], date=[%s]',
             payload.match_id,
             state.current_round_index + 1,
             loc_desc,
@@ -520,7 +520,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             shuffle_guesses = None
             if question.album_shuffle_guesses:
                 shuffle_guesses = [
-                    AlbumShuffleAnswerItem(
+                    UnshuffleAnswerItem(
                         photo_id=str(g['photo_id']),
                         assigned_pin_id=str(g['assigned_pin_id']) if g.get('assigned_pin_id') else None,
                         assigned_timeline_index=int(g['assigned_timeline_index'])
@@ -564,4 +564,4 @@ class GameModeRegistry:
 
 default_game_mode_registry = GameModeRegistry()
 default_game_mode_registry.register(GameMode.pinpoint, PinpointEngine())
-default_game_mode_registry.register(GameMode.album_shuffle, AlbumShuffleEngine())
+default_game_mode_registry.register(GameMode.album_shuffle, UnshuffleEngine())

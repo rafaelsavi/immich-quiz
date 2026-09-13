@@ -59,10 +59,10 @@ export function renderAwards(summary, playerStats = {}, targetContainer = null, 
     return hasTie ? null : bestName;
   };
 
-  const isAlbumShuffle = summary.game_mode === "album_shuffle";
+  const isUnshuffle = summary.game_mode === "album_shuffle";
 
   // 1. Sniper — most perfect location guesses (0 km / max points)
-  if (summary.location_mode && !isAlbumShuffle) {
+  if (summary.location_mode && !isUnshuffle) {
     const bestSniper = pickAwardWinner("perfectLocationCount", (name) => summaryByName.get(name)?.location_score ?? -1);
     if (bestSniper) {
       awards.push({
@@ -75,7 +75,7 @@ export function renderAwards(summary, playerStats = {}, targetContainer = null, 
   }
 
   // 2. Time Traveler — most perfect date guesses (0 days / exact month / max points)
-  if (summary.date_mode && !isAlbumShuffle) {
+  if (summary.date_mode && !isUnshuffle) {
     const bestTimeTraveler = pickAwardWinner("perfectDateCount", (name) => summaryByName.get(name)?.date_score ?? -1);
     if (bestTimeTraveler) {
       awards.push({

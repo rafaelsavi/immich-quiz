@@ -16,7 +16,7 @@ All games begin on the main setup screen. Once configured, clicking **🎮 Prepa
 ### 1. Game Mode
 
 - **🎯 Pinpoint**: 1 photo per round. Players click the interactive Leaflet map to place their pin and/or guess the month and year of capture.
-- **🔀 Album Shuffle**: 3 photos per round. Players match photos to lettered map pins (**A**, **B**, **C**) and/or arrange the photos in chronological sequence along a timeline.
+- **🔀 Unshuffle**: 3 photos per round. Players match photos to lettered map pins (**A**, **B**, **C**) and/or arrange the photos in chronological sequence along a timeline.
 
 ### 2. What to Guess
 
@@ -71,8 +71,8 @@ Designed for parties, family gatherings, or solo play on a single screen.
 - **Inspect Photo**: Click the photo or the fullscreen expand icon (`⛶`) to inspect details in high resolution with the modal lightbox.
 - **Pinpoint Location**: Click on the world map to place or adjust your pin. Use the **Focus region** button to snap back to the album's auto-framed bounding box.
 - **Pinpoint Date**: Pick the month and year using the date selectors.
-- **Album Shuffle Matching**: Tap the letter chips (**A**, **B**, **C**) directly on each photo card to assign its location. Assigned map pins display the photo thumbnail preview directly inside the pin marker.
-- **Album Shuffle Timeline**: Reorder photo cards chronologically using the ▲ and ▼ buttons.
+- **Unshuffle Matching**: Tap the letter chips (**A**, **B**, **C**) directly on each photo card to assign its location. Assigned map pins display the photo thumbnail preview directly inside the pin marker.
+- **Unshuffle Timeline**: Reorder photo cards chronologically using the ▲ and ▼ buttons.
 - Click **Submit Guess** when finished.
 
 ### 4. Round Reveal
@@ -133,7 +133,7 @@ Allows anyone with a browser to join a shared game on their own device.
   - **Settled Podium**: Displays ranks, crowns, medals, and completed round counts (`5/5`).
 - **Mode-Specific Review**:
   - *Pinpoint*: Interactive **Round Carousel** with photo preview, lightbox zoom, multi-player scatter map with connector lines, and date comparison chips.
-  - *Album Shuffle*: Full **World Journey Map** with spiderfy clustering and **Photo Memories** polaroid gallery.
+  - *Unshuffle*: Full **World Journey Map** with spiderfy clustering and **Photo Memories** polaroid gallery.
 - **Quick Actions**: Buttons to *Copy Invite Link*, *Copy Summary Link*, open *Challenges*, or return *Home*.
 
 ---
@@ -142,7 +142,7 @@ Allows anyone with a browser to join a shared game on their own device.
 
 Navigate to **Challenges** via the header navbar to track and manage all multiplayer games:
 
-- **Search & Filter**: Search by title, host, album, or tagged person. Filter by status (**All**, **Active**, **Expired**) or game mode (**Pinpoint**, **Album Shuffle**).
+- **Search & Filter**: Search by title, host, album, or tagged person. Filter by status (**All**, **Active**, **Expired**) or game mode (**Pinpoint**, **Unshuffle**).
 - **Share Drawer**: Expand any challenge card's header share button (`🔗`) to view the direct URL and scan the SVG QR code.
 - **Standings Drawer**: Click **View Standings** to inspect real-time participant progress, completed round counts, and scores without leaving the hub.
 - **Play / Results**: Direct action button to play active challenges or jump directly to the Grand Reveal summary for concluded matches.

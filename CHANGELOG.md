@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - **Consolidated Challenge Replays in Catalog (`/replays`, `/api/matches`)**:
   - Grouped multi-player challenge sessions into a single match item in `list_matches_history` by `COALESCE(challenge_id, match_id)` so individual players' plays do not spawn disjoint replay entries.
   - Aggregated participating players, top scores, and calculated overall winners across all challenge sessions.
@@ -22,17 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Preserved full dynamic re-translation on language toggle via `refreshReplayPageLanguage`.
 
 ### Changed
+
 - **Rebranded Batch Photo Game Mode to "Unshuffle"**:
   - Renamed the English user-facing game mode title from "Album Shuffle" to "Unshuffle" across home setup screen, challenges hub filter, replay catalog filters, and help modals.
   - Synchronized English locale resources (`locales/en-US.json`, `static/js/modules/locales/en_US.js`) and Portuguese help titles (`locales/pt-BR.json`, `static/js/modules/locales/pt_BR.js`).
 
 ### Removed
+
 - **Match Replay Catalog Card Metadata Row (`.replay-item-meta`)**:
   - Removed redundant `.replay-item-meta` container, round count pill (`.replay-meta-pill`), accuracy pill (`.replay-acc-pill`), and associated styles from `replay.js` and `replay.css` to streamline replay catalog cards.
 - **Grand Reveal Redundant Action Buttons (`#grand-reveal-home-btn`, `#grand-reveal-hub-btn`)**:
   - Removed duplicate Home and Challenges Hub buttons and their associated event listeners from the challenge grand reveal summary screen, leaving the focused Watch Replay action and standard navigation.
 
 ### Fixed
+
 - **Challenges Hub Toolbar Responsive Layout (`.challenges-toolbar`)**:
   - Resolved multi-column wrapping bug on viewports $\le 900\text{px}$ (and split screens) where `.hub-toolbar` retained `flex-wrap: wrap` in column direction and search box expanded vertically to 100% height, pushing filter pills and selects off-screen to the right.
   - Standardized `.hub-search-box` height to `var(--toolbar-control-height, 38px)` (`flex: none; width: 100%`) under column layouts and set `flex-wrap: nowrap`.
@@ -76,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented full mobile responsiveness with pinned top-right refresh buttons and dark theme (`[data-theme="dark"]`) support.
 
 ### Changed
+
 - **CSS Architecture & Bloat Cleanup**:
   - Removed obsolete `.stats-tabs-bar` and `.stats-tab-btn` rules (~120 lines of dead CSS and SVG masks) from `stats.css` following the separation of Players and Match Replays.
   - Relocated Match Replay catalog card styling (`.replay-catalog-item`, `.replay-item-header`, `.replay-player-chip`, `.replay-item-footer`, etc.) from `stats.css` into `replay.css`, restoring clean stylesheet encapsulation and reducing `stats.css` by ~40%.
@@ -85,6 +90,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added case-insensitive indices `idx_match_entries_player_nocase` and `idx_match_round_guesses_player` directly to `LEADERBOARD_SCHEMA_SQL` in `src/storage/leaderboard.py`.
 
 ### Fixed
+
 - **Player Accuracy Tiers & Analytics Translation Fixes**:
   - Fixed unlinked translation keys and `undefined` badges on the Player Profile page (`/players/:name`):
     - Resolved `stats.tier_undefined` by correcting `tier.tier` to `tier.tier_key` in `stats.js:createTiersHtml`, mapping backend `AccuracyTierBucket` tiers (`top`, `great`, `moderate`, `low`) properly.
@@ -98,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Localized telemetry counter badges across Player Directory (`#stats-players-total-badge`) and Match Replays (`#stats-replays-total-badge`) using dynamic pluralized `t(...)` keys in English and Portuguese.
 
 ### Fixed
+
 - **Player Directory & Statistics Cartesian Product Multiplication**:
   - Fixed a Cartesian product in `get_all_players_directory`, `get_player_profile`, and `get_known_player_names` where a direct `LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name` caused players who participated in multiple challenges to have their match records duplicated.
   - Resolved Pydantic `ValidationError` on `PlayerSummaryItem` where duplicated win counts caused `win_rate_pct` to exceed 100% (e.g. 120%), triggering an HTTP 500 error that manifested in the UI as "No players found".
@@ -334,7 +341,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unified consistent, accessible naming in English and Portuguese across navigation, game setup, play styles, and awards (e.g., *"Solo"*, *"Pass & Play"*, *"Submit Guess"*, *"Photo Memories"*).
   - Streamlined mode descriptions, scoring documentation, and help modal instructions.
 - **Symmetric Architecture & Decoupled Game Engines**:
-  - Symmetrically decoupled data models (`PinpointReveal`, `AlbumShuffleAnswerItem`), unified backend round state (`RoundData`), and cleanly scoped frontend state.
+  - Symmetrically decoupled data models (`PinpointReveal`, `UnshuffleAnswerItem`), unified backend round state (`RoundData`), and cleanly scoped frontend state.
   - Standardized round review layout, responsive map token heights, and full-resolution lightbox support across all game modes.
 - **Dynamic Asset Stamping & Caching**:
   - Automatic version stamping in HTML templates and Service Worker (`sw.js`) eliminating stale cache issues on upgrades.

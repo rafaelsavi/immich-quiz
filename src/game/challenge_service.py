@@ -173,7 +173,7 @@ class ChallengeService:
         config['filter_summary'] = filter_summary
         config['filter_tooltip'] = filter_tooltip
 
-        # Album Shuffle: pre-assign batch groupings and randomized pins
+        # Unshuffle: pre-assign batch groupings and randomized pins
         if game_mode == GameMode.album_shuffle:
             round_batches = [list(range(i * batch_size, (i + 1) * batch_size)) for i in range(setup.round_count)]
             config['batch_size'] = batch_size
@@ -223,7 +223,7 @@ class ChallengeService:
         if game_mode == GameMode.album_shuffle:
             round_batches = config.get('round_batches', [])
             if round_index < 0 or round_index >= len(round_batches):
-                raise HTTPException(status_code=400, detail='Invalid round index for album shuffle.')
+                raise HTTPException(status_code=400, detail='Invalid round index for unshuffle.')
             batch_indices = round_batches[round_index]
             batch_asset_ids = [asset_ids[i] for i in batch_indices]
 
@@ -511,7 +511,7 @@ class ChallengeService:
         location_decay_km: float | None,
         date_decay_days: float | None,
     ) -> ChallengeAnswerResponse:
-        """Score an Album Shuffle round using batch partial credit and frozen decay parameters."""
+        """Score an Unshuffle round using batch partial credit and frozen decay parameters."""
         total_rounds = get_challenge_total_rounds(challenge)
         if body.round_index < 0 or body.round_index >= total_rounds:
             raise HTTPException(status_code=400, detail='Invalid round index.')

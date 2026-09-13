@@ -933,7 +933,7 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
     assert q_data['batch_pins'] is None
     assert len(q_data['batch_photos']) == 3
 
-    # Answer and fetch round result in Date-Only Album Shuffle mode
+    # Answer and fetch round result in Date-Only Unshuffle mode
     answers = [
         {'photo_id': p['photo_id'], 'assigned_pin_id': None, 'assigned_timeline_index': i}
         for i, p in enumerate(q_data['batch_photos'])
@@ -1666,7 +1666,7 @@ def test_multiplayer_same_round_same_asset_and_reload_persistence(tmp_path: Path
 
 
 def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) -> None:
-    """Verify Album Shuffle preserves identical batch assets across players and on reload."""
+    """Verify Unshuffle preserves identical batch assets across players and on reload."""
     immich = FakeImmichClient(
         [
             make_asset(
@@ -1690,7 +1690,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
     assert res.status_code == 200
     match_id = res.json()['match_id']
 
-    # 1. Alice gets Round 1 question in Album Shuffle
+    # 1. Alice gets Round 1 question in Unshuffle
     q_alice = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
     assert q_alice['player_name'] == 'Alice'
     assert q_alice['game_mode'] == 'album_shuffle'

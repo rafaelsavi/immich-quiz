@@ -34,7 +34,7 @@ immich-quiz/
 │   │   └── challenge_routes.py Async & hybrid multiplayer challenge endpoints (create, start, question, answer, leaderboard, deactivate).
 │   ├── game/            Modular game mode system and session orchestration.
 │   │   ├── modes.py     BaseGameModeEngine, PinpointEngine,
-│   │   │                AlbumShuffleEngine, and GameModeRegistry.
+│   │   │                UnshuffleEngine, and GameModeRegistry.
 │   │   ├── selector.py  Candidate asset selection, spatial (≥100m) & temporal (≥60s)
 │   │   │                diversity filters, and least-played prioritization.
 │   │   ├── service.py   GameService managing match state, question drawing,
@@ -95,7 +95,7 @@ immich-quiz/
         ├── modes/       Game mode strategy definitions & registry:
         │   ├── index.js     Mode registry and getActiveMode() strategy accessor.
         │   ├── pinpoint.js  Pinpoint single-photo mode strategy.
-        │   ├── album_shuffle.js Album Shuffle multi-photo mode strategy.
+        │   ├── album_shuffle.js Unshuffle multi-photo mode strategy.
         │   └── common.js    Shared mode helpers.
         ├── screens/     Screen lifecycle controllers:
         │   ├── common.js    Card switching (showCard), DOM resets (resetGameUi), and navigation guards.
@@ -274,7 +274,7 @@ See [`docs/FILTERS.md`](FILTERS.md) for the full architecture, interaction matri
 Game modes implement the `BaseGameModeEngine` abstract interface in `src/game/modes.py`:
 
 - `select_question(...)`: Selects candidate photos respecting active filters, candidate diversity, and least-played priority, registering the question in the session store.
-- `build_question_response(...)`: Generates sanitized single (Pinpoint) or batch (Album Shuffle) question payloads for the client.
+- `build_question_response(...)`: Generates sanitized single (Pinpoint) or batch (Unshuffle) question payloads for the client.
 - `evaluate_and_apply_answer(...)`: Evaluates player guesses using mode-specific scoring algorithms and records round scores in session state.
 - `format_round_reveal(...)`: Formats round reveal data (actual locations, capture dates, distance/date errors, and player score breakdowns).
 

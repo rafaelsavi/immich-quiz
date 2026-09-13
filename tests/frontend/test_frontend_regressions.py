@@ -483,7 +483,7 @@ def test_filter_persistence_and_people_mode_lifecycle() -> None:
 
 
 def test_batch_reveal_item_supports_optional_pin_id() -> None:
-    """Verify BatchRevealItem supports optional true_pin_id for locationless Album Shuffle."""
+    """Verify BatchRevealItem supports optional true_pin_id for locationless Unshuffle."""
     from src.models import BatchRevealItem
 
     item_without_pin = BatchRevealItem(
@@ -1381,7 +1381,7 @@ def test_challenge_album_shuffle_opponent_guesses_display() -> None:
     # 1. reveal.js groups round_guesses by player and builds albumShuffleGuesses for opponents
     assert 'const guessesByPlayer = new Map();' in reveal_js
     assert 'guessesByPlayer.set(guess.player_name, []);' in reveal_js
-    assert 'const isAlbumShuffle =' in reveal_js
+    assert 'const isUnshuffle =' in reveal_js
     assert 'album_shuffle_guesses: albumShuffleGuesses.length > 0 ? albumShuffleGuesses : null' in reveal_js
     assert 'photo_id: g.asset_id' in reveal_js
     assert 'assigned_pin_id: g.assigned_pin_id || null' in reveal_js
@@ -1395,7 +1395,7 @@ def test_challenge_pinpoint_opponent_guesses_display() -> None:
     """Verify that challenge reveal retains distance error, coordinates, and date guess for pinpoint opponents."""
     reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
 
-    # 1. isAlbumShuffle must not misclassify pinpoint matches based on asset_id or assigned_pin_id
+    # 1. isUnshuffle must not misclassify pinpoint matches based on asset_id or assigned_pin_id
     assert 'Boolean(g.asset_id)' not in reveal_js
     assert 'g.assigned_pin_id !== undefined' not in reveal_js
 
@@ -1654,7 +1654,7 @@ def test_dynamic_language_refresh_wiring() -> None:
     assert 'renderLeaderboard()' in setup_filters_js
     assert 'activeMode.renderSettings(container)' in setup_filters_js
 
-    # 4. Album Shuffle mode implements refreshQuestionLanguage and localizes up/down buttons
+    # 4. Unshuffle mode implements refreshQuestionLanguage and localizes up/down buttons
     assert 'refreshQuestionLanguage(questionData)' in album_shuffle_js
     assert 'upBtn.title = t("game.move_up");' in album_shuffle_js
     assert 'downBtn.title = t("game.move_down");' in album_shuffle_js
@@ -1924,7 +1924,7 @@ def test_modal_backdrop_drag_selection_no_close() -> None:
     assert '_isBackdropPress' in report_js
     assert '_modalEl.addEventListener("pointerdown"' in report_js
 
-    # Album shuffle help modal
+    # Unshuffle help modal
     assert 'isBackdropPress' in shuffle_js
     assert 'modal.addEventListener("pointerdown"' in shuffle_js
 

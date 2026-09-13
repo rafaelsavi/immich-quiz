@@ -181,13 +181,13 @@ export const challengeReveal = {
     const newOpponents = [];
     const updatedResults = [...challengeSession.currentRevealData.results];
 
-    const isRoundAlbumShuffle =
+    const isRoundUnshuffle =
       leaderboardData.game_mode === "album_shuffle" ||
       challengeSession.challengeData?.game_mode === "album_shuffle" ||
       state.gameMode === "album_shuffle" ||
       currentGuesses.some((g) => g.game_mode === "album_shuffle");
 
-    if (isRoundAlbumShuffle) {
+    if (isRoundUnshuffle) {
       // Defensively ensure local player's album_shuffle_guesses is populated if missing
       const myResult = updatedResults.find((r) => r.player_name === challengeSession.sessionPlayerName);
       if (myResult && (!myResult.album_shuffle_guesses || myResult.album_shuffle_guesses.length === 0)) {
@@ -220,14 +220,14 @@ export const challengeReveal = {
       if (existingNames.has(playerName)) return;
 
       const pinKey = `player_${playerName}`;
-      const isAlbumShuffle =
+      const isUnshuffle =
         leaderboardData.game_mode === "album_shuffle" ||
         challengeSession.challengeData?.game_mode === "album_shuffle" ||
         state.gameMode === "album_shuffle" ||
         playerGuesses.some((g) => g.game_mode === "album_shuffle");
 
       let opponentResult;
-      if (isAlbumShuffle) {
+      if (isUnshuffle) {
         const totalRoundScore = playerGuesses.reduce((sum, g) => sum + (g.round_score || 0), 0);
         const totalLocationScore = playerGuesses.reduce((sum, g) => sum + (g.location_points || 0), 0);
         const totalDateScore = playerGuesses.reduce((sum, g) => sum + (g.date_points || 0), 0);

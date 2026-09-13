@@ -491,7 +491,7 @@ async def select_batch_round_assets(
 ) -> tuple[list[RoundAsset], list[dict[str, object]]] | None:
     """Select a batch of diverse round assets and generate randomized map pins.
 
-    Designed for multi-photo batch game modes (e.g. Album Shuffle).
+    Designed for multi-photo batch game modes (e.g. Unshuffle).
     Ensures selected assets are diverse both relative to previously played rounds and among each other
     within the batch.
 

@@ -194,11 +194,11 @@ async def test_pinpoint_gameplay_and_reveal_dynamic_language_switch(page: Page) 
 
 
 async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> None:
-    """Verify Album Shuffle timeline headers and reordering button tooltips translate dynamically."""
+    """Verify Unshuffle timeline headers and reordering button tooltips translate dynamically."""
     await page.goto('/')
     await _ensure_language(page, 'en-US')
 
-    # Select Album Shuffle mode
+    # Select Unshuffle mode
     await page.locator('#mode-album-shuffle-btn').click()
     await expect(page.locator('#mode-album-shuffle-btn')).to_have_class(re.compile(r'active'))
 
@@ -231,7 +231,7 @@ async def test_album_shuffle_gameplay_dynamic_language_switch(page: Page) -> Non
     up_btn = cards.last.locator("button.shuffle-rank-btn:has-text('▲')")
     await expect(up_btn).to_have_attribute('title', 'Move Up (Earlier)')
 
-    # 2. Toggle language to PT during active Album Shuffle guessing
+    # 2. Toggle language to PT during active Unshuffle guessing
     await _toggle_language(page)
 
     if await oldest_header.is_visible():

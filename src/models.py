@@ -555,7 +555,7 @@ class QuestionRequest(BaseModel):
 
 
 class BatchPhotoItem(BaseModel):
-    """Photo asset item within an album shuffle batch round."""
+    """Photo asset item within an unshuffle batch round."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -564,7 +564,7 @@ class BatchPhotoItem(BaseModel):
 
 
 class BatchPinItem(BaseModel):
-    """Map pin item containing randomized coordinate options in an album shuffle batch round."""
+    """Map pin item containing randomized coordinate options in an unshuffle batch round."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -682,8 +682,8 @@ class RoundScoreBreakdown(BaseModel):
     total_score: int = Field(ge=0)
 
 
-class AlbumShuffleAnswerItem(BaseModel):
-    """Individual photo mapping assignment submitted during an album shuffle round."""
+class UnshuffleAnswerItem(BaseModel):
+    """Individual photo mapping assignment submitted during an unshuffle round."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -698,7 +698,7 @@ class BaseAnswerSubmission(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     pinpoint: PinpointAnswerItem | None = None
-    album_shuffle: list[AlbumShuffleAnswerItem] | None = None
+    album_shuffle: list[UnshuffleAnswerItem] | None = None
     timed_out: bool = False
     time_taken_seconds: float | None = Field(default=None, ge=0.0)
 
@@ -744,7 +744,7 @@ class PlayerRoundResult(RoundScoreBreakdown):
     player_name: str = Field(min_length=1)
     timed_out: bool = False
     pinpoint: PinpointRoundResult | None = None
-    album_shuffle_guesses: list[AlbumShuffleAnswerItem] | None = None
+    album_shuffle_guesses: list[UnshuffleAnswerItem] | None = None
 
 
 class RoundResultRequest(BaseModel):
@@ -757,7 +757,7 @@ class RoundResultRequest(BaseModel):
 
 
 class BatchRevealItem(GroundTruthLocationDate):
-    """Ground truth location and date details for a photo in an album shuffle batch reveal."""
+    """Ground truth location and date details for a photo in an unshuffle batch reveal."""
 
     photo_id: str = Field(min_length=1)
     true_pin_id: str | None = None
@@ -1017,7 +1017,7 @@ class MatchReplayPlayerGuess(BaseModel):
 
 
 class MatchReplayBatchPhoto(BaseModel):
-    """Photo truth data for album shuffle multi-photo rounds."""
+    """Photo truth data for unshuffle multi-photo rounds."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -1242,7 +1242,7 @@ class ChallengeAnswerRequest(BaseAnswerSubmission):
     """Player guess submission for a challenge round.
 
     Uses guessed_year/guessed_month (not a date string) to match AnswerRequest convention.
-    Supports both Pinpoint (lat/lng + year/month) and Album Shuffle (batch assignments).
+    Supports both Pinpoint (lat/lng + year/month) and Unshuffle (batch assignments).
     """
 
     round_index: int = Field(ge=0)
@@ -1275,8 +1275,8 @@ class ChallengePinpointGuessData(GroundTruthLocationDate, PinpointGuessFields, P
     model_config = ConfigDict(str_strip_whitespace=True)
 
 
-class ChallengeAlbumShuffleGuessData(BaseModel):
-    """Album Shuffle photo assignment and correctness metrics for a challenge round photo."""
+class ChallengeUnshuffleGuessData(BaseModel):
+    """Unshuffle photo assignment and correctness metrics for a challenge round photo."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -1303,7 +1303,7 @@ class ChallengeRoundGuessData(BaseModel):
     time_taken_seconds: float
     timed_out: bool = False
     pinpoint: ChallengePinpointGuessData | None = None
-    album_shuffle: ChallengeAlbumShuffleGuessData | None = None
+    album_shuffle: ChallengeUnshuffleGuessData | None = None
 
 
 class ChallengeLeaderboardEntry(BaseModel):

@@ -6,7 +6,7 @@ function getInitialLanguagePreference() {
       if (s.startsWith("pt")) return "pt-BR";
       if (s.startsWith("en")) return "en-US";
     }
-  } catch (_) {}
+  } catch (_) { }
   if (typeof navigator !== "undefined") {
     const browserLang = navigator.language || (navigator.languages && navigator.languages[0]);
     if (browserLang) {
@@ -60,7 +60,7 @@ export const state = {
     peopleMultiSelect: null,
     dateRangeSlider: null,
   },
-  // Album Shuffle mode batch assignment state
+  // Unshuffle mode batch assignment state
   albumShuffleState: {
     assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
   },
@@ -350,7 +350,7 @@ export function saveActiveMatchSession() {
 export function clearActiveMatchSession() {
   try {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function loadActiveMatchSession() {

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from conftest import FakeImmichClient, build_client, make_asset
 
-from src.models import AlbumShuffleAnswerItem
+from src.models import UnshuffleAnswerItem
 
 
 def _create_mock_assets(count: int = 25) -> list[dict]:
@@ -357,17 +357,17 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
         json={
             'round_index': 0,
             'album_shuffle': [
-                AlbumShuffleAnswerItem(
+                UnshuffleAnswerItem(
                     photo_id=p_ids[0],
                     assigned_pin_id=pin_ids[0],
                     assigned_timeline_index=0,
                 ).model_dump(),
-                AlbumShuffleAnswerItem(
+                UnshuffleAnswerItem(
                     photo_id=p_ids[1],
                     assigned_pin_id=pin_ids[1],
                     assigned_timeline_index=1,
                 ).model_dump(),
-                AlbumShuffleAnswerItem(
+                UnshuffleAnswerItem(
                     photo_id=p_ids[2],
                     assigned_pin_id=pin_ids[2],
                     assigned_timeline_index=2,
@@ -795,7 +795,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     immich = FakeImmichClient(_create_mock_assets(25))
     client = build_client(tmp_path, immich)
 
-    # 1. Create Album Shuffle Challenge
+    # 1. Create Unshuffle Challenge
     create_res = client.post(
         '/api/challenge/create',
         json={'creator_name': 'Host', 'game_mode': 'album_shuffle', 'round_count': 3},

@@ -1,4 +1,4 @@
-"""Playwright E2E tests for Album Shuffle gameplay: photo card reordering and multi-pin map assignment."""
+"""Playwright E2E tests for Unshuffle gameplay: photo card reordering and multi-pin map assignment."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from playwright.async_api import Page, expect
 
 
 async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page) -> None:
-    """Verify Album Shuffle interactive photo reordering, map pin selection, and reveal scoring."""
+    """Verify Unshuffle interactive photo reordering, map pin selection, and reveal scoring."""
     await page.goto('/')
 
-    # Select Album Shuffle mode
+    # Select Unshuffle mode
     await page.locator('#mode-album-shuffle-btn').click()
     await expect(page.locator('#mode-album-shuffle-btn')).to_have_class(re.compile(r'active'))
 
@@ -24,7 +24,7 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
         await page.locator('#ready-btn').click()
         await expect(page.locator('#pass-overlay')).to_be_hidden()
 
-    # Verify Album Shuffle Board & Cards
+    # Verify Unshuffle Board & Cards
     shuffle_ui = page.locator('#album-shuffle-ui')
     await expect(shuffle_ui).to_be_visible()
 

@@ -739,7 +739,7 @@ def test_leaderboard_album_shuffle_round_guesses_fidelity(tmp_path: Path) -> Non
     db_path = tmp_path / 'leaderboard.db'
     store = LeaderboardStore(db_path)
 
-    # Album Shuffle 3-photo batch round guesses
+    # Unshuffle 3-photo batch round guesses
     round_guesses = [
         {
             'match_id': 'm-shuffle',
@@ -920,7 +920,7 @@ def test_leaderboard_people_mode_all_vs_any_querying(tmp_path: Path) -> None:
 
 def test_leaderboard_round_history_persists_city_and_country(tmp_path: Path) -> None:
     """Verify that match_round_guesses stores and retrieves actual_city and actual_country
-    for both single-photo (Pinpoint) and batch-photo (Album Shuffle) match summaries.
+    for both single-photo (Pinpoint) and batch-photo (Unshuffle) match summaries.
     """
     db_path = tmp_path / 'leaderboard.db'
     store = LeaderboardStore(db_path)
@@ -968,7 +968,7 @@ def test_leaderboard_round_history_persists_city_and_country(tmp_path: Path) -> 
     assert p_round['actual_latitude'] == 48.8584
     assert p_round['actual_longitude'] == 2.2945
 
-    # 2. Album Shuffle match
+    # 2. Unshuffle match
     shuffle_guesses = [
         {
             'match_id': 'm-shuffle-loc',

@@ -231,6 +231,7 @@
     opacity: 0;
     transform: scale(0.94) translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -486,7 +487,7 @@
   font-size: 0.75rem;
 }
 
-/* Album Shuffle Mini Report Button */
+/* Unshuffle Mini Report Button */
 .btn-report-photo-mini {
   width: auto !important;
   max-width: max-content !important;
@@ -567,7 +568,8 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  overflow: visible; /* Allow autocomplete dropdown to extend beyond pane and card */
+  overflow: visible;
+  /* Allow autocomplete dropdown to extend beyond pane and card */
 }
 
 .modal-title-wrap {
@@ -697,6 +699,7 @@
   from {
     transform: translateY(100%);
   }
+
   to {
     transform: translateY(0);
   }
@@ -878,6 +881,7 @@
     opacity: 0;
     transform: translateY(-6px) scale(0.97);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -1006,4 +1010,4 @@
   gap: 0.35rem;
   color: var(--ink);
   line-height: 1.45;
-}
+}
