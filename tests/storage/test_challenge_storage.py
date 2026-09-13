@@ -5,12 +5,12 @@ import pytest
 from pydantic import ValidationError
 
 from src.models import (
-    UnshuffleAnswerItem,
     ChallengeAnswerRequest,
     ChallengeCreateRequest,
     ChallengeExpirationOption,
     PinpointAnswerItem,
     RoundLength,
+    UnshuffleAnswerItem,
 )
 from src.storage.challenge import PLAYER_COLORS, ChallengeStore
 from src.storage.db import DatabaseManager

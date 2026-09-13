@@ -12,10 +12,10 @@ from src.app_logging import LOGGER_STORAGE, get_logger
 from src.models import (
     AccuracyTierBucket,
     BaseGameConfig,
-    ChallengeUnshuffleGuessData,
     ChallengeLeaderboardEntry,
     ChallengePinpointGuessData,
     ChallengeRoundGuessData,
+    ChallengeUnshuffleGuessData,
     GameMode,
     GameModeStats,
     GameSetupRequest,

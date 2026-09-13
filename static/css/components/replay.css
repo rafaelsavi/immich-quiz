@@ -220,12 +220,6 @@
   width: 100%;
 }
 
-@media (max-width: 768px) {
-  .replay-media-map-row {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Reused Photo Frame / Polaroid Card */
 .replay-photo-card,
 .replay-polaroid {
@@ -254,18 +248,6 @@
   padding: 4px;
 }
 
-.replay-media-frame:fullscreen {
-  width: 100vw;
-  height: 100vh;
-  border: none;
-  border-radius: 0;
-  background: var(--card);
-}
-
-.replay-media-frame:fullscreen .replay-photo-img {
-  max-height: 100vh;
-}
-
 .replay-photo-img,
 .replay-polaroid-img {
   width: auto;
@@ -288,6 +270,41 @@
   top: 8px;
   right: 8px;
   z-index: 10;
+}
+
+.replay-media-frame:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  border: none;
+  border-radius: 0;
+  background: var(--card);
+  display: flex;
+}
+
+.replay-media-frame:fullscreen .replay-photo-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100vh;
+}
+
+@media (max-width: 768px) {
+  .replay-media-map-row {
+    grid-template-columns: 1fr;
+  }
+
+  .replay-media-frame {
+    height: auto;
+    min-height: 0;
+  }
+
+  .replay-photo-img {
+    width: 100%;
+    height: auto;
+    max-height: var(--quiz-image-max-height, 320px);
+    display: block;
+  }
 }
 
 .replay-polaroid-img-wrap {

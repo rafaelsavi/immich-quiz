@@ -12,7 +12,6 @@ from src.config import AppSettings
 from src.game.selector import select_batch_round_assets, select_pinpoint_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
-    UnshuffleAnswerItem,
     AnswerRequest,
     BatchPhotoItem,
     BatchPinItem,
@@ -23,6 +22,7 @@ from src.models import (
     PinpointRoundResult,
     PlayerRoundResult,
     QuestionResponse,
+    UnshuffleAnswerItem,
 )
 from src.scoring import (
     batch_exponential_date_score,

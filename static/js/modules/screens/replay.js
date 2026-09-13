@@ -6,7 +6,7 @@
  */
 
 import { state, el } from "../state.js";
-import { t, formatDateTime } from "../i18n.js";
+import { t, formatDate, formatDateTime } from "../i18n.js";
 import { showCard } from "./common.js";
 import { navigate } from "../router.js";
 import {
@@ -339,7 +339,11 @@ function renderPhotoCanvas(round) {
         : t("stats.location_unknown"));
 
   if (locEl) locEl.textContent = locStr;
-  if (dateEl) dateEl.textContent = curPhoto.actual_date ? formatDateTime(curPhoto.actual_date) : "";
+  if (dateEl) {
+    dateEl.textContent = curPhoto.actual_date
+      ? formatDate(curPhoto.actual_date, { year: "numeric", month: "short", day: "numeric" })
+      : "";
+  }
 }
 
 function renderRoundMap(round) {

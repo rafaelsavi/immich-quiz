@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Replay Photo Date Display**:
+  - Formatted `#replay-photo-date` using `formatDate` without clock time (e.g. `Sep 13, 2026`) matching other photo date captions in the application.
 - **Rebranded Batch Photo Game Mode to "Unshuffle"**:
   - Renamed the English user-facing game mode title from "Album Shuffle" to "Unshuffle" across home setup screen, challenges hub filter, replay catalog filters, and help modals.
   - Synchronized English locale resources (`locales/en-US.json`, `static/js/modules/locales/en_US.js`) and Portuguese help titles (`locales/pt-BR.json`, `static/js/modules/locales/pt_BR.js`).
@@ -36,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed duplicate Home and Challenges Hub buttons and their associated event listeners from the challenge grand reveal summary screen, leaving the focused Watch Replay action and standard navigation.
 
 ### Fixed
+
+- **Replay Media Frame Vertical Letterboxing on Narrow Screens (`.replay-media-frame`)**:
+  - Removed unwanted vertical letterbox space above and below photos on narrow screens ($\le 768\text{px}$) by setting `height: auto; min-height: 0;` on `.replay-media-frame` and fluid `width: 100%; height: auto; max-height: var(--quiz-image-max-height, 320px);` on `.replay-photo-img`.
+  - Preserved full-height centering in `:fullscreen` view across desktop and mobile.
 
 - **Challenges Hub Toolbar Responsive Layout (`.challenges-toolbar`)**:
   - Resolved multi-column wrapping bug on viewports $\le 900\text{px}$ (and split screens) where `.hub-toolbar` retained `flex-wrap: wrap` in column direction and search box expanded vertically to 100% height, pushing filter pills and selects off-screen to the right.

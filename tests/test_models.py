@@ -553,7 +553,6 @@ def test_gameplay_question_and_answer_validation() -> None:
     from pydantic import ValidationError
 
     from src.models import (
-        UnshuffleAnswerItem,
         AnswerRequest,
         AnswerResponse,
         BatchPinItem,
@@ -561,6 +560,7 @@ def test_gameplay_question_and_answer_validation() -> None:
         QuestionRequest,
         QuestionResponse,
         RoundLength,
+        UnshuffleAnswerItem,
     )
 
     # QuestionRequest
@@ -958,7 +958,6 @@ def test_reusable_base_models_and_pinpoint_structures() -> None:
     from pydantic import ValidationError
 
     from src.models import (
-        UnshuffleAnswerItem,
         BaseAnswerSubmission,
         BaseQuestionContent,
         BatchPhotoItem,
@@ -975,6 +974,7 @@ def test_reusable_base_models_and_pinpoint_structures() -> None:
         RoundLength,
         RoundResultResponse,
         RoundScoreBreakdown,
+        UnshuffleAnswerItem,
     )
 
     # 1. GroundTruthLocationDate & BatchRevealItem & PinpointReveal
