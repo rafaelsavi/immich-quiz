@@ -81,7 +81,7 @@ export function getPlayModeInfo(mode) {
     case "challenge":
       return {
         label: t("leaderboard.mode_challenge"),
-        icon: "🌐",
+        icon: "⚔️",
         className: "mode-challenge",
         title: t("leaderboard.mode_challenge_desc") !== "leaderboard.mode_challenge_desc" ? t("leaderboard.mode_challenge_desc") : "Multiplayer Challenge",
       };

@@ -43,6 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Challenge Card & Modal Autocomplete Dropdown Overflow (`cards.css`, `modals.css`)**:
+  - Allowed `#challenge-card` and `#pane-challenge-game` to have `overflow: visible`, ensuring the player name autocomplete dropdown extends cleanly beyond the challenge card boundary without being clipped by container overflow rules.
 - **Stats Hub Routing Parameter Bug (`router.js`)**:
   - Fixed an issue where visiting `/stats` caused `parseRoute` to decode `undefined` regex capture groups into the string `"undefined"`, hiding both tabs and leaving the page blank.
   - Fixed dark mode text contrast for `.player-card-name` and `.player-stat-val` in player directory cards.

@@ -6,7 +6,7 @@
 
 Immich Quiz is a trivia game that generates quiz rounds directly from your Immich photo collection. Players guess where and when photos were taken in **Pinpoint** mode, or match photo batches to map pins and timeline dates in **Album Shuffle** mode.
 
-Play locally with friends on a single screen via **👥 Pass & Play**, or share **🌐 Multiplayer Challenge Links** (with unguessable capability URLs and instant QR codes) for multi-device asynchronous or hybrid competition!
+Play locally with friends on a single screen via **👥 Pass & Play**, or share **⚔️ Multiplayer Challenge Links** (with unguessable capability URLs and instant QR codes) for multi-device asynchronous or hybrid competition!
 
 ![Immich Quiz Home Screen](docs/assets/home.webp)
 
@@ -23,7 +23,7 @@ Play locally with friends on a single screen via **👥 Pass & Play**, or share 
 ### Play Modes
 
 - **👥 Local Match (Pass & Play)**: Gather friends around a single device or TV. Players take turns passing the device between rounds with a privacy curtain protecting upcoming photos.
-- **🌐 Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
+- **⚔️ Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
 - **Challenges Hub (`/challenges`)**: Browse, search, share, track active challenges, and view past match summaries.
 - **Reported Assets Dashboard (`/reported`)**: Review reported photo metadata inconsistencies (GPS, date, notes), open direct Immich Web edit links, and resolve reports in real time.
 

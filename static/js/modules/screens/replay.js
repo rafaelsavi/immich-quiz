@@ -156,7 +156,7 @@ function renderReplayShell() {
   const modeLabel = _matchData.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
   const isChallenge = _matchData.play_mode === "challenge";
   const typeLabel = isChallenge ? t("replay.play_mode_challenge") : t("replay.play_mode_local");
-  const typeIcon = isChallenge ? "🏆" : "👥";
+  const typeIcon = isChallenge ? "⚔️" : "👥";
 
   if (modeBadge) {
     modeBadge.textContent = `${modeIcon} ${modeLabel}`;
@@ -502,7 +502,7 @@ export function refreshReplayPageLanguage() {
     const modeLabel = _matchData.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
     const isChallenge = _matchData.play_mode === "challenge";
     const typeLabel = isChallenge ? t("replay.play_mode_challenge") : t("replay.play_mode_local");
-    const typeIcon = isChallenge ? "🏆" : "👥";
+    const typeIcon = isChallenge ? "⚔️" : "👥";
 
     if (modeBadge) {
       modeBadge.textContent = `${modeIcon} ${modeLabel}`;

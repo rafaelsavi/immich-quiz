@@ -212,7 +212,7 @@ export const challengeSummary = {
               🏆 ${t("challenge.copy_summary_link")}
             </button>
             <button type="button" class="btn btn-secondary" id="grand-reveal-hub-btn">
-              🌐 ${t("challenge.challenges_hub")}
+              ⚔️ ${t("challenge.challenges_hub")}
             </button>
             <button type="button" class="btn btn-secondary" id="grand-reveal-home-btn">
               🏠 ${t("challenge.back_home")}

@@ -11,6 +11,10 @@
   overflow: visible;
 }
 
+#challenge-card {
+  overflow: visible;
+}
+
 .card h2 {
   margin-top: 0;
   margin-bottom: 0.8rem;

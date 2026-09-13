@@ -686,6 +686,7 @@ def test_prepare_game_flow_and_modal_regression() -> None:
     assert 'id="prepare-game-modal"' in index_html
     assert 'id="tab-local-game"' in index_html
     assert 'id="tab-challenge-game"' in index_html
+    assert '⚔️' in index_html
     assert 'id="pane-local-game"' in index_html
     assert 'id="pane-challenge-game"' in index_html
 
@@ -906,6 +907,7 @@ def test_home_leaderboard_play_mode_and_accordion_meta() -> None:
     # 1. Leaderboard table has data-sort="play_mode"
     assert '<th data-sort="play_mode" data-i18n="leaderboard.col_play_mode">' in index_html
     assert 'getPlayModeInfo' in leaderboard_js
+    assert 'icon: "⚔️"' in leaderboard_js
     assert 'cellPlayMode' in leaderboard_js
     assert 'col-play-mode' in leaderboard_js
     assert '.playmode-badge' in leaderboard_css
@@ -1884,10 +1886,13 @@ def test_player_autocomplete_extension_and_mobile() -> None:
     assert 'width: 100%;' in player_input_css
     assert 'min-height: 48px;' in player_input_css
 
-    # 5. Modal styling: overflow visible so dropdown floats over pane and modal footer
+    # 5. Modal & Card styling: overflow visible so dropdown floats over pane, modal footer, and challenge card
+    cards_css = (STATIC_DIR / 'css' / 'components' / 'cards.css').read_text(encoding='utf-8')
     assert 'overflow: visible;' in modals_css
     assert '#pane-local-game {' in modals_css
+    assert '#pane-challenge-game {' in modals_css
     assert 'z-index: 20;' in modals_css
+    assert '#challenge-card {\n  overflow: visible;\n}' in cards_css
 
 
 def test_modal_backdrop_drag_selection_no_close() -> None:

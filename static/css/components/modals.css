@@ -599,6 +599,12 @@
   z-index: 20;
 }
 
+#pane-challenge-game {
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+}
+
 .modal-tabs {
   display: flex;
   margin: 0 1.25rem 0.5rem;

@@ -380,7 +380,7 @@ export function renderChallenges() {
     if (_challenges.length === 0) {
       _hubListEl.innerHTML = `
         <div class="challenges-empty-state">
-          <div class="empty-state-icon">🌐</div>
+          <div class="empty-state-icon">⚔️</div>
           <h3>${t("challenges_page.empty_title")}</h3>
           <p>${t("challenges_page.empty_no_challenges")}</p>
           <button type="button" class="btn-primary" id="empty-state-create-btn">

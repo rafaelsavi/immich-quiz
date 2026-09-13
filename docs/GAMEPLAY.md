@@ -5,7 +5,7 @@ Immich Quiz turns your personal Immich photo collection into an engaging trivia 
 The game supports two distinct play modes:
 
 1. **👥 Local Game (Pass & Play)**: Gather around a single computer, tablet, or living room TV and take turns passing the device between rounds.
-2. **🌐 Challenges**: Generate a challenge link or QR code so friends and family can play from their own phones or computers at their own pace.
+2. **⚔️ Challenges**: Generate a challenge link or QR code so friends and family can play from their own phones or computers at their own pace.
 
 ---
 
@@ -91,7 +91,7 @@ Designed for parties, family gatherings, or solo play on a single screen.
 
 ---
 
-## Play Style 2: 🌐 Challenges
+## Play Style 2: ⚔️ Challenges
 
 Allows anyone with a browser to join a shared game on their own device.
 
@@ -167,4 +167,4 @@ Administrators and hosts can access the **Reported Assets Dashboard** at `/repor
   - ⏳ **Time Traveler**: Most perfect date guesses (exact month & year).
   - ⚡ **Speed Demon**: Fastest average response time with zero timeouts.
   - Full award criteria are detailed in [AWARDS.md](AWARDS.md).
-- **Persistent Leaderboard**: All matches are recorded in SQLite (`data/leaderboard.db`) and displayed on the home page leaderboard with dedicated badges for `👥 Local` and `🌐 Challenge` play modes.
+- **Persistent Leaderboard**: All matches are recorded in SQLite (`data/leaderboard.db`) and displayed on the home page leaderboard with dedicated badges for `👥 Local` and `⚔️ Challenge` play modes.

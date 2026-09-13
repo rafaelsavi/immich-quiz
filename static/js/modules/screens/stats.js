@@ -480,6 +480,7 @@ function renderMatchesHistory(matches) {
       const modeLabel = m.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
       const modeIcon = m.game_mode === "album_shuffle" ? "🔀" : "🎯";
       const typeLabel = m.play_mode === "challenge" ? t("replay.play_mode_challenge") : t("replay.play_mode_local");
+      const typeIcon = m.play_mode === "challenge" ? "⚔️" : "👥";
       const winnersList = (m.winners || []).join(", ");
       const winnerHtml = winnersList
         ? `<span class="replay-catalog-winner">🏆 ${escapeHtml(winnersList)} (${m.top_accuracy_pct}%)</span>`
@@ -495,7 +496,7 @@ function renderMatchesHistory(matches) {
           <div class="replay-catalog-info">
             <div class="replay-catalog-head">
               <span class="badge-tag" style="background: rgba(15, 124, 127, 0.1); color: var(--accent);">${modeIcon} ${modeLabel}</span>
-              <span class="badge-tag">${typeLabel}</span>
+              <span class="badge-tag badge-type${m.play_mode === "challenge" ? " badge-challenge" : ""}">${typeIcon} ${typeLabel}</span>
               <span class="replay-catalog-date">${dateStr}</span>
             </div>
             <div class="replay-catalog-meta">

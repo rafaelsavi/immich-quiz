@@ -20,6 +20,7 @@ export class PlayerAutocomplete {
     this.items = [];
     this._debounceTimer = null;
     this._cachedNames = null;
+    this._fetchId = 0;
 
     this._init();
   }
@@ -88,10 +89,19 @@ export class PlayerAutocomplete {
   }
 
   async _fetchSuggestions(query) {
+    const currentFetchId = ++this._fetchId;
     try {
       const res = await fetch(`/api/players/names?q=${encodeURIComponent(query)}&limit=10`);
       if (!res.ok) return;
+      if (currentFetchId !== this._fetchId) return;
+      if (document.activeElement !== this.inputEl) return;
+      if (this.inputEl.value.trim() !== query) return;
+
       const suggestions = await res.json();
+      if (currentFetchId !== this._fetchId) return;
+      if (document.activeElement !== this.inputEl) return;
+      if (this.inputEl.value.trim() !== query) return;
+
       const excluded = new Set((this.getExcludedNames() || []).map((n) => n.toLowerCase()));
 
       this.items = suggestions.filter((item) => !excluded.has(item.player_name.toLowerCase()));
@@ -224,6 +234,8 @@ export class PlayerAutocomplete {
   }
 
   close() {
+    this._fetchId = (this._fetchId || 0) + 1;
+    clearTimeout(this._debounceTimer);
     if (this.dropdownEl) {
       this.dropdownEl.classList.add('hidden');
       this.dropdownEl.innerHTML = '';
