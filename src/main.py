@@ -76,6 +76,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         immich_client,
         metadata_store,
         on_sync_complete=invalidate_filters_cache,
+        cooldown_seconds=settings.sync_cooldown_seconds,
     )
     leaderboard_store = LeaderboardStore(leaderboard_db_manager, metadata_store=metadata_store)
     challenge_store = ChallengeStore(leaderboard_db_manager)
@@ -123,7 +124,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
         if settings.auto_sync_on_startup:
             for lib_name in available:
                 logger.info('Scheduling startup metadata sync for library: %s', lib_name)
-                sync_engine.trigger_sync(lib_name)
+                sync_engine.trigger_sync(lib_name, bypass_cooldown=True)
 
         periodic_tasks: list[asyncio.Task[None]] = []
 

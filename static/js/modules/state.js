@@ -253,7 +253,9 @@ export const el = {
   get pinpointRevealUi() {
     return document.getElementById("pinpoint-reveal-ui");
   },
-  revealActual: document.getElementById("reveal-actual"),
+  get revealActual() {
+    return document.getElementById("reveal-actual");
+  },
   revealTableHead: document.querySelector("#reveal-table thead"),
   revealTableBody: document.querySelector("#reveal-table tbody"),
   get revealMapShell() {
@@ -283,7 +285,9 @@ export const el = {
   gameExitBtn: document.getElementById("game-exit-btn"),
   revealRestartBtn: document.getElementById("reveal-restart-btn"),
   revealExitBtn: document.getElementById("reveal-exit-btn"),
-  revealReportBtn: document.getElementById("reveal-report-btn"),
+  get revealReportBtn() {
+    return document.getElementById("reveal-report-btn");
+  },
   reportIssueModal: document.getElementById("report-issue-modal"),
   refreshLeaderboard: document.getElementById("refresh-leaderboard"),
   leaderboardScopePill: document.getElementById("leaderboard-scope-pill"),

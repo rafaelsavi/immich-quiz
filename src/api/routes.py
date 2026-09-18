@@ -1,4 +1,5 @@
 import asyncio
+import math
 from typing import Annotated, Any
 
 from cachetools import TTLCache
@@ -182,11 +183,32 @@ async def sync_status(
 async def trigger_sync(
     request: Request,
     force_full: bool = Query(default=False),
+    bypass_cooldown: bool = Query(default=False),
     sync_engine: SyncEngine = Depends(get_sync_engine),
 ) -> dict[str, Any]:
-    invalidate_filters_cache()
     available = request.app.state.available_libraries
-    sync_engine.trigger_sync_all(force_full=force_full, available_libraries=available)
+    if sync_engine.is_any_syncing():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail='A synchronization is already in progress. Please wait for it to complete.',
+        )
+
+    if not force_full and not bypass_cooldown:
+        remaining = sync_engine.get_cooldown_remaining(available_libraries=available)
+        if remaining > 0.0:
+            wait_secs = int(math.ceil(remaining))
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f'Sync was triggered recently. Please wait {wait_secs}s before syncing again.',
+                headers={'Retry-After': str(wait_secs)},
+            )
+
+    invalidate_filters_cache()
+    sync_engine.trigger_sync_all(
+        force_full=force_full,
+        bypass_cooldown=bypass_cooldown,
+        available_libraries=available,
+    )
     return sync_engine.get_sync_status(available_libraries=available)
 
 

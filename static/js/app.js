@@ -60,7 +60,7 @@ import {
 } from "./modules/screens/setup.js";
 import { loadQuestion, submitAnswer, refreshGameLanguage } from "./modules/screens/game.js";
 import { handleNextRound, refreshRevealLanguage } from "./modules/screens/reveal.js";
-import { initReportModal, openReportModal } from "./modules/components/report_modal.js";
+import { initReportModal } from "./modules/components/report_modal.js";
 import { initAdminModal, openAdminModal } from "./modules/admin.js";
 import {
   showMatchSummaryByMatchId,
@@ -402,15 +402,6 @@ bindClick(el.revealRestartBtn, () => {
 
 bindClick(el.revealExitBtn, () => {
   handleAbandonGame("exit");
-});
-
-bindClick(el.revealReportBtn, () => {
-  const currentAssetId = state.lastReveal?.asset_id || state.currentQuestion?.asset_id;
-  const previewUrl = state.lastReveal?.media_url || state.currentQuestion?.media_url;
-  const playerName = state.currentQuestion?.player_name || (state.players && state.players[0]) || null;
-  if (currentAssetId) {
-    openReportModal(currentAssetId, previewUrl, playerName);
-  }
 });
 
 bindClick(el.refreshLeaderboard, () => {

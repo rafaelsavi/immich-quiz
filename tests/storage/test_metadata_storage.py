@@ -1,4 +1,5 @@
 import asyncio
+import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -12,7 +13,7 @@ from src.main import create_app
 from src.models import CityOption, PeopleMode, SyncMode, SyncStage, SyncStatus
 from src.storage.db import DatabaseManager
 from src.storage.metadata import AssetFilterCriteria, MetadataStore
-from src.storage.sync import SyncEngine
+from src.storage.sync import SyncCooldownError, SyncEngine
 from tests.conftest import FakeImmichClient
 
 
@@ -1583,6 +1584,49 @@ async def test_sync_engine_cancel_all_syncs(meta_store: MetadataStore) -> None:
     state = meta_store.get_sync_state('slow_lib')
     assert state['sync_status'] == SyncStatus.idle.value
     assert state['sync_error'] == 'Sync cancelled'
+
+
+async def test_sync_engine_cooldown_behavior(meta_store: MetadataStore) -> None:
+    """Verify SyncEngine cooldown tracking, remaining calculations, and trigger blocking."""
+    client = _DummySyncClient()
+    sync_engine = SyncEngine(client, meta_store, cooldown_seconds=60)  # type: ignore
+
+    # 1. When never synced, library is not on cooldown
+    assert sync_engine.is_on_cooldown('family') is False
+    assert sync_engine.get_cooldown_remaining('family') == 0.0
+
+    # 2. Complete a sync
+    now_iso = datetime.now(UTC).isoformat()
+    meta_store.set_sync_state('family', status=SyncStatus.idle, last_sync_at=now_iso, synced_assets=5, total_assets=5)
+    sync_engine._last_sync_completed_at['family'] = time.monotonic()
+
+    # Cooldown should now be active
+    assert sync_engine.is_on_cooldown('family') is True
+    remaining = sync_engine.get_cooldown_remaining('family')
+    assert 55.0 <= remaining <= 60.0
+
+    # Triggering sync without bypass raises SyncCooldownError
+    with pytest.raises(SyncCooldownError) as exc_info:
+        sync_engine.trigger_sync('family', force_full=False)
+    assert exc_info.value.remaining_seconds > 0
+
+    # Triggering with bypass_cooldown=True or force_full=True bypasses cooldown
+    async def dummy_sync(*args: Any, **kwargs: Any) -> None:
+        pass
+
+    sync_engine.sync_library = dummy_sync  # type: ignore
+    task_bypass = sync_engine.trigger_sync('family', bypass_cooldown=True)
+    assert task_bypass is not None
+    await task_bypass
+
+    task_force = sync_engine.trigger_sync('family', force_full=True)
+    assert task_force is not None
+    await task_force
+
+    # 3. Disabling cooldown with cooldown_seconds=0
+    sync_engine_no_cooldown = SyncEngine(client, meta_store, cooldown_seconds=0)  # type: ignore
+    assert sync_engine_no_cooldown.is_on_cooldown('family') is False
+    assert sync_engine_no_cooldown.get_cooldown_remaining('family') == 0.0
 
 
 def test_multi_library_isolated_sync(meta_store: MetadataStore) -> None:

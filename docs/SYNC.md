@@ -237,11 +237,13 @@ Synchronization is fully managed by the application lifecycle:
 | `AUTO_SYNC_ON_STARTUP`           | `bool` | `true`  | Automatically triggers background indexing for all configured libraries when the server starts.                                |
 | `AUTO_DELTA_SYNC_INTERVAL_HOURS` | `int`  | `6`     | Interval in hours for automatic background delta syncs (`0` disables scheduled delta sync; range `0`–`8760`).                  |
 | `AUTO_FULL_SYNC_INTERVAL_HOURS`  | `int`  | `120`   | Interval in hours for automatic background full syncs & deletion pruning (`0` disables scheduled full sync; range `0`–`8760`). |
+| `SYNC_COOLDOWN_SECONDS`          | `int`  | `60`    | Minimum cooldown period in seconds between manual sync triggers (`0` disables cooldown; range `0`–`3600`).                     |
 
-### 5.2 Unified Scheduling & Single-Flight Safety
+### 5.2 Unified Scheduling, Single-Flight Safety & Cooldown
 
 * **Database-Driven Timestamps**: A unified scheduler checks `last_sync_at` and `last_full_sync_at` from SQLite. Full sync takes precedence when due, eliminating race conditions or redundant overlapping runs between delta and full syncs.
 * **Concurrency Guard**: `SyncEngine.trigger_sync` tracks running tasks per library (`_active_sync_tasks: dict[str, asyncio.Task]`). If a sync is already in progress for a given library, duplicate triggers return the existing task immediately, preventing overlapping database writes.
+* **Cooldown Rate Limiting**: To prevent hammering the Immich server and local SQLite database, a cooldown window (default: `60` seconds) is enforced after each sync completion. Manual triggers via `POST /api/sync` during active sync or cooldown return **HTTP 429 Too Many Requests** with a `Retry-After` header. Cooldown can be bypassed via `bypass_cooldown=true` or `force_full=true`. Unsynced libraries (`never_synced`) are never blocked on their initial sync.
 
 ---
 
@@ -268,22 +270,30 @@ GET /api/sync/status
   "total_assets": 14520,
   "synced_assets": 14520,
   "last_sync_duration_seconds": 0.42,
-  "sync_error": null,
-  "warnings": {}
+  "last_sync_summary": null,
+  "warnings": {},
+  "cooldown_remaining_seconds": 0.0,
+  "is_on_cooldown": false
 }
 ```
 
 ### 6.2 Trigger Sync
 
 ```http
-POST /api/sync?force_full=false
+POST /api/sync?force_full=false&bypass_cooldown=false
 ```
 
 * **Query Parameters**:
-  * `force_full` (optional, default `false`): Set `true` to force a full re-scan and prune deleted photos across all configured libraries.
+  * `force_full` (optional, default `false`): Set `true` to force a full re-scan and prune deleted photos across all configured libraries (bypasses cooldown timer).
+  * `bypass_cooldown` (optional, default `false`): Set `true` to bypass cooldown restrictions.
 
 **Response (200 OK):**
 Returns the aggregated `SyncStateResponse` object immediately while background indexing tasks execute asynchronously.
+
+**Response (429 Too Many Requests):**
+Returned if a synchronization is currently in progress or if the endpoint is called within the cooldown window:
+* Active sync: `{"detail": "A synchronization is already in progress. Please wait for it to complete."}`
+* Cooldown active: `{"detail": "Sync was triggered recently. Please wait {N}s before syncing again."}` with `Retry-After: {N}` header.
 
 ---
 

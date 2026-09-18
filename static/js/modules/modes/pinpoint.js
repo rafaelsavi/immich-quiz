@@ -24,7 +24,11 @@ import {
 } from "../effects.js";
 import { playChime, playPinDropSound } from "../audio.js";
 import { renderRevealTableHeaders, renderRevealTableRows } from "../components/reveal_table.js";
+import { RoundStage } from "../components/round_stage.js";
+import { openReportModal } from "../components/report_modal.js";
 import { challenge } from "../challenge/index.js";
+
+let _pinpointStage = null;
 
 const EARLIEST_YEAR = 1930;
 const SMART_MAP_MAX_INITIAL_ZOOM = 13;
@@ -179,50 +183,42 @@ function renderRevealSummary(reveal, skipEffects = false) {
     playerName: activePlayer,
   });
 
-  el.revealActual.replaceChildren();
+  if (!_pinpointStage && el.revealActual) {
+    el.revealActual.replaceChildren();
 
-  const pr = reveal.pinpoint_reveal;
-  if (reveal.date_mode && pr) {
-    const dateChip = document.createElement("span");
-    dateChip.className = "reveal-actual-chip reveal-chip-date";
+    const pr = reveal.pinpoint_reveal;
+    if (reveal.date_mode && pr) {
+      const dateChip = document.createElement("span");
+      dateChip.className = "reveal-actual-chip reveal-chip-date";
 
-    const dateIcon = document.createElement("span");
-    dateIcon.className = "reveal-chip-icon";
-    dateIcon.setAttribute("aria-hidden", "true");
-    dateIcon.textContent = "📅";
+      const dateIcon = document.createElement("span");
+      dateIcon.className = "reveal-chip-icon";
+      dateIcon.setAttribute("aria-hidden", "true");
+      dateIcon.textContent = "📅";
 
-    const labelSpan = document.createElement("span");
-    labelSpan.className = "reveal-chip-label";
-    labelSpan.setAttribute("data-i18n", "reveal.actual_date");
-    labelSpan.textContent = t("reveal.actual_date");
+      const valSpan = document.createElement("strong");
+      valSpan.className = "reveal-chip-val";
+      valSpan.textContent = ` ${formatMonth(pr.actual_year, pr.actual_month)}`;
 
-    const valSpan = document.createElement("strong");
-    valSpan.className = "reveal-chip-val";
-    valSpan.textContent = ` ${formatMonth(pr.actual_year, pr.actual_month)}`;
+      dateChip.append(dateIcon, valSpan);
+      el.revealActual.appendChild(dateChip);
+    }
+    if (reveal.location_mode && pr) {
+      const locChip = document.createElement("span");
+      locChip.className = "reveal-actual-chip reveal-chip-location";
 
-    dateChip.append(dateIcon, labelSpan, valSpan);
-    el.revealActual.appendChild(dateChip);
-  }
-  if (reveal.location_mode && pr) {
-    const locChip = document.createElement("span");
-    locChip.className = "reveal-actual-chip reveal-chip-location";
+      const locIcon = document.createElement("span");
+      locIcon.className = "reveal-chip-icon";
+      locIcon.setAttribute("aria-hidden", "true");
+      locIcon.textContent = "🗺️";
 
-    const locIcon = document.createElement("span");
-    locIcon.className = "reveal-chip-icon";
-    locIcon.setAttribute("aria-hidden", "true");
-    locIcon.textContent = "🗺️";
+      const valSpan = document.createElement("strong");
+      valSpan.className = "reveal-chip-val";
+      valSpan.textContent = ` ${formatPlace(pr)}`;
 
-    const labelSpan = document.createElement("span");
-    labelSpan.className = "reveal-chip-label";
-    labelSpan.setAttribute("data-i18n", "reveal.actual_location");
-    labelSpan.textContent = t("reveal.actual_location");
-
-    const valSpan = document.createElement("strong");
-    valSpan.className = "reveal-chip-val";
-    valSpan.textContent = ` ${formatPlace(pr)}`;
-
-    locChip.append(locIcon, labelSpan, valSpan);
-    el.revealActual.appendChild(locChip);
+      locChip.append(locIcon, valSpan);
+      el.revealActual.appendChild(locChip);
+    }
   }
 
   // Update persistent player stats
@@ -747,19 +743,37 @@ export const pinpointMode = {
       el.quizImage.src = mediaUrl;
     }
 
-    const stageImg = document.getElementById("pinpoint-reveal-img");
-    if (stageImg && mediaUrl) {
-      stageImg.src = mediaUrl;
-      stageImg.onclick = () => openPhotoLightbox(mediaUrl);
-    }
-
-    const stageFsBtn = document.getElementById("pinpoint-photo-fullscreen");
-    const stageMediaFrame = document.getElementById("pinpoint-reveal-media-frame");
-    if (stageFsBtn && stageMediaFrame) {
-      stageFsBtn.onclick = (e) => {
-        e.stopPropagation();
-        toggleMapFullscreen(stageMediaFrame);
-      };
+    const stageEl = document.querySelector("#pinpoint-reveal-ui .round-stage");
+    if (stageEl) {
+      if (!_pinpointStage) {
+        _pinpointStage = new RoundStage(stageEl, {
+          idPrefix: "pinpoint-",
+          showReportButton: true,
+          onReportPhoto: (assetId, previewUrl) => {
+            const pName = (challenge && challenge.isActive() ? challenge.challengeSession?.sessionPlayerName : null) || (state.players && state.players[0]) || null;
+            openReportModal(assetId, previewUrl, pName);
+          },
+        });
+      }
+      _pinpointStage.setModes({
+        locationMode: Boolean(revealData?.location_mode),
+        dateMode: Boolean(revealData?.date_mode),
+      });
+      const pr = revealData?.pinpoint_reveal;
+      const assetId = pr?.asset_id || revealData?.asset_id || (state.currentQuestion ? state.currentQuestion.asset_id : "");
+      _pinpointStage.setPhotos([
+        {
+          asset_id: assetId,
+          media_url: mediaUrl || "",
+          actual_latitude: pr?.actual_latitude,
+          actual_longitude: pr?.actual_longitude,
+          actual_city: pr?.actual_city,
+          actual_country: pr?.actual_country,
+          actual_date: pr?.actual_date,
+          actual_year: pr?.actual_year,
+          actual_month: pr?.actual_month,
+        },
+      ], 0);
     }
 
     renderRevealSummary(revealData);

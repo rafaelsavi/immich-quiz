@@ -11,6 +11,9 @@ import { renderAwards } from "../summary/awards.js";
 import { renderSummaryTable } from "../summary/table.js";
 import { renderPolaroidGallery } from "../summary/polaroids.js";
 import { showCard, clearRevealAnimation } from "./common.js";
+import { MatchReplayViewer } from "../components/match_replay.js";
+
+let _summaryReplayViewer = null;
 
 export function renderSummaryContent(summary) {
   if (!summary) return;
@@ -54,6 +57,36 @@ export async function showMatchSummaryByMatchId(matchId, { playFanfare = false }
     renderSummaryContent(summary);
     renderJourneyMap(state.roundHistory, summary.location_mode);
     renderPolaroidGallery(state.roundHistory);
+
+    // Load and render Match Replay in the summary card
+    const replaySection = document.getElementById("summary-replay-section");
+    const replayGrid = document.getElementById("summary-replay-grid");
+    const replayBtn = document.getElementById("summary-watch-replay-btn");
+
+    if (replaySection && replayGrid) {
+      try {
+        const replayRes = await fetch(`/api/match/${encodeURIComponent(matchId)}/replay`);
+        if (replayRes.ok) {
+          const replayData = await replayRes.json();
+          if (!_summaryReplayViewer) {
+            _summaryReplayViewer = new MatchReplayViewer(replayGrid, {
+              idPrefix: "summary-replay-",
+              showReportButton: true,
+            });
+          }
+          _summaryReplayViewer.setMatchData(replayData, 0);
+          replaySection.classList.remove("hidden");
+          if (replayBtn) {
+            replayBtn.classList.remove("hidden");
+            replayBtn.onclick = () => {
+              replaySection.scrollIntoView({ behavior: "smooth", block: "start" });
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("Could not load replay in summary:", e);
+      }
+    }
 
     el.leaderboardCard.classList.remove("hidden");
     await loadLeaderboard();
@@ -113,5 +146,8 @@ export function refreshSummaryLanguage() {
   if (el.summaryCard && !el.summaryCard.classList.contains("hidden") && state.lastSummary) {
     renderSummaryContent(state.lastSummary);
     renderPolaroidGallery(state.roundHistory);
+    if (_summaryReplayViewer) {
+      _summaryReplayViewer.renderCurrentRound();
+    }
   }
 }

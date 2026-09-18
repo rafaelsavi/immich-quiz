@@ -9,137 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Unified Round Review & Match Replay Architecture**:
-  - Extracted two reusable components: `round_stage.js` (split photo+map layout controller) and `reveal_table.js` (standardized 2-tier grouped reveal table).
-  - `replay.js` now targets a static `#replay-reveal-table` element; report button (`#replay-report-btn`) added to the match replay photo caption, opening `openReportModal` for the current photo.
-  - Pinpoint and Album Shuffle live round reveals use the same `replay-stage round-stage` and `.reveal-table` structure as the match replay screen.
-
-### Removed
-
-- **Dead CSS in `replay.css`**: Deleted unused `.replay-guesses-card`, `.replay-guesses-header`, `.replay-round-tag`, `.replay-polaroid-*`, `.replay-guess-cumulative`, and associated dark mode blocks.
-
-### Added
-
-
-  - Grouped multi-player challenge sessions into a single match item in `list_matches_history` by `COALESCE(challenge_id, match_id)` so individual players' plays do not spawn disjoint replay entries.
-  - Aggregated participating players, top scores, and calculated overall winners across all challenge sessions.
-  - Displayed challenge name, creator, and player roster chips on challenge replay cards in the catalog.
-  - Set `replay_match_id` in challenge results to `challenge_id` so completion links lead directly to the consolidated replay.
-- **Accurate Media Filters in Match Replay Meta (`match-meta-items`)**:
-  - Populated parent `matches` table rows in `record_challenge_round_guess` from `challenges.config_json` and `challenges.libraries_json` instead of default `NULL`s.
-  - Added database migration to backfill `challenge_id` and filter columns from `challenges` to any existing challenge match rows.
-  - Enhanced `get_match_replay` and `get_match_summary` to read authoritative filters and metadata directly from `challenges.config_json` and `challenges.libraries_json`, preventing incorrect fallback to "Full Library".
-- **Unified Replay Stage Architecture in Live Rounds and Match Replay (`.replay-stage`, `.round-stage`, `reveal_table`)**:
-  - Unified the split layout (`.replay-stage` / `.round-stage`) across Pinpoint reveal, Unshuffle reveal, and Match Replay.
-  - Standardized `.replay-media-map-row` (interactive photo card with tabs, zoom/lightbox, fullscreen toggles, metadata captions, and report button alongside Leaflet map shell) in both live round reviews and replays.
-  - Replaced ad-hoc flex rows in Match Replay and redundant vertical card breakdowns in Unshuffle with standard 2-tier grouped reveal tables (`.reveal-table`), displaying aligned player rankings, location errors, date differences, and points.
-  - Extracted modular component stylesheets `static/css/components/round_stage.css` and `reveal_table.css`, eliminating duplicate layout rules from `replay.css` and `unshuffle.css`.
-- **Challenge Name & Creator in Replay Header (`.replay-header-main`)**:
-  - Rendered the challenge title in `#replay-heading-title` and host badge/name in `#replay-match-title` within `.replay-header-main`.
-  - Preserved full dynamic re-translation on language toggle via `refreshReplayPageLanguage`.
+- **Sync Cooldown & Rate Limiting**: Configurable `SYNC_COOLDOWN_SECONDS` (default 60s) throttles rapid re-sync requests with HTTP 429 / `Retry-After` responses and a frontend countdown UI on the sync button.
+- **Unified Replay Engine**: Reusable `MatchReplayViewer` component powers round reviews, game summaries, and the replay page with a shared photo+map stage and reveal table.
+- **Consolidated Challenge Match History**: Challenge sessions grouped into a single replay entry with aggregated players, top scores, and winners.
+- **Dedicated Players & Replays Pages**: Statistics Hub split into separate `/players` and `/replays` routes with standalone headers and nav buttons.
+- **Header Settings Dropdown**: Language and audio toggles consolidated behind a gear icon (`⚙️`) dropdown.
+- **Challenge Card Replay Button**: Direct 🎬 Replay link on each detailed challenge card in the Challenges Hub.
+- **Standardized Hub Page Headers**: Unified `.hub-page-header` layout, badge theming, and responsive padding across Challenges, Replays, Players, and Moderation pages.
 
 ### Changed
 
-- **Replay Photo Date Display**:
-  - Formatted `#replay-photo-date` using `formatDate` without clock time (e.g. `Sep 13, 2026`) matching other photo date captions in the application.
-- **Rebranded Batch Photo Game Mode to "Unshuffle"**:
-  - Renamed the English user-facing game mode title from "Album Shuffle" to "Unshuffle" across home setup screen, challenges hub filter, replay catalog filters, and help modals.
-  - Synchronized English locale resources (`locales/en-US.json`, `static/js/modules/locales/en_US.js`) and Portuguese help titles (`locales/pt-BR.json`, `static/js/modules/locales/pt_BR.js`).
-
-### Removed
-
-- **Match Replay Catalog Card Metadata Row (`.replay-item-meta`)**:
-  - Removed redundant `.replay-item-meta` container, round count pill (`.replay-meta-pill`), accuracy pill (`.replay-acc-pill`), and associated styles from `replay.js` and `replay.css` to streamline replay catalog cards.
-- **Grand Reveal Redundant Action Buttons (`#grand-reveal-home-btn`, `#grand-reveal-hub-btn`)**:
-  - Removed duplicate Home and Challenges Hub buttons and their associated event listeners from the challenge grand reveal summary screen, leaving the focused Watch Replay action and standard navigation.
+- **Unified RoundStage Engine**: Single source of truth for photo card, photo tabs, media frames, Leaflet map shell, and caption pill chips across Live Pinpoint Reveal, Live Unshuffle Reveal, Match Replay, and Summary / Grand Reveal views. Consolidated stage styles into `round_stage.css` and purged duplicate styling from `pinpoint.css`.
+- **"Unshuffle" Rename**: Batch photo game mode renamed from "Album Shuffle" to "Unshuffle" across UI, locales, and filters.
+- **CSS Architecture Cleanup**: Replay catalog styles moved to `replay.css`; ~120 lines of dead `.stats-tabs-bar` CSS removed; dead rules purged from `replay.css` and `challenge.css`; `.page-back-btn` unified.
+- **Database Schema Indexing**: Case-insensitive indices added directly to `LEADERBOARD_SCHEMA_SQL` for consistent performance on fresh installs.
+- **Replay Header & Stepper Simplification**: Round stepper moved into the content grid above the stage; redundant badges, subtitle round count, and scoreboard heading removed.
+- **Table Mobile Optimization**: "Watch replay" text replaced with compact 🎬 icon buttons in leaderboard and player profile tables; column widths rebalanced; game mode label hidden on mobile.
 
 ### Fixed
 
-- **Replay Media Frame Vertical Letterboxing on Narrow Screens (`.replay-media-frame`)**:
-  - Removed unwanted vertical letterbox space above and below photos on narrow screens ($\le 768\text{px}$) by setting `height: auto; min-height: 0;` on `.replay-media-frame` and fluid `width: 100%; height: auto; max-height: var(--quiz-image-max-height, 320px);` on `.replay-photo-img`.
-  - Preserved full-height centering in `:fullscreen` view across desktop and mobile.
-
-- **Challenges Hub Toolbar Responsive Layout (`.challenges-toolbar`)**:
-  - Resolved multi-column wrapping bug on viewports $\le 900\text{px}$ (and split screens) where `.hub-toolbar` retained `flex-wrap: wrap` in column direction and search box expanded vertically to 100% height, pushing filter pills and selects off-screen to the right.
-  - Standardized `.hub-search-box` height to `var(--toolbar-control-height, 38px)` (`flex: none; width: 100%`) under column layouts and set `flex-wrap: nowrap`.
-  - Added dedicated $\le 1100\text{px}$ breakpoint for `.challenges-toolbar` to ensure full-width search on row 1 and balanced multi-control filters on row 2.
-  - Added full-width fluid segmented pills on mobile ($\le 480\text{px}$) with equal-width tab buttons (`flex: 1 1 0`).
-  - Proactively purged dead legacy media query rules for `.challenges-toolbar` from `challenge.css`.
-
-- **Table Mobile Optimization & Replay Icon Unification**:
-  - Replaced verbose "Watch replay" text across table rows with a compact clapper icon button (`🎬`) in both the Homepage Leaderboard (`#leaderboard-table`) and Player Profile Recent Matches (`.recent-matches-table`), preserving accessible `aria-label` and localized `title` tooltips.
-  - Omitted `.playmode-badge .playmode-label` on mobile screens (`<= 768px`) in the Homepage Leaderboard, showing only the mode icon (`🎯` / `🔀`) and allocating freed horizontal space to player names and accuracy columns to eliminate awkward text wrapping and date line breaks.
-  - Reallocated mobile column widths for `#leaderboard-table` (Date 23%, Mode 11%, Player 37%, Accuracy 18%, Replay 11%) and `.recent-matches-table` (Date 24%, Mode 11%, Rank 11%, Score 16%, Accuracy 24%, Replay 14%).
-  - Wrapped `.recent-matches-table` in `.table-scroll` container for resilient horizontal overflow protection on narrow devices.
-  - Styled compact `.replay-action-btn` (32x28px rounded icon button) with elevation hover effects and dark theme contrast.
-- **Match Replay Header & Stepper Optimization**:
-  - Simplified the guesses & scoreboard section header to a unified "Player Guesses" heading (`replay.player_guess_heading`), removing the redundant `replay.scoreboard` key across all 4 locale files and ensuring clean real-time dynamic language toggling.
-  - Relocated `.replay-header-controls` (round stepper) from the top-level match metadata header into `.replay-content-grid`, placing it directly above the active round's photo and map stage where its state changes apply.
-  - Removed redundant round count from `#replay-match-title` subtitle, relying on the unified `match-meta-section` specification panel.
-  - Removed redundant `#replay-badge-row` (`#replay-mode-badge` and `#replay-type-badge`) from `.replay-header-main`.
-  - Cleaned up dead CSS rules and media queries for `.replay-badge-row` and `.replay-title-row` in `replay.css`.
-- **Dedicated Players and Replays Pages (`/players`, `/replays`)**:
-  - Split the Statistics Hub into two distinct, dedicated pages: **Players** (`/players`) and **Match Replays** (`/replays`), removing the segmented `#stats-tabs-bar`.
-  - Added dedicated top header navigation buttons: Players (`👥`, `#stats-nav-btn`) and Replays (`🎬`, `#replays-nav-btn`) with active route indicators.
-  - Extracted the Match Replays catalog from `#stats-page-card` into its own dedicated `#replays-page-card`.
-  - Updated player profile routes to `/players/:playerName` with return navigation to `/players`.
-  - Updated SPA catch-all and direct deep-linking on FastAPI backend to serve `/players` and `/replays`.
-- **Header Settings Dropdown Menu (`#settings-dropdown`)**:
-  - Consolidated standalone language (`#lang-toggle-btn`) and audio (`#audio-toggle-btn`) header buttons into a space-saving gear settings icon (`⚙️`, `#settings-toggle-btn`).
-  - Hovering over or clicking the gear reveals an animated dropdown menu containing the language flag button and sound effects toggle.
-  - Supports hover bridge on desktop, touch/click toggle on mobile, outside click dismissal, and Escape key dismissal.
-  - Fully localized in English (`en-US`) and Portuguese (`pt-BR`).
-- **Detailed Challenge Card Replay Link (`.btn-replay-challenge`)**:
-  - Added direct match replay link button (`🎬 Replay`) to `.footer-left-actions` of `.detailed-challenge-card` in the Challenges Hub (`#challenges-page-card`).
-  - Enables single-click navigation to `/game/:challengeId/replay` directly from any challenge card on both desktop and mobile viewports.
-  - Fully localized in English (`en-US`) and Portuguese (`pt-BR`).
-- **Standardized Hub Page Headers (`.hub-page-header`)**:
-  - Unified header layout, title hierarchy, subtitle typography, section badges, and card container padding across **Challenges** (`/challenges`), **Match Replays** (`/replays`), **Player Directory & Statistics** (`/players`), and **Reported Photos Moderation** (`/reported`).
-  - Standardized card container padding to `1.5rem` (24px) with responsive `1rem` on mobile, eliminating cramped card margins on Players, Replays, and Moderation.
-  - Standardized headings (`h2`) to `1.85rem` bold with `line-height: 1.2` and unified `0.35rem` vertical gap above descriptions, eliminating the unstyled browser default and `0.8rem` margin gap on Players and Replays.
-  - Standardized section badges with cohesive soft pill styling (`0.75rem` uppercase, `0.24rem 0.65rem` padding, `999px` border radius) and dedicated section theme accents: Teal for Challenges (`.badge-challenges`), Indigo for Match Replays (`.badge-replays`), Purple for Players (`.badge-players`), and Rose / Crimson for Moderation (`.badge-reported`).
-  - Removed outdated `border-bottom` divider line from `#challenges-page-card` to eliminate duplicate borders above the shaded `.hub-toolbar` deck.
-  - Implemented full mobile responsiveness with pinned top-right refresh buttons and dark theme (`[data-theme="dark"]`) support.
-
-### Changed
-
-- **CSS Architecture & Bloat Cleanup**:
-  - Removed obsolete `.stats-tabs-bar` and `.stats-tab-btn` rules (~120 lines of dead CSS and SVG masks) from `stats.css` following the separation of Players and Match Replays.
-  - Relocated Match Replay catalog card styling (`.replay-catalog-item`, `.replay-item-header`, `.replay-player-chip`, `.replay-item-footer`, etc.) from `stats.css` into `replay.css`, restoring clean stylesheet encapsulation and reducing `stats.css` by ~40%.
-  - Consolidated `.replay-back-btn` to use the standardized `.page-back-btn` from `buttons.css`.
-  - Removed duplicate header rules from `reported.css` in favor of the unified `hub_header.css` system.
-- **Database Schema Indexing**:
-  - Added case-insensitive indices `idx_match_entries_player_nocase` and `idx_match_round_guesses_player` directly to `LEADERBOARD_SCHEMA_SQL` in `src/storage/leaderboard.py`.
-
-### Fixed
-
-- **Player Accuracy Tiers & Analytics Translation Fixes**:
-  - Fixed unlinked translation keys and `undefined` badges on the Player Profile page (`/players/:name`):
-    - Resolved `stats.tier_undefined` by correcting `tier.tier` to `tier.tier_key` in `stats.js:createTiersHtml`, mapping backend `AccuracyTierBucket` tiers (`top`, `great`, `moderate`, `low`) properly.
-    - Added missing pluralization keys `stats.round_single` and `stats.rounds_plural` across all 4 locale files (`locales/en-US.json`, `locales/pt-BR.json`, `static/js/modules/locales/en_US.js`, `static/js/modules/locales/pt_BR.js`), eliminating raw translation keys.
-    - Resolved `undefined` values in Location and Date accuracy highlights by mapping `PlayerAccuracyAnalytics` properties correctly: `perfect_location_rounds_count` (instead of nonexistent `perfect_location_guesses`), `exact_year_month_pct` and `perfect_date_rounds_count` (instead of nonexistent `best_date_diff_days` and `perfect_date_guesses`).
-    - Fixed player KPI cards mapping `player.matches_won` (instead of nonexistent `player.wins_count`).
-    - Added missing translation keys across all 4 locale files: `game.date_label`, `stats.best_date_diff`, `stats.best_match`, `stats.days_plural`, `stats.days_single`, `stats.last_played`, `stats.matches_played_count`, `stats.perfect_guesses`, `stats.podium_rate`, `stats.response_time`, `stats.round_single`, `stats.rounds_plural`, `stats.speed_and_timing`, `stats.wins_count`.
-    - Maintained 100% 4-file parity across backend and frontend English and Portuguese dictionaries.
-- **Client-Side Localization Sync & Counter Badges**:
-  - Synchronized `summary.share_failed` into client locales (`en_US.js` and `pt_BR.js`), ensuring clipboard failure messages display properly in Portuguese.
-  - Localized telemetry counter badges across Player Directory (`#stats-players-total-badge`) and Match Replays (`#stats-replays-total-badge`) using dynamic pluralized `t(...)` keys in English and Portuguese.
-
-### Fixed
-
-- **Player Directory & Statistics Cartesian Product Multiplication**:
-  - Fixed a Cartesian product in `get_all_players_directory`, `get_player_profile`, and `get_known_player_names` where a direct `LEFT JOIN challenge_sessions cs ON e.player_name = cs.player_name` caused players who participated in multiple challenges to have their match records duplicated.
-  - Resolved Pydantic `ValidationError` on `PlayerSummaryItem` where duplicated win counts caused `win_rate_pct` to exceed 100% (e.g. 120%), triggering an HTTP 500 error that manifested in the UI as "No players found".
-  - Refactored the join to group `challenge_sessions` by player prior to joining, added defensive bounds clamping `[0.0, 100.0]` on `win_rate_pct` and `avg_accuracy_pct`, and updated the frontend error catch block in `stats.js` to show an actionable error state with a retry button.
-- **Match Replay Catalog Card Rendering & Styling**:
-  - Fixed player name extraction in the Match Replays catalog (`/replays`), which erroneously assumed player array items were objects instead of player name strings returned by `/api/matches`, causing empty player names, fallback initial `?`, and broken red avatar blocks.
-  - Fixed winner identification in catalog items to compare player names against the `m.winners` list rather than `p.player_name === winnerName` (which evaluated to `undefined === undefined` and awarded crowns to every player).
-  - Added full CSS styling for `.replay-catalog-item`, `.replay-item-header`, `.replay-item-body`, `.replay-player-chip`, `.replay-player-avatar`, `.replay-player-name`, `.replay-winner-crown`, and `.replay-item-footer`.
-  - Added mobile responsive layout and dark mode support for the Match Replays catalog cards.
-- **Challenge Chip & Badge Design Standardization**:
-  - Resolved CSS collision where an unscoped `.badge-challenge` rule in `challenge.css` applied landing page banner styling (`text-transform: uppercase`, `letter-spacing: 0.08em`, `border-radius: 999px`, and `box-shadow: 0 4px 12px rgba(...)`) to replay match chips.
-  - Replaced `badge-challenge` with `badge-type-challenge` in `replay.js` and scoped `challenge.css` banner styles to header and landing containers.
-  - Standardized challenge chips in `replay.css` and `stats.css` to use the standard 6px border radius, Title Case typography ("Challenge" / "Desafio"), zero drop-shadow, and harmonious violet badge styling with light and dark mode support, matching the styling of `Pinpoint`, `Album Shuffle`, and `Local` match chips.
+- **Player Directory Cartesian Product**: SQL `LEFT JOIN` on `challenge_sessions` caused duplicated rows and `win_rate_pct > 100%` Pydantic errors, manifesting as "No players found".
+- **Replay Catalog Card Rendering**: Fixed empty player names (string vs. object mismatch) and broken winner crown logic.
+- **Player Profile Translation & Analytics**: Corrected `tier_key` mapping, added missing pluralization and KPI keys across all 4 locale files, fixed `PlayerAccuracyAnalytics` property names.
+- **Challenge Session Filters in Replay**: `record_challenge_round_guess` now populates `matches` rows from `challenges.config_json`, preventing incorrect "Full Library" fallbacks.
+- **Replay Photo Date Format**: `#replay-photo-date` uses `formatDate` without clock time (e.g. `Sep 13, 2026`).
+- **Replay Media Letterboxing**: Removed unwanted vertical whitespace above/below photos on narrow screens; fullscreen centering preserved.
+- **Challenges Hub Toolbar Layout**: Fixed multi-column wrapping bug on viewports ≤ 900px; standardized search box height and pill widths on mobile.
+- **Badge CSS Collision**: Scoped `.badge-challenge` banner styles to landing containers; replay chips now use `.badge-type-challenge` with standard styling.
 
 ## [3.1.0] - 2026-09-13
 

@@ -376,6 +376,7 @@ export const unshuffleMode = {
     if (stageEl) {
       if (!_shuffleStage) {
         _shuffleStage = new RoundStage(stageEl, {
+          idPrefix: "shuffle-",
           showReportButton: true,
           onPhotoChange: (idx, photo) => {
             if (photo && photo.true_pin_id && _revealMarkerByKey[String(photo.true_pin_id)]) {
@@ -390,8 +391,11 @@ export const unshuffleMode = {
           },
         });
       }
+      _shuffleStage.setModes({
+        locationMode: Boolean(revealData.location_mode),
+        dateMode: Boolean(revealData.date_mode),
+      });
       _shuffleStage.setPhotos(sortedTrueBatch, 0);
-      _shuffleStage.setMapVisible(Boolean(revealData.location_mode));
     }
 
     const reportPhotoBtn = document.getElementById("shuffle-report-btn");

@@ -58,6 +58,8 @@ export default {
   "setup.sync_title": "Sync metadata from Immich",
   "setup.sync_title_never_synced": "Metadata not yet synced. Click to sync from Immich.",
   "setup.sync_title_with_date": "Sync metadata from Immich\nLast sync: {0}",
+  "setup.sync_cooldown_active": "Sync cooldown active. Please wait {0}s.",
+  "setup.sync_cooldown_toast": "Sync was triggered recently. Please wait {0}s.",
   "setup.sync_completed_title": "Sync Complete",
   "setup.sync_failed_title": "Sync Failed",
   "setup.sync_mode_delta": "Quick Update",

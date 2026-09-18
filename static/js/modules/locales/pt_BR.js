@@ -58,6 +58,8 @@ export default {
   "setup.sync_title": "Sincronizar metadados do Immich",
   "setup.sync_title_never_synced": "Metadados ainda não sincronizados. Clique para sincronizar do Immich.",
   "setup.sync_title_with_date": "Sincronizar metadados do Immich\nÚltima sincronização: {0}",
+  "setup.sync_cooldown_active": "Tempo de espera ativo. Aguarde {0}s.",
+  "setup.sync_cooldown_toast": "Sincronização acionada recentemente. Aguarde {0}s.",
   "setup.sync_completed_title": "Sincronização concluída",
   "setup.sync_failed_title": "Falha na sincronização",
   "setup.sync_mode_delta": "Atualização rápida",

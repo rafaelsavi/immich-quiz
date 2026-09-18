@@ -365,6 +365,12 @@
   cursor: not-allowed;
 }
 
+.sync-library-btn.cooldown {
+  opacity: 0.65;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
 .sync-library-btn.syncing {
   color: var(--accent, #0f7c7f);
   border-color: rgba(15, 124, 127, 0.3);

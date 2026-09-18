@@ -50,14 +50,15 @@ async def test_replay_catalog_and_challenge_chip_design(page: Page) -> None:
     - No drop shadows
     - Proper class badge-type-challenge
     """
-    await page.route(
-        '**/api/matches*',
-        lambda route: route.fulfill(
+
+    async def handle_matches_route(route):
+        await route.fulfill(
             status=200,
             content_type='application/json',
             body=json.dumps(MOCK_MATCHES_DATA),
-        ),
-    )
+        )
+
+    await page.route('**/api/matches*', handle_matches_route)
 
     # Navigate to /replays
     await page.goto('/replays')

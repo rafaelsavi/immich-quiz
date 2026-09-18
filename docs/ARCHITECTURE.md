@@ -78,13 +78,14 @@ immich-quiz/
         │   ├── focus_trap.js Accessible modal focus trap utility (Tab / Shift+Tab) restoring focus.
         │   ├── lightbox.js  Zero-dependency modal photo lightbox with click-outside and Escape dismissal.
         │   ├── match_meta.js Match configuration rendering, game setup & library filter summary badges.
+        │   ├── match_replay.js Standardized multi-round replay canvas, round stepper, Leaflet map with spider lines, and reveal table.
         │   ├── multi_select.js Searchable tag-based multi-select with select-all/clear.
         │   ├── player_input.js Interactive player chip input with duplicate detection & colors.
         │   ├── qrcode.js    Zero-dependency SVG QR code generator for challenge links.
         │   ├── range_slider.js Dual-handle Year-Month range slider.
         │   ├── report_modal.js Photo issue reporting dialog with 3-field validation & Immich Web link.
         │   ├── reveal_table.js Standardized 2-tier grouped header reveal table with score rollups.
-        │   ├── round_stage.js Reusable split photo canvas and Leaflet map stage layout (.replay-stage / .round-stage).
+        │   ├── round_stage.js Single source of truth for photo canvas, batch photo tabs, Leaflet map split view, and metadata caption pill chips across Live Pinpoint Reveal, Live Unshuffle Reveal, Match Replay, and Summary views.
         │   └── share_box.js Reusable, standardized share URL box, icon-only action button row, and QR code component.
         ├── challenge/   Modular challenge play mode sub-package:
         │   ├── session.js   Challenge state store, localStorage keys, reset, and map cleanup.

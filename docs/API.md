@@ -116,18 +116,23 @@ Response:
   "synced_assets": 1240,
   "last_sync_duration_seconds": 0.35,
   "sync_error": null,
-  "warnings": {}
+  "warnings": {},
+  "cooldown_remaining_seconds": 0.0,
+  "is_on_cooldown": false
 }
 ```
 
-### POST /api/sync?force_full=false
+### POST /api/sync?force_full=false&bypass_cooldown=false
 
 Triggers an asynchronous background metadata sync across all configured libraries from Immich into `data/metadata.db` and invalidates cached filter options.
 
 * `force_full=false` (default): Executes an incremental **Delta Sync** querying assets modified after `last_immich_updated_at`.
-* `force_full=true`: Forces a **Full Sync** scanning all assets and pruning deleted media.
+* `force_full=true`: Forces a **Full Sync** scanning all assets and pruning deleted media (bypasses cooldown timer).
+* `bypass_cooldown=false` (default): Enforces rate limiting cooldown period (configured via `SYNC_COOLDOWN_SECONDS`, default 60s). Set `true` to bypass.
 
-Returns the updated `sync_state` immediately while the background task runs.
+Returns the updated `sync_state` (200 OK) immediately while the background task runs.
+
+Returns **429 Too Many Requests** with `Retry-After` header if called during cooldown or while another synchronization is currently in progress.
 
 ---
 

@@ -38,10 +38,12 @@ import { renderPodium } from "../summary/podium.js";
 import { renderAwards } from "../summary/awards.js";
 import { showCard } from "../screens/common.js";
 import { navigate } from "../router.js";
-import { copyToClipboard } from "../summary/share.js";
 import { challengeSession, POLL_INTERVAL_MS } from "./session.js";
 import { renderErrorScreen } from "./landing.js";
 import { showActivityToast } from "../components/activity_toast.js";
+import { MatchReplayViewer } from "../components/match_replay.js";
+
+let _challengeReplayViewer = null;
 
 export const challengeSummary = {
   /**
@@ -169,6 +171,13 @@ export const challengeSummary = {
 
           ${standingsTableHtml}
 
+          <div id="grand-reveal-replay-section" class="summary-replay-section ${canReplay ? "" : "hidden"}">
+            <div class="field-head">
+              <label>${t("replay.title")}</label>
+            </div>
+            <div id="grand-reveal-replay-grid" class="replay-content-grid"></div>
+          </div>
+
           ${canReplay
           ? `
             <div class="summary-actions">
@@ -211,7 +220,30 @@ export const challengeSummary = {
         );
       }
 
-      // Replay action button click listener
+      // Render embedded multi-round replay viewer
+      if (canReplay && replayMatchId) {
+        const replayGrid = document.getElementById("grand-reveal-replay-grid");
+        if (replayGrid) {
+          try {
+            const replayRes = await fetch(`/api/match/${encodeURIComponent(replayMatchId)}/replay`);
+            if (replayRes.ok) {
+              const replayData = await replayRes.json();
+              if (!_challengeReplayViewer) {
+                _challengeReplayViewer = new MatchReplayViewer(replayGrid, {
+                  idPrefix: "grand-reveal-replay-",
+                  showReportButton: true,
+                });
+              }
+              _challengeReplayViewer.setMatchData(replayData, 0);
+              document.getElementById("grand-reveal-replay-section")?.classList.remove("hidden");
+            }
+          } catch (e) {
+            console.warn("Could not load challenge replay in grand reveal:", e);
+          }
+        }
+      }
+
+      // Replay action button click listeners
       const handleReplayClick = () => {
         if (!canReplay) return;
         navigate(`/game/${encodeURIComponent(replayMatchId)}/replay`);

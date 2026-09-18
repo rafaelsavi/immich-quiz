@@ -109,6 +109,8 @@ class SyncStateResponse(BaseModel):
     last_sync_duration_seconds: float | None = Field(default=None, ge=0.0)
     last_sync_summary: dict[str, Any] | None = None
     warnings: dict[str, str] = Field(default_factory=dict)
+    cooldown_remaining_seconds: float = Field(default=0.0, ge=0.0)
+    is_on_cooldown: bool = False
 
 
 class MapBounds(BaseModel):

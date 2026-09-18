@@ -506,3 +506,24 @@
   background: var(--accent, #0f7c7f);
   color: #ffffff;
 }
+
+/* Replay Content Grid & Summary Embedding */
+.replay-content-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.summary-replay-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+[data-theme="dark"] .summary-replay-section {
+  border-color: #334155;
+}

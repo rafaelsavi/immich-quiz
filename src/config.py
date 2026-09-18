@@ -177,6 +177,7 @@ class AppSettings:
     auto_sync_on_startup: bool = True
     auto_delta_sync_interval_hours: int = 6
     auto_full_sync_interval_hours: int = 120
+    sync_cooldown_seconds: int = 60
 
     # 6. Logging & Observability
     log_level: str = 'INFO'
@@ -199,11 +200,13 @@ class AppSettings:
         if not (1 <= self.app_port <= 65535):
             raise ConfigError('APP_PORT must be between 1 and 65535')
 
-        # Validate auto sync intervals
+        # Validate auto sync intervals and cooldown
         if not (0 <= self.auto_delta_sync_interval_hours <= 8760):
             raise ConfigError('AUTO_DELTA_SYNC_INTERVAL_HOURS must be between 0 and 8760')
         if not (0 <= self.auto_full_sync_interval_hours <= 8760):
             raise ConfigError('AUTO_FULL_SYNC_INTERVAL_HOURS must be between 0 and 8760')
+        if not (0 <= self.sync_cooldown_seconds <= 3600):
+            raise ConfigError('SYNC_COOLDOWN_SECONDS must be between 0 and 3600')
 
         # Validate date range bounds
         if (
@@ -311,6 +314,8 @@ def load_settings() -> AppSettings:
         kwargs['auto_full_sync_interval_hours'] = _parse_int_range(
             val, 'AUTO_FULL_SYNC_INTERVAL_HOURS', min_value=0, max_value=8760
         )
+    if val := _get_env('SYNC_COOLDOWN_SECONDS'):
+        kwargs['sync_cooldown_seconds'] = _parse_int_range(val, 'SYNC_COOLDOWN_SECONDS', min_value=0, max_value=3600)
 
     # Filter Whitelists & Blacklists
     if val := _get_env('COUNTRY_WHITELIST'):

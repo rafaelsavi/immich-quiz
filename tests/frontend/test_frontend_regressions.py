@@ -53,6 +53,8 @@ DYNAMIC_IDS = frozenset(
         'grand-reveal-podium-section',
         'grand-reveal-provisional',
         'grand-reveal-replay-action-btn',
+        'grand-reveal-replay-grid',
+        'grand-reveal-replay-section',
         'grand-reveal-share-btn',
         'grand-reveal-share-summary-btn',
         'grand-reveal-table',
@@ -60,6 +62,8 @@ DYNAMIC_IDS = frozenset(
         'photo-lightbox-img',
         'player-name-input',
         'preflight-warning',
+        'pinpoint-media-map-row',
+        'pinpoint-reveal-media-frame',
         'profile-back-btn',
         'profile-back-to-hub-btn',
         'replay-empty-challenge-btn',
@@ -72,6 +76,8 @@ DYNAMIC_IDS = frozenset(
         'shuffle-cards-list',
         'shuffle-map',
         'shuffle-map-shell',
+        'shuffle-media-map-row',
+        'shuffle-report-btn',
         'stats-clear-replays-filter-btn',
         'stats-clear-search-btn',
         'stats-empty-challenge-btn',
@@ -1716,9 +1722,10 @@ def test_all_missing_components_have_dynamic_language_support():
     assert 'data-i18n", "map.layer_satellite"' in maps_js
     assert 'export function refreshMapsLanguage()' in maps_js
 
-    # 5. reveal-actual & pinpoint-actual: pinpoint.js tags actual date and location chips
-    assert 'data-i18n", "reveal.actual_date"' in pinpoint_js
-    assert 'data-i18n", "reveal.actual_location"' in pinpoint_js
+    # 5. reveal-actual & pinpoint-actual: chips render icon and value without labels
+    assert 'dateChip.append(dateIcon, valSpan)' in pinpoint_js
+    assert 'locChip.append(locIcon, valSpan)' in pinpoint_js
+    assert 'reveal-chip-label' not in pinpoint_js
 
     reveal_table_js = (JS_DIR / 'modules' / 'components' / 'reveal_table.js').read_text(encoding='utf-8')
 
@@ -2122,3 +2129,61 @@ def test_replay_screen_header_and_title_rendering() -> None:
     assert '.replay-challenge-host' in replay_css
     assert '.meta-separator' in replay_css
     assert '.replay-badge-row' not in replay_css
+
+
+def test_sync_button_cooldown_frontend_integration() -> None:
+    """Verify that sync.js and filters.css implement button cooldown states, ticker, and tooltips."""
+    sync_js = (JS_DIR / 'modules' / 'sync.js').read_text(encoding='utf-8')
+    filters_css = (STATIC_DIR / 'css' / 'components' / 'filters.css').read_text(encoding='utf-8')
+
+    # 1. sync.js defines cooldown ticker and updates button state
+    assert 'startCooldownTicker' in sync_js
+    assert 'clearCooldownTimer' in sync_js
+    assert '.classList.toggle("cooldown"' in sync_js
+    assert 'setup.sync_cooldown_active' in sync_js
+    assert 'setup.sync_cooldown_toast' in sync_js
+
+    # 2. filters.css defines .sync-library-btn.cooldown
+    assert '.sync-library-btn.cooldown {' in filters_css
+    cooldown_block = filters_css.split('.sync-library-btn.cooldown {')[1].split('}')[0]
+    assert 'cursor: not-allowed;' in cooldown_block
+
+
+def test_strict_4_locale_file_parity() -> None:
+    """Verify strict 4-file parity mandate: locales/en-US.json, locales/pt-BR.json,
+    static/js/modules/locales/en_US.js, and static/js/modules/locales/pt_BR.js
+    must maintain 100% identical top-level key counts and keys.
+    """
+    root_dir = STATIC_DIR.parent
+    en_json_path = root_dir / 'locales' / 'en-US.json'
+    pt_json_path = root_dir / 'locales' / 'pt-BR.json'
+    en_js_path = JS_DIR / 'modules' / 'locales' / 'en_US.js'
+    pt_js_path = JS_DIR / 'modules' / 'locales' / 'pt_BR.js'
+
+    en_data = json.loads(en_json_path.read_text(encoding='utf-8'))
+    pt_data = json.loads(pt_json_path.read_text(encoding='utf-8'))
+
+    def parse_js_keys(path: Path) -> list[str]:
+        lines = path.read_text(encoding='utf-8').splitlines()
+        keys = []
+        for line in lines:
+            m = re.match(r'^  "([^"]+)"\s*:', line)
+            if m:
+                keys.append(m.group(1))
+        return keys
+
+    en_js_keys = parse_js_keys(en_js_path)
+    pt_js_keys = parse_js_keys(pt_js_path)
+
+    en_keys = set(en_data.keys())
+    pt_keys = set(pt_data.keys())
+    en_js_keys_set = set(en_js_keys)
+    pt_js_keys_set = set(pt_js_keys)
+
+    assert len(en_data) == len(pt_data) == len(en_js_keys) == len(pt_js_keys), (
+        f'Mismatch in key counts: en-US.json={len(en_data)}, pt-BR.json={len(pt_data)}, '
+        f'en_US.js={len(en_js_keys)}, pt_BR.js={len(pt_js_keys)}'
+    )
+    assert en_keys == pt_keys, f'Difference between en-US and pt-BR: {en_keys ^ pt_keys}'
+    assert en_keys == en_js_keys_set, f'Difference between en-US.json and en_US.js: {en_keys ^ en_js_keys_set}'
+    assert en_keys == pt_js_keys_set, f'Difference between en-US.json and pt_BR.js: {en_keys ^ pt_js_keys_set}'

@@ -394,13 +394,14 @@ export function renderChallenges() {
           <div class="empty-state-icon">⚔️</div>
           <h3>${t("challenges_page.empty_title")}</h3>
           <p>${t("challenges_page.empty_no_challenges")}</p>
-
+          <button type="button" class="btn-primary" id="empty-state-create-btn">
             <span class="btn-icon">✨</span>
             ${t("challenges_page.create_btn")}
           </button>
         </div>
       `;
 
+      const emptyBtn = document.getElementById("empty-state-create-btn");
       if (emptyBtn) {
         emptyBtn.addEventListener("click", () => openAdminModal("challenge"));
       }

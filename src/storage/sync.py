@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import math
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
@@ -14,6 +15,15 @@ from src.models import SyncMode, SyncStage, SyncStatus
 from src.storage.metadata import MetadataStore
 
 logger = get_logger(LOGGER_SYNC)
+
+
+class SyncCooldownError(RuntimeError):
+    """Raised when synchronization is triggered while within the cooldown window."""
+
+    def __init__(self, remaining_seconds: float, message: str | None = None) -> None:
+        self.remaining_seconds = max(0.0, remaining_seconds)
+        msg = message or f'Sync cooldown active. Please wait {int(math.ceil(self.remaining_seconds))}s.'
+        super().__init__(msg)
 
 
 def _clean_str(val: Any) -> str | None:
@@ -35,14 +45,85 @@ class SyncEngine:
         metadata_store: MetadataStore,
         *,
         on_sync_complete: Callable[[str], None] | None = None,
+        cooldown_seconds: int = 60,
     ) -> None:
-        """Initialize SyncEngine with Immich client, metadata store, and optional completion callback."""
+        """Initialize SyncEngine with Immich client, metadata store, optional callback, and cooldown."""
         self._immich = immich
         self._metadata_store = metadata_store
         self._on_sync_complete = on_sync_complete
+        self._cooldown_seconds = max(0, cooldown_seconds)
         self._active_sync_tasks: dict[str, asyncio.Task[None]] = {}
         self._sync_warnings: dict[str, str] = {}
         self._last_sync_summaries: dict[str, dict[str, Any]] = {}
+        self._last_sync_completed_at: dict[str, float] = {}
+
+    @property
+    def cooldown_seconds(self) -> int:
+        """Cooldown period in seconds between manual sync triggers."""
+        return self._cooldown_seconds
+
+    def get_cooldown_remaining(
+        self,
+        library_name: str | None = None,
+        available_libraries: list[str] | None = None,
+        now: datetime | None = None,
+    ) -> float:
+        """Return the maximum cooldown seconds remaining before a new sync can be triggered."""
+        if self._cooldown_seconds <= 0:
+            return 0.0
+
+        if library_name is not None:
+            libs = [library_name]
+        elif available_libraries is not None:
+            libs = list(available_libraries)
+        elif hasattr(self._immich, 'list_libraries') and self._immich.list_libraries():
+            libs = self._immich.list_libraries()
+        else:
+            all_states = self._metadata_store.get_all_sync_states()
+            libs = [s['library_name'] for s in all_states] or list(self._active_sync_tasks.keys())
+
+        if not libs:
+            return 0.0
+
+        # If any library has never been synced, it is not on cooldown (eligible for initial sync)
+        states = [self._metadata_store.get_sync_state(lib) for lib in libs]
+        if any(not s.get('last_sync_at') and (s.get('synced_assets') or 0) == 0 for s in states):
+            return 0.0
+
+        current_utc = now or datetime.now(UTC)
+        current_mono = time.monotonic()
+        max_remaining = 0.0
+
+        for lib in libs:
+            if lib in self._last_sync_completed_at:
+                elapsed_mono = current_mono - self._last_sync_completed_at[lib]
+                rem_mono = max(0.0, self._cooldown_seconds - elapsed_mono)
+                if rem_mono > max_remaining:
+                    max_remaining = rem_mono
+            else:
+                state = self._metadata_store.get_sync_state(lib)
+                last_sync_at = state.get('last_sync_at')
+                if last_sync_at:
+                    try:
+                        last_dt = datetime.fromisoformat(str(last_sync_at))
+                        if last_dt.tzinfo is None:
+                            last_dt = last_dt.replace(tzinfo=UTC)
+                        elapsed_db = (current_utc - last_dt).total_seconds()
+                        rem_db = max(0.0, self._cooldown_seconds - elapsed_db)
+                        if rem_db > max_remaining:
+                            max_remaining = rem_db
+                    except (ValueError, TypeError):
+                        pass
+
+        return round(max_remaining, 1)
+
+    def is_on_cooldown(
+        self,
+        library_name: str | None = None,
+        available_libraries: list[str] | None = None,
+    ) -> bool:
+        """Check whether synchronization is currently blocked by the cooldown window."""
+        return self.get_cooldown_remaining(library_name, available_libraries) > 0.0
 
     def is_syncing(self, library_name: str) -> bool:
         """Check whether a background synchronization task is actively running for a library."""
@@ -145,6 +226,9 @@ class SyncEngine:
                 'completed_at': max((s.get('completed_at', '') for s in summaries), default=None),
             }
 
+        cooldown_remaining = self.get_cooldown_remaining(available_libraries=libs)
+        is_on_cooldown = cooldown_remaining > 0.0 and not is_syncing
+
         return {
             'libraries': libs,
             'is_syncing': is_syncing,
@@ -160,19 +244,22 @@ class SyncEngine:
             'last_sync_duration_seconds': last_sync_duration,
             'last_sync_summary': last_sync_summary,
             'warnings': warnings_dict,
+            'cooldown_remaining_seconds': cooldown_remaining,
+            'is_on_cooldown': is_on_cooldown,
         }
 
     def trigger_sync_all(
         self,
         *,
         force_full: bool = False,
+        bypass_cooldown: bool = False,
         available_libraries: list[str] | None = None,
     ) -> list[asyncio.Task[None]]:
         """Trigger background synchronization for all configured and available libraries."""
         libs = available_libraries if available_libraries is not None else self._immich.list_libraries()
         tasks = []
         for lib in libs:
-            t = self.trigger_sync(lib, force_full=force_full)
+            t = self.trigger_sync(lib, force_full=force_full, bypass_cooldown=bypass_cooldown)
             tasks.append(t)
         return tasks
 
@@ -211,20 +298,32 @@ class SyncEngine:
         # Full sync takes precedence if due
         if self.is_sync_due(last_full_sync_at, full_interval_hours, now=now):
             logger.info('Triggering scheduled full metadata sync for library: %s', library_name)
-            return self.trigger_sync(library_name, force_full=True)
+            return self.trigger_sync(library_name, force_full=True, bypass_cooldown=True)
 
         # Otherwise check if delta sync is due
         if self.is_sync_due(last_sync_at, delta_interval_hours, now=now):
             logger.info('Triggering scheduled delta metadata sync for library: %s', library_name)
-            return self.trigger_sync(library_name, force_full=False)
+            return self.trigger_sync(library_name, force_full=False, bypass_cooldown=True)
 
         return None
 
-    def trigger_sync(self, library_name: str, *, force_full: bool = False) -> asyncio.Task[None]:
+    def trigger_sync(
+        self,
+        library_name: str,
+        *,
+        force_full: bool = False,
+        bypass_cooldown: bool = False,
+    ) -> asyncio.Task[None]:
         """Trigger an asynchronous background sync for a library if not already running."""
         if self.is_syncing(library_name):
             logger.info('Sync already in progress for library %s', library_name)
             return self._active_sync_tasks[library_name]
+
+        if not bypass_cooldown and not force_full:
+            remaining = self.get_cooldown_remaining(library_name)
+            if remaining > 0.0:
+                logger.info('Sync blocked by cooldown for library %s (%.1fs remaining)', library_name, remaining)
+                raise SyncCooldownError(remaining)
 
         task = asyncio.create_task(self.sync_library(library_name, force_full=force_full))
         self._active_sync_tasks[library_name] = task
@@ -900,3 +999,5 @@ class SyncEngine:
                 error=str(exc),
             )
             raise
+        finally:
+            self._last_sync_completed_at[library_name] = time.monotonic()

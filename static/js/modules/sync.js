@@ -2,6 +2,7 @@ import { el } from "./state.js";
 import { t, formatDateTime, formatNumber, formatRelativeTime } from "./i18n.js";
 import { escapeHtml } from "./formatters.js";
 import { api } from "./api.js";
+import { showShareToast } from "./summary/share.js";
 
 let _syncPollInterval = null;
 let _lastSyncStatus = null;
@@ -9,6 +10,55 @@ let _activeSyncPopup = null;
 let _syncPopupDismissTimer = null;
 let _onSyncDocClick = null;
 let _onSyncKeyDown = null;
+let _syncCooldownTimer = null;
+let _cooldownRemaining = 0;
+
+export function clearCooldownTimer() {
+  if (_syncCooldownTimer) {
+    clearInterval(_syncCooldownTimer);
+    _syncCooldownTimer = null;
+  }
+  _cooldownRemaining = 0;
+}
+
+function updateCooldownUI() {
+  if (el.syncLibraryBtn) {
+    const active = _cooldownRemaining > 0;
+    el.syncLibraryBtn.classList.toggle("cooldown", active);
+    el.syncLibraryBtn.disabled = active;
+    if (active) {
+      el.syncLibraryBtn.title = t("setup.sync_cooldown_active", _cooldownRemaining);
+    }
+  }
+}
+
+export function startCooldownTicker(seconds) {
+  const targetSec = Math.ceil(seconds);
+  if (targetSec <= 0) {
+    clearCooldownTimer();
+    return;
+  }
+  _cooldownRemaining = Math.max(_cooldownRemaining, targetSec);
+  updateCooldownUI();
+
+  if (_syncCooldownTimer) return; // already running
+
+  _syncCooldownTimer = setInterval(() => {
+    _cooldownRemaining -= 1;
+    if (_cooldownRemaining <= 0) {
+      clearCooldownTimer();
+      if (_lastSyncStatus) {
+        renderSyncStatus({
+          ..._lastSyncStatus,
+          cooldown_remaining_seconds: 0,
+          is_on_cooldown: false,
+        });
+      }
+    } else {
+      updateCooldownUI();
+    }
+  }, 1000);
+}
 
 export function getLastSyncStatus() {
   return _lastSyncStatus;
@@ -27,16 +77,28 @@ export function formatSyncDate(isoStr) {
 export function renderSyncStatus(status) {
   if (!status) return;
   _lastSyncStatus = status;
-  const isSyncing = status.sync_status === "syncing";
+  const isSyncing = status.sync_status === "syncing" || Boolean(status.is_syncing);
   const neverSynced = !status.last_sync_at && (status.synced_assets || 0) === 0 && !isSyncing;
+  const cooldownSec = status.cooldown_remaining_seconds || 0;
+
+  if (isSyncing) {
+    clearCooldownTimer();
+  } else if (cooldownSec > 0) {
+    startCooldownTicker(cooldownSec);
+  }
+
+  const isOnCooldown = !isSyncing && (Boolean(status.is_on_cooldown) || cooldownSec > 0 || _cooldownRemaining > 0);
 
   if (el.syncLibraryBtn) {
     el.syncLibraryBtn.classList.toggle("syncing", isSyncing);
     el.syncLibraryBtn.classList.toggle("needs-sync", neverSynced);
-    el.syncLibraryBtn.disabled = isSyncing;
+    el.syncLibraryBtn.classList.toggle("cooldown", isOnCooldown);
+    el.syncLibraryBtn.disabled = isSyncing || isOnCooldown;
 
     if (isSyncing) {
       el.syncLibraryBtn.title = t("setup.syncing_label");
+    } else if (isOnCooldown && _cooldownRemaining > 0) {
+      el.syncLibraryBtn.title = t("setup.sync_cooldown_active", _cooldownRemaining);
     } else if (neverSynced) {
       el.syncLibraryBtn.title = t("setup.sync_title_never_synced");
     } else if (status.last_sync_at) {
@@ -168,6 +230,10 @@ export function startSyncPolling(onSyncComplete = null) {
 }
 
 export async function triggerLibrarySync(onSyncComplete = null) {
+  if (_cooldownRemaining > 0) {
+    showShareToast(t("setup.sync_cooldown_toast", _cooldownRemaining));
+    return;
+  }
   try {
     dismissSyncPopup();
     const isDelta = Boolean(_lastSyncStatus && _lastSyncStatus.last_sync_at);
@@ -184,6 +250,9 @@ export async function triggerLibrarySync(onSyncComplete = null) {
     startSyncPolling(onSyncComplete);
   } catch (err) {
     console.error("Failed to trigger sync:", err);
+    if (err && err.message) {
+      showShareToast(err.message);
+    }
     await checkSyncStatus(onSyncComplete);
   }
 }
