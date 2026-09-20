@@ -1,0 +1,304 @@
+/* ==========================================================================
+   Immich Quiz - Unified Match Review Screen Styles (.match-review-card)
+   Used for:
+   1. Live Match Results Summary (/game/:id/summary)
+   2. Challenge Grand Reveal Review (/play/:token/summary)
+   3. Historical Match Replays (/game/:id/replay)
+   ========================================================================== */
+
+/* ----------------------------------------------------------------- Container & Shell */
+.match-review-card,
+.match-review-shell,
+.review-content {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* ----------------------------------------------------------------- Header */
+.summary-page-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+  width: 100%;
+}
+
+.summary-header-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+
+.summary-page-header h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0.2rem 0;
+  color: var(--ink, #0f172a);
+  line-height: 1.25;
+}
+
+[data-theme="dark"] .summary-page-header h2 {
+  color: var(--ink, #f8fafc);
+}
+
+.summary-meta {
+  color: var(--text-muted, #64748b);
+  font-size: 0.95rem;
+  margin: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.summary-meta-items {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ----------------------------------------------------------------- Unified Standings Table */
+.summary-table,
+.standings-table,
+#summary-table,
+#grand-reveal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.summary-table th,
+.standings-table th,
+#summary-table th,
+#grand-reveal-table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1.5px solid var(--border-light, #e0e5f2);
+  vertical-align: middle;
+}
+
+.summary-table td,
+.standings-table td,
+#summary-table td,
+#grand-reveal-table td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--border-light, #e0e5f2);
+  color: var(--ink, #0f172a);
+  vertical-align: middle;
+}
+
+[data-theme="dark"] .summary-table th,
+[data-theme="dark"] .standings-table th,
+[data-theme="dark"] #summary-table th,
+[data-theme="dark"] #grand-reveal-table th {
+  color: var(--text-muted, #94a3b8);
+  border-bottom-color: var(--border-light, #334155);
+}
+
+[data-theme="dark"] .summary-table td,
+[data-theme="dark"] .standings-table td,
+[data-theme="dark"] #summary-table td,
+[data-theme="dark"] #grand-reveal-table td {
+  color: var(--ink, #f8fafc);
+  border-bottom-color: var(--border-light, #334155);
+}
+
+.summary-table tbody tr,
+.standings-table tbody tr,
+#summary-table tbody tr,
+#grand-reveal-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.summary-table tbody tr:hover,
+.standings-table tbody tr:hover,
+#summary-table tbody tr:hover,
+#grand-reveal-table tbody tr:hover {
+  background-color: rgba(15, 124, 127, 0.04);
+}
+
+[data-theme="dark"] .summary-table tbody tr:hover,
+[data-theme="dark"] .standings-table tbody tr:hover,
+[data-theme="dark"] #summary-table tbody tr:hover,
+[data-theme="dark"] #grand-reveal-table tbody tr:hover {
+  background-color: rgba(56, 189, 248, 0.08);
+}
+
+.summary-table tr:last-child td,
+.standings-table tr:last-child td,
+#summary-table tr:last-child td,
+#grand-reveal-table tr:last-child td {
+  border-bottom: none;
+}
+
+/* Winner & Highlight Rows */
+.summary-table tr.winner-row,
+.standings-table tr.winner-row,
+#summary-table tr.winner-row,
+#grand-reveal-table tr.winner-row {
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.summary-table tr.winner-row:hover,
+.standings-table tr.winner-row:hover,
+#summary-table tr.winner-row:hover,
+#grand-reveal-table tr.winner-row:hover {
+  background: rgba(234, 179, 8, 0.13);
+}
+
+.summary-table tr.highlight-player-row,
+.standings-table tr.highlight-player-row,
+#summary-table tr.highlight-player-row,
+#grand-reveal-table tr.highlight-player-row {
+  background: rgba(15, 124, 127, 0.06);
+}
+
+/* Table Columns */
+.col-rank {
+  font-weight: 700;
+  width: 50px;
+  white-space: nowrap;
+}
+
+.col-player {
+  font-weight: 600;
+}
+
+.col-rounds {
+  width: 85px;
+  white-space: nowrap;
+}
+
+.col-score {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.col-acc {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  width: 75px;
+}
+
+/* ----------------------------------------------------------------- Bottom Actions & Invite Drawer */
+.summary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.summary-actions button,
+.summary-actions .btn,
+.summary-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  padding: 0.65rem 1.4rem;
+  border-radius: 12px;
+  background: var(--card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  color: var(--ink, #1f2a44);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.summary-actions button:hover,
+.summary-actions .btn:hover,
+.summary-actions .btn-secondary:hover {
+  background: var(--bg-hover, #f8fafc);
+  border-color: var(--accent, #0f7c7f);
+  color: var(--accent, #0f7c7f);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.summary-actions button:active,
+.summary-actions .btn:active,
+.summary-actions .btn-secondary:active {
+  transform: translateY(0);
+}
+
+[data-theme="dark"] .summary-actions button,
+[data-theme="dark"] .summary-actions .btn,
+[data-theme="dark"] .summary-actions .btn-secondary {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .summary-actions button:hover,
+[data-theme="dark"] .summary-actions .btn:hover,
+[data-theme="dark"] .summary-actions .btn-secondary:hover {
+  background: #334155;
+  border-color: var(--accent, #0f7c7f);
+  color: #38bdf8;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.summary-invite-drawer {
+  width: 100%;
+  max-width: 620px;
+  margin: 0.75rem auto 0;
+  transition: all 0.25s ease;
+}
+
+.summary-invite-drawer.hidden {
+  display: none !important;
+}
+
+/* ----------------------------------------------------------------- Mobile Responsiveness */
+@media (max-width: 640px) {
+  .summary-page-header h2 {
+    font-size: 1.5rem;
+  }
+
+  .summary-table th,
+  .standings-table th,
+  #summary-table th,
+  #grand-reveal-table th,
+  .summary-table td,
+  .standings-table td,
+  #summary-table td,
+  #grand-reveal-table td {
+    padding: 0.45rem 0.5rem;
+    font-size: 0.82rem;
+  }
+
+  .col-rank {
+    width: 38px;
+  }
+
+  .summary-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .summary-actions button,
+  .summary-actions .btn,
+  .summary-actions .btn-secondary {
+    width: 100%;
+  }
+}

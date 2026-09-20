@@ -1092,11 +1092,10 @@ def test_challenge_summary_replay_unification_and_mobile_optimization() -> None:
     challenge_js = read_challenge_bundle_js()
     challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
 
-    # 1. Challenge summary includes replay action button navigating to /game/:id/replay and no duplicate banner
-    assert 'grand-reveal-replay-action-btn' in challenge_js
+    # 1. Challenge summary embeds unified replay in review deck without redundant action button or banner
+    assert 'grand-reveal-replay-action-btn' not in challenge_js
     assert 'grand-reveal-replay-btn' not in challenge_js
     assert 'challenge-replay-banner' not in challenge_js
-    assert '/game/${encodeURIComponent(replayMatchId)}/replay' in challenge_js
     assert 'callerCompletedRound' in challenge_js
     summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
     assert 'loadSession(capabilityToken)' not in summary_js
@@ -1182,7 +1181,7 @@ def test_standardized_leaderboard_elements_and_layout() -> None:
 
     # 5. Shared styling in challenge.css
     assert '.standings-table tr.winner-row' in challenge_css
-    assert '.winner-crown' in challenge_css
+    assert '.winner-crown' not in challenge_css
     assert '.col-progress' in challenge_css
     assert '.col-rounds' in challenge_css
 
@@ -2196,3 +2195,110 @@ def test_strict_4_locale_file_parity() -> None:
     assert en_keys == pt_keys, f'Difference between en-US and pt-BR: {en_keys ^ pt_keys}'
     assert en_keys == en_js_keys_set, f'Difference between en-US.json and en_US.js: {en_keys ^ en_js_keys_set}'
     assert en_keys == pt_js_keys_set, f'Difference between en-US.json and pt_BR.js: {en_keys ^ pt_js_keys_set}'
+
+
+def test_standardized_chip_and_tag_styling_parity() -> None:
+    """Verify that chips and tags follow the standardized design system:
+    1. Universal .badge-tag has 6px border radius, title case, no drop shadow.
+    2. Challenge tags use matching vibrant purple (#7048e8 / rgba(112, 72, 232, 0.12)) across all screens.
+    3. summary.css does NOT override badge-tag with 999px pills or conflicting orange.
+    4. leaderboard.css .playmode-badge follows 6px border-radius and consistent challenge/local/room palette.
+    5. summary.js, replay.js, and index.html utilize standardized badge classes.
+    """
+    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
+    summary_css = (STATIC_DIR / 'css' / 'components' / 'summary.css').read_text(encoding='utf-8')
+    leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+    summary_js = (JS_DIR / 'modules' / 'screens' / 'summary.js').read_text(encoding='utf-8')
+    replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
+    index_html = (STATIC_DIR / 'index.html').read_text(encoding='utf-8')
+
+    # 1. Base .badge-tag rules
+    assert '.badge-tag' in replay_css
+    assert 'border-radius: 6px;' in replay_css
+    assert 'text-transform: none;' in replay_css
+    assert 'box-shadow: none;' in replay_css
+
+    # 2. Challenge color parity (#7048e8) across replay and challenge stylesheets
+    assert '#7048e8' in replay_css
+    assert 'rgba(112, 72, 232, 0.12)' in replay_css
+    assert '#7048e8' in challenge_css
+    assert 'rgba(112, 72, 232, 0.12)' in challenge_css
+
+    # 3. No conflicting 999px or orange overrides on badge-tag in summary.css
+    assert '.badge-tag.badge-type.badge-type-challenge' not in summary_css
+    assert '.summary-header-badge-row .badge-tag.badge-type' not in summary_css
+
+    # 4. leaderboard.css playmode badge standardized
+    assert '.playmode-badge.mode-challenge' in leaderboard_css
+    assert '#7048e8' in leaderboard_css
+    assert '.playmode-badge.mode-local' in leaderboard_css
+    assert '.playmode-badge.mode-room' in leaderboard_css
+
+    # 5. JS and HTML class consistency
+    assert 'badge-type-challenge' in summary_js
+    assert 'badge-type-local' in summary_js
+    assert 'badge-type-room' in summary_js
+    assert 'badge-type-challenge' in replay_js
+    assert 'badge-type-local' in replay_js
+    assert 'badge-type-room' in replay_js
+    assert 'id="summary-game-mode-badge" class="badge-tag badge-type badge-type-local"' in index_html
+
+
+def test_match_meta_unique_emojis_and_mobile_responsive_labels() -> None:
+    """Verify that match meta items have unique field emojis (no collision between MODE and GUESS),
+    and match-meta-item-label is hidden on mobile screens across all stylesheets.
+    """
+    match_meta_js = (JS_DIR / 'modules' / 'components' / 'match_meta.js').read_text(encoding='utf-8')
+    css_dir = STATIC_DIR / 'css'
+    leaderboard_css = (css_dir / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    challenge_css = (css_dir / 'components' / 'challenge.css').read_text(encoding='utf-8')
+    filters_css = (css_dir / 'components' / 'filters.css').read_text(encoding='utf-8')
+
+    # 1. Targets (Guess) field has its own unique emojis, no longer hardcoded to 🎯
+    assert 'targetsIcon = "🧭"' in match_meta_js
+    assert 'targetsIcon = "🗂️"' in match_meta_js
+    assert 'targetsIcon = "📍"' in match_meta_js
+    assert 'targetsIcon = "📅"' in match_meta_js
+    assert 'type: "targets",\n      icon: targetsIcon,' in match_meta_js
+
+    # 2. Mode emojis remain 🎯 for Pinpoint and 🔀 for Unshuffle
+    assert 'modeEmoji = isShuffle ? "🔀" : "🎯"' in match_meta_js
+
+    # 3. Mobile responsiveness hides match-meta-item-label across all relevant stylesheets
+    assert '.match-meta-item-label {\n    display: none !important;\n  }' in leaderboard_css
+    assert '.match-meta-item-label {\n    display: none !important;\n  }' in challenge_css
+    assert (
+        '@media (max-width: 640px) {\n'
+        '  .filters-accordion-meta .match-meta-item-label {\n'
+        '    display: none !important;\n'
+        '  }\n'
+        '}'
+    ) in filters_css
+
+    # 4. Dark mode styles for match meta items exist
+    assert '[data-theme="dark"] .match-meta-category' in leaderboard_css
+    assert '[data-theme="dark"] .match-meta-item' in leaderboard_css
+    assert '[data-theme="dark"] .match-meta-item.meta-targets' in leaderboard_css
+
+
+def test_standings_table_compact_badges_and_no_redundant_crown() -> None:
+    """Verify that finished rounds pill omits the flag emoji to save table space,
+    and winner-crown is removed from formatPlayerCellHtml since rank-medal is already present.
+    """
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. formatRoundsBadge does not include flag emoji in finished badge
+    badge_func = formatters_js.split('function formatRoundsBadge')[1].split('function formatPlayerCellHtml')[0]
+    assert '🏁' not in badge_func
+    assert '<span class="challenge-rounds-pill finished"' in badge_func
+    assert '>${escapeHtml(progressStr)}</span>' in badge_func
+
+    # 2. formatPlayerCellHtml does not include winner-crown
+    cell_func = formatters_js.split('function formatPlayerCellHtml')[1].split('function formatDistance')[0]
+    assert 'winner-crown' not in cell_func
+    assert '👑' not in cell_func
+
+    # 3. Dead .winner-crown CSS is removed from challenge.css
+    assert '.winner-crown' not in challenge_css

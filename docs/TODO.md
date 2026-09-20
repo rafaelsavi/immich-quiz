@@ -17,6 +17,8 @@ This document lists planned features, design ideas, and technical debt items for
   - [x] Interactive match replay view allowing players to step through past games round-by-round with maps and polaroid cards.
   - [x] Unified Match Review & Replay Screen: merged summary and replay flows with Winner Podium, Standings Table, and universal 3-tab ReviewDeck (Match Replay, Journey Map, Photo Memories).
 
+- [ ] v3.2.0 **User Access Control**
+
 - Improve levels of routing access control:
   - I want to implement different "views" with different levels of access. Some information should be public, some should be restricted to users, and some should be restricted to creators. The current app always assumes "creator" level access (access to all libraries, ability to create games etc.)
   - Guests should be able to play games but not see any player stats, nor match history.
@@ -37,10 +39,7 @@ This document lists planned features, design ideas, and technical debt items for
   - [ ] Update metadata sync and preflight filter to index video duration and ensure video GPS/date metadata validity.
   - [ ] Add library filter "Media Type" toggle (*Photos Only*, *Videos Only*, *Photos & Videos*).
 
-- [ ] v3.4.0 **Smart album filtering by person**
-  - [ ] Find an elegant way to allow to say "I want all albums where person X and Y appear in at least one photo"
-
-- [ ] v3.5.0 **Improve Audio Effects & Soundtrack**
+- [ ] v3.4.0 **Improve Audio Effects & Soundtrack**
   - [ ] Expand runtime Web Audio synthesized procedural background music with game state mood transitions (setup -> tense round -> victory fanfare).
   - [ ] Add transitional sound cues (whoosh screen transitions, high-score chimes, round buzzer variations).
   - [ ] Add volume sliders and audio mute/unmute toggles in settings.

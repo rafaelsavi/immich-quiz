@@ -68,7 +68,7 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, round_stage.css, reveal_table.css, replay.css, review_deck.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, round_stage.css, reveal_table.css, replay.css, review_deck.css, summary.css).
     │   └── modes/       Game mode styles (pinpoint.css, unshuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
@@ -94,7 +94,7 @@ immich-quiz/
         │   ├── game.js      Challenge question loading, timer management, and answer submission.
         │   ├── reveal.js    Round personal reveal, 3-second social polling, and opponent pin drops.
         │   ├── intermission.js Final round "Invite Friends" intermission, QR code, and finisher polling.
-        │   ├── summary.js   Grand Reveal summary, 3D podium, awards, scatter carousel, and journey map.
+        │   ├── summary.js   Grand Reveal summary coordinator delegating to the unified review controller, managing live multiplayer background polling, activity toast notifications, provisional-to-podium transitions, and table updates.
         │   └── index.js     Unified facade re-assembling the challenge singleton interface.
         ├── modes/       Game mode strategy definitions & registry:
         │   ├── index.js     Mode registry and getActiveMode() strategy accessor.
@@ -106,7 +106,7 @@ immich-quiz/
         │   ├── setup.js     Match configuration, preflight checks, returnToSetup, and restart.
         │   ├── game.js      Question fetching, media pre-verification, pass-device coordination, and answer submit.
         │   ├── reveal.js    Round results aggregation, reveal rendering, and turn progression.
-        │   ├── summary.js   Unified match review & replay controller (/game/:id/summary, /game/:id/replay) managing Winner Podium, Standings Table, ReviewDeck (#summary-card), and ended card (#game-ended-card).
+        │   ├── summary.js   Unified match review & replay controller (/game/:id/summary, /play/:token/summary, /game/:id/replay) managing Winner Podium, Standings Table, ReviewDeck (#summary-card), invite drawer, and ended card (#game-ended-card).
         │   ├── challenges.js Challenges Hub screen controller (#challenges-page-card, live timers, drawers).
         │   ├── stats.js     Player Statistics Directory & Profile controller (#stats-page-card).
         │   ├── replay.js    Match Replays Catalog & History controller (#replays-page-card).

@@ -1,53 +1,43 @@
 /**
- * Challenge Grand Reveal Summary & Scatter-Map Carousel Controller.
+ * Challenge Grand Reveal Summary Controller.
  *
- * Renders the multiplayer summary with 3D podium, performance awards,
- * standings table with live player highlights, and interactive round-by-round
- * Leaflet scatter-map carousel with player connector lines.
+ * Coordinates challenge results with the unified match review screen,
+ * managing real-time multiplayer background polling, activity toast notifications,
+ * dynamic provisional-to-podium transitions, and animated score updates.
  */
 
 import { api } from "../api.js";
 import { state, el } from "../state.js";
 import {
-  createStandardMap,
-  createPinIcon,
-  fitMapToBounds,
-  unregisterActiveMap,
-  renderJourneyMap,
-} from "../maps.js";
-import { renderPolaroidGallery } from "../summary/polaroids.js";
-import { openPhotoLightbox } from "../components/lightbox.js";
-import { playVictoryFanfare } from "../audio.js";
-import { launchGoldConfetti, animateScoreRollup } from "../effects.js";
-import {
-  ACTUAL_COLOR,
-  playerColor,
-  playerInitial,
   registerPlayerColor,
-  formatDistance,
-  formatMonth,
-  formatMonthError,
+  playerColor,
+  escapeHtml,
   formatRankBadge,
   formatRoundsBadge,
   formatPlayerCellHtml,
-  formatPlace,
-  escapeHtml,
+  formatMonth,
+  formatMonthError,
+  formatDistance,
+  playerInitial,
 } from "../formatters.js";
 import { t, formatDate } from "../i18n.js";
 import { renderPodium } from "../summary/podium.js";
 import { renderAwards } from "../summary/awards.js";
-import { showCard } from "../screens/common.js";
+import { renderSummaryTable, flashUpdatedSummaryRows } from "../summary/table.js";
+import { showMatchSummaryByMatchId } from "../screens/summary.js";
 import { navigate } from "../router.js";
 import { challengeSession, POLL_INTERVAL_MS } from "./session.js";
 import { renderErrorScreen } from "./landing.js";
 import { showActivityToast } from "../components/activity_toast.js";
-import { MatchReplayViewer } from "../components/match_replay.js";
-
-let _challengeReplayViewer = null;
+import { launchGoldConfetti, animateScoreRollup } from "../effects.js";
+import { playVictoryFanfare } from "../audio.js";
+import { createPinIcon, fitMapToBounds, createStandardMap, unregisterActiveMap } from "../maps.js";
+import { openPhotoLightbox } from "../components/lightbox.js";
 
 export const challengeSummary = {
   /**
    * Grand Reveal Summary Screen at the end of the challenge.
+   * Delegates view layout to the unified match review screen (#summary-card).
    * @param {object} [options]
    * @param {boolean} [options.updateUrl=true]
    */
@@ -58,13 +48,10 @@ export const challengeSummary = {
     state.currentQuestion = null;
     challengeSession.lastRoundResult = null;
 
-    if (!el.challengeCard) return;
-    showCard(el.challengeCard);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-
     try {
+      const capToken = challengeSession.challengeData?.capability_token;
       const data = await api(
-        `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
+        `/play/api/${encodeURIComponent(capToken)}/leaderboard`,
         {
           headers: {
             "X-Player-Token": challengeSession.sessionToken,
@@ -72,6 +59,7 @@ export const challengeSummary = {
         }
       );
       challengeSession.cachedLeaderboardData = data;
+
       if (data.leaderboard) {
         const participantNames = data.leaderboard.map((p) => p.player_name);
         if (participantNames.length > 0) {
@@ -84,7 +72,6 @@ export const challengeSummary = {
         });
       }
 
-      const capToken = challengeSession.challengeData?.capability_token;
       if (updateUrl && capToken) {
         navigate(`/play/${encodeURIComponent(capToken)}/summary`, { replace: true, silent: true });
       }
@@ -92,163 +79,43 @@ export const challengeSummary = {
       launchGoldConfetti();
       playVictoryFanfare();
 
-      const playUrl = capToken ? `${window.location.origin}/play/${capToken}` : "";
-      const summaryUrl = capToken ? `${window.location.origin}/play/${capToken}/summary` : "";
-      const totalRoundsCount = data.total_rounds || challengeSession.totalRounds;
-
-      const finishedPlayers = data.leaderboard.filter((p) => p.is_finished || p.completed_rounds >= totalRoundsCount);
-      const hasUnfinishedPlayers = data.leaderboard.some((p) => !p.is_finished && p.completed_rounds < totalRoundsCount);
+      const totalRoundsCount = data.total_rounds || challengeSession.totalRounds || 1;
+      const finishedPlayers = (data.leaderboard || []).filter(
+        (p) => p.is_finished || p.completed_rounds >= totalRoundsCount
+      );
+      const hasUnfinishedPlayers = (data.leaderboard || []).some(
+        (p) => !p.is_finished && p.completed_rounds < totalRoundsCount
+      );
       const isSettled = finishedPlayers.length >= 2;
       const isConcluded = Boolean(
         data.is_concluded ||
-        challengeSession.challengeData.is_active === false ||
-        (challengeSession.challengeData.expires_at && new Date() > new Date(challengeSession.challengeData.expires_at))
+        challengeSession.challengeData?.is_active === false ||
+        (challengeSession.challengeData?.expires_at && new Date() > new Date(challengeSession.challengeData.expires_at))
       );
 
-      const podiumHtml = isSettled
-        ? `
-          <div class="grand-reveal-podium-wrap">
-            <div id="grand-reveal-podium" class="summary-winner"></div>
-          </div>
-        `
-        : `
-          <div class="challenge-provisional-card" id="grand-reveal-provisional">
-            <div class="provisional-header">
-              <span class="pulse-dot"></span>
-              <h3 class="provisional-title">${t("challenge.provisional_title")}</h3>
-            </div>
-            <p class="provisional-desc">${t("challenge.provisional_desc")}</p>
-            <div class="provisional-hint">
-              <span aria-hidden="true">🏆</span>
-              <span>${t("challenge.single_player_podium_hint")}</span>
-            </div>
-          </div>
-        `;
+      const callerCompletedRound =
+        typeof data.up_to_round === "number"
+          ? data.up_to_round
+          : (challengeSession.currentRoundIndex - 1);
+      const canReplay = Boolean(
+        isConcluded ||
+        data.is_game_over ||
+        (callerCompletedRound >= 0 && callerCompletedRound >= totalRoundsCount - 1)
+      );
 
-      const isUnshuffle = data.game_mode === "unshuffle";
-      const isLocationEnabled = challengeSession.challengeData.location_mode !== false && data.location_mode !== false;
+      const replayMatchId =
+        data.challenge_id ||
+        data.match_id ||
+        (capToken ? challengeSession.loadSession(capToken)?.matchId : null) ||
+        capToken;
 
-      const standingsTableHtml = `
-        <div class="table-scroll">
-          <table id="grand-reveal-table" class="summary-table standings-table">
-            <thead>
-              <tr>
-                <th class="col-rank">${t("summary.col_rank")}</th>
-                <th class="col-player">${t("summary.col_player")}</th>
-                <th class="col-rounds text-center">${t("summary.col_rounds")}</th>
-                ${challengeSession.challengeData.location_mode !== false ? `<th class="col-score text-right">${t("summary.col_location")}</th>` : ""}
-                ${challengeSession.challengeData.date_mode !== false ? `<th class="col-score text-right">${t("summary.col_date")}</th>` : ""}
-                <th class="col-score text-right">${t("summary.col_total")}</th>
-                <th class="col-acc text-right hide-on-mobile">${t("summary.col_accuracy")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${this.renderStandingsRows(data.leaderboard, totalRoundsCount, isSettled)}
-            </tbody>
-          </table>
-        </div>
-      `;
-
-      const callerCompletedRound = typeof data.up_to_round === "number" ? data.up_to_round : (challengeSession.currentRoundIndex - 1);
-      const canReplay = Boolean(isConcluded || data.is_game_over || (callerCompletedRound >= 0 && callerCompletedRound >= totalRoundsCount - 1));
-      const replayMatchId = data.challenge_id || data.match_id || (capToken ? challengeSession.loadSession(capToken)?.matchId : null) || capToken;
-
-      el.challengeCard.innerHTML = `
-        <div class="challenge-grand-reveal">
-          <div class="grand-reveal-header">
-            <span class="badge badge-challenge">${t("challenge.badge")}</span>
-            <h2>${escapeHtml(data.title || `${challengeSession.challengeData?.creator_name || "Host"}'s Challenge`)}</h2>
-            <p class="grand-reveal-meta">
-              <span id="grand-reveal-meta-tally">${totalRoundsCount} ${t("challenge.rounds")} • ${t("challenge.participants", data.leaderboard.length)}</span>
-              <span id="grand-reveal-live-pill" class="challenge-live-pill">
-                <span class="live-poll-dot" aria-hidden="true"></span>
-                <span id="grand-reveal-live-status">${t("challenge.live_finished_tally", finishedPlayers.length, data.leaderboard.length)}</span>
-              </span>
-            </p>
-          </div>
-
-          ${podiumHtml}
-
-          ${standingsTableHtml}
-
-          <div id="grand-reveal-replay-section" class="summary-replay-section ${canReplay ? "" : "hidden"}">
-            <div class="field-head">
-              <label>${t("replay.title")}</label>
-            </div>
-            <div id="grand-reveal-replay-grid" class="replay-content-grid"></div>
-          </div>
-
-          ${canReplay
-          ? `
-            <div class="summary-actions">
-              <button type="button" class="btn btn-primary" id="grand-reveal-replay-action-btn">
-                🎬 ${t("challenge.watch_replay_btn")}
-              </button>
-            </div>
-            `
-          : ""
-        }
-        </div>
-      `;
-
-      if (isSettled) {
-        // 1. Render Podium
-        const podiumEl = document.getElementById("grand-reveal-podium");
-        const winners = finishedPlayers.filter((p) => p.is_winner).map((p) => p.player_name);
-        renderPodium(
-          {
-            players: finishedPlayers,
-            winners: winners.length > 0 ? winners : [finishedPlayers[0]?.player_name].filter(Boolean),
-            is_concluded: isConcluded,
-          },
-          podiumEl
-        );
-
-        // 2. Render Performance Awards
-        const playerStats = this.buildPlayerStats(data);
-        const grandRevealEl = el.challengeCard.querySelector(".challenge-grand-reveal");
-        renderAwards(
-          {
-            game_mode: data.game_mode,
-            location_mode: challengeSession.challengeData.location_mode !== false,
-            date_mode: challengeSession.challengeData.date_mode !== false,
-            players: data.leaderboard,
-          },
-          playerStats,
-          grandRevealEl,
-          podiumEl
-        );
-      }
-
-      // Render embedded multi-round replay viewer
-      if (canReplay && replayMatchId) {
-        const replayGrid = document.getElementById("grand-reveal-replay-grid");
-        if (replayGrid) {
-          try {
-            const replayRes = await fetch(`/api/match/${encodeURIComponent(replayMatchId)}/replay`);
-            if (replayRes.ok) {
-              const replayData = await replayRes.json();
-              if (!_challengeReplayViewer) {
-                _challengeReplayViewer = new MatchReplayViewer(replayGrid, {
-                  idPrefix: "grand-reveal-replay-",
-                  showReportButton: true,
-                });
-              }
-              _challengeReplayViewer.setMatchData(replayData, 0);
-              document.getElementById("grand-reveal-replay-section")?.classList.remove("hidden");
-            }
-          } catch (e) {
-            console.warn("Could not load challenge replay in grand reveal:", e);
-          }
-        }
-      }
-
-      // Replay action button click listeners
-      const handleReplayClick = () => {
-        if (!canReplay) return;
-        navigate(`/game/${encodeURIComponent(replayMatchId)}/replay`);
-      };
-      document.getElementById("grand-reveal-replay-action-btn")?.addEventListener("click", handleReplayClick);
+      // Delegate rendering to the unified review controller inside #summary-card
+      await showMatchSummaryByMatchId(replayMatchId, {
+        mode: "summary",
+        playFanfare: false,
+        isChallenge: true,
+        challengeData: data,
+      });
 
       // Start background polling if the challenge is active and unsettled or has unfinished players
       if ((!isSettled || hasUnfinishedPlayers) && !isConcluded) {
@@ -257,6 +124,318 @@ export const challengeSummary = {
     } catch (err) {
       console.error("Failed to load grand reveal:", err);
       renderErrorScreen(err.message || "Failed to load summary");
+    }
+  },
+
+  /**
+   * Render standings table html markup.
+   * @param {Array<object>} leaderboard
+   * @param {number} totalRoundsCount
+   * @param {boolean} isSettled
+   * @returns {string}
+   */
+  renderStandingsTableHtml(leaderboard, totalRoundsCount, isSettled) {
+    return `
+      <div class="table-scroll">
+        <table id="grand-reveal-table" class="summary-table standings-table">
+          <thead>
+            <tr>
+              <th class="col-rank">${t("summary.col_rank")}</th>
+              <th class="col-player">${t("summary.col_player")}</th>
+              <th class="col-rounds text-center">${t("summary.col_rounds")}</th>
+              ${challengeSession.challengeData?.location_mode !== false ? `<th class="col-score text-right">${t("summary.col_location")}</th>` : ""}
+              ${challengeSession.challengeData?.date_mode !== false ? `<th class="col-score text-right">${t("summary.col_date")}</th>` : ""}
+              <th class="col-score text-right">${t("summary.col_total")}</th>
+              <th class="col-acc text-right hide-on-mobile">${t("summary.col_accuracy")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.renderStandingsRows(leaderboard, totalRoundsCount, isSettled)}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
+
+  /**
+   * Render standings table rows.
+   * @param {Array<object>} leaderboard
+   * @param {number} totalRoundsCount
+   * @param {boolean} isSettled
+   * @returns {string}
+   */
+  renderStandingsRows(leaderboard, totalRoundsCount, isSettled) {
+    return (leaderboard || [])
+      .map((p) => {
+        const isFin = p.is_finished || p.completed_rounds >= totalRoundsCount;
+        const roundsBadge = formatRoundsBadge(p.completed_rounds, totalRoundsCount, isFin);
+        const isCurrent = p.player_name === challengeSession.sessionPlayerName;
+        const isWinner = p.is_winner && isSettled;
+        return `
+          <tr data-player-name="${escapeHtml(p.player_name)}" data-total-score="${escapeHtml(p.total_score)}" class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
+            <td class="col-rank">${formatRankBadge(p.rank, { showNumber: true })}</td>
+            <td class="col-player">
+              ${formatPlayerCellHtml(p.player_name, { isWinner, isCurrent })}
+            </td>
+            <td class="col-rounds text-center">
+              ${roundsBadge}
+            </td>
+            ${challengeSession.challengeData?.location_mode !== false ? `<td class="col-score text-right">${p.location_score !== null && p.location_score !== undefined ? `${p.location_score}` : "—"}</td>` : ""}
+            ${challengeSession.challengeData?.date_mode !== false ? `<td class="col-score text-right">${p.date_score !== null && p.date_score !== undefined ? `${p.date_score}` : "—"}</td>` : ""}
+            <td class="col-score col-total-score text-right font-bold">${p.total_score}</td>
+            <td class="col-acc text-right hide-on-mobile">${p.accuracy_pct}%</td>
+          </tr>
+        `;
+      })
+      .join("");
+  },
+
+  /**
+   * Start 3-second social polling on Grand Reveal screen while challenge is in progress.
+   */
+  startSummaryPolling() {
+    challengeSession.stopPolling();
+    let isInitial = true;
+
+    const poll = async () => {
+      if (!challengeSession.challengeData) return;
+      try {
+        const data = await api(
+          `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
+          {
+            headers: {
+              "X-Player-Token": challengeSession.sessionToken,
+            },
+          }
+        );
+        this.updateSummaryLive(data, { isInitial });
+        isInitial = false;
+      } catch (err) {
+        console.warn("Summary polling error:", err);
+      }
+    };
+
+    challengeSession.pollingInterval = setInterval(poll, POLL_INTERVAL_MS);
+  },
+
+  /**
+   * Dynamically update Grand Reveal UI when polling detects new submissions or player completions.
+   * @param {object} data
+   * @param {object} [options]
+   * @param {boolean} [options.isInitial=false]
+   */
+  updateSummaryLive(data, { isInitial = false } = {}) {
+    if (!el.summaryCard || el.summaryCard.classList.contains("hidden") || !data || !data.leaderboard) {
+      return;
+    }
+
+    const prevData = challengeSession.cachedLeaderboardData;
+    const oldLeaderboard = prevData?.leaderboard || [];
+    const oldMap = new Map(oldLeaderboard.map((p) => [p.player_name, p]));
+    const totalRoundsCount = data.total_rounds || challengeSession.totalRounds || 1;
+
+    const finishedPlayers = data.leaderboard.filter(
+      (p) => p.is_finished || p.completed_rounds >= totalRoundsCount
+    );
+    const hasUnfinishedPlayers = data.leaderboard.some(
+      (p) => !p.is_finished && p.completed_rounds < totalRoundsCount
+    );
+    const wasSettled = oldLeaderboard.filter(
+      (p) => p.is_finished || p.completed_rounds >= totalRoundsCount
+    ).length >= 2;
+    const isSettled = finishedPlayers.length >= 2;
+
+    const updatedPlayers = [];
+
+    // 1. Detect diffs for Activity Toasts
+    if (!isInitial) {
+      data.leaderboard.forEach((newP) => {
+        const oldP = oldMap.get(newP.player_name);
+        if (!oldP) {
+          updatedPlayers.push(newP);
+          showActivityToast({
+            icon: "👥",
+            playerName: newP.player_name,
+            title: `${newP.player_name} joined the challenge!`,
+          });
+        } else {
+          const wasFin = oldP.is_finished || oldP.completed_rounds >= totalRoundsCount;
+          const nowFin = newP.is_finished || newP.completed_rounds >= totalRoundsCount;
+          if (!wasFin && nowFin) {
+            updatedPlayers.push(newP);
+            showActivityToast({
+              icon: "🏆",
+              playerName: newP.player_name,
+              score: newP.total_score,
+              title: t("challenge.player_finished_challenge", newP.player_name, newP.rank),
+            });
+          } else if (newP.completed_rounds > oldP.completed_rounds) {
+            updatedPlayers.push(newP);
+            const diff = newP.total_score - oldP.total_score;
+            showActivityToast({
+              icon: "🎯",
+              playerName: newP.player_name,
+              score: diff > 0 ? diff : null,
+              title: t(
+                "challenge.player_submitted_round",
+                newP.player_name,
+                newP.completed_rounds,
+                diff > 0 ? diff : 0
+              ),
+            });
+          }
+        }
+      });
+    } else {
+      data.leaderboard.forEach((newP) => {
+        const oldP = oldMap.get(newP.player_name);
+        if (!oldP || newP.completed_rounds > oldP.completed_rounds || newP.total_score !== oldP.total_score) {
+          updatedPlayers.push(newP);
+        }
+      });
+    }
+
+    // Register colors for any newly appeared players
+    data.leaderboard.forEach((p) => {
+      if (p.player_color) {
+        registerPlayerColor(p.player_name, p.player_color);
+      }
+    });
+
+    // 2. Update Live Status Pill
+    const statusEl = document.getElementById("grand-reveal-live-status");
+    const pillEl = document.getElementById("grand-reveal-live-pill");
+    if (statusEl && pillEl) {
+      const prevTally = statusEl.textContent;
+      const newTally = t("challenge.live_finished_tally", finishedPlayers.length, data.leaderboard.length);
+      statusEl.textContent = newTally;
+      if (!isInitial && prevTally && prevTally !== newTally) {
+        pillEl.classList.remove("bump");
+        void pillEl.offsetWidth;
+        pillEl.classList.add("bump");
+      }
+    }
+
+    // 3. Dynamic Provisional-to-Podium Transition
+    if (!wasSettled && isSettled) {
+      const provisionalCard = document.getElementById("grand-reveal-provisional");
+      const summaryWinner = document.getElementById("summary-winner");
+      if (provisionalCard && summaryWinner) {
+        summaryWinner.innerHTML = `
+          <div class="grand-reveal-podium-wrap" id="grand-reveal-podium-section">
+            <div id="grand-reveal-podium" class="summary-winner"></div>
+          </div>
+        `;
+        const podiumEl = document.getElementById("grand-reveal-podium") || summaryWinner;
+        const winners = finishedPlayers.filter((p) => p.is_winner).map((p) => p.player_name);
+        renderPodium(
+          {
+            players: finishedPlayers,
+            winners: winners.length > 0 ? winners : [finishedPlayers[0]?.player_name].filter(Boolean),
+            is_concluded: Boolean(data.is_concluded),
+          },
+          podiumEl
+        );
+
+        const playerStats = this.buildPlayerStats(data);
+        renderAwards(
+          {
+            game_mode: data.game_mode,
+            location_mode: challengeSession.challengeData?.location_mode !== false,
+            date_mode: challengeSession.challengeData?.date_mode !== false,
+            players: data.leaderboard,
+          },
+          playerStats,
+          summaryWinner,
+          podiumEl
+        );
+
+        launchGoldConfetti();
+        playVictoryFanfare();
+      }
+    } else if (isSettled) {
+      const podiumEl = document.getElementById("grand-reveal-podium");
+      if (podiumEl && updatedPlayers.length > 0) {
+        const winners = finishedPlayers.filter((p) => p.is_winner).map((p) => p.player_name);
+        renderPodium(
+          {
+            players: finishedPlayers,
+            winners: winners.length > 0 ? winners : [finishedPlayers[0]?.player_name].filter(Boolean),
+            is_concluded: Boolean(data.is_concluded),
+          },
+          podiumEl
+        );
+      }
+    }
+
+    // 4. Update Unified Standings Table Rows & Flash
+    if (updatedPlayers.length > 0) {
+      const summaryObj = {
+        is_challenge: true,
+        play_mode: "challenge",
+        location_mode: challengeSession.challengeData?.location_mode !== false && data.location_mode !== false,
+        date_mode: challengeSession.challengeData?.date_mode !== false && data.date_mode !== false,
+        rounds_played: totalRoundsCount,
+        total_rounds: totalRoundsCount,
+        max_possible_score: totalRoundsCount * 10000,
+        players: data.leaderboard,
+        is_settled: isSettled,
+      };
+      renderSummaryTable(summaryObj, state.perfectCounts, {
+        currentSessionPlayerName: challengeSession.sessionPlayerName,
+      });
+
+      if (!isInitial) {
+        const updatedNames = new Set(updatedPlayers.map((p) => p.player_name));
+        Array.from(document.querySelectorAll("#summary-table tr[data-player-name], #grand-reveal-table tr[data-player-name]")).forEach((tr) => {
+          const name = tr.getAttribute("data-player-name");
+          if (updatedNames.has(name)) {
+            const color = playerColor(name);
+            tr.classList.remove("row-arrival-flash");
+            tr.style.setProperty("--player-accent", color);
+            tr.style.setProperty("--player-accent-alpha", `${color}33`);
+            void tr.offsetWidth;
+            tr.classList.add("row-arrival-flash");
+
+            const totalScoreCell = tr.querySelector(".col-total-score");
+            const targetScore = Number(tr.getAttribute("data-total-score") || 0);
+            if (totalScoreCell && !isNaN(targetScore)) {
+              animateScoreRollup(totalScoreCell, targetScore, targetScore * 1.5, "", false, 0);
+            }
+          }
+        });
+        flashUpdatedSummaryRows(updatedPlayers);
+      }
+    }
+
+    // 5. Update cached data and carousel scatter map if active round data changed
+    const activeRoundIdx = challengeSession.carouselRoundIndex;
+    const prevGuesses = (prevData?.round_guesses || []).filter((g) => g.round_index === activeRoundIdx);
+    const newGuesses = (data.round_guesses || []).filter((g) => g.round_index === activeRoundIdx);
+
+    challengeSession.cachedLeaderboardData = data;
+
+    if (document.getElementById("carousel-round-content") && data.game_mode !== "unshuffle" && activeRoundIdx !== undefined) {
+      const hasRoundGuessesChanged =
+        prevGuesses.length !== newGuesses.length ||
+        newGuesses.some((ng) => {
+          const pg = prevGuesses.find((g) => g.player_name === ng.player_name);
+          if (!pg) return true;
+          return (
+            pg.round_score !== ng.round_score ||
+            pg.location_points !== ng.location_points ||
+            pg.date_points !== ng.date_points
+          );
+        });
+
+      if (hasRoundGuessesChanged) {
+        this.renderCarouselRound(data, activeRoundIdx, { preserveView: true });
+      }
+    }
+
+    // 6. Stop polling if all players have completed and match is settled
+    if (!hasUnfinishedPlayers && isSettled) {
+      challengeSession.stopPolling();
     }
   },
 
@@ -349,7 +528,6 @@ export const challengeSummary = {
           });
           challengeSession.carouselLayers = [];
         } else {
-          // Clear previous layers from existing map instance without re-instantiating Leaflet
           (challengeSession.carouselLayers || []).forEach((layer) => {
             try {
               challengeSession.carouselMap.removeLayer(layer);
@@ -358,58 +536,36 @@ export const challengeSummary = {
           challengeSession.carouselLayers = [];
         }
 
-        challengeSession.carouselMarkers = {};
-        challengeSession.carouselSpiderLines = {};
-        challengeSession.carouselTrueCoords = {};
-
         const bounds = L.latLngBounds();
-
-        // Find first guess with actual coordinates
-        const sampleGuess = roundGuesses.find((g) => {
+        const sampleWithLoc = roundGuesses.find((g) => {
           const p = g.pinpoint || g;
-          return (
-            p &&
-            Number.isFinite(Number(p.actual_latitude)) &&
-            Number.isFinite(Number(p.actual_longitude))
-          );
+          return p.actual_latitude != null && p.actual_longitude != null;
         });
-        if (sampleGuess) {
-          const sampleP = sampleGuess.pinpoint || sampleGuess;
-          const aLat = Number(sampleP.actual_latitude);
-          const aLng = Number(sampleP.actual_longitude);
-          const trueLatLng = L.latLng(aLat, aLng);
-          bounds.extend(trueLatLng);
-          challengeSession.carouselTrueCoords["__true__"] = { lat: aLat, lng: aLng };
 
-          const trueMarker = L.marker(trueLatLng, {
-            icon: createPinIcon("\u2605", ACTUAL_COLOR),
-            zIndexOffset: 1000,
-          })
-            .bindPopup(`<b>${t("challenge.true_location")}</b><br>${formatPlace(sampleP)}`)
+        if (sampleWithLoc) {
+          const sampleP = sampleWithLoc.pinpoint || sampleWithLoc;
+          const trueLat = Number(sampleP.actual_latitude);
+          const trueLng = Number(sampleP.actual_longitude);
+          const trueLatLng = L.latLng(trueLat, trueLng);
+          bounds.extend(trueLatLng);
+
+          const trueIcon = createPinIcon("★", "#22c55e");
+          const trueMarker = L.marker(trueLatLng, { icon: trueIcon })
+            .bindPopup(`<b>${t("game.actual_location")}</b>`)
             .addTo(challengeSession.carouselMap);
-          challengeSession.carouselMarkers["__true__"] = trueMarker;
           challengeSession.carouselLayers.push(trueMarker);
 
-          // Add all player pins and connect dashed lines to true location
           roundGuesses.forEach((g) => {
             const gp = g.pinpoint || g;
-            if (
-              gp &&
-              Number.isFinite(Number(gp.guessed_latitude)) &&
-              Number.isFinite(Number(gp.guessed_longitude))
-            ) {
-              const gLat = Number(gp.guessed_latitude);
-              const gLng = Number(gp.guessed_longitude);
+            const gLat = Number(gp.guessed_latitude);
+            const gLng = Number(gp.guessed_longitude);
+            if (!isNaN(gLat) && !isNaN(gLng) && (gLat !== 0 || gLng !== 0)) {
               const latlng = L.latLng(gLat, gLng);
               bounds.extend(latlng);
-              const pKey = `player_${g.player_name}`;
-              challengeSession.carouselTrueCoords[pKey] = { lat: gLat, lng: gLng };
-
               const color = playerColor(g.player_name);
               const initial = playerInitial(g.player_name);
               const icon = createPinIcon(initial, color);
 
-              // Dashed connector polyline
               const line = L.polyline([trueLatLng, latlng], {
                 color,
                 weight: 3,
@@ -422,7 +578,6 @@ export const challengeSummary = {
               const marker = L.marker(latlng, { icon })
                 .bindPopup(`<b>${g.player_name}</b><br>${g.round_score} pts${distStr}`)
                 .addTo(challengeSession.carouselMap);
-              challengeSession.carouselMarkers[pKey] = marker;
               challengeSession.carouselLayers.push(marker);
             }
           });
@@ -488,33 +643,33 @@ export const challengeSummary = {
                   </thead>
                   <tbody>
                     ${validGuesses.length === 0
-              ? `<tr><td colspan="4" class="text-center text-muted py-2">${t("fmt.no_guess")}</td></tr>`
-              : validGuesses
-                .map((g, idx) => {
-                  const pp = g.pinpoint || g;
-                  const pDateStr = formatMonth(pp.guessed_year, pp.guessed_month);
-                  const guessWithActual = {
-                    ...pp,
-                    player_name: g.player_name,
-                    actual_year: pp.actual_year ?? sampleP.actual_year,
-                    actual_month: pp.actual_month ?? sampleP.actual_month,
-                  };
-                  const errStr = formatMonthError(guessWithActual);
-                  const isCurrent = g.player_name === challengeSession.sessionPlayerName;
-                  const isWinner = idx === 0 && topScore > 0 && validGuesses.length > 1;
-                  return `
-                                <tr class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
-                                  <td class="col-player">
-                                    ${formatPlayerCellHtml(g.player_name, { isWinner, isCurrent })}
-                                  </td>
-                                  <td class="col-guess text-center">${pDateStr}</td>
-                                  <td class="col-error text-center text-muted">${errStr}</td>
-                                  <td class="col-score text-right font-bold">+${g.date_points || 0} pts</td>
-                                </tr>
-                              `;
-                })
-                .join("")
-            }
+                      ? `<tr><td colspan="4" class="text-center text-muted py-2">${t("fmt.no_guess")}</td></tr>`
+                      : validGuesses
+                        .map((g, idx) => {
+                          const pp = g.pinpoint || g;
+                          const pDateStr = formatMonth(pp.guessed_year, pp.guessed_month);
+                          const guessWithActual = {
+                            ...pp,
+                            player_name: g.player_name,
+                            actual_year: pp.actual_year ?? sampleP.actual_year,
+                            actual_month: pp.actual_month ?? sampleP.actual_month,
+                          };
+                          const errStr = formatMonthError(guessWithActual);
+                          const isCurrent = g.player_name === challengeSession.sessionPlayerName;
+                          const isWinner = idx === 0 && topScore > 0 && validGuesses.length > 1;
+                          return `
+                            <tr class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
+                              <td class="col-player">
+                                ${formatPlayerCellHtml(g.player_name, { isWinner, isCurrent })}
+                              </td>
+                              <td class="col-guess text-center">${pDateStr}</td>
+                              <td class="col-error text-center text-muted">${errStr}</td>
+                              <td class="col-score text-right font-bold">+${g.date_points || 0} pts</td>
+                            </tr>
+                          `;
+                        })
+                        .join("")
+                    }
                   </tbody>
                 </table>
               </div>
@@ -535,7 +690,6 @@ export const challengeSummary = {
   buildPlayerStats(leaderboardData) {
     const stats = {};
 
-    // Initialize stats for each player
     (leaderboardData.leaderboard || []).forEach((p) => {
       stats[p.player_name] = {
         totalDistanceKm: 0,
@@ -551,10 +705,11 @@ export const challengeSummary = {
       };
     });
 
-    const isLocationEnabled = challengeSession.challengeData?.location_mode !== false && leaderboardData?.location_mode !== false;
-    const isDateEnabled = challengeSession.challengeData?.date_mode !== false && leaderboardData?.date_mode !== false;
+    const isLocationEnabled =
+      challengeSession.challengeData?.location_mode !== false && leaderboardData?.location_mode !== false;
+    const isDateEnabled =
+      challengeSession.challengeData?.date_mode !== false && leaderboardData?.date_mode !== false;
 
-    // Aggregate individual photo guesses and group by round
     const playerRoundGuesses = new Map();
     const seenPlayerRounds = new Set();
 
@@ -608,8 +763,7 @@ export const challengeSummary = {
       }
     });
 
-    // Evaluate perfect rounds across all items in each round
-    playerRoundGuesses.forEach((items, roundKey) => {
+    playerRoundGuesses.forEach((items) => {
       const playerName = items[0].g.player_name;
       const pStats = stats[playerName];
       if (!pStats) return;
@@ -623,274 +777,5 @@ export const challengeSummary = {
     });
 
     return stats;
-  },
-
-  /**
-   * Render HTML for standings table rows with data attributes for live updates and animations.
-   * @param {Array} leaderboard
-   * @param {number} totalRoundsCount
-   * @param {boolean} isSettled
-   * @returns {string}
-   */
-  renderStandingsRows(leaderboard, totalRoundsCount, isSettled) {
-    return (leaderboard || [])
-      .map((p) => {
-        const isFin = p.is_finished || p.completed_rounds >= totalRoundsCount;
-        const roundsBadge = formatRoundsBadge(p.completed_rounds, totalRoundsCount, isFin);
-        const isCurrent = p.player_name === challengeSession.sessionPlayerName;
-        const isWinner = p.is_winner && isSettled;
-        return `
-          <tr data-player-name="${escapeHtml(p.player_name)}" data-total-score="${escapeHtml(p.total_score)}" class="${isCurrent ? "highlight-player-row" : ""} ${isWinner ? "winner-row" : ""}">
-            <td class="col-rank">${formatRankBadge(p.rank, { showNumber: true })}</td>
-            <td class="col-player">
-              ${formatPlayerCellHtml(p.player_name, { isWinner, isCurrent })}
-            </td>
-            <td class="col-rounds text-center">
-              ${roundsBadge}
-            </td>
-            ${challengeSession.challengeData?.location_mode !== false ? `<td class="col-score text-right">${p.location_score !== null && p.location_score !== undefined ? `${p.location_score}` : "—"}</td>` : ""}
-            ${challengeSession.challengeData?.date_mode !== false ? `<td class="col-score text-right">${p.date_score !== null && p.date_score !== undefined ? `${p.date_score}` : "—"}</td>` : ""}
-            <td class="col-score col-total-score text-right font-bold">${p.total_score}</td>
-            <td class="col-acc text-right hide-on-mobile">${p.accuracy_pct}%</td>
-          </tr>
-        `;
-      })
-      .join("");
-  },
-
-  /**
-   * Start 3-second social polling on Grand Reveal screen while challenge is in progress.
-   */
-  startSummaryPolling() {
-    challengeSession.stopPolling();
-    let isInitial = true;
-
-    const poll = async () => {
-      if (!challengeSession.challengeData) return;
-      try {
-        const data = await api(
-          `/play/api/${encodeURIComponent(challengeSession.challengeData.capability_token)}/leaderboard`,
-          {
-            headers: {
-              "X-Player-Token": challengeSession.sessionToken,
-            },
-          }
-        );
-        this.updateSummaryLive(data, { isInitial });
-        isInitial = false;
-      } catch (err) {
-        console.warn("Summary polling error:", err);
-      }
-    };
-
-    challengeSession.pollingInterval = setInterval(poll, POLL_INTERVAL_MS);
-  },
-
-  /**
-   * Dynamically update Grand Reveal UI when polling detects new submissions or player completions.
-   * @param {object} data
-   * @param {object} [options]
-   * @param {boolean} [options.isInitial=false]
-   */
-  updateSummaryLive(data, { isInitial = false } = {}) {
-    if (!el.challengeCard || el.challengeCard.classList.contains("hidden") || !data || !data.leaderboard) {
-      return;
-    }
-
-    const prevData = challengeSession.cachedLeaderboardData;
-    const oldLeaderboard = prevData?.leaderboard || [];
-    const oldMap = new Map(oldLeaderboard.map((p) => [p.player_name, p]));
-    const totalRoundsCount = data.total_rounds || challengeSession.totalRounds;
-
-    const finishedPlayers = data.leaderboard.filter((p) => p.is_finished || p.completed_rounds >= totalRoundsCount);
-    const hasUnfinishedPlayers = data.leaderboard.some((p) => !p.is_finished && p.completed_rounds < totalRoundsCount);
-    const wasSettled = oldLeaderboard.filter((p) => p.is_finished || p.completed_rounds >= totalRoundsCount).length >= 2;
-    const isSettled = finishedPlayers.length >= 2;
-
-    const updatedPlayers = [];
-
-    // 1. Detect diffs for Activity Toasts (Option 1)
-    if (!isInitial) {
-      data.leaderboard.forEach((newP) => {
-        const oldP = oldMap.get(newP.player_name);
-        if (!oldP) {
-          updatedPlayers.push(newP);
-          showActivityToast({
-            icon: "👥",
-            playerName: newP.player_name,
-            title: `${newP.player_name} joined the challenge!`,
-          });
-        } else {
-          const wasFin = oldP.is_finished || oldP.completed_rounds >= totalRoundsCount;
-          const nowFin = newP.is_finished || newP.completed_rounds >= totalRoundsCount;
-          if (!wasFin && nowFin) {
-            updatedPlayers.push(newP);
-            showActivityToast({
-              icon: "🏆",
-              playerName: newP.player_name,
-              score: newP.total_score,
-              title: t("challenge.player_finished_challenge", newP.player_name, newP.rank),
-            });
-          } else if (newP.completed_rounds > oldP.completed_rounds) {
-            updatedPlayers.push(newP);
-            const diff = newP.total_score - oldP.total_score;
-            showActivityToast({
-              icon: "🎯",
-              playerName: newP.player_name,
-              score: diff > 0 ? diff : null,
-              title: t("challenge.player_submitted_round", newP.player_name, newP.completed_rounds, diff > 0 ? diff : 0),
-            });
-          }
-        }
-      });
-    } else {
-      data.leaderboard.forEach((newP) => {
-        const oldP = oldMap.get(newP.player_name);
-        if (!oldP || newP.completed_rounds > oldP.completed_rounds || newP.total_score !== oldP.total_score) {
-          updatedPlayers.push(newP);
-        }
-      });
-    }
-
-    // Register colors for any newly appeared players
-    data.leaderboard.forEach((p) => {
-      if (p.player_color) {
-        registerPlayerColor(p.player_name, p.player_color);
-      }
-    });
-
-    // 2. Update Live Status Pill and Header Meta (Option 3)
-    const metaTallyEl = document.getElementById("grand-reveal-meta-tally");
-    if (metaTallyEl) {
-      metaTallyEl.textContent = `${totalRoundsCount} ${t("challenge.rounds")} • ${t("challenge.participants", data.leaderboard.length)}`;
-    }
-
-    const statusEl = document.getElementById("grand-reveal-live-status");
-    const pillEl = document.getElementById("grand-reveal-live-pill");
-    if (statusEl && pillEl) {
-      const prevTally = statusEl.textContent;
-      const newTally = t("challenge.live_finished_tally", finishedPlayers.length, data.leaderboard.length);
-      statusEl.textContent = newTally;
-      if (!isInitial && prevTally && prevTally !== newTally) {
-        pillEl.classList.remove("bump");
-        void pillEl.offsetWidth;
-        pillEl.classList.add("bump");
-      }
-    }
-
-    // 3. Dynamic Provisional-to-Podium Transition (Option 4)
-    if (!wasSettled && isSettled) {
-      const provisionalCard = document.getElementById("grand-reveal-provisional");
-      if (provisionalCard) {
-        const podiumWrap = document.createElement("div");
-        podiumWrap.className = "grand-reveal-podium-wrap";
-        podiumWrap.id = "grand-reveal-podium-section";
-        podiumWrap.innerHTML = `
-          <div id="grand-reveal-podium" class="summary-winner"></div>
-        `;
-        provisionalCard.replaceWith(podiumWrap);
-
-        const podiumEl = document.getElementById("grand-reveal-podium");
-        const winners = finishedPlayers.filter((p) => p.is_winner).map((p) => p.player_name);
-        renderPodium(
-          {
-            players: finishedPlayers,
-            winners: winners.length > 0 ? winners : [finishedPlayers[0]?.player_name].filter(Boolean),
-            is_concluded: Boolean(data.is_concluded),
-          },
-          podiumEl
-        );
-
-        // Render Performance Awards
-        const playerStats = this.buildPlayerStats(data);
-        const grandRevealEl = el.challengeCard.querySelector(".challenge-grand-reveal");
-        renderAwards(
-          {
-            game_mode: data.game_mode,
-            location_mode: challengeSession.challengeData.location_mode !== false,
-            date_mode: challengeSession.challengeData.date_mode !== false,
-            players: data.leaderboard,
-          },
-          playerStats,
-          grandRevealEl,
-          podiumEl
-        );
-
-        launchGoldConfetti();
-        playVictoryFanfare();
-      }
-    } else if (isSettled) {
-      // Refresh podium if any winner/ranking state updated
-      const podiumEl = document.getElementById("grand-reveal-podium");
-      if (podiumEl && updatedPlayers.length > 0) {
-        const winners = finishedPlayers.filter((p) => p.is_winner).map((p) => p.player_name);
-        renderPodium(
-          {
-            players: finishedPlayers,
-            winners: winners.length > 0 ? winners : [finishedPlayers[0]?.player_name].filter(Boolean),
-            is_concluded: Boolean(data.is_concluded),
-          },
-          podiumEl
-        );
-      }
-    }
-
-    // 4. Update Standings Table Rows & Flash (Option 2)
-    const tableBody = document.querySelector("#grand-reveal-table tbody");
-    if (tableBody && updatedPlayers.length > 0) {
-      tableBody.innerHTML = this.renderStandingsRows(data.leaderboard, totalRoundsCount, isSettled);
-
-      if (!isInitial) {
-        const updatedNames = new Set(updatedPlayers.map((p) => p.player_name));
-        Array.from(tableBody.querySelectorAll("tr[data-player-name]")).forEach((tr) => {
-          const name = tr.getAttribute("data-player-name");
-          if (updatedNames.has(name)) {
-            const color = playerColor(name);
-            tr.classList.remove("row-arrival-flash");
-            tr.style.setProperty("--player-accent", color);
-            tr.style.setProperty("--player-accent-alpha", `${color}33`);
-            void tr.offsetWidth;
-            tr.classList.add("row-arrival-flash");
-
-            // Score rollup animation
-            const totalScoreCell = tr.querySelector(".col-total-score");
-            const targetScore = Number(tr.getAttribute("data-total-score") || 0);
-            if (totalScoreCell && !isNaN(targetScore)) {
-              animateScoreRollup(totalScoreCell, targetScore, targetScore * 1.5, "", false, 0);
-            }
-          }
-        });
-      }
-    }
-
-    // 5. Update cached data and carousel scatter map if active round data changed
-    const activeRoundIdx = challengeSession.carouselRoundIndex;
-    const prevGuesses = (prevData?.round_guesses || []).filter((g) => g.round_index === activeRoundIdx);
-    const newGuesses = (data.round_guesses || []).filter((g) => g.round_index === activeRoundIdx);
-
-    challengeSession.cachedLeaderboardData = data;
-
-    if (document.getElementById("carousel-round-content") && data.game_mode !== "unshuffle" && activeRoundIdx !== undefined) {
-      const hasRoundGuessesChanged =
-        prevGuesses.length !== newGuesses.length ||
-        newGuesses.some((ng) => {
-          const pg = prevGuesses.find((g) => g.player_name === ng.player_name);
-          if (!pg) return true;
-          return (
-            pg.round_score !== ng.round_score ||
-            pg.location_points !== ng.location_points ||
-            pg.date_points !== ng.date_points
-          );
-        });
-
-      if (hasRoundGuessesChanged) {
-        this.renderCarouselRound(data, activeRoundIdx, { preserveView: true });
-      }
-    }
-
-    // 6. Stop polling if all players have completed and match is settled
-    if (!hasUnfinishedPlayers && isSettled) {
-      challengeSession.stopPolling();
-    }
   },
 };

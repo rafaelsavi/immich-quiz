@@ -268,6 +268,7 @@
   flex-wrap: wrap;
 }
 
+.badge-tag,
 .replay-item-badges .badge-tag {
   font-size: 0.76rem;
   font-weight: 700;
@@ -276,22 +277,30 @@
   border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.32rem;
   line-height: 1.2;
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+  user-select: none;
+  white-space: nowrap;
 }
 
-.replay-item-badges .badge-tag.badge-mode {
-  background: rgba(15, 124, 127, 0.1);
-  color: var(--accent, #0f7c7f);
-  border-color: rgba(15, 124, 127, 0.25);
+/* Play Mode: Local (Slate Neutral) */
+.badge-type,
+.badge-type.badge-type-local,
+.replay-item-badges .badge-tag.badge-type,
+.replay-item-badges .badge-tag.badge-type-local {
+  background: rgba(100, 116, 139, 0.10);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.22);
+  box-shadow: none;
+  border-radius: 6px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-.replay-item-badges .badge-tag.badge-type {
-  background: var(--bg-secondary, #f1f5f9);
-  color: var(--text-muted, #64748b);
-  border-color: var(--border-color, #e2e8f0);
-}
-
+/* Play Mode: Challenge (Vibrant Purple) */
 .badge-type.badge-type-challenge,
 .badge-type.badge-challenge,
 .replay-item-badges .badge-tag.badge-type-challenge,
@@ -299,6 +308,44 @@
   background: rgba(112, 72, 232, 0.12);
   color: #7048e8;
   border-color: rgba(112, 72, 232, 0.25);
+  box-shadow: none;
+  border-radius: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Play Mode: Room (Warm Amber) */
+.badge-type.badge-type-room,
+.replay-item-badges .badge-tag.badge-type-room {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  border-color: rgba(245, 158, 11, 0.28);
+  box-shadow: none;
+  border-radius: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Game Mode: Pinpoint (Teal Accent) */
+.badge-mode,
+.badge-mode.badge-mode-pinpoint,
+.replay-item-badges .badge-tag.badge-mode,
+.replay-item-badges .badge-tag.badge-mode-pinpoint {
+  background: rgba(15, 124, 127, 0.10);
+  color: var(--accent, #0f7c7f);
+  border-color: rgba(15, 124, 127, 0.25);
+  box-shadow: none;
+  border-radius: 6px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* Game Mode: Unshuffle (Indigo) */
+.badge-mode.badge-mode-unshuffle,
+.replay-item-badges .badge-tag.badge-mode-unshuffle {
+  background: rgba(79, 70, 229, 0.10);
+  color: #4f46e5;
+  border-color: rgba(79, 70, 229, 0.25);
   box-shadow: none;
   border-radius: 6px;
   text-transform: none;
@@ -489,11 +536,45 @@
   color: #94a3b8;
 }
 
+[data-theme="dark"] .badge-type,
+[data-theme="dark"] .badge-type.badge-type-local,
+[data-theme="dark"] .replay-item-badges .badge-tag.badge-type,
+[data-theme="dark"] .replay-item-badges .badge-tag.badge-type-local {
+  background: rgba(148, 163, 184, 0.14);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.28);
+}
+
+[data-theme="dark"] .badge-type.badge-type-challenge,
+[data-theme="dark"] .badge-type.badge-challenge,
 [data-theme="dark"] .replay-item-badges .badge-tag.badge-type-challenge,
 [data-theme="dark"] .replay-item-badges .badge-tag.badge-challenge {
   background: rgba(139, 92, 246, 0.16);
   color: #c4b5fd;
   border-color: rgba(167, 139, 250, 0.35);
+}
+
+[data-theme="dark"] .badge-type.badge-type-room,
+[data-theme="dark"] .replay-item-badges .badge-tag.badge-type-room {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+[data-theme="dark"] .badge-mode,
+[data-theme="dark"] .badge-mode.badge-mode-pinpoint,
+[data-theme="dark"] .replay-item-badges .badge-tag.badge-mode,
+[data-theme="dark"] .replay-item-badges .badge-tag.badge-mode-pinpoint {
+  background: rgba(20, 184, 166, 0.15);
+  color: #2dd4bf;
+  border-color: rgba(20, 184, 166, 0.30);
+}
+
+[data-theme="dark"] .badge-mode.badge-mode-unshuffle,
+[data-theme="dark"] .replay-item-badges .badge-tag.badge-mode-unshuffle {
+  background: rgba(99, 102, 241, 0.16);
+  color: #a5b4fc;
+  border-color: rgba(129, 140, 248, 0.30);
 }
 
 [data-theme="dark"] .replay-item-footer {

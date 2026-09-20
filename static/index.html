@@ -535,10 +535,19 @@
           <div id="replay-match-meta-container" class="replay-match-meta-container"></div>
         </div>
 
-        <!-- Summary Mode Header (used when viewing fresh match finish via /game/:id/summary) -->
+        <!-- Summary Mode Header (used when viewing fresh match finish via /game/:id/summary or /play/:token/summary) -->
         <div id="review-header-summary" class="summary-page-header">
-          <h2 data-i18n="summary.heading">Game Results</h2>
-          <div id="summary-meta" class="summary-meta"></div>
+          <div class="summary-header-badge-row">
+            <span id="summary-game-mode-badge" class="badge-tag badge-type badge-type-local">👥 Local</span>
+            <span id="grand-reveal-live-pill" class="challenge-live-pill hidden">
+              <span class="live-poll-dot" aria-hidden="true"></span>
+              <span id="grand-reveal-live-status"></span>
+            </span>
+          </div>
+          <h2 id="summary-heading" data-i18n="summary.heading">Game Results</h2>
+          <div id="summary-meta" class="summary-meta">
+            <div id="summary-meta-items" class="summary-meta-items"></div>
+          </div>
         </div>
 
         <!-- Replay State Notifications (Loading & Error) -->
@@ -556,7 +565,7 @@
           <!-- Shared Outcome Hero: Podium & Standings Table -->
           <div id="summary-winner" class="summary-winner"></div>
           <div class="table-scroll">
-            <table id="summary-table">
+            <table id="summary-table" class="summary-table standings-table">
               <thead></thead>
               <tbody></tbody>
             </table>
@@ -567,14 +576,19 @@
 
           <!-- Summary Mode Bottom Actions -->
           <div id="summary-actions" class="summary-actions">
-            <button id="new-match" class="btn-primary" data-i18n="summary.new_match_btn">Start New Game</button>
-            <button id="share-summary-btn" class="btn-secondary" data-i18n="summary.share_btn">Share Game</button>
+            <button type="button" id="share-summary-btn" class="btn-secondary" data-i18n="summary.share_results_btn">Share Results</button>
+            <button type="button" id="challenge-invite-btn" class="btn-secondary hidden" data-i18n="challenge.invite_btn">🔗 Invite Friends</button>
+          </div>
+
+          <!-- Expandable Challenge Invite Drawer -->
+          <div id="summary-invite-drawer" class="challenge-hub-share-drawer summary-invite-drawer hidden">
+            <div class="share-drawer-inner" id="summary-invite-share-box"></div>
           </div>
 
           <!-- Replay Mode Bottom Actions -->
           <div id="replay-actions" class="summary-actions hidden">
-            <button type="button" id="replay-exit-bottom-btn" class="btn-primary" data-i18n="replay.exit">Exit Replay</button>
-            <button type="button" id="replay-share-btn" class="btn-secondary" data-i18n="summary.share_btn">Share Game</button>
+            <button type="button" id="replay-exit-bottom-btn" class="btn-secondary" data-i18n="replay.exit">Exit Replay</button>
+            <button type="button" id="replay-share-btn" class="btn-secondary" data-i18n="summary.share_results_btn">Share Results</button>
           </div>
         </div>
 

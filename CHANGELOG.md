@@ -5,160 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-- **Review Deck Journey Map Initial Autozoom**:
-  - Resolved an issue where opening the Journey Map (`🗺️ Journey Map`) tab for the first time in the Review Deck displayed the world map at default zoom instead of autozooming to the match pins.
-  - Deferred Journey Map rendering until the tab is made visible so Leaflet instantiates with valid container dimensions and fits bounds accurately.
-  - Enhanced map container `ResizeObserver` and `fitMapToBounds` lifecycle to automatically detect zero-to-visible dimension transitions and re-fit bounds and connector spider lines.
-
-## [3.2.0] - 2026-09-20
+## [3.1.0] - 2026-09-20
 
 ### Added
 
-- **Universal Review Deck & Outcome Hero in Match Replays**:
-  - Integrated a 3-tab review navigation deck (`🎬 Match Replay`, `🗺️ Journey Map`, `📸 Photo Memories`) across live game summaries and replay archives.
-  - Added full Outcome Hero (3D winner podium & final standings table) directly into historical match replays.
-  - Added interactive photo pin markers with thumbnails, letter badges (`A`, `B`, `C`), and direct tab-jumping from map pins in Unshuffle replays.
-- **Dedicated Navigation & Routing**:
-  - Split Statistics Hub into dedicated `/players` and `/replays` routes with standalone headers, search toolbars, and navigation shortcuts.
-  - Added direct Replay action buttons to challenge cards in the Challenges Hub.
-- **Header Settings Dropdown**: Consolidated language and audio preferences into a clean settings dropdown (`⚙️`) in the header navbar.
-- **Sync Rate Limiting & Cooldown**: Added configurable cooldown (`SYNC_COOLDOWN_SECONDS`) with HTTP 429 / `Retry-After` throttling and frontend countdown button indicator.
-- **Standardized Hub Headers**: Unified `.hub-page-header` layout, badge theming, and responsive styling across Challenges, Replays, Players, and Moderation views.
-
-### Fixed
-
-- **Responsive Layout & CSS Polish**: Fixed toolbar wrapping on mid-size screens, eliminated unwanted photo letterboxing, and resolved badge styling collisions.
-
-## [3.1.0] - 2026-09-13
-
-- **Automatic Gameplay Viewport Auto-Scroll (`#game-card`)**:
-  - Automatically smooth-scrolls the viewport to `#game-card` when starting matches, loading questions, and advancing rounds in both local multiplayer and challenge modes.
-  - Scrolls `.app-header` out of view during active gameplay to maximize vertical screen real estate for maps, photo media frames, and interactive inputs.
-  - Preserves top-of-page scroll on Lobby Setup, Summary, and Hub pages where header navigation remains relevant.
-  - Configured `scroll-margin-top: env(safe-area-inset-top, 0px)` on `#game-card` in `layout.css` for optimal mobile status bar / notch alignment.
-
-- **Challenge Play Mode Icon Unification (`⚔️`)**:
-  - Unified the challenge play mode icon to crossed swords (`⚔️`) across all UI elements, including modal tabs (`#tab-challenge-game`), leaderboard play mode badges (`.playmode-badge.mode-challenge`), match replay headers, challenge grand reveal navigation, and documentation.
-  - Resolved inconsistent icon usage where globe (`🌐`) or trophy (`🏆`) were previously displayed for challenge play modes.
-
-- **Unified Hub Toolbar Design System (`.hub-toolbar`)**:
-  - Standardized the search, sort, and filter toolbars across **Challenges Hub** (`#challenges-page-card`) and **Player Statistics & Replays** (`#stats-page-card`) with a cohesive shaded deck container (`background: var(--bg-surface-secondary)`, subtle borders, rounded corners).
-  - Introduced standard 38px control height token (`--toolbar-control-height`) aligning search inputs, segmented pill switches, and dropdown selects on the exact same horizontal baseline.
-  - Replaced system emoji icons (`🔍`) with accessible, inline vector SVG magnifying glasses across all search inputs.
-  - Added interactive search clear buttons (`✕`) that automatically toggle visibility and reset search queries with single-click ease.
-  - Added real-time telemetry counter badges (`#stats-players-total-badge`, `#stats-replays-total-badge`) for Player Directory and Match Replays.
-- **Animated Sync Completion Popup (`.sync-popup`)**:
-  - Added an animated popup notification anchored beneath `#sync-library-btn` upon sync completion, displaying what was synced in rich detail.
-  - Features real-time sync metrics including sync mode (Quick Update vs. Full Sync), photo count (updated vs. indexed vs. up-to-date), albums linked, tags indexed, pruned assets, and execution duration.
-  - Implemented using existing design system tokens (`--card`, `--ink`, `--accent`, `--border-light`, `--radius-lg`, `--shadow-md`, glassmorphism) and the existing `@keyframes modalPop` entrance animation.
-  - Displays speech-bubble pointer arrow dynamically aligned with the center of the Sync button, auto-dismisses after 6 seconds with a countdown progress bar, and supports close button (`×`), outside click, and keyboard Escape dismissal.
-  - Backed by backend `last_sync_summary` telemetry in `SyncStateResponse` and `SyncEngine`.
-  - Fully localized in English and Portuguese (`en-US`, `pt-BR`).
-- **Challenge Summary Match Replay Unification (`/challenges/:token/summary`)**:
-  - Replaced the legacy single-column `.challenge-carousel-card` and static journey map on the Challenge Grand Reveal summary screen with direct integration into the Match Replay engine via the primary action button (`#grand-reveal-replay-action-btn`) linking directly to `/game/:matchId/replay`.
-  - Removed redundant middle banner (`.challenge-replay-banner`) in favor of the unified `#grand-reveal-replay-action-btn` action bar button.
-  - Added multi-player challenge replay aggregation to `get_match_replay` in `src/storage/leaderboard.py`, enabling challenge replays to display all participants' guesses, distance lines, round scores, and dynamic standings simultaneously across all completed challenge sessions.
-  - Added `match_id` field to `ChallengeLeaderboardEntry` and `ChallengeLeaderboardResponse` models in `src/models.py`.
-  - Resolved Album Shuffle games rendering blank space in challenge summaries by leveraging the full Match Replay engine with batch photo navigation tabs.
-  - Enforced strict Fog-of-War protection so unfinished participants cannot access match replay telemetry prematurely.
-- **Match Specification Panel in Replays (`.match-meta-section`)**:
-  - Integrated the unified 2-category specification panel (`#replay-match-meta-container`) into the Match Replay screen header.
-  - Displays full Game Setup (Game Mode, Targets/Guessing, Rounds, Time Limit) and Library Filters (Libraries, Places, Albums, People, Dates, Shared Scope) for complete match context.
-  - Enhanced `MatchReplayResponse` API model and `get_match_replay` database query to deserialize and return `config: MatchConfig`.
-  - Re-renders specification items dynamically upon runtime language toggle.
-
-### Changed
-
-- **Elevated Segmented Tabs for Statistics Hub (`#stats-tabs-bar`)**:
-  - Transformed flat, unbordered tab bar into a modern, prominent segmented pill control with subtle container background, elevated active card surface, and smooth micro-animations.
-  - Added SVG mask icons (`👥` Player Directory, `🎬` Match Replays) that preserve exact button text nodes for i18n and automated tests.
-  - Added dynamic item count pill badges (`data-count`) indicating total player profiles and recorded match replays.
-  - Added rich guided empty states with feature highlights and prominent CTAs ("Start a Game" and "Browse Challenges") for first-time visitors or clean databases.
-  - Automatically hide the search/filter toolbar when no global records exist to center focus on guided onboarding.
-
-### Fixed
-
-- **Challenge Summary Grand Reveal Undefined Variables (`capabilityToken` / `callerCompletedRound`)**:
-  - Fixed runtime `ReferenceError: capabilityToken is not defined` and `ReferenceError: callerCompletedRound is not defined` when opening challenge game summaries (`/play/:token/summary`), which previously displayed an error screen ("Desafio Indisponível").
-  - Corrected `callerCompletedRound` derivation from `data.up_to_round` and updated `replayMatchId` resolution to safely use `capToken` with fallback to `data.challenge_id`.
-- **Challenge Card & Modal Autocomplete Dropdown Overflow (`cards.css`, `modals.css`)**:
-  - Allowed `#challenge-card` and `#pane-challenge-game` to have `overflow: visible`, ensuring the player name autocomplete dropdown extends cleanly beyond the challenge card boundary without being clipped by container overflow rules.
-- **Stats Hub Routing Parameter Bug (`router.js`)**:
-  - Fixed an issue where visiting `/stats` caused `parseRoute` to decode `undefined` regex capture groups into the string `"undefined"`, hiding both tabs and leaving the page blank.
-  - Fixed dark mode text contrast for `.player-card-name` and `.player-stat-val` in player directory cards.
-- **Challenges & Stats Toolbar Desktop Layout & Styling (`toolbar.css`)**:
-  - Resolved an unclosed CSS brace in `challenge.css` line 524 on `.mini-podium-container` that broke stylesheet parsing for `.challenges-toolbar`.
-  - Overrode global form reset styles (`select { width: 100%; }`) on toolbar selects with `width: auto`, keeping dropdowns and counter badges aligned on a single horizontal row on desktop.
-
-### Added
-
-- **Player Statistics & Match Replays Page (`/stats`)**:
-  - Dedicated hub featuring a Player Directory (`/stats/players`), Match Replay catalog (`/stats/replays`), and embedded Leaderboard (`/stats/leaderboard`).
-  - Added primary navigation button (`🏆`) in the header navbar and quick-access banner card on the home lobby.
-  - Deep-linkable client-side routing supporting `/stats`, `/stats/players`, `/stats/players/:playerName`, and `/game/:matchId/replay`.
-- **Comprehensive Player Profiles & Accuracy Analytics (`/stats/players/:playerName`)**:
-  - Built dedicated player legacy dashboard querying relational match records in SQLite.
-  - Symmetrical 4-tier accuracy distribution analytics for Location and Date (Top Tier 90–100%, Great 75–89%, Moderate 50–74%, Low <50%).
-  - Detailed performance metrics: career points, win rate, podium count, lifetime peak match accuracy, best distance (km), perfect round tallies, and average response times.
-  - Game Mode Mastery breakdown (Pinpoint vs. Album Shuffle matches, win rates, and average accuracy).
-  - Recent matches log with direct links to interactive replays.
-- **Interactive Round-by-Round Match Replay Engine (`/game/:matchId/replay`)**:
-  - Direct reuse of standard `.media-frame` image canvas and `#photo-lightbox` modal preview with keyboard escape and click-outside dismissal.
-  - Direct reuse of standard `.map-shell` Leaflet architecture, featuring tile layer switching (Streets / Satellite), reset zoom control, map fullscreen toggle, and `fitMapToBounds` bounds framing.
-  - Interactive map displaying true photo locations alongside all player guess pins with connecting distance lines and spiderfied coordinates.
-  - Running round-by-round scoreboard tracking cumulative standings, points gained per round, and rank progression.
-  - Streamlined manual replay navigation with preserved DOM nodes and existing Leaflet map instances across rounds.
-- **Smart Player Name Autocomplete (`PlayerAutocomplete`)**:
-  - Reusable dropdown querying `/api/players/names` with match counts, recency, and avatar initials.
-  - Seamlessly integrated into Local Game setup, Challenge creation form, and Challenge join landing screens.
-  - Extended dropdown to full container width (`.player-input-container`) rather than being constrained to the text input wrapper.
-  - Resolved modal clipping and scrollbar issues by configuring overflow-visible containers and elevated z-index (`2500`) over modal footers.
-  - Added responsive upward flipping (`.open-upwards`) when viewport space below is tight (especially on mobile keyboards and bottom sheets).
-  - Enhanced touch interaction support with `pointerdown` listeners and 48px tap targets preventing premature blur dismissals.
-  - Keyboard accessible (`ArrowUp`, `ArrowDown`, `Enter`, `Escape`) with non-intrusive dismiss behavior on blur, form submit, and outside pointer events.
+- **Player Statistics, Profiles & Analytics (`/players`, `/players/:playerName`)**:
+  - Comprehensive player profiles with lifetime statistics: career points, win rates, podiums, peak accuracy, best distance, perfect round tallies, average response times, and 4-tier Location and Date accuracy distributions.
+  - Dedicated **Player Directory** (`/players`) with real-time telemetry badges, search and sorting (by matches, win rate, points, name), and guided onboarding empty states.
+  - Interactive player name links on the Home Leaderboard routing directly to player profile analytics.
+- **Match Replay Engine & Universal Review Deck (`/replays`, `/game/:matchId/replay`)**:
+  - Interactive round-by-round match replay viewer featuring photo lightbox previews, dynamic Leaflet maps with true photo locations, player guess pins, distance connector lines, and cumulative scoreboards.
+  - Universal 3-tab **Review Deck** (`🎬 Match Replay`, `🗺️ Journey Map`, `📸 Photo Memories`) unified across live game summaries, challenge summaries, and replay archives.
+  - Dedicated **Match Replay Catalog** (`/replays`) with search, mode/type filtering, and direct replay action shortcuts from challenge cards.
+  - 3D Winner Podium & Final Standings Outcome Hero integrated directly into historical match replays and challenge summaries.
+  - Match Specification Panel detailing game settings, rounds, time limits, and library filter scopes in replay headers.
+- **Smart Player Name Autocomplete**:
+  - Intelligent autocomplete dropdown querying player history with match frequency, recency, and avatar initials.
+  - Seamlessly integrated into Local Game setup, Challenge creation, and Challenge join screens with keyboard accessibility and mobile-optimized touch targets.
+- **Sync Telemetry & Rate Limiting**:
+  - Animated post-sync completion popup displaying detailed breakdown metrics: sync mode, photos indexed/updated, albums linked, tags, pruned assets, and execution duration.
+  - Configurable sync cooldown (`SYNC_COOLDOWN_SECONDS`) with HTTP 429 throttling and a real-time countdown button indicator.
 - **New REST API Endpoints**:
   - `GET /api/players/names` (autocomplete query with match frequency).
-  - `GET /api/players` (player directory with sorting by matches, win rate, points, or name).
-  - `GET /api/players/{player_name}/profile` (detailed career profile and accuracy analytics).
+  - `GET /api/players` (player directory with sorting and pagination).
+  - `GET /api/players/{player_name}/profile` (career stats and accuracy distribution analytics).
   - `GET /api/matches` (paginated match history filterable by game mode, play mode, and player).
   - `GET /api/match/{match_id}/replay` (round-by-round guess telemetry and cumulative scoreboard).
 
-### Fixed
+### Changed
 
-- **Modal Backdrop Drag-Selection Dismissal Protection**:
-  - Prevented modals (`#prepare-game-modal`, `#report-issue-modal`, `#unshuffle-help-modal`, `#pinpoint-help-modal`) from prematurely closing when dragging a text selection from inside an input (e.g. `challenge-creator-name-input`) and releasing the mouse outside the modal card.
-  - Required that mouse/touch down events originate directly on the backdrop overlay before a backdrop click dismisses the modal.
-- **Match Replay Standard Avatar Color Sequence**:
-  - Fixed avatar colors inside match replay (`/game/:matchId/replay`) to strictly follow the standard application palette sequence (`PLAYER_COLORS`: Coral Red `#f25f5c`, Teal `#0f7c7f`, Purple `#7048e8`, etc.) rather than string ASCII character hashing.
-  - Added `player_color` column to `match_entries` SQLite table with automatic schema migration.
-  - Preserved roster turn order in replay reconstruction from match round guesses and entries, ensuring backwards compatibility with legacy match records.
-  - Added client-side color registration in `replay.js` and sequential fallback in `formatters.js` to guarantee consistent colors across map pins, connection lines, player guesses, and scoreboards.
-- **Match Replay Photo Caption Visual Balance**:
-  - Balanced visual importance between photo date (`.replay-photo-date`, `.replay-polaroid-date`) and location (`.replay-photo-loc`, `.replay-polaroid-loc`) by unifying font-weight (`500`), font size (`0.88rem`), and text color, avoiding disparate bolding.
-- **Match Replay Header Reorganization (`.replay-page-header`)**:
-  - Restructured the match replay header into a clean, modern two-tier layout separating top-level navigation actions from match identity and metadata.
-  - Placed the back button (`#replay-back-btn`) and round stepper (`#replay-round-indicator`, controls) on a dedicated top navigation bar, eliminating horizontal crowding.
-  - Added dedicated page title heading (`🎬 Match Replay` / `Replay da Partida`) with localized subtitle meta line (`#replay-match-title`).
-  - Implemented pill badge styling with `white-space: nowrap` for mode and play type badges (`#replay-mode-badge`, `#replay-type-badge`), completely eliminating awkward multi-line word wrapping.
-  - Optimized responsive styles across desktop, tablet, and small mobile viewports (down to 375px).
-- **Navigation Back Button Standardization (`.page-back-btn`)**:
-  - Standardized `#profile-back-to-hub-btn`, `#profile-back-btn`, and `#replay-back-btn` under the reusable `.page-back-btn` class.
-  - Unified typography (`0.88rem`, semi-bold), padding (`0.42rem 0.85rem`), border radius (`9px`), and hover micro-interaction (`translateX(-2px)`).
-  - Aligned the Player Profile header hierarchy, placing the back button neatly on top above the player hero identity card.
-- **Recent Matches Rank Column & Medal Badges**:
-  - Fixed rank formatting in the Player Profile's Recent Matches table using standard `formatRankBadge(rank, { dot: true })`.
-  - Added dedicated `.col-rank` CSS class (50px fixed width, centered) to cleanly present medals (`🥇`, `🥈`, `🥉`) and numbered positions (`4.`) without column overflow.
-- **Standardized Replay Guess Metrics**:
-  - Upgraded round guess details in match replay to leverage `formatDistance` and `formatMonthError` from `formatters.js`.
-  - Enclosed distance (`📍 80 m`), date delta (`📅 12 days`), and response times (`⏱️ 3.8s`) in styled `.replay-guess-metric-item` pill tags with tabular numerals and dark mode support.
-- **Home Leaderboard Deep Integration & Stats Streamlining**:
-  - Streamlined `/stats` by removing the redundant embedded leaderboard tab, keeping the primary leaderboard on the home screen where it responds to active filter selections.
-  - Added interactive links on player names in the home leaderboard routing directly into `/stats/players/:playerName`.
-  - Added a dedicated Replay column (`<th class="col-replay">`) with interactive `[🎬 Replay]` action button to jump directly into `/game/:matchId/replay`.
+- **UI & Navigation Modernization**:
+  - Consolidated language and audio preferences into a clean header settings dropdown (`⚙️`).
+  - Standardized `.hub-page-header` and `.hub-toolbar` design system across Challenges, Replays, Players, and Moderation views with unified search inputs, SVG icons, and baseline alignment.
+  - Automatic viewport auto-scroll to `#game-card` during active gameplay to maximize vertical screen real estate for maps and photo media.
+  - Unified challenge play mode icon to crossed swords (`⚔️`) across all UI elements, badges, and headers.
+- **Mobile Summary Screen & Chip Optimization**:
+  - Omitted `.match-meta-item-label` on mobile viewports (`<= 640px`) across all summary variations, Challenges Hub cards, and the setup filters accordion, displaying a clean, compact `[icon] [value]` chip layout that fits comfortably side-by-side without horizontal scrolling.
+  - Constrained `.match-review-card`, `.match-review-shell`, and `.review-content` with `min-width: 0; max-width: 100%` and set `flex-shrink: 0` on chips, ensuring match cards remain perfectly proportioned within narrow mobile screens while standings tables scroll smoothly.
+  - Enhanced podium step readability and dark mode contrast across summary cards.
+  - Omitted flag emoji (`🏁`) from `challenge-rounds-pill finished` in standings tables, keeping the pill compact (`10/10`) and saving valuable horizontal column space on mobile screens.
 
 ## [3.0.4] - 2026-09-11
 

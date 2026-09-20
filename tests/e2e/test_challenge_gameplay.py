@@ -122,7 +122,7 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
     await page.locator('#challenge-see-results-btn').click()
     await expect(page.locator('.challenge-grand-reveal')).to_be_visible()
     await expect(page.locator('#grand-reveal-provisional')).to_be_visible()
-    await expect(page.locator('#grand-reveal-table')).to_be_visible()
+    await expect(page.locator('#summary-table')).to_be_visible()
     await expect(page.locator('.challenge-rounds-pill')).to_be_visible()
 
     assert not error_alerts, f'Unexpected alert popups: {error_alerts}'
@@ -162,23 +162,16 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
     await page2.locator('#challenge-see-results-btn').click()
     await expect(page2.locator('.challenge-grand-reveal')).to_be_visible()
     await expect(page2.locator('#grand-reveal-podium')).to_be_visible()
-    await expect(page2.locator('#grand-reveal-table')).to_be_visible()
+    await expect(page2.locator('#summary-table')).to_be_visible()
 
     # Verify Player 1's open Grand Reveal page dynamically unlocked the podium via background polling!
     await expect(page.locator('#grand-reveal-podium')).to_be_visible()
     await expect(page.locator('#grand-reveal-live-status')).to_contain_text('2/2 finished')
 
-    # Verify Watch Match Replay button is visible and navigates to the Match Replay engine
-    replay_btn = page.locator('#grand-reveal-replay-action-btn')
-    await expect(replay_btn).to_be_visible()
-    await expect(replay_btn).to_be_enabled()
-    await replay_btn.click()
-
-    await expect(page.locator('#summary-card')).to_be_visible()
-    await expect(page.locator('#review-header-replay')).to_be_visible()
-    await expect(page.locator('#replay-media-frame')).to_be_visible()
-    await expect(page.locator('#replay-map-shell')).to_be_visible()
-    await expect(page.locator('#replay-guesses-list')).to_be_visible()
+    # Verify Review Deck is visible directly hosting Replay (unified layout, no separate button click needed)
+    await expect(page.locator('#summary-review-deck')).to_be_visible()
+    await expect(page.locator('.review-deck-tab[data-tab="replay"]')).to_be_visible()
+    await expect(page.locator('.review-deck-replay-panel')).to_be_visible()
 
     await page2.close()
 

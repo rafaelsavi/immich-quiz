@@ -266,10 +266,33 @@ export const el = {
   nextRound: document.getElementById("next-round"),
   summaryWinner: document.getElementById("summary-winner"),
   summaryMeta: document.getElementById("summary-meta"),
+  get summaryGameModeBadge() {
+    return document.getElementById("summary-game-mode-badge");
+  },
+  get grandRevealLivePill() {
+    return document.getElementById("grand-reveal-live-pill");
+  },
+  get grandRevealLiveStatus() {
+    return document.getElementById("grand-reveal-live-status");
+  },
+  get summaryHeading() {
+    return document.getElementById("summary-heading");
+  },
+  get summaryMetaItems() {
+    return document.getElementById("summary-meta-items");
+  },
   summaryTableHead: document.querySelector("#summary-table thead"),
   summaryTableBody: document.querySelector("#summary-table tbody"),
-  newMatch: document.getElementById("new-match"),
   shareSummaryBtn: document.getElementById("share-summary-btn"),
+  get challengeInviteBtn() {
+    return document.getElementById("challenge-invite-btn");
+  },
+  get summaryInviteDrawer() {
+    return document.getElementById("summary-invite-drawer");
+  },
+  get summaryInviteShareBox() {
+    return document.getElementById("summary-invite-share-box");
+  },
   get journeyMapShell() {
     return document.getElementById("journey-map-shell");
   },

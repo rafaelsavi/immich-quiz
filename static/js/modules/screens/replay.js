@@ -263,8 +263,17 @@ function renderMatchesHistory(matches) {
       const modeIcon = m.game_mode === "unshuffle" ? "🔀" : "🎯";
       const modeLabel = m.game_mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
       const isChallenge = m.play_mode === "challenge";
-      const typeLabel = isChallenge ? t("replay.play_mode_challenge") : t("replay.play_mode_local");
-      const typeIcon = isChallenge ? "⚔️" : "👥";
+      const isRoom = m.play_mode === "room";
+      const typeLabel = isChallenge
+        ? t("replay.play_mode_challenge")
+        : (isRoom ? t("replay.play_mode_room") : t("replay.play_mode_local"));
+      const typeIcon = isChallenge ? "⚔️" : (isRoom ? "🏠" : "👥");
+      const typeClass = isChallenge
+        ? " badge-type-challenge"
+        : (isRoom ? " badge-type-room" : " badge-type-local");
+      const modeClass = m.game_mode === "unshuffle"
+        ? " badge-mode-unshuffle"
+        : " badge-mode-pinpoint";
       const playedStr = m.played_at ? formatDateTime(m.played_at) : "-";
       const winners = Array.isArray(m.winners)
         ? m.winners
@@ -319,8 +328,8 @@ function renderMatchesHistory(matches) {
         <div class="replay-catalog-item" data-match-id="${escapeHtml(m.match_id)}" role="button" tabindex="0" aria-label="${escapeHtml(modeLabel)} - ${escapeHtml(playedStr)}">
           <div class="replay-item-header">
             <div class="replay-item-badges">
-              <span class="badge-tag badge-mode">${modeIcon} ${modeLabel}</span>
-              <span class="badge-tag badge-type${isChallenge ? " badge-type-challenge" : ""}">${typeIcon} ${typeLabel}</span>
+              <span class="badge-tag badge-mode${modeClass}">${modeIcon} ${modeLabel}</span>
+              <span class="badge-tag badge-type${typeClass}">${typeIcon} ${typeLabel}</span>
             </div>
             <div class="replay-item-time">${playedStr}</div>
           </div>

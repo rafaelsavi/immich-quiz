@@ -52,13 +52,13 @@ export class ReviewDeck {
       this.containerEl.innerHTML = `
         <div class="review-deck-tabs-container">
           <div class="segmented-control review-deck-tabs" role="tablist">
-            <button type="button" class="segmented-btn active" data-deck-tab="replay" role="tab" aria-selected="true" data-i18n="summary.tab_replay">
+            <button type="button" class="segmented-btn review-deck-tab active" data-deck-tab="replay" data-tab="replay" role="tab" aria-selected="true" data-i18n="summary.tab_replay">
               ${escapeHtml(t("summary.tab_replay"))}
             </button>
-            <button type="button" class="segmented-btn" data-deck-tab="journey" role="tab" aria-selected="false" data-i18n="summary.tab_journey">
+            <button type="button" class="segmented-btn review-deck-tab" data-deck-tab="journey" data-tab="journey" role="tab" aria-selected="false" data-i18n="summary.tab_journey">
               ${escapeHtml(t("summary.tab_journey"))}
             </button>
-            <button type="button" class="segmented-btn" data-deck-tab="memories" role="tab" aria-selected="false" data-i18n="summary.tab_memories">
+            <button type="button" class="segmented-btn review-deck-tab" data-deck-tab="memories" data-tab="memories" role="tab" aria-selected="false" data-i18n="summary.tab_memories">
               ${escapeHtml(t("summary.tab_memories"))}
             </button>
           </div>

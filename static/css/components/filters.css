@@ -135,6 +135,12 @@
   flex-shrink: 0;
 }
 
+@media (max-width: 640px) {
+  .filters-accordion-meta .match-meta-item-label {
+    display: none !important;
+  }
+}
+
 .filters-accordion-meta .match-meta-item-val {
   font-size: 0.78rem;
   max-width: 100%;

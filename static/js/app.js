@@ -364,10 +364,6 @@ bindClick(el.nextRound, () => {
   handleNextRound().catch((err) => showAlert(err.message || err));
 });
 
-bindClick(el.newMatch, () => {
-  returnToSetup();
-});
-
 bindClick(el.gameEndedLobbyBtn, () => {
   returnToSetup();
 });

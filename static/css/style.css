@@ -23,6 +23,7 @@
 @import "./components/reveal_table.css";
 @import "./components/replay.css";
 @import "./components/review_deck.css";
+@import "./components/summary.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";

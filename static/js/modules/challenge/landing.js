@@ -154,7 +154,7 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
   el.challengeCard.innerHTML = `
     <div class="challenge-landing">
       <div class="challenge-header">
-        <span class="badge badge-challenge">${t("challenge.badge")}</span>
+        <span class="badge badge-challenge badge-tag badge-type badge-type-challenge">⚔️ ${t("challenge.badge")}</span>
         <h2>${escapeHtml(data.title || `${data.creator_name}'s Challenge`)}</h2>
       </div>
 

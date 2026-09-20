@@ -68,8 +68,7 @@ async def test_score_rollup_animation_and_post_game_summary(page: Page) -> None:
     await expect(polaroids).to_be_visible()
     await expect(polaroids.locator('.polaroid-card')).to_have_count(5)
 
-    # Verify Start New Match & Share Summary Buttons
-    await expect(page.locator('#new-match')).to_be_visible()
+    # Verify Share Summary Button
     await expect(page.locator('#share-summary-btn')).to_be_visible()
 
 

@@ -1,97 +1,188 @@
 import { el } from "../state.js";
 import { t } from "../i18n.js";
-import { buildCell, playerNameCell, createRankBadge } from "../formatters.js";
+import {
+  createRankBadge,
+  formatRankBadge,
+  formatPlayerCellHtml,
+  formatRoundsBadge,
+  escapeHtml,
+  playerColor,
+} from "../formatters.js";
 import { animateScoreRollup } from "../effects.js";
-
 import { renderMatchMeta } from "../components/match_meta.js";
 
 export function renderSummaryMeta(summary) {
   if (!el.summaryMeta || !summary) return;
-  renderMatchMeta(el.summaryMeta, summary);
+  const container = el.summaryMetaItems || el.summaryMeta;
+  renderMatchMeta(container, summary);
 }
 
-export function renderSummaryTable(summary, perfectCounts = {}) {
+export function renderSummaryTable(summary, perfectCounts = {}, { currentSessionPlayerName = null } = {}) {
   if (!summary) return;
 
   renderSummaryMeta(summary);
 
-  const columns = [t("summary.col_rank"), t("summary.col_player")];
-  if (summary.location_mode) {
-    columns.push(t("summary.col_location"));
+  const isChallenge = Boolean(
+    summary.is_challenge ||
+    summary.play_mode === "challenge" ||
+    summary.challenge_id
+  );
+
+  const columns = [
+    { key: "rank", label: t("summary.col_rank"), className: "col-rank" },
+    { key: "player", label: t("summary.col_player"), className: "col-player" },
+  ];
+
+  if (isChallenge) {
+    columns.push({ key: "rounds", label: t("summary.col_rounds"), className: "col-rounds text-center" });
   }
-  if (summary.date_mode) {
-    columns.push(t("summary.col_date"));
+  if (summary.location_mode !== false) {
+    columns.push({ key: "location", label: t("summary.col_location"), className: "col-score text-right" });
   }
-  columns.push(t("summary.col_total"), t("summary.col_accuracy"));
+  if (summary.date_mode !== false) {
+    columns.push({ key: "date", label: t("summary.col_date"), className: "col-score text-right" });
+  }
+  columns.push(
+    { key: "total", label: t("summary.col_total"), className: "col-score text-right" },
+    { key: "accuracy", label: t("summary.col_accuracy"), className: "col-acc text-right hide-on-mobile" }
+  );
 
   if (el.summaryTableHead) {
     const headRow = document.createElement("tr");
-    columns.forEach((label) => {
-      const cell = buildCell(label, true);
-      if (label === t("summary.col_rank")) {
-        cell.className = "col-rank";
-      } else if (label === t("summary.col_player")) {
-        cell.className = "col-player";
-      } else if (label === t("summary.col_accuracy")) {
-        cell.className = "col-acc hide-on-mobile";
-      } else if (label === t("summary.col_total")) {
-        cell.className = "col-score";
-      }
-      headRow.appendChild(cell);
+    columns.forEach((col) => {
+      const th = document.createElement("th");
+      th.className = col.className;
+      th.textContent = col.label;
+      headRow.appendChild(th);
     });
     el.summaryTableHead.replaceChildren(headRow);
   }
 
   if (el.summaryTableBody) {
     el.summaryTableBody.replaceChildren();
-    const activeGoalCount = (summary.location_mode ? 1 : 0) + (summary.date_mode ? 1 : 0);
+
+    const activeGoalCount = (summary.location_mode !== false ? 1 : 0) + (summary.date_mode !== false ? 1 : 0);
+    const totalRoundsCount = summary.total_rounds || summary.rounds_played || 1;
     const maxGoalScore = activeGoalCount > 0
-      ? Math.round((summary.max_possible_score || ((summary.rounds_played || 1) * 100 * activeGoalCount)) / activeGoalCount)
+      ? Math.round((summary.max_possible_score || (totalRoundsCount * 100 * activeGoalCount)) / activeGoalCount)
       : (summary.max_possible_score || 100);
 
     const isMultiplayer = (summary.players || []).length > 1;
 
     (summary.players || []).forEach((player) => {
       const row = document.createElement("tr");
-      if (isMultiplayer && player.rank === 1) {
-        row.classList.add("winner-row");
-      }
+      const isWinner = isMultiplayer && (player.rank === 1 || player.is_winner);
+      const isCurrent = Boolean(
+        currentSessionPlayerName && player.player_name === currentSessionPlayerName
+      );
 
-      const rankCell = buildCell(createRankBadge(player.rank, { dot: true }));
-      rankCell.className = "col-rank";
-      row.appendChild(rankCell);
+      row.setAttribute("data-player-name", player.player_name);
+      row.setAttribute("data-total-score", String(player.total_score ?? 0));
 
-      const nameCell = playerNameCell(player.player_name);
+      if (isWinner) row.classList.add("winner-row");
+      if (isCurrent) row.classList.add("highlight-player-row");
+
+      // 1. Rank Cell
+      const rankTd = document.createElement("td");
+      rankTd.className = "col-rank";
+      rankTd.innerHTML = formatRankBadge(player.rank, { showNumber: true });
+      row.appendChild(rankTd);
+
+      // 2. Player Cell
+      const playerTd = document.createElement("td");
+      playerTd.className = "col-player";
+      let cellHtml = formatPlayerCellHtml(player.player_name, { isWinner, isCurrent });
       const count = perfectCounts[player.player_name] ?? 0;
       if (count > 0) {
-        const countBadge = document.createElement("span");
-        countBadge.className = "perfect-count-badge";
-        countBadge.textContent = t("fmt.perfect_count", count);
-        nameCell.appendChild(countBadge);
+        cellHtml += ` <span class="perfect-count-badge">${escapeHtml(t("fmt.perfect_count", count))}</span>`;
       }
-      const playerCell = buildCell(nameCell);
-      playerCell.className = "col-player";
-      row.appendChild(playerCell);
+      playerTd.innerHTML = cellHtml;
+      row.appendChild(playerTd);
 
-      if (summary.location_mode) {
-        const locCell = buildCell(String(player.location_score ?? 0));
-        animateScoreRollup(locCell, player.location_score ?? 0, maxGoalScore);
+      // 3. Challenge Rounds Badge (if challenge mode)
+      if (isChallenge) {
+        const roundsTd = document.createElement("td");
+        roundsTd.className = "col-rounds text-center";
+        const completedRounds = player.completed_rounds != null ? player.completed_rounds : totalRoundsCount;
+        const isFin = Boolean(player.is_finished || completedRounds >= totalRoundsCount);
+        roundsTd.innerHTML = formatRoundsBadge(completedRounds, totalRoundsCount, isFin);
+        row.appendChild(roundsTd);
+      }
+
+      // 4. Location Score
+      if (summary.location_mode !== false) {
+        const locCell = document.createElement("td");
+        locCell.className = "col-score text-right";
+        if (player.location_score != null) {
+          animateScoreRollup(locCell, player.location_score ?? 0, maxGoalScore);
+        } else {
+          locCell.textContent = "—";
+        }
         row.appendChild(locCell);
       }
-      if (summary.date_mode) {
-        const dateCell = buildCell(String(player.date_score ?? 0));
-        animateScoreRollup(dateCell, player.date_score ?? 0, maxGoalScore);
+
+      // 5. Date Score
+      if (summary.date_mode !== false) {
+        const dateCell = document.createElement("td");
+        dateCell.className = "col-score text-right";
+        if (player.date_score != null) {
+          animateScoreRollup(dateCell, player.date_score ?? 0, maxGoalScore);
+        } else {
+          dateCell.textContent = "—";
+        }
         row.appendChild(dateCell);
       }
-      const totalCell = buildCell(`${player.total_score}/${player.max_possible_score}`);
-      animateScoreRollup(totalCell, player.total_score ?? 0, player.max_possible_score ?? 100, `/${player.max_possible_score}`);
-      row.appendChild(totalCell);
 
-      const accCell = buildCell(`${player.accuracy_pct}%`);
-      accCell.className = "col-acc hide-on-mobile";
-      row.appendChild(accCell);
+      // 6. Total Score
+      const totalTd = document.createElement("td");
+      totalTd.className = "col-score col-total-score text-right font-bold";
+      const totalVal = player.total_score ?? 0;
+      if (isChallenge) {
+        totalTd.textContent = String(totalVal);
+        animateScoreRollup(totalTd, totalVal, totalVal * 1.5, "", false, 0);
+      } else {
+        totalTd.textContent = `${totalVal}/${player.max_possible_score ?? 100}`;
+        animateScoreRollup(totalTd, totalVal, player.max_possible_score ?? 100, `/${player.max_possible_score ?? 100}`);
+      }
+      row.appendChild(totalTd);
+
+      // 7. Accuracy
+      const accTd = document.createElement("td");
+      accTd.className = "col-acc text-right hide-on-mobile";
+      const accVal = player.accuracy_pct != null
+        ? player.accuracy_pct
+        : (player.accuracy_percentage != null ? Math.round(player.accuracy_percentage) : 0);
+      accTd.textContent = `${accVal}%`;
+      row.appendChild(accTd);
 
       el.summaryTableBody.appendChild(row);
     });
   }
+}
+
+/**
+ * Flash table rows and rollup scores when live updates arrive from polling.
+ * @param {Array<object>} updatedPlayers
+ */
+export function flashUpdatedSummaryRows(updatedPlayers) {
+  if (!el.summaryTableBody || !updatedPlayers || updatedPlayers.length === 0) return;
+  const updatedNames = new Set(updatedPlayers.map((p) => p.player_name));
+
+  Array.from(el.summaryTableBody.querySelectorAll("tr[data-player-name]")).forEach((tr) => {
+    const name = tr.getAttribute("data-player-name");
+    if (updatedNames.has(name)) {
+      const color = playerColor(name);
+      tr.classList.remove("row-arrival-flash");
+      tr.style.setProperty("--player-accent", color);
+      tr.style.setProperty("--player-accent-alpha", `${color}33`);
+      void tr.offsetWidth;
+      tr.classList.add("row-arrival-flash");
+
+      const totalScoreCell = tr.querySelector(".col-total-score");
+      const targetScore = Number(tr.getAttribute("data-total-score") || 0);
+      if (totalScoreCell && !isNaN(targetScore)) {
+        animateScoreRollup(totalScoreCell, targetScore, targetScore * 1.5, "", false, 0);
+      }
+    }
+  });
 }
