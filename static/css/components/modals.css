@@ -487,6 +487,40 @@
   font-size: 0.75rem;
 }
 
+/* Replay discrete report button: icon only with tooltip */
+#replay-report-btn,
+[id$="replay-report-btn"],
+.round-photo-report-btn-icon-only {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  border-radius: 6px !important;
+}
+
+#replay-report-btn .report-discrete-text,
+[id$="replay-report-btn"] .report-discrete-text,
+.round-photo-report-btn-icon-only .report-discrete-text {
+  display: none !important;
+}
+
+[data-theme="dark"] .btn-report-discrete {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-report-discrete:hover {
+  background: #450a0a;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
 /* Unshuffle Mini Report Button */
 .btn-report-photo-mini {
   width: auto !important;

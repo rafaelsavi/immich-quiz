@@ -1236,3 +1236,389 @@ def test_leaderboard_includes_challenges_and_local_with_play_mode(tmp_path: Path
     assert len(local_entries) == 1
     assert local_entries[0].player_name == 'LocalPlayer'
     assert local_entries[0].play_mode == PlayMode.local
+
+
+def test_unshuffle_true_pin_resolution_and_replay_distinct_letters(tmp_path: Path) -> None:
+    """Verify that unshuffle replay always returns distinct, non-duplicated pin letters (A, B, C...)
+    even when players answer incorrectly or partially correct.
+    """
+    from src.storage.leaderboard import resolve_unshuffle_true_pins
+
+    # Scenario matching user bug:
+    # 3 photos: photo_0 (true pin C), photo_1 (true pin A), photo_2 (true pin B)
+    # Player 1 guessed photo_0 correctly as 'C'
+    # Player 1 guessed photo_1 wrong as 'B'
+    # Player 1 guessed photo_2 wrong as 'A'
+    guesses = [
+        {
+            'asset_id': 'photo_0',
+            'photo_index': 0,
+            'assigned_pin_id': 'C',
+            'is_correct_location': 1,
+            'guess_latitude': 60.0,
+            'guess_longitude': 10.0,
+            'actual_latitude': 60.0,
+            'actual_longitude': 10.0,
+        },
+        {
+            'asset_id': 'photo_1',
+            'photo_index': 1,
+            'assigned_pin_id': 'B',
+            'is_correct_location': 0,
+            'guess_latitude': 50.0,
+            'guess_longitude': 20.0,
+            'actual_latitude': 40.0,
+            'actual_longitude': 30.0,
+        },
+        {
+            'asset_id': 'photo_2',
+            'photo_index': 2,
+            'assigned_pin_id': 'A',
+            'is_correct_location': 0,
+            'guess_latitude': 40.0,
+            'guess_longitude': 30.0,
+            'actual_latitude': 50.0,
+            'actual_longitude': 20.0,
+        },
+    ]
+
+    pin_map = resolve_unshuffle_true_pins(guesses)
+    assert pin_map['photo_0'] == 'C'
+    assert pin_map['photo_1'] == 'A'
+    assert pin_map['photo_2'] == 'B'
+    assert len(set(pin_map.values())) == 3
+
+    # Now verify end-to-end through append_match and get_match_replay
+    db_path = tmp_path / 'unshuffle_replay.db'
+    store = LeaderboardStore(db_path)
+    cfg = BaseGameConfig(libraries=['main'], round_count=3, game_mode=GameMode.unshuffle)
+    round_guesses = [
+        {
+            'match_id': 'm-unshuffle-letters',
+            'player_name': 'Player1',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'unshuffle',
+            'asset_id': 'photo_0',
+            'actual_latitude': 60.0,
+            'actual_longitude': 10.0,
+            'assigned_pin_id': 'C',
+            'is_correct_location': 1,
+            'true_pin_id': 'C',
+            'round_score': 100,
+        },
+        {
+            'match_id': 'm-unshuffle-letters',
+            'player_name': 'Player1',
+            'round_index': 0,
+            'photo_index': 1,
+            'game_mode': 'unshuffle',
+            'asset_id': 'photo_1',
+            'actual_latitude': 40.0,
+            'actual_longitude': 30.0,
+            'assigned_pin_id': 'B',
+            'is_correct_location': 0,
+            'true_pin_id': 'A',
+            'round_score': 0,
+        },
+        {
+            'match_id': 'm-unshuffle-letters',
+            'player_name': 'Player1',
+            'round_index': 0,
+            'photo_index': 2,
+            'game_mode': 'unshuffle',
+            'asset_id': 'photo_2',
+            'actual_latitude': 50.0,
+            'actual_longitude': 20.0,
+            'assigned_pin_id': 'A',
+            'is_correct_location': 0,
+            'true_pin_id': 'B',
+            'round_score': 0,
+        },
+    ]
+    store.append_match(
+        match_id='m-unshuffle-letters',
+        config=cfg,
+        player_scores={'Player1': {'location': 100, 'date': 0, 'total': 100}},
+        round_guesses=round_guesses,
+    )
+
+    replay = store.get_match_replay('m-unshuffle-letters')
+    assert replay is not None
+    assert len(replay.rounds_data) == 1
+    batch = replay.rounds_data[0].batch_photos
+    assert len(batch) == 3
+    letters = [p.true_pin_id for p in batch]
+    assert len(set(letters)) == 3
+    assert set(letters) == {'A', 'B', 'C'}
+
+
+def test_get_match_replay_pinpoint_timeout_variations(tmp_path: Path) -> None:
+    """Verify Pinpoint match replay handles timeouts with/without location and date guesses."""
+    db_path = tmp_path / 'pinpoint_timeout.db'
+    store = LeaderboardStore(db_path)
+    cfg = BaseGameConfig(
+        libraries=['main'], round_count=5, game_mode=GameMode.pinpoint, location_mode=True, date_mode=True
+    )
+
+    round_guesses = [
+        # Round 0: Timed out with NO location and NO date
+        {
+            'match_id': 'm-pp-timeout',
+            'player_name': 'Alice',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'pinpoint',
+            'asset_id': 'asset-0',
+            'actual_latitude': 48.8566,
+            'actual_longitude': 2.3522,
+            'actual_date': '2023-06-15T12:00:00Z',
+            'guess_latitude': None,
+            'guess_longitude': None,
+            'distance_km': None,
+            'location_points': 0,
+            'guess_date': None,
+            'date_diff_days': None,
+            'date_points': 0,
+            'round_score': 0,
+            'timed_out': 1,
+            'time_taken_seconds': 30.0,
+        },
+        # Round 1: Timed out WITH location but NO date
+        {
+            'match_id': 'm-pp-timeout',
+            'player_name': 'Alice',
+            'round_index': 1,
+            'photo_index': 0,
+            'game_mode': 'pinpoint',
+            'asset_id': 'asset-1',
+            'actual_latitude': 51.5074,
+            'actual_longitude': -0.1278,
+            'actual_date': '2022-04-10T12:00:00Z',
+            'guess_latitude': 51.5100,
+            'guess_longitude': -0.1200,
+            'distance_km': 0.61,
+            'location_points': 98,
+            'guess_date': None,
+            'date_diff_days': None,
+            'date_points': 0,
+            'round_score': 98,
+            'timed_out': 1,
+            'time_taken_seconds': 30.0,
+        },
+        # Round 2: Timed out WITHOUT location but WITH date
+        {
+            'match_id': 'm-pp-timeout',
+            'player_name': 'Alice',
+            'round_index': 2,
+            'photo_index': 0,
+            'game_mode': 'pinpoint',
+            'asset_id': 'asset-2',
+            'actual_latitude': 40.7128,
+            'actual_longitude': -74.0060,
+            'actual_date': '2021-08-20T12:00:00Z',
+            'guess_latitude': None,
+            'guess_longitude': None,
+            'distance_km': None,
+            'location_points': 0,
+            'guess_date': '2021-08-01',
+            'date_diff_days': 19,
+            'date_points': 95,
+            'round_score': 95,
+            'timed_out': 1,
+            'time_taken_seconds': 30.0,
+        },
+        # Round 3: Timed out WITH both location and date
+        {
+            'match_id': 'm-pp-timeout',
+            'player_name': 'Alice',
+            'round_index': 3,
+            'photo_index': 0,
+            'game_mode': 'pinpoint',
+            'asset_id': 'asset-3',
+            'actual_latitude': 35.6762,
+            'actual_longitude': 139.6503,
+            'actual_date': '2020-01-01T12:00:00Z',
+            'guess_latitude': 35.6800,
+            'guess_longitude': 139.6600,
+            'distance_km': 0.98,
+            'location_points': 96,
+            'guess_date': '2020-01-01',
+            'date_diff_days': 0,
+            'date_points': 100,
+            'round_score': 196,
+            'timed_out': 1,
+            'time_taken_seconds': 30.0,
+        },
+    ]
+
+    store.append_match(
+        match_id='m-pp-timeout',
+        config=cfg,
+        player_scores={'Alice': {'location': 194, 'date': 195, 'total': 389}},
+        round_guesses=round_guesses,
+    )
+
+    replay = store.get_match_replay('m-pp-timeout')
+    assert replay is not None
+    assert len(replay.rounds_data) == 4
+
+    # Round 0 check: no location, no date
+    r0 = replay.rounds_data[0]
+    assert len(r0.player_guesses) == 1
+    g0 = r0.player_guesses[0]
+    assert g0.timed_out is True
+    assert g0.guess_latitude is None
+    assert g0.guess_longitude is None
+    assert g0.guess_date is None
+    assert g0.location_score == 0
+    assert g0.date_score == 0
+    assert g0.round_score == 0
+
+    # Round 1 check: location present, date absent
+    r1 = replay.rounds_data[1]
+    g1 = r1.player_guesses[0]
+    assert g1.timed_out is True
+    assert g1.guess_latitude == 51.5100
+    assert g1.guess_date is None
+    assert g1.location_score == 98
+    assert g1.date_score == 0
+
+    # Round 2 check: location absent, date present
+    r2 = replay.rounds_data[2]
+    g2 = r2.player_guesses[0]
+    assert g2.timed_out is True
+    assert g2.guess_latitude is None
+    assert g2.guess_date == '2021-08-01'
+    assert g2.location_score == 0
+    assert g2.date_score == 95
+
+    # Round 3 check: both present
+    r3 = replay.rounds_data[3]
+    g3 = r3.player_guesses[0]
+    assert g3.timed_out is True
+    assert g3.guess_latitude == 35.6800
+    assert g3.guess_date == '2020-01-01'
+    assert g3.location_score == 96
+    assert g3.date_score == 100
+    assert g3.round_score == 196
+
+
+def test_get_match_replay_unshuffle_timeout_variations(tmp_path: Path) -> None:
+    """Verify Unshuffle match replay handles timeouts with no guesses and partial guesses."""
+    db_path = tmp_path / 'unshuffle_timeout.db'
+    store = LeaderboardStore(db_path)
+    cfg = BaseGameConfig(
+        libraries=['main'], round_count=3, game_mode=GameMode.unshuffle, location_mode=True, date_mode=True
+    )
+
+    round_guesses = [
+        # Round 0: Player timed out with 0 guesses (unassigned)
+        {
+            'match_id': 'm-unshuffle-timeout',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 0,
+            'game_mode': 'unshuffle',
+            'asset_id': 'p0',
+            'actual_latitude': 10.0,
+            'actual_longitude': 20.0,
+            'actual_date': '2024-01-01T00:00:00Z',
+            'assigned_pin_id': None,
+            'is_correct_location': 0,
+            'true_pin_id': 'A',
+            'round_score': 0,
+            'location_points': 0,
+            'date_points': 0,
+            'timed_out': 1,
+            'time_taken_seconds': 60.0,
+        },
+        {
+            'match_id': 'm-unshuffle-timeout',
+            'player_name': 'Bob',
+            'round_index': 0,
+            'photo_index': 1,
+            'game_mode': 'unshuffle',
+            'asset_id': 'p1',
+            'actual_latitude': 15.0,
+            'actual_longitude': 25.0,
+            'actual_date': '2024-02-01T00:00:00Z',
+            'assigned_pin_id': None,
+            'is_correct_location': 0,
+            'true_pin_id': 'B',
+            'round_score': 0,
+            'location_points': 0,
+            'date_points': 0,
+            'timed_out': 1,
+            'time_taken_seconds': 60.0,
+        },
+        # Round 1: Player timed out with partial guess (Pin A assigned to p0, p1 unassigned)
+        {
+            'match_id': 'm-unshuffle-timeout',
+            'player_name': 'Bob',
+            'round_index': 1,
+            'photo_index': 0,
+            'game_mode': 'unshuffle',
+            'asset_id': 'p2',
+            'actual_latitude': 30.0,
+            'actual_longitude': 40.0,
+            'actual_date': '2024-03-01T00:00:00Z',
+            'guess_latitude': 30.0,
+            'guess_longitude': 40.0,
+            'assigned_pin_id': 'A',
+            'is_correct_location': 1,
+            'true_pin_id': 'A',
+            'round_score': 50,
+            'location_points': 50,
+            'date_points': 0,
+            'timed_out': 1,
+            'time_taken_seconds': 60.0,
+        },
+        {
+            'match_id': 'm-unshuffle-timeout',
+            'player_name': 'Bob',
+            'round_index': 1,
+            'photo_index': 1,
+            'game_mode': 'unshuffle',
+            'asset_id': 'p3',
+            'actual_latitude': 35.0,
+            'actual_longitude': 45.0,
+            'actual_date': '2024-04-01T00:00:00Z',
+            'assigned_pin_id': None,
+            'is_correct_location': 0,
+            'true_pin_id': 'B',
+            'round_score': 0,
+            'location_points': 0,
+            'date_points': 0,
+            'timed_out': 1,
+            'time_taken_seconds': 60.0,
+        },
+    ]
+
+    store.append_match(
+        match_id='m-unshuffle-timeout',
+        config=cfg,
+        player_scores={'Bob': {'location': 50, 'date': 0, 'total': 50}},
+        round_guesses=round_guesses,
+    )
+
+    replay = store.get_match_replay('m-unshuffle-timeout')
+    assert replay is not None
+    assert len(replay.rounds_data) == 2
+
+    # Round 0: 0 guesses, timed out
+    r0 = replay.rounds_data[0]
+    assert len(r0.batch_photos) == 2
+    assert [p.true_pin_id for p in r0.batch_photos] == ['A', 'B']
+    g0 = r0.player_guesses[0]
+    assert g0.timed_out is True
+    assert g0.round_score == 0
+    assert g0.assigned_pin_id is None
+
+    # Round 1: partial guess, timed out
+    r1 = replay.rounds_data[1]
+    assert len(r1.batch_photos) == 2
+    assert [p.true_pin_id for p in r1.batch_photos] == ['A', 'B']
+    g1 = r1.player_guesses[0]
+    assert g1.timed_out is True
+    assert g1.round_score == 50

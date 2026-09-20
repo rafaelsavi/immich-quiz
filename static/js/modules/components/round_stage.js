@@ -124,8 +124,10 @@ export class RoundStage {
 
     if (this.reportBtn) {
       this.reportBtn.style.display = this.showReportButton ? "inline-flex" : "none";
-      this.reportBtn.setAttribute("data-i18n-title", "report.btn_label");
-      this.reportBtn.setAttribute("data-i18n-aria-label", "report.btn_label");
+      this.reportBtn.setAttribute("data-i18n-title", "report.modal_title");
+      this.reportBtn.setAttribute("data-i18n-aria-label", "report.modal_title");
+      this.reportBtn.setAttribute("title", t("report.modal_title"));
+      this.reportBtn.setAttribute("aria-label", t("report.modal_title"));
     }
 
     // Apply specific element IDs for prefix compatibility
@@ -238,6 +240,14 @@ export class RoundStage {
       }
       if (this.mapContainer) this.mapContainer.id = `${prefix}leaflet-map`;
       if (this.mapFullscreenBtn) this.mapFullscreenBtn.id = `${prefix}map-fullscreen`;
+    }
+
+    if (prefix && prefix.includes("replay") && this.reportBtn) {
+      const textSpan = this.reportBtn.querySelector(".report-discrete-text");
+      if (textSpan) {
+        textSpan.remove();
+      }
+      this.reportBtn.classList.add("round-photo-report-btn-icon-only");
     }
   }
 

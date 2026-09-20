@@ -34,7 +34,12 @@ export function showCard(cardEl) {
   ].forEach((c) => {
     if (c) c.classList.add("hidden");
   });
-  if (cardEl) cardEl.classList.remove("hidden");
+  if (cardEl === el.summaryCard || cardEl === el.replayPageCard) {
+    if (el.summaryCard) el.summaryCard.classList.remove("hidden");
+    if (el.replayPageCard) el.replayPageCard.classList.remove("hidden");
+  } else if (cardEl) {
+    cardEl.classList.remove("hidden");
+  }
 }
 
 export function scrollToGameCard(behavior = "smooth") {

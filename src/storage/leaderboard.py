@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import math
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -137,6 +138,7 @@ CREATE TABLE IF NOT EXISTS match_round_guesses (
     submitted_at       TEXT NOT NULL,
     assigned_pin_id    TEXT,                          -- Pin ID assigned in unshuffle mode
     assigned_timeline_index INTEGER,                  -- Timeline order index assigned in unshuffle mode
+    true_pin_id        TEXT,                          -- True pin ID in unshuffle mode ('A', 'B', 'C'...)
     FOREIGN KEY(match_id) REFERENCES matches(match_id) ON DELETE CASCADE
 );
 
@@ -200,6 +202,116 @@ def _parse_json_list(val: str | list[Any] | None) -> list[str]:
         return []
 
 
+def resolve_unshuffle_true_pins(r_guesses: list[dict[str, Any]]) -> dict[str, str]:
+    """Resolve true_pin_id ('A', 'B', 'C'...) for each asset_id in an unshuffle round.
+
+    Deterministic multi-stage resolution guaranteeing 100% unique, non-colliding pin IDs:
+    1. If `true_pin_id` was explicitly recorded in any guess row for that asset, use it.
+    2. If any player correctly guessed the location (`is_correct_location == 1`) with an assigned_pin_id,
+       that assigned_pin_id is authoritative.
+    3. Coordinate correlation: match photo (actual_latitude, actual_longitude) with pin locations
+       recorded in (guess_latitude, guess_longitude) for each assigned_pin_id.
+    4. Remaining unused letters from ('A', 'B', 'C'...) are assigned sequentially to any still-unresolved
+       photos, ensuring zero duplicate letters in any round.
+    """
+    if not r_guesses:
+        return {}
+
+    # Collect unique photos in the round in stable order of (photo_index, asset_id)
+    photo_records: dict[str, dict[str, Any]] = {}
+    for g in r_guesses:
+        pid = str(g['asset_id'])
+        if pid not in photo_records:
+            photo_records[pid] = {
+                'asset_id': pid,
+                'photo_index': int(g.get('photo_index', 0)),
+                'actual_latitude': g.get('actual_latitude'),
+                'actual_longitude': g.get('actual_longitude'),
+            }
+
+    sorted_photos = sorted(
+        photo_records.values(),
+        key=lambda p: (p['photo_index'], p['asset_id']),
+    )
+    total_photos = len(sorted_photos)
+    all_possible_letters = [chr(65 + i) for i in range(total_photos)]
+
+    resolved: dict[str, str] = {}
+    used_letters: set[str] = set()
+
+    # Step 1: Explicit true_pin_id on any row
+    for p in sorted_photos:
+        pid = p['asset_id']
+        for g in r_guesses:
+            if str(g.get('asset_id')) == pid and g.get('true_pin_id'):
+                pin = str(g['true_pin_id']).strip().upper()
+                if pin and pin not in used_letters:
+                    resolved[pid] = pin
+                    used_letters.add(pin)
+                    break
+
+    # Step 2: is_correct_location == 1
+    for p in sorted_photos:
+        pid = p['asset_id']
+        if pid in resolved:
+            continue
+        for g in r_guesses:
+            if str(g.get('asset_id')) == pid and g.get('is_correct_location') == 1 and g.get('assigned_pin_id'):
+                pin = str(g['assigned_pin_id']).strip().upper()
+                if pin and pin not in used_letters:
+                    resolved[pid] = pin
+                    used_letters.add(pin)
+                    break
+
+    # Step 3: Geographic coordinate correlation
+    pin_coords: dict[str, tuple[float, float]] = {}
+    for g in r_guesses:
+        raw_pin = g.get('assigned_pin_id')
+        glat = g.get('guess_latitude')
+        glng = g.get('guess_longitude')
+        if raw_pin and glat is not None and glng is not None:
+            pin_str = str(raw_pin).strip().upper()
+            try:
+                lat_f = float(glat)
+                lng_f = float(glng)
+                if math.isfinite(lat_f) and math.isfinite(lng_f):
+                    pin_coords[pin_str] = (lat_f, lng_f)
+            except (ValueError, TypeError):
+                continue
+
+    for p in sorted_photos:
+        pid = p['asset_id']
+        if pid in resolved:
+            continue
+        plat = p.get('actual_latitude')
+        plng = p.get('actual_longitude')
+        if plat is not None and plng is not None:
+            try:
+                p_lat_f = float(plat)
+                p_lng_f = float(plng)
+                for pin_cand, (c_lat, c_lng) in pin_coords.items():
+                    if pin_cand in used_letters:
+                        continue
+                    if abs(p_lat_f - c_lat) < 1e-4 and abs(p_lng_f - c_lng) < 1e-4:
+                        resolved[pid] = pin_cand
+                        used_letters.add(pin_cand)
+                        break
+            except (ValueError, TypeError):
+                pass
+
+    # Step 4: Allocate remaining unused letters from sequence
+    available_letters = [let for let in all_possible_letters if let not in used_letters]
+    for p in sorted_photos:
+        pid = p['asset_id']
+        if pid in resolved:
+            continue
+        pin = available_letters.pop(0) if available_letters else chr(65 + p['photo_index'])
+        resolved[pid] = pin
+        used_letters.add(pin)
+
+    return resolved
+
+
 def _build_round_history_from_guesses(
     guess_rows: list[dict[str, Any]],
     match_row: dict[str, Any],
@@ -254,24 +366,9 @@ def _build_round_history_from_guesses(
                 p_id = g['asset_id']
                 if p_id not in unique_photos:
                     p_dt = _parse_iso_date(g.get('actual_date'))
-                    p_idx_raw = g.get('photo_index')
-                    p_idx = int(p_idx_raw) if p_idx_raw is not None else 0
-                    # Determine true_pin_id from verified correct guess rows if available
-                    true_pin: str | None = None
-                    for check_g in r_guesses:
-                        if (
-                            check_g.get('asset_id') == p_id
-                            and check_g.get('is_correct_location') == 1
-                            and check_g.get('assigned_pin_id')
-                        ):
-                            true_pin = str(check_g['assigned_pin_id'])
-                            break
-                    if not true_pin:
-                        true_pin = chr(65 + p_idx)
-
                     unique_photos[p_id] = {
                         'photo_id': p_id,
-                        'true_pin_id': true_pin,
+                        'true_pin_id': None,
                         'actual_latitude': g.get('actual_latitude'),
                         'actual_longitude': g.get('actual_longitude'),
                         'actual_date': g.get('actual_date'),
@@ -280,6 +377,9 @@ def _build_round_history_from_guesses(
                         'actual_city': g.get('actual_city'),
                         'actual_country': g.get('actual_country'),
                     }
+            pin_map = resolve_unshuffle_true_pins(r_guesses)
+            for p_id, p_entry in unique_photos.items():
+                p_entry['true_pin_id'] = pin_map.get(p_id)
             round_entry['batch_reveal'] = list(unique_photos.values())
 
         round_history.append(round_entry)
@@ -350,6 +450,8 @@ class LeaderboardStore:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN assigned_timeline_index INTEGER')
                 if 'timed_out' not in existing_cols:
                     conn.execute('ALTER TABLE match_round_guesses ADD COLUMN timed_out INTEGER NOT NULL DEFAULT 0')
+                if 'true_pin_id' not in existing_cols:
+                    conn.execute('ALTER TABLE match_round_guesses ADD COLUMN true_pin_id TEXT')
             cursor_m = conn.execute('PRAGMA table_info(matches)')
             existing_match_cols = {row[1] for row in cursor_m.fetchall()}
             if existing_match_cols and 'person_names_json' not in existing_match_cols:
@@ -478,6 +580,41 @@ class LeaderboardStore:
                                 m_id,
                             ),
                         )
+            # Backfill true_pin_id for unshuffle rows where true_pin_id is NULL
+            try:
+                unshuffle_rounds = conn.execute(
+                    """
+                    SELECT DISTINCT match_id, round_index
+                    FROM match_round_guesses
+                    WHERE game_mode = 'unshuffle' AND (true_pin_id IS NULL OR true_pin_id = '')
+                    """
+                ).fetchall()
+                if unshuffle_rounds:
+                    cols_cur = conn.execute('SELECT * FROM match_round_guesses LIMIT 1')
+                    cols = [desc[0] for desc in cols_cur.description] if cols_cur.description else []
+                    for m_row in unshuffle_rounds:
+                        m_id = m_row[0]
+                        r_idx = m_row[1]
+                        rows = conn.execute(
+                            """
+                            SELECT * FROM match_round_guesses
+                            WHERE match_id = ? AND round_index = ?
+                            """,
+                            (m_id, r_idx),
+                        ).fetchall()
+                        r_dicts = [dict(zip(cols, r, strict=False)) for r in rows]
+                        pin_map = resolve_unshuffle_true_pins(r_dicts)
+                        for pid, pin in pin_map.items():
+                            conn.execute(
+                                """
+                                UPDATE match_round_guesses
+                                SET true_pin_id = ?
+                                WHERE match_id = ? AND round_index = ? AND asset_id = ?
+                                """,
+                                (pin, m_id, r_idx, pid),
+                            )
+            except Exception as exc:
+                logger.warning('Failed to backfill unshuffle true_pin_id: %s', exc)
 
     def append_match(
         self,
@@ -621,8 +758,8 @@ class LeaderboardStore:
                             date_diff_days, date_points, round_score,
                             is_correct_location, is_correct_date_order,
                             time_taken_seconds, timed_out, submitted_at,
-                            assigned_pin_id, assigned_timeline_index
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            assigned_pin_id, assigned_timeline_index, true_pin_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             rg.get('match_id', match_id),
@@ -651,6 +788,7 @@ class LeaderboardStore:
                             rg.get('submitted_at', played_at),
                             rg.get('assigned_pin_id'),
                             rg.get('assigned_timeline_index'),
+                            rg.get('true_pin_id'),
                         ),
                     )
 
@@ -1235,6 +1373,7 @@ class LeaderboardStore:
         submitted_at: str | None = None,
         assigned_pin_id: str | None = None,
         assigned_timeline_index: int | None = None,
+        true_pin_id: str | None = None,
     ) -> None:
         """Persist a single player's guess for a challenge round."""
         now_iso = submitted_at or datetime.now(UTC).isoformat()
@@ -1367,8 +1506,8 @@ class LeaderboardStore:
                     date_diff_days, date_points, round_score,
                     is_correct_location, is_correct_date_order,
                     time_taken_seconds, timed_out, submitted_at,
-                    assigned_pin_id, assigned_timeline_index
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    assigned_pin_id, assigned_timeline_index, true_pin_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
@@ -1397,6 +1536,7 @@ class LeaderboardStore:
                     now_iso,
                     assigned_pin_id,
                     assigned_timeline_index,
+                    true_pin_id,
                 ),
             )
 
@@ -2624,7 +2764,8 @@ class LeaderboardStore:
                         p_dt = _parse_iso_date(g.get('actual_date'))
                         unique_pids[pid] = {
                             'asset_id': pid,
-                            'true_pin_id': g.get('assigned_pin_id'),
+                            'true_pin_id': None,
+                            'media_url': f'/api/media/{pid}',
                             'actual_latitude': g.get('actual_latitude'),
                             'actual_longitude': g.get('actual_longitude'),
                             'actual_date': g.get('actual_date'),
@@ -2633,6 +2774,9 @@ class LeaderboardStore:
                             'actual_city': g.get('actual_city'),
                             'actual_country': g.get('actual_country'),
                         }
+                pin_map = resolve_unshuffle_true_pins(r_guesses)
+                for pid, p_data in unique_pids.items():
+                    p_data['true_pin_id'] = pin_map.get(pid)
                 batch_photos = [MatchReplayBatchPhoto(**data) for data in unique_pids.values()]
 
             guesses_by_player: dict[str, list[dict[str, Any]]] = {}

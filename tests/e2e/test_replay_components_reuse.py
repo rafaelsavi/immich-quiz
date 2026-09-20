@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 from playwright.async_api import Page, expect
@@ -255,3 +256,115 @@ async def test_replay_header_challenge_vs_local(page: Page) -> None:
     # Subtitle contains challenge title and creator name
     await expect(page.locator('#replay-match-title .replay-challenge-title')).to_have_text('Summer Roadtrip 2026')
     await expect(page.locator('#replay-match-title .replay-challenge-host')).to_contain_text('Rafael')
+
+
+@pytest.mark.asyncio
+async def test_unshuffle_replay_map_photo_icons_and_tab_jumping(page: Page) -> None:
+    """Verify unshuffle replay displays photo icons on map markers,
+    clicking markers jumps to the respective photo tab, and report button is icon-only.
+    """
+    mock_unshuffle_replay = {
+        'match_id': 'unshuffle-replay-test',
+        'game_mode': 'unshuffle',
+        'play_mode': 'local',
+        'rounds': 1,
+        'played_at': 1740000000.0,
+        'location_mode': True,
+        'date_mode': True,
+        'rounds_data': [
+            {
+                'round_number': 1,
+                'game_mode': 'unshuffle',
+                'batch_photos': [
+                    {
+                        'asset_id': 'p1',
+                        'true_pin_id': 'A',
+                        'actual_latitude': 48.8584,
+                        'actual_longitude': 2.2945,
+                        'actual_city': 'Paris',
+                        'actual_country': 'France',
+                        'actual_date': '2021-01-01T12:00:00.000Z',
+                        'media_url': '/api/media/p1',
+                    },
+                    {
+                        'asset_id': 'p2',
+                        'true_pin_id': 'B',
+                        'actual_latitude': 40.7128,
+                        'actual_longitude': -74.0060,
+                        'actual_city': 'New York',
+                        'actual_country': 'United States',
+                        'actual_date': '2022-02-02T12:00:00.000Z',
+                        'media_url': '/api/media/p2',
+                    },
+                    {
+                        'asset_id': 'p3',
+                        'true_pin_id': 'C',
+                        'actual_latitude': 35.6762,
+                        'actual_longitude': 139.6503,
+                        'actual_city': 'Tokyo',
+                        'actual_country': 'Japan',
+                        'actual_date': '2023-03-03T12:00:00.000Z',
+                        'media_url': '/api/media/p3',
+                    },
+                ],
+                'player_guesses': [
+                    {
+                        'player_name': 'Player 1',
+                        'player_color': '#3b82f6',
+                        'cumulative_score': 100,
+                        'unshuffle_guesses': [],
+                    }
+                ],
+            }
+        ],
+    }
+
+    async def handle_unshuffle_replay(route):
+        await route.fulfill(
+            status=200,
+            content_type='application/json',
+            body=json.dumps(mock_unshuffle_replay),
+        )
+
+    await page.route('**/api/match/unshuffle-replay-test/replay', handle_unshuffle_replay)
+    await page.goto('/game/unshuffle-replay-test/replay')
+    await expect(page.locator('#replay-page-card')).to_be_visible()
+
+    # 1. Report button is icon only with tooltip
+    report_btn = page.locator('#replay-report-btn')
+    await expect(report_btn).to_be_visible()
+    btn_text = await report_btn.inner_text()
+    assert 'report issue' not in btn_text.lower()
+    assert 'reportar' not in btn_text.lower()
+    title_attr = await report_btn.get_attribute('title')
+    assert title_attr and len(title_attr) > 0
+
+    # 2. Verify 3 photo tabs rendered with Photo A initially active
+    tab_btns = page.locator('.replay-photo-tab-btn')
+    await expect(tab_btns).to_have_count(3)
+    await expect(tab_btns.nth(0)).to_have_class(re.compile(r'active'))
+    await expect(page.locator('#replay-photo-loc')).to_have_text('Paris, France')
+
+    # 3. Verify map icons have photo icons like guessing map
+    photo_markers = page.locator('.shuffle-pin-marker.has-photo')
+    await expect(photo_markers).to_have_count(3)
+    pin_images = page.locator('.shuffle-pin-photo-img')
+    await expect(pin_images).to_have_count(3)
+    badge_letters = page.locator('.shuffle-pin-letter-badge')
+    await expect(badge_letters).to_have_count(3)
+
+    # 4. Click Map Marker B -> Jump to Photo Tab B
+    await page.wait_for_timeout(300)
+    marker_b = page.locator('#replay-pin-marker-B')
+    await expect(marker_b).to_be_visible()
+    await marker_b.dispatch_event('click')
+    await expect(tab_btns.nth(1)).to_have_class(re.compile(r'active'))
+    await expect(page.locator('#replay-photo-loc')).to_have_text('New York, United States')
+
+    # 5. Click Map Marker C -> Jump to Photo Tab C
+    await page.wait_for_timeout(300)
+    marker_c = page.locator('#replay-pin-marker-C')
+    await expect(marker_c).to_be_visible()
+    await marker_c.dispatch_event('click')
+    await expect(tab_btns.nth(2)).to_have_class(re.compile(r'active'))
+    await expect(page.locator('#replay-photo-loc')).to_have_text('Tokyo, Japan')

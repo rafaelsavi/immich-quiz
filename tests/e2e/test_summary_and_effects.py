@@ -61,7 +61,9 @@ async def test_score_rollup_animation_and_post_game_summary(page: Page) -> None:
     await expect(summary_table).to_be_visible()
     await expect(summary_table.locator('tbody tr')).to_have_count(1)
 
-    # Verify Polaroid Memory Cards Gallery
+    # Verify Review Deck and Photo Memories tab
+    await expect(page.locator('[data-deck-tab="replay"]')).to_be_visible()
+    await page.locator('[data-deck-tab="memories"]').click()
     polaroids = page.locator('#polaroid-gallery')
     await expect(polaroids).to_be_visible()
     await expect(polaroids.locator('.polaroid-card')).to_have_count(5)

@@ -206,7 +206,9 @@ export class UnshuffleReplayStrategy {
   renderMap({ map, roundStage, round, matchData, mapMarkers, mapPolylines, markersByPin }) {
     if (!map || !window.L) return;
 
-    const batchPhotos = round.batch_photos || [];
+    const batchPhotos = (roundStage && Array.isArray(roundStage.photos) && roundStage.photos.length > 0)
+      ? roundStage.photos
+      : (round.batch_photos || []);
     const validPhotos = batchPhotos.filter((p) => {
       const lat = Number(p.actual_latitude);
       const lon = Number(p.actual_longitude);
@@ -223,15 +225,25 @@ export class UnshuffleReplayStrategy {
     const trueCoords = {};
     const spiderLines = {};
 
-    validPhotos.forEach((photo) => {
-      const pinId = photo.true_pin_id || "?";
+    validPhotos.forEach((photo, idx) => {
+      let pinId = photo.true_pin_id;
+      if (!pinId) {
+        const rawIdx = photo.photo_index != null ? Number(photo.photo_index) : idx;
+        pinId = String.fromCharCode(65 + rawIdx);
+      }
       const lat = Number(photo.actual_latitude);
       const lon = Number(photo.actual_longitude);
       bounds.extend([lat, lon]);
       trueCoords[pinId] = { lat, lng: lon };
 
       const pinColor = getPinColor(pinId);
-      const icon = createBadgePinIcon(pinId, pinColor, { isTaken: true, size: 36 });
+      const photoUrl = photo.media_url || (photo.photo_id ? `/api/media/${photo.photo_id}` : (photo.asset_id ? `/api/media/${encodeURIComponent(photo.asset_id)}` : ""));
+      const icon = createBadgePinIcon(pinId, pinColor, {
+        id: `replay-pin-marker-${pinId}`,
+        isTaken: true,
+        size: 36,
+        photoUrl,
+      });
 
       const locParts = [photo.actual_city, photo.actual_country].filter(Boolean);
       const locText = locParts.length > 0 ? locParts.join(", ") : "";
@@ -250,14 +262,26 @@ export class UnshuffleReplayStrategy {
           </div>
         `);
 
-      marker.on("click", () => {
+      const selectPhotoForMarker = () => {
         if (roundStage && Array.isArray(roundStage.photos)) {
           const pIdx = roundStage.photos.findIndex((p) => String(p.true_pin_id) === String(pinId));
           if (pIdx >= 0) {
             roundStage.setActivePhoto(pIdx);
           }
         }
-      });
+      };
+
+      marker.on("click", selectPhotoForMarker);
+      marker.on("popupopen", selectPhotoForMarker);
+
+      const markerEl = marker.getElement();
+      if (markerEl) {
+        markerEl.addEventListener("click", selectPhotoForMarker);
+        const innerPin = markerEl.querySelector(`#replay-pin-marker-${pinId}`);
+        if (innerPin) {
+          innerPin.addEventListener("click", selectPhotoForMarker);
+        }
+      }
 
       markersByPin[pinId] = marker;
       mapMarkers.push(marker);
@@ -268,10 +292,26 @@ export class UnshuffleReplayStrategy {
     }
 
     // Spiderfy support for co-located pins
-    applySpiderfy(map, trueCoords, markersByPin, spiderLines, getPinColor);
-    const onZoom = () => applySpiderfy(map, trueCoords, markersByPin, spiderLines, getPinColor);
-    map.on("zoomend", onZoom);
-    mapMarkers._cleanupSpiderfy = () => map.off("zoomend", onZoom);
+    const updateSpiderfy = () => {
+      applySpiderfy(map, trueCoords, markersByPin, spiderLines, getPinColor);
+    };
+    updateSpiderfy();
+    map.on("zoomend", updateSpiderfy);
+    map.on("moveend", updateSpiderfy);
+    mapMarkers._cleanupSpiderfy = () => {
+      map.off("zoomend", updateSpiderfy);
+      map.off("moveend", updateSpiderfy);
+      Object.keys(spiderLines).forEach((key) => {
+        const line = spiderLines[key];
+        if (line) {
+          if (line._anchor) {
+            try { map.removeLayer(line._anchor); } catch (_) {}
+          }
+          try { map.removeLayer(line); } catch (_) {}
+        }
+        delete spiderLines[key];
+      });
+    };
 
     // If active photo selected, open its popup
     const curPhoto = roundStage?.getCurrentPhoto();
@@ -421,19 +461,20 @@ export class MatchReplayViewer {
     let stageMount = this.containerEl.querySelector(".replay-content-container");
     let table = this.containerEl.querySelector(".reveal-table, .replay-reveal-table");
 
+    const p = this.idPrefix || "replay-";
     if (!stepper || !stageMount || !table) {
       this.containerEl.innerHTML = `
         <div class="replay-header-controls">
           <div class="replay-round-stepper">
-            <button type="button" class="btn-icon-control replay-prev-round-btn" title="${escapeHtml(t("replay.prev_round"))}"
+            <button type="button" id="${p}prev-round-btn" class="btn-icon-control replay-prev-round-btn" title="${escapeHtml(t("replay.prev_round"))}"
               aria-label="${escapeHtml(t("replay.prev_round"))}" data-i18n-title="replay.prev_round">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"
                 stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="16 20 8 12 16 4"></polyline>
               </svg>
             </button>
-            <span class="replay-round-indicator"></span>
-            <button type="button" class="btn-icon-control replay-next-round-btn" title="${escapeHtml(t("replay.next_round"))}"
+            <span id="${p}round-indicator" class="replay-round-indicator"></span>
+            <button type="button" id="${p}next-round-btn" class="btn-icon-control replay-next-round-btn" title="${escapeHtml(t("replay.next_round"))}"
               aria-label="${escapeHtml(t("replay.next_round"))}" data-i18n-title="replay.next_round">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"
                 stroke-linecap="round" stroke-linejoin="round">
@@ -442,12 +483,20 @@ export class MatchReplayViewer {
             </button>
           </div>
         </div>
-        <div class="replay-content-container"></div>
-        <div class="table-scroll reveal-table-scroll">
-          <table class="reveal-table replay-reveal-table">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
+        <div id="${p}content-container" class="replay-content-container round-stage replay-stage"></div>
+        <div class="replay-guesses-card">
+          <div class="replay-guesses-header">
+            <h4>
+              <span>👥 <span data-i18n="replay.player_guess_heading">${escapeHtml(t("replay.player_guess_heading"))}</span></span>
+              <span id="${p}scoreboard-round-tag" class="replay-round-tag"></span>
+            </h4>
+          </div>
+          <div id="${p}guesses-list" class="table-scroll reveal-table-scroll">
+            <table id="${p}reveal-table" class="reveal-table replay-reveal-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       `;
     }
@@ -636,15 +685,30 @@ export class MatchReplayViewer {
 
   _getBatchPhotos(round) {
     if (round.batch_photos && round.batch_photos.length > 0) {
-      const hasPinIds = round.batch_photos.some((p) => p.true_pin_id);
-      if (hasPinIds) {
-        return [...round.batch_photos].sort((a, b) => {
-          const pa = a.true_pin_id || "";
-          const pb = b.true_pin_id || "";
-          return pa < pb ? -1 : pa > pb ? 1 : 0;
-        });
-      }
-      return round.batch_photos;
+      const usedLetters = new Set();
+      const photos = round.batch_photos.map((p, idx) => {
+        let pinId = p.true_pin_id ? String(p.true_pin_id).trim().toUpperCase() : "";
+        if (!pinId || usedLetters.has(pinId)) {
+          const rawIdx = p.photo_index != null ? Number(p.photo_index) : idx;
+          let candidate = String.fromCharCode(65 + rawIdx);
+          let offset = 0;
+          while (usedLetters.has(candidate)) {
+            offset++;
+            candidate = String.fromCharCode(65 + ((rawIdx + offset) % 26));
+          }
+          pinId = candidate;
+        }
+        usedLetters.add(pinId);
+        return {
+          ...p,
+          true_pin_id: pinId,
+        };
+      });
+      return photos.sort((a, b) => {
+        const pa = a.true_pin_id || "";
+        const pb = b.true_pin_id || "";
+        return pa < pb ? -1 : pa > pb ? 1 : 0;
+      });
     }
     return [
       {
@@ -681,6 +745,20 @@ export class MatchReplayViewer {
     this.mapMarkers = [];
     this.mapPolylines = [];
     this.markersByPin = {};
+
+    // Purge any residual spider lines or origin anchors directly from the map
+    if (typeof this.map.eachLayer === "function") {
+      this.map.eachLayer((layer) => {
+        if (
+          layer.options &&
+          (layer.options.className === "spider-line" || layer.options.className === "spider-anchor")
+        ) {
+          try {
+            this.map.removeLayer(layer);
+          } catch (_) {}
+        }
+      });
+    }
 
     const strategy = this.getStrategy(round);
     strategy.renderMap({
@@ -728,6 +806,18 @@ export class MatchReplayViewer {
     this.markersByPin = {};
 
     if (this.map) {
+      if (typeof this.map.eachLayer === "function") {
+        this.map.eachLayer((layer) => {
+          if (
+            layer.options &&
+            (layer.options.className === "spider-line" || layer.options.className === "spider-anchor")
+          ) {
+            try {
+              this.map.removeLayer(layer);
+            } catch (_) {}
+          }
+        });
+      }
       try {
         unregisterActiveMap(this.map);
         this.map.remove();

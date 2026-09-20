@@ -1025,6 +1025,7 @@ class MatchReplayBatchPhoto(BaseModel):
 
     asset_id: str
     true_pin_id: str | None = None
+    media_url: str | None = None
     actual_latitude: float | None = None
     actual_longitude: float | None = None
     actual_date: str | None = None

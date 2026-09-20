@@ -170,6 +170,7 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                         'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
                         'assigned_pin_id': str(assigned_pin_id) if assigned_pin_id else None,
                         'assigned_timeline_index': assigned_timeline_index,
+                        'true_pin_id': true_pin_map.get(ba.asset_id),
                     }
                 )
         else:
@@ -209,6 +210,7 @@ def extract_round_guesses(state: MatchState) -> list[dict[str, Any]]:
                     'time_taken_seconds': q.time_taken_seconds,
                     'timed_out': bool(q.timed_out),
                     'submitted_at': q.submitted_at or datetime.now(timezone.utc).isoformat(),
+                    'true_pin_id': None,
                 }
             )
     return guesses

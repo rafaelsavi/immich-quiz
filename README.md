@@ -26,7 +26,7 @@ Play locally with friends on a single screen via **👥 Pass & Play**, or share 
 - **⚔️ Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
 - **Challenges Hub (`/challenges`)**: Browse, search, share, track active challenges, and view past match summaries.
 - **📊 Player Statistics & Profiles (`/stats`)**: Explore lifetime stats, win rates, medal podiums, 4-tier accuracy distributions for Location & Date, and player match histories.
-- **📼 Match Replays (`/replays` & `/replay/{match_id}`)**: Step through completed games round-by-round with interactive Leaflet maps, true pin reveals, and running scoreboards.
+- **🎬 Match Reviews & Replays (`/replays` & `/replay/{match_id}`)**: Review completed games with an outcome hero (winner podium, final standings) and interactive segmented review deck featuring round-by-round replays, full-game journey maps, and photo memories.
 - **Reported Assets Dashboard (`/reported`)**: Review reported photo metadata inconsistencies (GPS, date, notes), open direct Immich Web edit links, and resolve reports in real time.
 
 ### Library Filters & Preflight

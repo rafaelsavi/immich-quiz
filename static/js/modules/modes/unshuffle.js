@@ -867,12 +867,25 @@ function renderBatchRevealMap(containerEl, batchItems) {
     revealTrueCoords[key] = { lat, lng: lon };
 
     const pinColor = getPinColor(item.true_pin_id);
-    const icon = createBadgePinIcon(item.true_pin_id, pinColor, { isTaken: true, size: 36 });
+    const photoUrl = item.media_url || (item.photo_id ? `/api/media/${item.photo_id}` : (item.asset_id ? `/api/media/${encodeURIComponent(item.asset_id)}` : null));
+    const icon = createBadgePinIcon(item.true_pin_id, pinColor, { isTaken: true, size: 36, photoUrl });
 
     const dateStr = item.actual_date ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" }) : "";
     const marker = L.marker([lat, lon], { icon })
       .bindPopup(`<b>${item.true_pin_id}</b><br>${dateStr}`)
       .addTo(map);
+
+    const selectPhoto = () => {
+      if (_shuffleStage && Array.isArray(_shuffleStage.photos)) {
+        const pIdx = _shuffleStage.photos.findIndex((p) => String(p.true_pin_id) === String(item.true_pin_id));
+        if (pIdx >= 0) {
+          _shuffleStage.setActivePhoto(pIdx);
+        }
+      }
+    };
+    marker.on("click", selectPhoto);
+    marker.on("popupopen", selectPhoto);
+
     revealMarkerByKey[key] = marker;
   });
   _revealMarkerByKey = revealMarkerByKey;

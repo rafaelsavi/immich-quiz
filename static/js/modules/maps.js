@@ -678,18 +678,25 @@ export function applySpiderfy(
 export function renderJourneyMap(roundHistory, locationMode = true, options = {}) {
   const mapShell = options.mapShell || el.journeyMapShell;
   const mapHead = options.mapHead || el.journeyMapHead;
-  if (!mapShell || !mapHead) return null;
+  if (!mapShell) return null;
 
   if (!locationMode) {
     mapShell.classList.add("hidden");
-    mapHead.classList.add("hidden");
+    if (mapHead) mapHead.classList.add("hidden");
     return null;
   }
 
   const allPins = [];
   (roundHistory || []).forEach((r) => {
-    if (r.batch_reveal && Array.isArray(r.batch_reveal) && r.batch_reveal.length > 0) {
-      r.batch_reveal.forEach((item) => {
+    const batchList =
+      r.batch_reveal && Array.isArray(r.batch_reveal) && r.batch_reveal.length > 0
+        ? r.batch_reveal
+        : r.batch_photos && Array.isArray(r.batch_photos) && r.batch_photos.length > 0
+          ? r.batch_photos
+          : null;
+
+    if (batchList) {
+      batchList.forEach((item) => {
         const lat = Number(item.actual_latitude);
         const lon = Number(item.actual_longitude);
         if (
@@ -702,10 +709,10 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
             ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" })
             : "";
           allPins.push({
-            label: `${r.round_number}-${item.true_pin_id}`,
+            label: `${r.round_number}-${item.true_pin_id || ""}`,
             lat,
             lon,
-            popupText: `<b>${t("summary.journey_round", r.round_number)} - Pin ${item.true_pin_id}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
+            popupText: `<b>${t("summary.journey_round", r.round_number)} - Pin ${item.true_pin_id || ""}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
           });
         }
       });
@@ -733,22 +740,22 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
 
   if (allPins.length === 0) {
     mapShell.classList.add("hidden");
-    mapHead.classList.add("hidden");
+    if (mapHead) mapHead.classList.add("hidden");
     return null;
   }
 
   mapShell.classList.remove("hidden");
-  mapHead.classList.remove("hidden");
+  if (mapHead) mapHead.classList.remove("hidden");
 
   let mapInstance;
   let spiderLinesObj;
   let trueCoordsObj;
   let layersArr;
 
-  const container = options.container || document.getElementById(options.containerId || "journey-map");
+  const container = options.mapEl || options.container || document.getElementById(options.containerId || "journey-map");
   if (!container) return null;
 
-  if (options.container || options.containerId) {
+  if (options.mapEl || options.container || options.containerId) {
     if (options.existingMap) {
       mapInstance = options.existingMap;
       mapInstance.eachLayer((layer) => {

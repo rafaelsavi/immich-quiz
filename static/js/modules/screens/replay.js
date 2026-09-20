@@ -1,20 +1,15 @@
 /**
- * Interactive Match Replay Screen Controller
- * Steps through match history round-by-round with synchronized media-frame photos,
- * Leaflet maps showing actual vs player guesses, and running scoreboards.
- * Reuses standard map-shell and media-frame components and lightbox.
+ * Interactive Match Replay Screen & Catalog Controller
+ * Replays directory (/replays) and delegation to Unified Match Review Screen (/game/:id/replay).
  */
 
-import { state, el } from "../state.js";
+import { el } from "../state.js";
 import { t, formatDateTime } from "../i18n.js";
 import { showCard } from "./common.js";
 import { navigate } from "../router.js";
 import { escapeHtml, playerColor, playerInitial } from "../formatters.js";
-import { renderMatchMeta } from "../components/match_meta.js";
-import { MatchReplayViewer } from "../components/match_replay.js";
+import { showMatchSummaryByMatchId, refreshSummaryLanguage } from "./summary.js";
 
-let _matchData = null;
-let _replayViewer = null;
 let _listenersBound = false;
 
 export function initReplay() {
@@ -30,63 +25,58 @@ export function initReplay() {
     });
   }
 
+  const exitBottomBtn = document.getElementById("replay-exit-bottom-btn");
+  if (exitBottomBtn) {
+    exitBottomBtn.addEventListener("click", () => {
+      navigate("/replays");
+    });
+  }
+
   const errBackBtn = document.getElementById("replay-error-back-btn");
   if (errBackBtn) {
     errBackBtn.addEventListener("click", () => {
       navigate("/replays");
     });
   }
-}
 
-export async function showMatchReplay(matchId) {
-  showCard(el.replayPageCard);
-
-  const loadingEl = document.getElementById("replay-loading-state");
-  const errorEl = document.getElementById("replay-error-state");
-  const contentGrid = document.getElementById("replay-content-grid");
-
-  if (loadingEl) loadingEl.classList.remove("hidden");
-  if (errorEl) errorEl.classList.add("hidden");
-  if (contentGrid) contentGrid.classList.add("hidden");
-
-  try {
-    const res = await fetch(`/api/match/${encodeURIComponent(matchId)}/replay`);
-    if (!res.ok) throw new Error("Failed to load match replay");
-    _matchData = await res.json();
-
-    if (loadingEl) loadingEl.classList.add("hidden");
-    if (contentGrid) contentGrid.classList.remove("hidden");
-
-    renderReplayShell();
-  } catch (err) {
-    console.error("Error loading match replay:", err);
-    if (loadingEl) loadingEl.classList.add("hidden");
-    if (contentGrid) contentGrid.classList.add("hidden");
-    if (errorEl) {
-      errorEl.classList.remove("hidden");
-      const errText = document.getElementById("replay-error-text");
-      if (errText) errText.textContent = t("replay.not_found");
-    }
+  const shareBtn = document.getElementById("replay-share-btn");
+  if (shareBtn) {
+    shareBtn.addEventListener("click", async () => {
+      const url = window.location.href;
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: "Immich Quiz Match Replay",
+            url,
+          });
+          return;
+        } catch (_) {}
+      }
+      try {
+        await navigator.clipboard.writeText(url);
+      } catch (_) {}
+    });
   }
 }
 
-function renderReplayTitleHeader() {
+export function renderReplayTitleHeader() {
+  const data = arguments[0] || null;
   const headingTitleEl = document.getElementById("replay-heading-title");
   const titleEl = document.getElementById("replay-match-title");
-  if (!titleEl || !_matchData) return;
+  if (!titleEl || !data) return;
 
   const isChallenge =
-    _matchData.play_mode === "challenge" ||
-    Boolean(_matchData.challenge_id || _matchData.challenge_title || _matchData.challenge_creator);
+    data.play_mode === "challenge" ||
+    Boolean(data.challenge_id || data.challenge_title || data.challenge_creator);
 
   if (isChallenge) {
     const challengeTitle =
-      _matchData.challenge_title ||
-      (_matchData.challenge_creator ? `${_matchData.challenge_creator}'s Challenge` : t("challenge.badge"));
-    const hostText = _matchData.challenge_creator
-      ? t("challenges_page.host_label", _matchData.challenge_creator)
+      data.challenge_title ||
+      (data.challenge_creator ? `${data.challenge_creator}'s Challenge` : t("challenge.badge"));
+    const hostText = data.challenge_creator
+      ? t("challenges_page.host_label", data.challenge_creator)
       : "";
-    const dateText = formatDateTime(_matchData.played_at);
+    const dateText = formatDateTime(data.played_at);
 
     if (headingTitleEl) {
       headingTitleEl.removeAttribute("data-i18n");
@@ -104,12 +94,12 @@ function renderReplayTitleHeader() {
       parts.push(`<span class="replay-match-date">${escapeHtml(dateText)}</span>`);
     }
     titleEl.innerHTML = parts.join(` <span class="meta-separator" aria-hidden="true">•</span> `);
-  } else if (_matchData.play_mode === "room" && _matchData.room_name) {
+  } else if (data.play_mode === "room" && data.room_name) {
     if (headingTitleEl) {
       headingTitleEl.removeAttribute("data-i18n");
-      headingTitleEl.textContent = _matchData.room_name;
+      headingTitleEl.textContent = data.room_name;
     }
-    const dateText = formatDateTime(_matchData.played_at);
+    const dateText = formatDateTime(data.played_at);
     titleEl.innerHTML = `
       <span class="badge-tag badge-type">🏠 ${t("replay.play_mode_room")}</span>
       <span class="meta-separator" aria-hidden="true">•</span>
@@ -120,7 +110,7 @@ function renderReplayTitleHeader() {
       headingTitleEl.setAttribute("data-i18n", "replay.title");
       headingTitleEl.textContent = t("replay.title");
     }
-    const dateText = formatDateTime(_matchData.played_at);
+    const dateText = formatDateTime(data.played_at);
     titleEl.innerHTML = `
       <span class="badge-tag badge-type">👥 ${t("replay.play_mode_local")}</span>
       <span class="meta-separator" aria-hidden="true">•</span>
@@ -129,25 +119,8 @@ function renderReplayTitleHeader() {
   }
 }
 
-function renderReplayShell() {
-  if (!_matchData) return;
-
-  renderReplayTitleHeader();
-
-  const metaContainer = document.getElementById("replay-match-meta-container");
-  if (metaContainer) {
-    renderMatchMeta(metaContainer, _matchData);
-  }
-
-  const contentGrid = document.getElementById("replay-content-grid");
-  if (contentGrid) {
-    if (!_replayViewer) {
-      _replayViewer = new MatchReplayViewer(contentGrid, {
-        showReportButton: true,
-      });
-    }
-    _replayViewer.setMatchData(_matchData, 0);
-  }
+export async function showMatchReplay(matchId) {
+  await showMatchSummaryByMatchId(matchId, { mode: "replay" });
 }
 
 let _cachedMatches = [];
@@ -462,20 +435,6 @@ export function refreshReplayPageLanguage() {
     renderMatchesHistory(_cachedMatches);
   }
 
-  const card = el.replayPageCard || document.getElementById("replay-page-card");
-  if (!card || card.classList.contains("hidden")) return;
-
-  if (_matchData) {
-    renderReplayTitleHeader();
-
-    const metaContainer = document.getElementById("replay-match-meta-container");
-    if (metaContainer) {
-      renderMatchMeta(metaContainer, _matchData);
-    }
-
-    if (_replayViewer) {
-      _replayViewer.renderCurrentRound();
-    }
-  }
+  refreshSummaryLanguage();
 }
 

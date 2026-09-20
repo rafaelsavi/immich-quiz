@@ -68,7 +68,7 @@ immich-quiz/
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, round_stage.css, reveal_table.css, replay.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, round_stage.css, reveal_table.css, replay.css, review_deck.css).
     │   └── modes/       Game mode styles (pinpoint.css, unshuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
@@ -85,6 +85,7 @@ immich-quiz/
         │   ├── range_slider.js Dual-handle Year-Month range slider.
         │   ├── report_modal.js Photo issue reporting dialog with 3-field validation & Immich Web link.
         │   ├── reveal_table.js Standardized 2-tier grouped header reveal table with score rollups.
+        │   ├── review_deck.js Universal 3-tab review deck (Match Replay, Journey Map, Photo Memories) with Leaflet dimension invalidation and location mode gating.
         │   ├── round_stage.js Single source of truth for photo canvas, batch photo tabs, Leaflet map split view, and metadata caption pill chips across Live Pinpoint Reveal, Live Unshuffle Reveal, Match Replay, and Summary views.
         │   └── share_box.js Reusable, standardized share URL box, icon-only action button row, and QR code component.
         ├── challenge/   Modular challenge play mode sub-package:
@@ -105,10 +106,10 @@ immich-quiz/
         │   ├── setup.js     Match configuration, preflight checks, returnToSetup, and restart.
         │   ├── game.js      Question fetching, media pre-verification, pass-device coordination, and answer submit.
         │   ├── reveal.js    Round results aggregation, reveal rendering, and turn progression.
-        │   ├── summary.js   Replay loading from SQLite, podium/awards display, and 404/ended cards.
+        │   ├── summary.js   Unified match review & replay controller (/game/:id/summary, /game/:id/replay) managing Winner Podium, Standings Table, ReviewDeck, and 404/ended cards.
         │   ├── challenges.js Challenges Hub screen controller (#challenges-page-card, live timers, drawers).
         │   ├── stats.js     Player Statistics Directory & Profile controller (#stats-page-card).
-        │   ├── replay.js    Match Replays & Replay Viewer controller (#replay-page-card).
+        │   ├── replay.js    Match Replays Catalog & History controller (#replays-page-card).
         │   └── reported.js  Reported Asset Moderation Dashboard screen controller (#reported-page-card).
         ├── summary/     Post-game summary rendering submodules:
         │   ├── podium.js    3D podium and winner banner.

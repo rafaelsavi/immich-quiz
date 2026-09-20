@@ -663,6 +663,7 @@ class ChallengeService:
                 timed_out=body.timed_out,
                 assigned_pin_id=str(assigned_pin_id) if assigned_pin_id else None,
                 assigned_timeline_index=assigned_timeline_index,
+                true_pin_id=true_pin_map.get(ba.asset_id),
             )
 
         # Advance session state
