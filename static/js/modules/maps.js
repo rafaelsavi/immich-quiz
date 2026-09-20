@@ -236,6 +236,10 @@ export function unregisterActiveMap(map) {
       } catch (_) {}
       map._resizeObserver = null;
     }
+    const container = map.getContainer ? map.getContainer() : map._container;
+    if (container && container._leaflet_map === map) {
+      delete container._leaflet_map;
+    }
     activeMapRegistry.delete(map);
   }
 }
@@ -367,6 +371,8 @@ export function createStandardMap(containerOrEl, options = {}) {
   map._initialCenter = center;
   map._initialZoom = zoom;
 
+  containerEl._leaflet_map = map;
+
   updateMapMinZoom(map);
 
   map.on("resize", () => {
@@ -374,8 +380,26 @@ export function createStandardMap(containerOrEl, options = {}) {
   });
 
   if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => {
-      updateMapMinZoom(map);
+    let wasZero = !containerEl.clientWidth || !containerEl.clientHeight;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries && entries[0];
+      const width = entry ? entry.contentRect.width : (containerEl.clientWidth || 0);
+      const height = entry ? entry.contentRect.height : (containerEl.clientHeight || 0);
+      const isVisibleNow = width > 0 && height > 0;
+
+      if (wasZero && isVisibleNow) {
+        wasZero = false;
+        try {
+          map.invalidateSize();
+          updateMapMinZoom(map);
+          if (map._needsFitWhenVisible && map._lastFitBounds) {
+            map._needsFitWhenVisible = false;
+            refitMap(map, true);
+          }
+        } catch (_) {}
+      } else {
+        updateMapMinZoom(map);
+      }
     });
     ro.observe(containerEl);
     map._resizeObserver = ro;
@@ -812,15 +836,20 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
     return m;
   };
 
-  mapInstance.on("zoomend", () =>
-    applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR)
-  );
+  const triggerSpiderfy = () => {
+    applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR);
+  };
+
+  mapInstance._applyJourneySpiderfy = triggerSpiderfy;
+  mapInstance.on("zoomend", triggerSpiderfy);
 
   if (points.length > 0) {
+    const isZero = !container || !container.clientWidth || !container.clientHeight;
+    if (isZero) {
+      mapInstance._needsFitWhenVisible = true;
+    }
     fitMapToBounds(mapInstance, points, { padding: [50, 50], maxZoom: 15 });
-    mapInstance.once("moveend", () =>
-      applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR)
-    );
+    mapInstance.once("moveend", triggerSpiderfy);
   }
 
   requestAnimationFrame(() => {
@@ -841,6 +870,12 @@ export function refitMap(map, forceRefitBounds = false) {
       const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
       const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
       map.fitBounds(map._lastFitBounds, { padding, maxZoom });
+      if (typeof map._applyJourneySpiderfy === "function") {
+        map.once("moveend", map._applyJourneySpiderfy);
+        requestAnimationFrame(() => {
+          try { map._applyJourneySpiderfy(); } catch (_) {}
+        });
+      }
     }
   } catch (_) {}
 }
@@ -881,6 +916,12 @@ export function fitMapToBounds(map, pointsOrBounds, options = {}) {
 
   map._lastFitBounds = bounds;
   map._lastFitOptions = options;
+
+  const container = map.getContainer ? map.getContainer() : map._container;
+  const isZero = !container || !container.clientWidth || !container.clientHeight;
+  if (isZero) {
+    map._needsFitWhenVisible = true;
+  }
 
   const padding = options.padding || [50, 50];
   const maxZoom = options.maxZoom !== undefined ? options.maxZoom : 15;

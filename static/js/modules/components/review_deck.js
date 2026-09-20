@@ -13,7 +13,7 @@
 import { t } from "../i18n.js";
 import { escapeHtml } from "../formatters.js";
 import { MatchReplayViewer } from "./match_replay.js";
-import { renderJourneyMap, toggleMapFullscreen } from "../maps.js";
+import { renderJourneyMap, toggleMapFullscreen, refitMap, unregisterActiveMap } from "../maps.js";
 import { renderPolaroidGallery } from "../summary/polaroids.js";
 
 export class ReviewDeck {
@@ -36,6 +36,7 @@ export class ReviewDeck {
 
     this.matchData = null;
     this.journeyMapInstance = null;
+    this._journeyNeedsInitialFit = false;
 
     this._initMarkup();
     this._bindEvents();
@@ -131,6 +132,20 @@ export class ReviewDeck {
     }
   }
 
+  _ensureJourneyMap() {
+    const locationMode = this.matchData?.location_mode !== false;
+    if (!locationMode || !this.journeyMapShell || !this.journeyMapEl) return null;
+    if (this.journeyMapInstance) return this.journeyMapInstance;
+
+    const rawRounds = this.matchData.rounds_data || this.matchData.round_history || [];
+    this.journeyMapInstance = renderJourneyMap(rawRounds, true, {
+      mapShell: this.journeyMapShell,
+      mapEl: this.journeyMapEl,
+    });
+    this._journeyNeedsInitialFit = false;
+    return this.journeyMapInstance;
+  }
+
   /**
    * Switch the active deck tab and stabilize Leaflet map dimensions.
    * @param {string} tabKey - "replay" | "journey" | "memories"
@@ -152,10 +167,19 @@ export class ReviewDeck {
     if (this.panelMemories) this.panelMemories.classList.toggle("hidden", tabKey !== "memories");
 
     // Stabilize Leaflet maps when unhidden
-    if (tabKey === "journey" && this.journeyMapInstance) {
+    if (tabKey === "journey") {
+      if (!this.journeyMapInstance) {
+        this._ensureJourneyMap();
+      }
       setTimeout(() => {
         try {
-          this.journeyMapInstance.invalidateSize();
+          if (this.journeyMapInstance) {
+            this.journeyMapInstance.invalidateSize();
+            if (this._journeyNeedsInitialFit) {
+              refitMap(this.journeyMapInstance, true);
+              this._journeyNeedsInitialFit = false;
+            }
+          }
         } catch (_) {}
       }, 50);
     } else if (tabKey === "replay" && this.replayViewer?.map) {
@@ -186,6 +210,19 @@ export class ReviewDeck {
       this.activeTab = "replay";
     }
 
+    // Clean up previous journey map instance if exists
+    if (this.journeyMapInstance) {
+      unregisterActiveMap(this.journeyMapInstance);
+      try {
+        if (this.journeyMapInstance._resizeObserver) {
+          this.journeyMapInstance._resizeObserver.disconnect();
+        }
+        this.journeyMapInstance.remove();
+      } catch (_) {}
+      this.journeyMapInstance = null;
+    }
+    this._journeyNeedsInitialFit = true;
+
     // Extract rounds list (works with both rounds_data and round_history)
     const rawRounds = matchData.rounds_data || matchData.round_history || [];
 
@@ -194,21 +231,14 @@ export class ReviewDeck {
       this.replayViewer.setMatchData(matchData, initialRoundIndex);
     }
 
-    // 2. Populate Journey Map (if location enabled)
-    if (locationMode && this.journeyMapShell && this.journeyMapEl) {
-      this.journeyMapInstance = renderJourneyMap(rawRounds, true, {
-        mapShell: this.journeyMapShell,
-        mapEl: this.journeyMapEl,
-      });
-    }
-
-    // 3. Populate Photo Memories Polaroid Gallery
+    // 2. Populate Photo Memories Polaroid Gallery
     if (this.polaroidGrid) {
       renderPolaroidGallery(rawRounds, this.polaroidGrid);
     }
 
-    // Activate default tab
-    this.switchTab(this.activeTab || this.defaultTab || "replay");
+    // 3. Activate default tab (if active tab is journey, it renders journey map in visible container)
+    const targetTab = this.activeTab || this.defaultTab || "replay";
+    this.switchTab(targetTab);
   }
 
   /**
@@ -230,11 +260,30 @@ export class ReviewDeck {
       const rawRounds = this.matchData.rounds_data || this.matchData.round_history || [];
       renderPolaroidGallery(rawRounds, this.polaroidGrid);
     }
+
+    if (this.journeyMapInstance && this.matchData) {
+      const rawRounds = this.matchData.rounds_data || this.matchData.round_history || [];
+      renderJourneyMap(rawRounds, true, {
+        mapShell: this.journeyMapShell,
+        mapEl: this.journeyMapEl,
+        existingMap: this.journeyMapInstance,
+      });
+    }
   }
 
   destroy() {
     if (this.replayViewer) {
       this.replayViewer.destroy();
+    }
+    if (this.journeyMapInstance) {
+      unregisterActiveMap(this.journeyMapInstance);
+      try {
+        if (this.journeyMapInstance._resizeObserver) {
+          this.journeyMapInstance._resizeObserver.disconnect();
+        }
+        this.journeyMapInstance.remove();
+      } catch (_) {}
+      this.journeyMapInstance = null;
     }
   }
 }

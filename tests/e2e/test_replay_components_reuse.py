@@ -372,3 +372,90 @@ async def test_unshuffle_replay_map_photo_icons_and_tab_jumping(page: Page) -> N
     await marker_c.dispatch_event('click')
     await expect(tab_btns.nth(2)).to_have_class(re.compile(r'active'))
     await expect(page.locator('#replay-photo-loc')).to_have_text('Tokyo, Japan')
+
+
+@pytest.mark.asyncio
+async def test_review_deck_journey_map_autozooms_on_first_open(page: Page) -> None:
+    """Verify that when the Review Deck is loaded with match data and the user switches
+    to the Journey Map tab for the first time, the map automatically zooms and centers
+    on the round pins rather than remaining at the default world zoom.
+    """
+    mock_journey_match = {
+        'match_id': 'journey-autozoom-test',
+        'game_mode': 'pinpoint',
+        'play_mode': 'local',
+        'rounds': 2,
+        'played_at': 1740000000.0,
+        'location_mode': True,
+        'date_mode': False,
+        'rounds_data': [
+            {
+                'round_number': 1,
+                'asset_id': 'paris-1',
+                'actual_latitude': 48.8584,
+                'actual_longitude': 2.2945,
+                'actual_city': 'Paris',
+                'actual_country': 'France',
+                'player_guesses': [],
+            },
+            {
+                'round_number': 2,
+                'asset_id': 'paris-2',
+                'actual_latitude': 48.8600,
+                'actual_longitude': 2.3000,
+                'actual_city': 'Paris',
+                'actual_country': 'France',
+                'player_guesses': [],
+            },
+        ],
+    }
+
+    async def handle_journey_replay(route):
+        await route.fulfill(
+            status=200,
+            content_type='application/json',
+            body=json.dumps(mock_journey_match),
+        )
+
+    await page.route('**/api/match/journey-autozoom-test/replay', handle_journey_replay)
+    await page.goto('/game/journey-autozoom-test/replay')
+    await expect(page.locator('#summary-card')).to_be_visible()
+
+    # Replay tab is active by default
+    replay_tab = page.locator('[data-deck-tab="replay"]')
+    await expect(replay_tab).to_have_class(re.compile(r'active'))
+
+    # Journey tab button is present
+    journey_tab = page.locator('[data-deck-tab="journey"]')
+    await expect(journey_tab).to_be_visible()
+
+    # Click Journey tab for the first time
+    await journey_tab.click()
+    await expect(journey_tab).to_have_class(re.compile(r'active'))
+
+    journey_map_shell = page.locator('.journey-map-shell')
+    await expect(journey_map_shell).to_be_visible()
+
+    # Wait for map bounds to stabilize
+    await page.wait_for_timeout(300)
+
+    # Inspect Leaflet map zoom and center
+    map_state = await page.evaluate("""() => {
+        const el = document.querySelector('.journey-map');
+        const map = el?._leaflet_map;
+        if (!map) return null;
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        return {
+            zoom,
+            lat: center.lat,
+            lng: center.lng,
+        };
+    }""")
+
+    assert map_state is not None, 'Leaflet map instance must be attached to .journey-map'
+    # Autozoom should zoom in close to the Paris pins (lat ~48.86, lng ~2.30),
+    # significantly deeper than world view (zoom 1-2).
+    assert map_state['zoom'] >= 10, f'Expected autozoom >= 10, got {map_state["zoom"]}'
+    assert abs(map_state['lat'] - 48.859) < 0.5, f'Center lat should be near Paris, got {map_state["lat"]}'
+    assert abs(map_state['lng'] - 2.297) < 0.5, f'Center lng should be near Paris, got {map_state["lng"]}'

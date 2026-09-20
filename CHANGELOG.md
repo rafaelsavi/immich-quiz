@@ -7,53 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Review Deck Journey Map Initial Autozoom**:
+  - Resolved an issue where opening the Journey Map (`🗺️ Journey Map`) tab for the first time in the Review Deck displayed the world map at default zoom instead of autozooming to the match pins.
+  - Deferred Journey Map rendering until the tab is made visible so Leaflet instantiates with valid container dimensions and fits bounds accurately.
+  - Enhanced map container `ResizeObserver` and `fitMapToBounds` lifecycle to automatically detect zero-to-visible dimension transitions and re-fit bounds and connector spider lines.
+
+## [3.2.0] - 2026-09-20
+
 ### Added
 
-- **Universal ReviewDeck Component**: Segmented 3-tab review navigation (`🎬 Match Replay`, `🗺️ Journey Map`, `📸 Photo Memories`) implemented in `ReviewDeck` (`static/js/modules/components/review_deck.js`, `static/css/components/review_deck.css`). Features automatic Leaflet map dimension stabilization (`invalidateSize()`) upon tab switching and conditional rendering omitting the Journey Map when location mode is disabled (`location_mode === false`).
-- **Outcome Hero in Match Replay**: Match Replays now feature the full Outcome Hero (3D Winner Podium & Final Standings Table), providing complete visual and analytical parity between live match reviews and historical match replay archives.
-- **Sync Cooldown & Rate Limiting**: Configurable `SYNC_COOLDOWN_SECONDS` (default 60s) throttles rapid re-sync requests with HTTP 429 / `Retry-After` responses and a frontend countdown UI on the sync button.
-- **Unified Replay Engine**: Reusable `MatchReplayViewer` component powers round reviews, game summaries, and the replay page with a shared photo+map stage and reveal table.
-- **Consolidated Challenge Match History**: Challenge sessions grouped into a single replay entry with aggregated players, top scores, and winners.
-- **Dedicated Players & Replays Pages**: Statistics Hub split into separate `/players` and `/replays` routes with standalone headers and nav buttons.
-- **Challenge Card Replay Button**: Direct 🎬 Replay link on each detailed challenge card in the Challenges Hub.
-- **Header Settings Dropdown**: Language and audio toggles consolidated behind a gear icon (`⚙️`) dropdown.
-- **Standardized Hub Page Headers**: Unified `.hub-page-header` layout, badge theming, and responsive padding across Challenges, Replays, Players, and Moderation pages.
-
-### Changed
-
-- **Match Review & Replay Screen Unification**: Unified the Game Review screen (`/game/:id/summary`) and Match Replay screen (`/game/:id/replay`) into a single, cohesive view (`#summary-card`). Standardized header controls, review deck canvases, and contextual footer action buttons for both live post-game and replay catalogue flows.
-- **Replay Report Button Icon-Only**: `#replay-report-btn` and replay-scoped report buttons now display as compact, discrete icon-only buttons (`🚩`) with localized tooltip titles, matching the height and style of caption chips.
-- **Unshuffle Replay Map Photo Thumbnails**: Unshuffle replay markers now feature circular photo thumbnails with letter badges in the corner (`A`, `B`, `C`...), providing visual parity with the guessing map.
-- **Interactive Photo Tab Jumping from Replay Map**: Clicking any pin marker on the unshuffle replay map smoothly activates the corresponding photo tab, switches the photo image and caption chips, and opens the marker popup.
-- **Unified RoundStage Engine**: Single source of truth for photo card, photo tabs, media frames, Leaflet map shell, and caption pill chips across Live Pinpoint Reveal, Live Unshuffle Reveal, Match Replay, and Summary / Grand Reveal views. Consolidated stage styles into `round_stage.css` and purged duplicate styling from `pinpoint.css`.
-- **"Unshuffle" Rename**: Batch photo game mode renamed from "Album Shuffle" to "Unshuffle" across UI, locales, and filters.
-- **CSS Architecture Cleanup**: Replay catalog styles moved to `replay.css`; ~120 lines of dead `.stats-tabs-bar` CSS removed; dead rules purged from `replay.css` and `challenge.css`; `.page-back-btn` unified.
-- **Database Schema Indexing**: Case-insensitive indices added directly to `LEADERBOARD_SCHEMA_SQL` for consistent performance on fresh installs.
-- **Replay Header & Stepper Simplification**: Round stepper moved into the content grid above the stage; redundant badges, subtitle round count, and scoreboard heading removed.
-- **Table Mobile Optimization**: "Watch replay" text replaced with compact 🎬 icon buttons in leaderboard and player profile tables; column widths rebalanced; game mode label hidden on mobile.
+- **Universal Review Deck & Outcome Hero in Match Replays**:
+  - Integrated a 3-tab review navigation deck (`🎬 Match Replay`, `🗺️ Journey Map`, `📸 Photo Memories`) across live game summaries and replay archives.
+  - Added full Outcome Hero (3D winner podium & final standings table) directly into historical match replays.
+  - Added interactive photo pin markers with thumbnails, letter badges (`A`, `B`, `C`), and direct tab-jumping from map pins in Unshuffle replays.
+- **Dedicated Navigation & Routing**:
+  - Split Statistics Hub into dedicated `/players` and `/replays` routes with standalone headers, search toolbars, and navigation shortcuts.
+  - Added direct Replay action buttons to challenge cards in the Challenges Hub.
+- **Header Settings Dropdown**: Consolidated language and audio preferences into a clean settings dropdown (`⚙️`) in the header navbar.
+- **Sync Rate Limiting & Cooldown**: Added configurable cooldown (`SYNC_COOLDOWN_SECONDS`) with HTTP 429 / `Retry-After` throttling and frontend countdown button indicator.
+- **Standardized Hub Headers**: Unified `.hub-page-header` layout, badge theming, and responsive styling across Challenges, Replays, Players, and Moderation views.
 
 ### Fixed
 
-- **Unshuffle Replay Duplicate Letters**: Added `true_pin_id` column to `match_round_guesses` with base schema synchronization and migration backfill. Implemented coordinate-based fallback pin resolution in `resolve_unshuffle_true_pins` and frontend letter deduplication in `_getBatchPhotos()`, eliminating duplicated pin letters (e.g. `B-C-C` with missing `A`) when navigating via the replay round stepper.
-- **Replay Map Spider-Line Clearance**: Ensured spiderfy polylines and anchor markers are tracked and thoroughly purged on round transitions and viewer destruction, preventing lingering spider-line artifacts across replay rounds.
-- **Unshuffle Match Replay True Pin Resolution**: Fixed `get_match_replay` in `leaderboard.py` which was reading player guesses (`assigned_pin_id`) instead of resolving true pin IDs from verified correct locations or `photo_index`, causing wrong or missing `true_pin_id`s in replay rounds.
-
-- **Player Directory Cartesian Product**: SQL `LEFT JOIN` on `challenge_sessions` caused duplicated rows and `win_rate_pct > 100%` Pydantic errors, manifesting as "No players found".
-- **Replay Catalog Card Rendering**: Fixed empty player names (string vs. object mismatch) and broken winner crown logic.
-- **Player Profile Translation & Analytics**: Corrected `tier_key` mapping, added missing pluralization and KPI keys across all 4 locale files, fixed `PlayerAccuracyAnalytics` property names.
-- **Challenge Session Filters in Replay**: `record_challenge_round_guess` now populates `matches` rows from `challenges.config_json`, preventing incorrect "Full Library" fallbacks.
-- **Replay Photo Date Format**: `#replay-photo-date` uses `formatDate` without clock time (e.g. `Sep 13, 2026`).
-- **Replay Media Letterboxing**: Removed unwanted vertical whitespace above/below photos on narrow screens; fullscreen centering preserved.
-- **Challenges Hub Toolbar Layout**: Fixed multi-column wrapping bug on viewports ≤ 900px; standardized search box height and pill widths on mobile.
-- **Badge CSS Collision**: Scoped `.badge-challenge` banner styles to landing containers; replay chips now use `.badge-type-challenge` with standard styling.
-
-### Removed
-
-- **Legacy Replay Page Card Wrapper & Dual-Card Shims**: Completely removed the legacy `<div id="replay-page-card">` wrapper, `el.replayPageCard` state reference, and the dual-card shim in `showCard()` in favor of the clean unified `#summary-card` container.
-- **Duplicate Static Review Deck Placeholder HTML**: Removed ~80 lines of duplicate static placeholder HTML inside `<div id="summary-review-deck">` in `static/index.html` in favor of dynamic component hydration via `ReviewDeck`.
-- **Dead E2E Test Artifact Logic**: Removed hardcoded artifact screenshot lines from `tests/e2e/test_replay_catalog_challenge_chip.py`.
-- **Summary Watch Replay Button**: Removed `#summary-watch-replay-btn` from the match summary screen since the interactive match replay viewer is already directly embedded within the page.
-- **Standalone Replay Page Card Markup**: Removed the duplicate `<section id="replay-page-card">` HTML structure from `static/index.html` in favor of the unified `#summary-card` review deck architecture.
+- **Responsive Layout & CSS Polish**: Fixed toolbar wrapping on mid-size screens, eliminated unwanted photo letterboxing, and resolved badge styling collisions.
 
 ## [3.1.0] - 2026-09-13
 
