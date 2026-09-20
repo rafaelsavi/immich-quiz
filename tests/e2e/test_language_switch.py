@@ -344,7 +344,7 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
 
     # Navigate to /game/mock-match-1/replay
     await page.goto('/game/mock-match-1/replay')
-    await expect(page.locator('#replay-page-card')).to_be_visible()
+    await expect(page.locator('#summary-card')).to_be_visible()
 
     # Still in Portuguese from previous toggle
     await expect(page.locator('#replay-round-indicator')).to_contain_text(re.compile(r'Rodada 1 de 1', re.IGNORECASE))

@@ -164,7 +164,7 @@ Immich Quiz consolidates all public player traffic under two clean prefixes:
 1. **`/play/*`**: Challenge SPA pages, player APIs, in-game photo flagging, and scoped media streaming.
 2. **`/static/*`**: Frontend assets (JavaScript bundles, CSS stylesheets, sound effects, favicons).
 
-All administrative, host-only, and moderation routes (`/`, `/challenges`, `/reported`, `/api/*`) remain strictly protected.
+All administrative, host-only, and moderation routes (`/`, `/challenges`, `/players`, `/replays`, `/reported`, `/api/*`) remain strictly protected.
 
 ### Path Protection Rules
 
@@ -174,6 +174,8 @@ All administrative, host-only, and moderation routes (`/`, `/challenges`, `/repo
 | `/static/*`        | **Public**            | Static frontend assets (JS, CSS, audio, icons)                              |
 | `/` (root lobby)   | **Protected / Host**  | Local game setup, quick solo/pass & play matches                            |
 | `/challenges`      | **Protected / Host**  | Challenges Hub management dashboard                                         |
+| `/players`         | **Protected / Host**  | Player Statistics Directory & Profiles                                      |
+| `/replays`         | **Protected / Host**  | Match Replay Catalog & Archives                                             |
 | `/reported`        | **Protected / Host**  | Photo inconsistency moderation dashboard                                    |
 | `/api/*`           | **Protected / Host**  | Host APIs (`/api/challenge/create`, `/api/challenge/list`, `/api/assets/*`, `/api/sync*`) |
 

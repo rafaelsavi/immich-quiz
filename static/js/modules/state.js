@@ -120,7 +120,6 @@ export const el = {
   leaderboardCard: document.getElementById("leaderboard-card"),
   statsPageCard: document.getElementById("stats-page-card"),
   replaysPageCard: document.getElementById("replays-page-card"),
-  replayPageCard: document.getElementById("replay-page-card"),
   guessingUi: document.getElementById("guessing-ui"),
   revealUi: document.getElementById("reveal-ui"),
   setupForm: document.getElementById("setup-form"),
@@ -280,7 +279,9 @@ export const el = {
   get journeyMapFullscreen() {
     return document.getElementById("journey-map-fullscreen");
   },
-  polaroidGallery: document.getElementById("polaroid-gallery"),
+  get polaroidGallery() {
+    return document.getElementById("polaroid-gallery");
+  },
   gameRestartBtn: document.getElementById("game-restart-btn"),
   gameExitBtn: document.getElementById("game-exit-btn"),
   revealRestartBtn: document.getElementById("reveal-restart-btn"),

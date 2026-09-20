@@ -111,7 +111,8 @@ async def test_replay_reuses_media_frame_and_map_shell(page: Page) -> None:
 
     # 1. Navigate to the replay page
     await page.goto('/game/test-reuse-match/replay')
-    await expect(page.locator('#replay-page-card')).to_be_visible()
+    await expect(page.locator('#summary-card')).to_be_visible()
+    await expect(page.locator('#review-header-replay')).to_be_visible()
 
     # Verify unified Match Meta specification panel is rendered
     meta_section = page.locator('#replay-match-meta-container .match-meta-section')
@@ -217,7 +218,8 @@ async def test_replay_header_challenge_vs_local(page: Page) -> None:
 
     await page.route('**/api/match/local-match-123/replay', handle_local_replay)
     await page.goto('/game/local-match-123/replay')
-    await expect(page.locator('#replay-page-card')).to_be_visible()
+    await expect(page.locator('#summary-card')).to_be_visible()
+    await expect(page.locator('#review-header-replay')).to_be_visible()
 
     # Replay badge row does not exist
     await expect(page.locator('.replay-badge-row')).to_have_count(0)
@@ -251,7 +253,8 @@ async def test_replay_header_challenge_vs_local(page: Page) -> None:
 
     await page.route('**/api/match/ch-match-456/replay', handle_ch_replay)
     await page.goto('/game/ch-match-456/replay')
-    await expect(page.locator('#replay-page-card')).to_be_visible()
+    await expect(page.locator('#summary-card')).to_be_visible()
+    await expect(page.locator('#review-header-replay')).to_be_visible()
 
     # Subtitle contains challenge title and creator name
     await expect(page.locator('#replay-match-title .replay-challenge-title')).to_have_text('Summer Roadtrip 2026')
@@ -328,7 +331,8 @@ async def test_unshuffle_replay_map_photo_icons_and_tab_jumping(page: Page) -> N
 
     await page.route('**/api/match/unshuffle-replay-test/replay', handle_unshuffle_replay)
     await page.goto('/game/unshuffle-replay-test/replay')
-    await expect(page.locator('#replay-page-card')).to_be_visible()
+    await expect(page.locator('#summary-card')).to_be_visible()
+    await expect(page.locator('#review-header-replay')).to_be_visible()
 
     # 1. Report button is icon only with tooltip
     report_btn = page.locator('#replay-report-btn')

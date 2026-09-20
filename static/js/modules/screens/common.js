@@ -30,14 +30,10 @@ export function showCard(cardEl) {
     el.leaderboardCard,
     el.statsPageCard,
     el.replaysPageCard,
-    el.replayPageCard,
   ].forEach((c) => {
     if (c) c.classList.add("hidden");
   });
-  if (cardEl === el.summaryCard || cardEl === el.replayPageCard) {
-    if (el.summaryCard) el.summaryCard.classList.remove("hidden");
-    if (el.replayPageCard) el.replayPageCard.classList.remove("hidden");
-  } else if (cardEl) {
+  if (cardEl) {
     cardEl.classList.remove("hidden");
   }
 }

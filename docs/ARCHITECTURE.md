@@ -106,7 +106,7 @@ immich-quiz/
         │   ├── setup.js     Match configuration, preflight checks, returnToSetup, and restart.
         │   ├── game.js      Question fetching, media pre-verification, pass-device coordination, and answer submit.
         │   ├── reveal.js    Round results aggregation, reveal rendering, and turn progression.
-        │   ├── summary.js   Unified match review & replay controller (/game/:id/summary, /game/:id/replay) managing Winner Podium, Standings Table, ReviewDeck, and 404/ended cards.
+        │   ├── summary.js   Unified match review & replay controller (/game/:id/summary, /game/:id/replay) managing Winner Podium, Standings Table, ReviewDeck (#summary-card), and ended card (#game-ended-card).
         │   ├── challenges.js Challenges Hub screen controller (#challenges-page-card, live timers, drawers).
         │   ├── stats.js     Player Statistics Directory & Profile controller (#stats-page-card).
         │   ├── replay.js    Match Replays Catalog & History controller (#replays-page-card).
@@ -137,17 +137,21 @@ immich-quiz/
     ├── app_logging/     Observability and logging subsystem tests (test_logging.py).
     ├── e2e/             Playwright end-to-end browser automation test suites.
     │   ├── conftest.py  Live FastAPI test server fixture and async page context manager.
-    │   ├── test_pinpoint_gameplay.py Pinpoint Leaflet pin placement, polyline, and reveal.
-    │   ├── test_date_selection.py Timeline range slider and single year/month selection.
-    │   ├── test_unshuffle_gameplay.py Photo card reordering and multi-pin placement.
     │   ├── test_challenge_gameplay.py Challenge lobby, rounds, polling, and Grand Reveal.
+    │   ├── test_date_selection.py Timeline range slider and single year/month selection.
+    │   ├── test_filters_accordion.py Filter accordion expansion and preflight reactivity.
+    │   ├── test_language_switch.py Dynamic bilingual toggle and label reactivity.
+    │   ├── test_pinpoint_gameplay.py Pinpoint Leaflet pin placement, polyline, and reveal.
+    │   ├── test_preflight_guess_mode.py Preflight validation for location and date game modes.
+    │   ├── test_replay_catalog_challenge_chip.py Challenge badge and type chips in replay catalog.
+    │   ├── test_replay_components_reuse.py Review deck, media frame, map shell, and strategy reuse.
     │   ├── test_report_issue.py Report Issue modal dialog, form validation, and submission.
     │   ├── test_reported_moderation.py Moderation dashboard list, search, filter, and resolve.
-    │   ├── test_language_switch.py Dynamic bilingual toggle and label reactivity.
-    │   ├── test_universal_language_switch.py Automated full-DOM translation parity scanner.
-    │   ├── test_filters_accordion.py Filter accordion expansion and preflight reactivity.
     │   ├── test_routing_and_recovery.py Deep links, SPA routing, and reload recovery.
-    │   └── test_summary_and_effects.py Score rollup animations and post-game awards.
+    │   ├── test_summary_and_effects.py Score rollup animations and post-game awards.
+    │   ├── test_sync_popup.py Metadata synchronization trigger and progress telemetry.
+    │   ├── test_universal_language_switch.py Automated full-DOM translation parity scanner.
+    │   └── test_unshuffle_gameplay.py Photo card reordering and multi-pin placement.
     ├── frontend/        Frontend regression and component tests (test_frontend_regressions.py, test_setup_card_bento_regression.py, test_multi_select.py, test_player_input.py, test_range_slider.py).
     ├── game/            Match selection, candidate pools, and diversity tests (test_diversity.py).
     ├── immich/          Immich client adapter tests (test_immich_client.py).

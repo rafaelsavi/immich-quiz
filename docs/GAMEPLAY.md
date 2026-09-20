@@ -84,10 +84,17 @@ Designed for parties, family gatherings, or solo play on a single screen.
   - **🚩 Report Inconsistencies**: Click the flag button (🚩) to open the Report Issue modal and report inaccurate GPS coordinates, wrong capture dates, or notes, with a direct link to Immich Web for editing.
 - Click **Next Round** to continue to the next turn.
 
-### 5. Game Summary & Podium
+### 5. Game Summary & Review Deck
 
-- When all rounds conclude, celebrate with confetti, fanfare audio, and the 3D winner's podium.
-- Review the game summary table, performance awards (e.g. 🎯 *Sniper*, ⏳ *Time Traveler*, ⚡ *Speed Demon*), interactive **World Journey Map**, and the **Photo Memories** polaroid gallery.
+- When all rounds conclude, celebrate with confetti, fanfare audio, and the **Outcome Hero**:
+  - **3D Winner Podium**: Medals for 1st, 2nd, and 3rd place with celebratory crowns and player avatar badges.
+  - **Standings Table**: Full breakdown of total scores, location points, date points, and accuracy percentages.
+  - **Performance Awards**: Earned badges for exceptional play (🎯 *Sniper*, ⏳ *Time Traveler*, ⚡ *Speed Demon*).
+- Explore the match through the universal 3-tab **Review Deck**:
+  - **🎬 Match Replay**: Interactive round-by-round replay with stepper navigation (◀ / ▶), photo canvas, batch photo tabs, guess maps with spider lines, and round reveal table.
+  - **🗺️ Journey Map**: Full-match Leaflet world map with chronological flight arcs and numbered photo pin locations (automatically omitted when Location mode is off).
+  - **📸 Photo Memories**: Polaroid photo gallery with reverse-geocoded locations, capture dates, and click-to-zoom Lightbox.
+- Contextual actions allow you to **Start New Game** or **Share Game** with a single click.
 
 ---
 
@@ -146,6 +153,33 @@ Navigate to **Challenges** via the header navbar to track and manage all multipl
 - **Share Drawer**: Expand any challenge card's header share button (`🔗`) to view the direct URL and scan the SVG QR code.
 - **Standings Drawer**: Click **View Standings** to inspect real-time participant progress, completed round counts, and scores without leaving the hub.
 - **Play / Results**: Direct action button to play active challenges or jump directly to the Grand Reveal summary for concluded matches.
+
+---
+
+## Match Replays & Archives (`/replays` & `/game/:id/replay`)
+
+Every completed game—whether a local Pass & Play match or a multiplayer challenge—is permanently archived in SQLite and viewable through the unified match review screen:
+
+- **Replays Catalog (`/replays`)**:
+  - **Search & Filter**: Search matches by participating player names; filter by game mode (**Pinpoint**, **Unshuffle**) or match type (**Local**, **Challenge**).
+  - **Match Cards**: View date played, mode badges, challenge creator and title tags, player score chips, and winner crowns.
+  - **1-Click Replay**: Launch the full interactive replay via the **🎬 Replay** button.
+- **Unified Review Experience (`/game/:id/replay`)**:
+  - **Header & Meta**: Standard back navigation (`← Exit Replay`), match title, played date, and configuration chips (libraries, album filters, date bounds, people, countries).
+  - **Outcome Hero**: Displays the final winner podium and complete player standings table.
+  - **Universal Review Deck**: Seamlessly switch between the round-by-round **🎬 Match Replay** stage, full-game **🗺️ Journey Map**, and polaroid **📸 Photo Memories**.
+
+---
+
+## Player Directory & Profiles (`/players`)
+
+Track career records and individual performance across all completed games:
+
+- **Player Directory**: Browse all historical participants with total matches played, win rates, podium finishes (🥇/🥈/🥉), and medal counts.
+- **Player Profiles (`/players/:name`)**:
+  - **Career Overview**: Total score, matches played, win rate percentage, and average active response time.
+  - **Symmetrical 4-Tier Accuracy Analytics**: Visual distribution of Location and Date accuracy across 4 balanced tiers (*Top Tier 90–100%*, *Great 75–89%*, *Moderate 50–74%*, *Low <50%*).
+  - **Match History**: Comprehensive list of all matches played by the player, with direct links to view replays.
 
 ---
 

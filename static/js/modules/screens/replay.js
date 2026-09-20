@@ -59,65 +59,7 @@ export function initReplay() {
   }
 }
 
-export function renderReplayTitleHeader() {
-  const data = arguments[0] || null;
-  const headingTitleEl = document.getElementById("replay-heading-title");
-  const titleEl = document.getElementById("replay-match-title");
-  if (!titleEl || !data) return;
-
-  const isChallenge =
-    data.play_mode === "challenge" ||
-    Boolean(data.challenge_id || data.challenge_title || data.challenge_creator);
-
-  if (isChallenge) {
-    const challengeTitle =
-      data.challenge_title ||
-      (data.challenge_creator ? `${data.challenge_creator}'s Challenge` : t("challenge.badge"));
-    const hostText = data.challenge_creator
-      ? t("challenges_page.host_label", data.challenge_creator)
-      : "";
-    const dateText = formatDateTime(data.played_at);
-
-    if (headingTitleEl) {
-      headingTitleEl.removeAttribute("data-i18n");
-      headingTitleEl.textContent = challengeTitle;
-    }
-
-    const parts = [
-      `<span class="badge-tag badge-type badge-type-challenge">⚔️ ${t("replay.play_mode_challenge")}</span>`,
-      `<span class="replay-challenge-title">${escapeHtml(challengeTitle)}</span>`,
-    ];
-    if (hostText) {
-      parts.push(`<span class="replay-challenge-host">${escapeHtml(hostText)}</span>`);
-    }
-    if (dateText) {
-      parts.push(`<span class="replay-match-date">${escapeHtml(dateText)}</span>`);
-    }
-    titleEl.innerHTML = parts.join(` <span class="meta-separator" aria-hidden="true">•</span> `);
-  } else if (data.play_mode === "room" && data.room_name) {
-    if (headingTitleEl) {
-      headingTitleEl.removeAttribute("data-i18n");
-      headingTitleEl.textContent = data.room_name;
-    }
-    const dateText = formatDateTime(data.played_at);
-    titleEl.innerHTML = `
-      <span class="badge-tag badge-type">🏠 ${t("replay.play_mode_room")}</span>
-      <span class="meta-separator" aria-hidden="true">•</span>
-      <span class="replay-match-date">${escapeHtml(dateText)}</span>
-    `;
-  } else {
-    if (headingTitleEl) {
-      headingTitleEl.setAttribute("data-i18n", "replay.title");
-      headingTitleEl.textContent = t("replay.title");
-    }
-    const dateText = formatDateTime(data.played_at);
-    titleEl.innerHTML = `
-      <span class="badge-tag badge-type">👥 ${t("replay.play_mode_local")}</span>
-      <span class="meta-separator" aria-hidden="true">•</span>
-      <span class="replay-match-date">${escapeHtml(dateText)}</span>
-    `;
-  }
-}
+export { renderReplayTitleHeader } from "./summary.js";
 
 export async function showMatchReplay(matchId) {
   await showMatchSummaryByMatchId(matchId, { mode: "replay" });

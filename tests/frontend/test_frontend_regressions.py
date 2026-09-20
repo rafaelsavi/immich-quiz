@@ -58,9 +58,14 @@ DYNAMIC_IDS = frozenset(
         'grand-reveal-share-btn',
         'grand-reveal-share-summary-btn',
         'grand-reveal-table',
+        'journey-map',
+        'journey-map-fullscreen',
+        'journey-map-head',
+        'journey-map-shell',
         'photo-lightbox',
         'photo-lightbox-img',
         'player-name-input',
+        'polaroid-gallery',
         'preflight-warning',
         'pinpoint-media-map-row',
         'pinpoint-reveal-media-frame',
@@ -69,6 +74,7 @@ DYNAMIC_IDS = frozenset(
         'replay-empty-challenge-btn',
         'replay-empty-play-btn',
         'replay-error-back-btn',
+        'replay-scoreboard-round-tag',
         'retry-load-challenges-btn',
         'reveal-shuffle-map-shell',
         'scatter-map',
@@ -948,11 +954,12 @@ def test_reveal_and_all_map_fullscreen_controls() -> None:
     maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    review_deck_js = (JS_DIR / 'modules' / 'components' / 'review_deck.js').read_text(encoding='utf-8')
 
-    # 1. Elements exist in HTML and state.js
+    # 1. Elements exist in HTML and state.js / dynamic review deck
     assert 'id="reveal-map-fullscreen"' in index_html
     assert 'id="guess-map-fullscreen"' in index_html
-    assert 'id="journey-map-fullscreen"' in index_html
+    assert 'journey-map-fullscreen' in review_deck_js
     assert 'revealMapFullscreen' in state_js
     assert 'revealMapShell' in state_js
     assert 'journeyMapFullscreen' in state_js
@@ -2106,6 +2113,7 @@ def test_replay_screen_header_and_title_rendering() -> None:
     omits replay-badge-row, and renders challenge title and creator for challenge replays.
     """
     index_html = (STATIC_DIR / 'index.html').read_text(encoding='utf-8')
+    summary_js = (JS_DIR / 'modules' / 'screens' / 'summary.js').read_text(encoding='utf-8')
     replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
     replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
 
@@ -2116,12 +2124,13 @@ def test_replay_screen_header_and_title_rendering() -> None:
     assert '<h2 class="replay-main-heading">' in index_html
     assert '<p id="replay-match-title" class="replay-match-meta"></p>' in index_html
 
-    # 2. replay.js uses renderReplayTitleHeader and handles challenge vs local matches
-    assert 'function renderReplayTitleHeader()' in replay_js
-    assert 'const isChallenge =' in replay_js
-    assert 'replay-challenge-title' in replay_js
-    assert 'replay-challenge-host' in replay_js
-    assert 'stats.rounds_count' not in replay_js  # Round count removed from replay subtitle
+    # 2. summary.js implements renderReplayTitleHeader and handles challenge vs local matches, with replay.js re-export
+    assert 'function renderReplayTitleHeader(' in summary_js
+    assert 'const isChallenge =' in summary_js
+    assert 'replay-challenge-title' in summary_js
+    assert 'replay-challenge-host' in summary_js
+    assert 'stats.rounds_count' not in summary_js  # Round count removed from replay subtitle
+    assert 'renderReplayTitleHeader' in replay_js
 
     # 3. replay.css defines replay-match-meta layout and clean dark mode
     assert '.replay-match-meta {' in replay_css

@@ -770,7 +770,20 @@ Response (`200 OK`):
       "actual_month": 7,
       "actual_city": "Paris",
       "actual_country": "France",
-      "batch_photos": [],
+      "batch_photos": [
+        {
+          "asset_id": "asset-uuid-1",
+          "true_pin_id": "A",
+          "media_url": "/api/media/asset-uuid-1",
+          "actual_latitude": 48.8584,
+          "actual_longitude": 2.2945,
+          "actual_date": "2024-07-14",
+          "actual_year": 2024,
+          "actual_month": 7,
+          "actual_city": "Paris",
+          "actual_country": "France"
+        }
+      ],
       "player_guesses": [
         {
           "player_name": "Alice",

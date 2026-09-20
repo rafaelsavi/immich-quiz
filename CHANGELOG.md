@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Match Review & Replay Screen Unification**: Unified the Game Review screen (`/game/:id/summary`) and Match Replay screen (`/game/:id/replay`) into a single, cohesive view (`#summary-card` wrapping `#replay-page-card`). Standardized header controls, review deck canvases, and contextual footer action buttons for both live post-game and replay catalogue flows.
+- **Match Review & Replay Screen Unification**: Unified the Game Review screen (`/game/:id/summary`) and Match Replay screen (`/game/:id/replay`) into a single, cohesive view (`#summary-card`). Standardized header controls, review deck canvases, and contextual footer action buttons for both live post-game and replay catalogue flows.
 - **Replay Report Button Icon-Only**: `#replay-report-btn` and replay-scoped report buttons now display as compact, discrete icon-only buttons (`🚩`) with localized tooltip titles, matching the height and style of caption chips.
 - **Unshuffle Replay Map Photo Thumbnails**: Unshuffle replay markers now feature circular photo thumbnails with letter badges in the corner (`A`, `B`, `C`...), providing visual parity with the guessing map.
 - **Interactive Photo Tab Jumping from Replay Map**: Clicking any pin marker on the unshuffle replay map smoothly activates the corresponding photo tab, switches the photo image and caption chips, and opens the marker popup.
@@ -49,6 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **Legacy Replay Page Card Wrapper & Dual-Card Shims**: Completely removed the legacy `<div id="replay-page-card">` wrapper, `el.replayPageCard` state reference, and the dual-card shim in `showCard()` in favor of the clean unified `#summary-card` container.
+- **Duplicate Static Review Deck Placeholder HTML**: Removed ~80 lines of duplicate static placeholder HTML inside `<div id="summary-review-deck">` in `static/index.html` in favor of dynamic component hydration via `ReviewDeck`.
+- **Dead E2E Test Artifact Logic**: Removed hardcoded artifact screenshot lines from `tests/e2e/test_replay_catalog_challenge_chip.py`.
 - **Summary Watch Replay Button**: Removed `#summary-watch-replay-btn` from the match summary screen since the interactive match replay viewer is already directly embedded within the page.
 - **Standalone Replay Page Card Markup**: Removed the duplicate `<section id="replay-page-card">` HTML structure from `static/index.html` in favor of the unified `#summary-card` review deck architecture.
 

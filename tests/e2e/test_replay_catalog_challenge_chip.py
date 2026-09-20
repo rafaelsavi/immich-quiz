@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 from playwright.async_api import Page, expect
@@ -91,14 +90,3 @@ async def test_replay_catalog_and_challenge_chip_design(page: Page) -> None:
     assert styles['borderRadius'] == '6px', f'Expected 6px border-radius, got {styles["borderRadius"]}'
     assert styles['textTransform'] == 'none', f'Expected none text-transform, got {styles["textTransform"]}'
     assert styles['boxShadow'] == 'none', f'Expected none box-shadow, got {styles["boxShadow"]}'
-
-    # Take screenshot for visual verification (Light Mode)
-    catalog_list = page.locator('#stats-replays-list')
-    artifact_dir = Path(r'C:\Users\Rafael Savi\.gemini\antigravity-ide\brain\c8f05fce-b050-4ae5-976b-13a85c4f4f95')
-    screenshot_path = artifact_dir / 'media_replays_verified.png'
-    await catalog_list.screenshot(path=str(screenshot_path))
-
-    # Switch to Dark Mode and capture screenshot
-    await page.evaluate("document.documentElement.setAttribute('data-theme', 'dark')")
-    dark_screenshot_path = artifact_dir / 'media_replays_dark_verified.png'
-    await catalog_list.screenshot(path=str(dark_screenshot_path))

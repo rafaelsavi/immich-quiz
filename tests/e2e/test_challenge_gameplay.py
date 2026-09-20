@@ -174,7 +174,8 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
     await expect(replay_btn).to_be_enabled()
     await replay_btn.click()
 
-    await expect(page.locator('#replay-page-card')).to_be_visible()
+    await expect(page.locator('#summary-card')).to_be_visible()
+    await expect(page.locator('#review-header-replay')).to_be_visible()
     await expect(page.locator('#replay-media-frame')).to_be_visible()
     await expect(page.locator('#replay-map-shell')).to_be_visible()
     await expect(page.locator('#replay-guesses-list')).to_be_visible()
