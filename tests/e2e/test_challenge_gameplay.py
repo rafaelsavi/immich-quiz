@@ -122,7 +122,7 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
     await page.locator('#challenge-see-results-btn').click()
     await expect(page.locator('.challenge-grand-reveal')).to_be_visible()
     await expect(page.locator('#grand-reveal-provisional')).to_be_visible()
-    await expect(page.locator('#grand-reveal-table')).to_be_visible()
+    await expect(page.locator('#summary-table')).to_be_visible()
     await expect(page.locator('.challenge-rounds-pill')).to_be_visible()
 
     assert not error_alerts, f'Unexpected alert popups: {error_alerts}'
@@ -162,11 +162,16 @@ async def test_challenge_answer_submission_and_personal_reveal(page: Page, e2e_s
     await page2.locator('#challenge-see-results-btn').click()
     await expect(page2.locator('.challenge-grand-reveal')).to_be_visible()
     await expect(page2.locator('#grand-reveal-podium')).to_be_visible()
-    await expect(page2.locator('#grand-reveal-table')).to_be_visible()
+    await expect(page2.locator('#summary-table')).to_be_visible()
 
     # Verify Player 1's open Grand Reveal page dynamically unlocked the podium via background polling!
     await expect(page.locator('#grand-reveal-podium')).to_be_visible()
     await expect(page.locator('#grand-reveal-live-status')).to_contain_text('2/2 finished')
+
+    # Verify Review Deck is visible directly hosting Replay (unified layout, no separate button click needed)
+    await expect(page.locator('#summary-review-deck')).to_be_visible()
+    await expect(page.locator('.review-deck-tab[data-tab="replay"]')).to_be_visible()
+    await expect(page.locator('.review-deck-replay-panel')).to_be_visible()
 
     await page2.close()
 
@@ -411,8 +416,13 @@ async def test_challenge_multi_tab_session_isolation_and_standings_on_reload(pag
         await expect(page.locator('#game-card')).to_be_visible()
         guess_map = page.locator('#guess-map')
         await expect(guess_map).to_be_visible()
-        await guess_map.click(position={'x': 110, 'y': 110})
-        await page.locator('#submit-answer').click()
+        submit_btn = page.locator('#submit-answer')
+        for _attempt in range(5):
+            await guess_map.click(position={'x': 110, 'y': 110})
+            if await submit_btn.is_enabled():
+                break
+            await page.wait_for_timeout(200)
+        await submit_btn.click()
         await expect(page.locator('#reveal-ui')).to_be_visible()
         await page.locator('#next-round').click()
 
@@ -437,8 +447,13 @@ async def test_challenge_multi_tab_session_isolation_and_standings_on_reload(pag
         await expect(page2.locator('#game-card')).to_be_visible()
         p2_map = page2.locator('#guess-map')
         await expect(p2_map).to_be_visible()
-        await p2_map.click(position={'x': 130, 'y': 130})
-        await page2.locator('#submit-answer').click()
+        submit_btn2 = page2.locator('#submit-answer')
+        for _attempt in range(5):
+            await p2_map.click(position={'x': 130, 'y': 130})
+            if await submit_btn2.is_enabled():
+                break
+            await page2.wait_for_timeout(200)
+        await submit_btn2.click()
         await expect(page2.locator('#reveal-ui')).to_be_visible()
         await page2.locator('#next-round').click()
 
@@ -568,16 +583,16 @@ async def test_challenge_opponent_reveal_pin_and_distance_error(page: Page, e2e_
     await page2.close()
 
 
-async def test_challenge_album_shuffle_round_gameplay_and_reveal(page: Page, e2e_server: str) -> None:
-    """Verify that an Album Shuffle challenge correctly boots into shuffle mode and renders reveal without errors."""
-    # 1. Create a 1-round Album Shuffle challenge
+async def test_challenge_unshuffle_round_gameplay_and_reveal(page: Page, e2e_server: str) -> None:
+    """Verify that an Unshuffle challenge correctly boots into shuffle mode and renders reveal without errors."""
+    # 1. Create a 1-round Unshuffle challenge
     async with httpx.AsyncClient(base_url=e2e_server) as client:
         res = await client.post(
             '/api/challenge/create',
             json={
-                'title': 'Album Shuffle Challenge',
+                'title': 'Unshuffle Challenge',
                 'creator_name': 'Host',
-                'game_mode': 'album_shuffle',
+                'game_mode': 'unshuffle',
                 'location_mode': False,
                 'date_mode': True,
                 'round_count': 3,
@@ -593,16 +608,16 @@ async def test_challenge_album_shuffle_round_gameplay_and_reveal(page: Page, e2e
     await page.locator('#player-name-input').fill('Alice')
     await page.locator('#challenge-start-btn').click()
 
-    # 3. Game starts - verify Album Shuffle UI is displayed
+    # 3. Game starts - verify Unshuffle UI is displayed
     await expect(page.locator('#game-card')).to_be_visible()
-    await expect(page.locator('#album-shuffle-ui')).to_be_visible()
+    await expect(page.locator('#unshuffle-ui')).to_be_visible()
 
     # Submit answer
     await page.locator('#submit-answer').click()
 
     # 4. Reveal screen is displayed
     await expect(page.locator('#reveal-ui')).to_be_visible()
-    await expect(page.locator('#album-shuffle-reveal-ui')).to_be_visible()
+    await expect(page.locator('#unshuffle-reveal-ui')).to_be_visible()
 
     # Verify live answered pill is present
     live_pill = page.locator('#challenge-round-live-status')
@@ -616,9 +631,9 @@ async def test_challenge_album_shuffle_round_gameplay_and_reveal(page: Page, e2e
     await page2.locator('#player-name-input').fill('Bob')
     await page2.locator('#challenge-start-btn').click()
 
-    await expect(page2.locator('#album-shuffle-ui')).to_be_visible()
+    await expect(page2.locator('#unshuffle-ui')).to_be_visible()
     await page2.locator('#submit-answer').click()
-    await expect(page2.locator('#album-shuffle-reveal-ui')).to_be_visible()
+    await expect(page2.locator('#unshuffle-reveal-ui')).to_be_visible()
 
     # 6. Verify on Alice's page that social polling updates live pill to 2/2 answered
     await expect(live_pill).to_contain_text('2/2 answered', timeout=8000)

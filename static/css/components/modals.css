@@ -231,6 +231,7 @@
     opacity: 0;
     transform: scale(0.94) translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -486,7 +487,41 @@
   font-size: 0.75rem;
 }
 
-/* Album Shuffle Mini Report Button */
+/* Replay discrete report button: icon only with tooltip */
+#replay-report-btn,
+[id$="replay-report-btn"],
+.round-photo-report-btn-icon-only {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0 !important;
+  border-radius: 6px !important;
+}
+
+#replay-report-btn .report-discrete-text,
+[id$="replay-report-btn"] .report-discrete-text,
+.round-photo-report-btn-icon-only .report-discrete-text {
+  display: none !important;
+}
+
+[data-theme="dark"] .btn-report-discrete {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-report-discrete:hover {
+  background: #450a0a;
+  border-color: #991b1b;
+  color: #fca5a5;
+}
+
+/* Unshuffle Mini Report Button */
 .btn-report-photo-mini {
   width: auto !important;
   max-width: max-content !important;
@@ -567,6 +602,8 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
+  overflow: visible;
+  /* Allow autocomplete dropdown to extend beyond pane and card */
 }
 
 .modal-title-wrap {
@@ -583,6 +620,25 @@
 .prepare-game-card .modal-header {
   border-bottom: none;
   padding-bottom: 0.5rem;
+  border-radius: 16px 16px 0 0;
+}
+
+.prepare-game-card .modal-footer {
+  border-radius: 0 0 16px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+#pane-local-game {
+  overflow: visible;
+  position: relative;
+  z-index: 20;
+}
+
+#pane-challenge-game {
+  overflow: visible;
+  position: relative;
+  z-index: 20;
 }
 
 .modal-tabs {
@@ -661,6 +717,11 @@
     margin: 0 !important;
     box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.25) !important;
     animation: sheetSlideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: visible !important;
+  }
+
+  .prepare-game-card .modal-footer {
+    border-radius: 0 !important;
   }
 
   .modal-sheet-handle {
@@ -672,6 +733,7 @@
   from {
     transform: translateY(100%);
   }
+
   to {
     transform: translateY(0);
   }
@@ -853,6 +915,7 @@
     opacity: 0;
     transform: translateY(-6px) scale(0.97);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -981,4 +1044,4 @@
   gap: 0.35rem;
   color: var(--ink);
   line-height: 1.45;
-}
+}

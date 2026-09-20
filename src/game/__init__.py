@@ -1,10 +1,10 @@
 """Game engine package containing candidate selection, mode evaluation, and game service."""
 
 from src.game.modes import (
-    AlbumShuffleEngine,
     BaseGameModeEngine,
     GameModeRegistry,
     PinpointEngine,
+    UnshuffleEngine,
     default_game_mode_registry,
 )
 from src.game.selector import (
@@ -18,7 +18,7 @@ from src.game.selector import (
 from src.game.service import GameService
 
 __all__ = [
-    'AlbumShuffleEngine',
+    'UnshuffleEngine',
     'BaseGameModeEngine',
     'GameModeRegistry',
     'GameService',

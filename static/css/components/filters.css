@@ -68,6 +68,7 @@
   gap: 0.5rem;
   justify-self: end;
   flex-shrink: 0;
+  position: relative;
 }
 
 .filters-summary-badge {
@@ -132,6 +133,12 @@
 .filters-accordion-meta .match-meta-item-label {
   font-size: 0.68rem;
   flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .filters-accordion-meta .match-meta-item-label {
+    display: none !important;
+  }
 }
 
 .filters-accordion-meta .match-meta-item-val {
@@ -364,6 +371,12 @@
   cursor: not-allowed;
 }
 
+.sync-library-btn.cooldown {
+  opacity: 0.65;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
 .sync-library-btn.syncing {
   color: var(--accent, #0f7c7f);
   border-color: rgba(15, 124, 127, 0.3);
@@ -388,6 +401,209 @@
 .sync-library-btn.needs-sync:hover {
   background: rgba(15, 124, 127, 0.15);
 }
+
+/* ----------------------------------------------------------------- Sync Completion Animated Popup */
+.sync-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(92vw, 340px);
+  background: rgba(255, 253, 248, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-left: 4px solid var(--accent, #0f7c7f);
+  border-radius: var(--radius-lg, 14px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+  padding: 0.85rem 1rem;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  cursor: default;
+  user-select: none;
+  pointer-events: auto;
+  transform-origin: top right;
+  animation: modalPop 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.sync-popup.floating {
+  position: fixed;
+  top: 1.25rem;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  transform-origin: top center;
+  z-index: 10050;
+  max-width: 380px;
+}
+
+.sync-popup:not(.floating)::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: var(--pointer-right, 48px);
+  width: 10px;
+  height: 10px;
+  background: rgba(255, 253, 248, 0.98);
+  border-left: 1px solid var(--border-light, #e2e8f0);
+  border-top: 1px solid var(--border-light, #e2e8f0);
+  transform: rotate(45deg);
+}
+
+.sync-popup.hide {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.96);
+  transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.sync-popup.floating.hide {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-10px) scale(0.96);
+}
+
+.sync-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sync-popup-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.sync-popup-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(15, 124, 127, 0.12);
+  color: var(--accent, #0f7c7f);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sync-popup-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink, #1f2a44);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.sync-popup-mode-badge {
+  font-size: 0.66rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(15, 124, 127, 0.1);
+  color: var(--accent, #0f7c7f);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.sync-popup-close-btn {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  max-width: 24px;
+  font-size: 1.2rem;
+  line-height: 1;
+  border: none;
+  background: none;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.sync-popup-close-btn:hover {
+  color: var(--ink, #1f2a44);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.sync-popup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sync-popup-message {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink, #1f2a44);
+  line-height: 1.35;
+}
+
+.sync-popup-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.sync-popup-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #475569;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+}
+
+.sync-popup-stat-chip .stat-icon {
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.sync-popup-stat-chip .stat-val {
+  font-weight: 700;
+  color: var(--ink, #1f2a44);
+}
+
+.sync-popup-progress {
+  height: 2px;
+  background: var(--accent, #0f7c7f);
+  opacity: 0.45;
+  border-radius: 1px;
+  animation: syncPopupCountdown 6s linear forwards;
+}
+
+.sync-popup:hover .sync-popup-progress {
+  animation-play-state: paused;
+}
+
+.sync-popup.is-error {
+  border-left-color: var(--accent-2, #f25f5c);
+}
+
+.sync-popup.is-error .sync-popup-icon {
+  background: rgba(242, 95, 92, 0.12);
+  color: var(--accent-2, #f25f5c);
+}
+
+.sync-popup.is-error .sync-popup-progress {
+  background: var(--accent-2, #f25f5c);
+}
+
+@keyframes syncPopupCountdown {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
 
 @media (max-width: 560px) {
   .filters-accordion-header {

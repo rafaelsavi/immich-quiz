@@ -79,13 +79,8 @@ export function playerColor(playerName) {
     return PLAYER_COLORS[index % PLAYER_COLORS.length];
   }
 
-  // 3. Deterministic hash fallback for unregistered names so distinct players don't all get color 0
-  let hash = 0;
-  const str = String(playerName);
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) & 0xffffffff;
-  }
-  const assigned = PLAYER_COLORS[Math.abs(hash) % PLAYER_COLORS.length];
+  // 3. Sequential fallback for unregistered names so distinct players follow standard sequence
+  const assigned = PLAYER_COLORS[_assignedPlayerColors.size % PLAYER_COLORS.length];
   _assignedPlayerColors.set(playerName, assigned);
   return assigned;
 }
@@ -241,7 +236,7 @@ export function formatRoundsBadge(completedRounds, totalRounds, isFinished = fal
   const isFin = Boolean(isFinished || (totalRounds && completedRounds >= totalRounds));
   const progressStr = totalRounds ? `${completedRounds}/${totalRounds}` : `${completedRounds}`;
   if (isFin) {
-    return `<span class="challenge-rounds-pill finished" title="${escapeHtml(t("challenge.finished_badge"))}">🏁 ${escapeHtml(progressStr)}</span>`;
+    return `<span class="challenge-rounds-pill finished" title="${escapeHtml(t("challenge.finished_badge"))}">${escapeHtml(progressStr)}</span>`;
   }
   return `<span class="challenge-rounds-pill in-progress" title="${escapeHtml(t("challenge.in_progress_badge"))}">⏳ ${escapeHtml(progressStr)}</span>`;
 }
@@ -258,7 +253,6 @@ export function formatRoundsBadge(completedRounds, totalRounds, isFinished = fal
 export function formatPlayerCellHtml(playerName, options = {}) {
   const col = playerColor(playerName);
   const init = playerInitial(playerName);
-  const crown = options.isWinner ? ` <span class="winner-crown" title="Winner">👑</span>` : "";
   const you = options.isCurrent ? ` <span class="challenge-you-tag">(You)</span>` : "";
   const awards = options.awardsHtml ? `<div class="player-awards-list">${options.awardsHtml}</div>` : "";
 
@@ -266,7 +260,7 @@ export function formatPlayerCellHtml(playerName, options = {}) {
     <span class="player-cell">
       <span class="legend-badge" style="background:${escapeHtml(col)};">${escapeHtml(init)}</span>
       <span class="player-name-text">${escapeHtml(playerName)}</span>
-      ${crown}${you}
+      ${you}
     </span>
     ${awards}
   `;

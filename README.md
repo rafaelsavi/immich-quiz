@@ -4,9 +4,9 @@
 [![GHCR Container](https://img.shields.io/badge/docker-ghcr.io%2Frafaelsavi%2Fimmich--quiz-blue?logo=docker)](https://github.com/rafaelsavi/immich-quiz/pkgs/container/immich-quiz)
 [![CI](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml/badge.svg)](https://github.com/rafaelsavi/immich-quiz/actions/workflows/ci.yml)
 
-Immich Quiz is a trivia game that generates quiz rounds directly from your Immich photo collection. Players guess where and when photos were taken in **Pinpoint** mode, or match photo batches to map pins and timeline dates in **Album Shuffle** mode.
+Immich Quiz is a trivia game that generates quiz rounds directly from your Immich photo collection. Players guess where and when photos were taken in **Pinpoint** mode, or match photo batches to map pins and timeline dates in **Unshuffle** mode.
 
-Play locally with friends on a single screen via **👥 Pass & Play**, or share **🌐 Multiplayer Challenge Links** (with unguessable capability URLs and instant QR codes) for multi-device asynchronous or hybrid competition!
+Play locally with friends on a single screen via **👥 Pass & Play**, or share **⚔️ Multiplayer Challenge Links** (with unguessable capability URLs and instant QR codes) for multi-device asynchronous or hybrid competition!
 
 ![Immich Quiz Home Screen](docs/assets/home.webp)
 
@@ -17,14 +17,16 @@ Play locally with friends on a single screen via **👥 Pass & Play**, or share 
 ### Game Modes & Targets
 
 - **🎯 Pinpoint**: 1 photo per round. Place a pin on the interactive Leaflet map and/or guess the capture month and year.
-- **🔀 Album Shuffle**: 3 photos per round. Match photos to lettered map pins and/or arrange them in chronological sequence along a timeline.
+- **🔀 Unshuffle**: 3 photos per round. Match photos to lettered map pins and/or arrange them in chronological sequence along a timeline.
 - **Targets**: Guess **Location only**, **Date only**, or **Location & Date**.
 
 ### Play Modes
 
 - **👥 Local Match (Pass & Play)**: Gather friends around a single device or TV. Players take turns passing the device between rounds with a privacy curtain protecting upcoming photos.
-- **🌐 Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
+- **⚔️ Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
 - **Challenges Hub (`/challenges`)**: Browse, search, share, track active challenges, and view past match summaries.
+- **📊 Player Statistics & Profiles (`/players`)**: Explore lifetime stats, win rates, medal podiums, 4-tier accuracy distributions for Location & Date, and player match histories.
+- **🎬 Match Reviews & Replays (`/replays` & `/game/{match_id}/replay`)**: Review completed games with an outcome hero (winner podium, final standings) and interactive segmented review deck featuring round-by-round replays, full-game journey maps, and photo memories.
 - **Reported Assets Dashboard (`/reported`)**: Review reported photo metadata inconsistencies (GPS, date, notes), open direct Immich Web edit links, and resolve reports in real time.
 
 ### Library Filters & Preflight
@@ -107,7 +109,7 @@ API keys can be generated in Immich under **Account Settings > API Keys**. Follo
 |:-----------------|:----------------------------|:-----------------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------|
 | `asset.read`     | Asset Metadata & Sync       | `POST /search/metadata`<br>`POST /search/statistics` | Discovers photos/videos, extracts EXIF coordinates/dates, computes library statistics, and validates connection.                      |
 | `asset.view`     | Gameplay Image Previews     | `GET /assets/{id}/thumbnail`                         | Streams compressed preview thumbnails during active quiz rounds. *(Original full-resolution files are never accessed or downloaded).* |
-| `album.read`     | Album Filtering & Shuffle   | `GET /albums`<br>`GET /albums/{id}`                  | Fetches album listings and album asset associations for setup filters and Album Shuffle mode.                                         |
+| `album.read`     | Album Filtering & Shuffle   | `GET /albums`<br>`GET /albums/{id}`                  | Fetches album listings and album asset associations for setup filters and Unshuffle mode.                                         |
 | `person.read`    | People / Face Filters       | `GET /people`                                        | Discovers recognized people and names for setup filtering (Any / All matching) and whitelist/blacklist rules.                         |
 | `tag.read`       | Asset Tag Filters           | `GET /tags`                                          | Retrieves custom asset tags for setup filtering and tag whitelist/blacklist rules.                                                    |
 | `user.read`      | Ownership & Sharing Context | `GET /users/me`                                      | Identifies the authenticated account to distinguish personal photos from shared albums and partner assets.                            |

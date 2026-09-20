@@ -1,3 +1,4 @@
+import json
 import re
 from collections import Counter
 from html.parser import HTMLParser
@@ -6,7 +7,7 @@ from pathlib import Path
 # Elements created at runtime by JS.
 DYNAMIC_IDS = frozenset(
     {
-        'album-shuffle-help-modal',
+        'unshuffle-help-modal',
         'card-goal-date',
         'card-goal-location',
         'carousel-indicator',
@@ -45,21 +46,35 @@ DYNAMIC_IDS = frozenset(
         'finisher-count-text',
         'goal-date',
         'goal-location',
-        'grand-reveal-home-btn',
-        'grand-reveal-hub-btn',
         'grand-reveal-live-pill',
         'grand-reveal-live-status',
         'grand-reveal-meta-tally',
         'grand-reveal-podium',
         'grand-reveal-podium-section',
         'grand-reveal-provisional',
+        'grand-reveal-replay-action-btn',
+        'grand-reveal-replay-grid',
+        'grand-reveal-replay-section',
         'grand-reveal-share-btn',
         'grand-reveal-share-summary-btn',
         'grand-reveal-table',
+        'journey-map',
+        'journey-map-fullscreen',
+        'journey-map-head',
+        'journey-map-shell',
         'photo-lightbox',
         'photo-lightbox-img',
         'player-name-input',
+        'polaroid-gallery',
         'preflight-warning',
+        'pinpoint-media-map-row',
+        'pinpoint-reveal-media-frame',
+        'profile-back-btn',
+        'profile-back-to-hub-btn',
+        'replay-empty-challenge-btn',
+        'replay-empty-play-btn',
+        'replay-error-back-btn',
+        'replay-scoreboard-round-tag',
         'retry-load-challenges-btn',
         'reveal-shuffle-map-shell',
         'scatter-map',
@@ -67,6 +82,17 @@ DYNAMIC_IDS = frozenset(
         'shuffle-cards-list',
         'shuffle-map',
         'shuffle-map-shell',
+        'shuffle-media-map-row',
+        'shuffle-report-btn',
+        'stats-clear-replays-filter-btn',
+        'stats-clear-search-btn',
+        'stats-empty-challenge-btn',
+        'stats-empty-play-btn',
+        'stats-replay-challenge-btn',
+        'stats-replay-play-btn',
+        'stats-retry-btn',
+        'sync-popup',
+        'sync-popup-close-btn',
     }
 )
 
@@ -469,7 +495,7 @@ def test_filter_persistence_and_people_mode_lifecycle() -> None:
 
 
 def test_batch_reveal_item_supports_optional_pin_id() -> None:
-    """Verify BatchRevealItem supports optional true_pin_id for locationless Album Shuffle."""
+    """Verify BatchRevealItem supports optional true_pin_id for locationless Unshuffle."""
     from src.models import BatchRevealItem
 
     item_without_pin = BatchRevealItem(
@@ -526,7 +552,7 @@ def test_score_rollup_timing_and_audio_coordination() -> None:
     """Verify that score rollup duration benchmarks, single-goal summary bounds, and audio coordination are in place."""
     effects_js = (JS_DIR / 'modules' / 'effects.js').read_text(encoding='utf-8')
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
-    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    unshuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
     table_js = (JS_DIR / 'modules' / 'summary' / 'table.js').read_text(encoding='utf-8')
 
     # 1. effects.js must implement centralized active rollup session management
@@ -535,9 +561,9 @@ def test_score_rollup_timing_and_audio_coordination() -> None:
     assert 'function unregisterRollupAnimation' in effects_js
     assert 'function triggerRollupAudioTick' in effects_js
 
-    # 2. pinpoint.js and album_shuffle.js must not dilute total score rollup duration by multiplying round_number
+    # 2. pinpoint.js and unshuffle.js must not dilute total score rollup duration by multiplying round_number
     assert 'maxScore: maxRoundPoints * (reveal.round_number || 1)' not in pinpoint_js
-    assert 'maxScore: maxRoundPoints * (revealData.round_number || 1)' not in album_shuffle_js
+    assert 'maxScore: maxRoundPoints * (revealData.round_number || 1)' not in unshuffle_js
 
     # 3. table.js must compute maxGoalScore for single-goal location/date animations
     assert 'maxGoalScore' in table_js
@@ -648,8 +674,8 @@ def test_screen_and_player_position_persistence_on_reload() -> None:
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
     assert 'el.quizImage.src = mediaUrl;' in pinpoint_js
 
-    # 5. album_shuffle.js hides single-photo mediaFrame on reveal
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    # 5. unshuffle.js hides single-photo mediaFrame on reveal
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
     assert 'if (el.mediaFrame) el.mediaFrame.classList.add("hidden");' in shuffle_js
 
 
@@ -673,6 +699,7 @@ def test_prepare_game_flow_and_modal_regression() -> None:
     assert 'id="prepare-game-modal"' in index_html
     assert 'id="tab-local-game"' in index_html
     assert 'id="tab-challenge-game"' in index_html
+    assert '⚔️' in index_html
     assert 'id="pane-local-game"' in index_html
     assert 'id="pane-challenge-game"' in index_html
 
@@ -893,6 +920,7 @@ def test_home_leaderboard_play_mode_and_accordion_meta() -> None:
     # 1. Leaderboard table has data-sort="play_mode"
     assert '<th data-sort="play_mode" data-i18n="leaderboard.col_play_mode">' in index_html
     assert 'getPlayModeInfo' in leaderboard_js
+    assert 'icon: "⚔️"' in leaderboard_js
     assert 'cellPlayMode' in leaderboard_js
     assert 'col-play-mode' in leaderboard_js
     assert '.playmode-badge' in leaderboard_css
@@ -926,11 +954,12 @@ def test_reveal_and_all_map_fullscreen_controls() -> None:
     maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    review_deck_js = (JS_DIR / 'modules' / 'components' / 'review_deck.js').read_text(encoding='utf-8')
 
-    # 1. Elements exist in HTML and state.js
+    # 1. Elements exist in HTML and state.js / dynamic review deck
     assert 'id="reveal-map-fullscreen"' in index_html
     assert 'id="guess-map-fullscreen"' in index_html
-    assert 'id="journey-map-fullscreen"' in index_html
+    assert 'journey-map-fullscreen' in review_deck_js
     assert 'revealMapFullscreen' in state_js
     assert 'revealMapShell' in state_js
     assert 'journeyMapFullscreen' in state_js
@@ -1031,52 +1060,59 @@ def test_challenges_page_share_drawer_and_results_button() -> None:
     assert '.challenge-hub-share-drawer' in challenge_css
     assert 'renderShareUrlContainerHtml(ch.play_url' in challenges_page_js
 
-    # 4. Challenge cards render Results button (both active & inactive) deep linking to /play/:token/summary
+    # 4. Challenge cards render Results and Replay buttons (both active & inactive)
+    #    deep linking to /play/:token/summary and /game/:id/replay
     assert 'btn-results-challenge' in challenges_page_js
     assert '.btn-results-challenge' in challenge_css
+    assert 'btn-replay-challenge' in challenges_page_js
+    assert '.btn-replay-challenge' in challenge_css
     assert 'btn-play-challenge' in challenges_page_js
     assert '/play/${ch.capability_token}/summary' in challenges_page_js
+    assert '/game/${encodeURIComponent(ch.challenge_id)}/replay' in challenges_page_js
     assert 'navigate(`/play/${token}/summary`)' in challenges_page_js
     assert 'navigate(`/play/${token}`)' in challenges_page_js
+    assert 'navigate(`/game/${encodeURIComponent(id)}/replay`)' in challenges_page_js
 
     # 5. Redundant footer copy button removed
     assert '.footer-left-actions .btn-copy-challenge-link' not in challenge_css
 
-    # 6. Locale strings for share & results exist in both locales
+    # 6. Locale strings for share, results & replay exist in both locales
     for locale in (en_us, pt_br):
         assert '"challenges_page.share_btn"' in locale
         assert '"challenges_page.results_btn"' in locale
+        assert '"challenges_page.replay_btn"' in locale
         assert '"challenges_page.share_drawer_title"' in locale
         assert '"challenges_page.scan_qr_hint"' in locale
 
 
-def test_challenge_carousel_layout_standardization_and_mobile_optimization() -> None:
-    """Verify that carousel-photo-shell standardizes layout with media-frame,
-    uses map-fullscreen-btn, and challenge summary includes mobile responsiveness.
+def test_challenge_summary_replay_unification_and_mobile_optimization() -> None:
+    """Verify that challenge summary unifies round review with the match replay engine,
+    includes the grand-reveal-replay-action-btn, and maintains mobile responsiveness.
     """
     challenge_js = read_challenge_bundle_js()
     challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
 
-    # 1. Carousel photo shell uses media-frame class and SVG map-fullscreen-btn
-    assert 'media-frame carousel-photo-shell' in challenge_js
-    assert 'map-fullscreen-btn carousel-photo-zoom-btn' in challenge_js
-    assert 'viewBox="0 0 24 24"' in challenge_js
+    # 1. Challenge summary embeds unified replay in review deck without redundant action button or banner
+    assert 'grand-reveal-replay-action-btn' not in challenge_js
+    assert 'grand-reveal-replay-btn' not in challenge_js
+    assert 'challenge-replay-banner' not in challenge_js
+    assert 'callerCompletedRound' in challenge_js
+    summary_js = (JS_DIR / 'modules' / 'challenge' / 'summary.js').read_text(encoding='utf-8')
+    assert 'loadSession(capabilityToken)' not in summary_js
+    assert 'capabilityToken' not in summary_js
 
     # 2. Grand reveal standings table hides accuracy column on mobile screens and excludes unnecessary avg-round column
-    assert '<th class="col-accuracy text-right hide-on-mobile">' in challenge_js
-    assert '<td class="col-accuracy text-right hide-on-mobile">' in challenge_js
+    assert '<th class="col-acc text-right hide-on-mobile">' in challenge_js
+    assert '<td class="col-acc text-right hide-on-mobile">' in challenge_js
     assert 'col-avg-round' not in challenge_js
     assert 'summary.col_avg_round' not in challenge_js
 
-    # 3. Carousel photo shell and scatter map shell layout styling in challenge.css
-    assert '.carousel-photo-shell {' in challenge_css
-    assert 'background: #eef2fb;' in challenge_css
-    assert 'border: 1px solid #d5dcec;' in challenge_css
-    assert 'height: var(--quiz-map-height, 420px);' in challenge_css
+    # 3. Challenge replay banner styling removed from challenge.css
+    assert '.challenge-replay-banner' not in challenge_css
+    assert '.challenge-replay-cta-btn' not in challenge_css
 
-    # 4. Mobile responsive rules defined for grand reveal, carousel, table, and summary actions
+    # 4. Mobile responsive rules defined for grand reveal, table, and summary actions
     assert '.challenge-grand-reveal' in challenge_css
-    assert '.carousel-nav-controls' in challenge_css
     assert '#grand-reveal-table' in challenge_css
     assert '.summary-actions' in challenge_css
 
@@ -1145,7 +1181,7 @@ def test_standardized_leaderboard_elements_and_layout() -> None:
 
     # 5. Shared styling in challenge.css
     assert '.standings-table tr.winner-row' in challenge_css
-    assert '.winner-crown' in challenge_css
+    assert '.winner-crown' not in challenge_css
     assert '.col-progress' in challenge_css
     assert '.col-rounds' in challenge_css
 
@@ -1207,9 +1243,9 @@ def test_challenge_gameplay_flow_and_label_integrity() -> None:
     assert '${t("challenge.true_date")}:' in summary_js
     assert '${t("challenge.true_location")}:' not in summary_js
 
-    # 2. Grand Reveal summary includes Challenges Hub navigation button
-    assert 'grand-reveal-hub-btn' in summary_js
-    assert 'navigate("/challenges");' in summary_js
+    # 2. Grand Reveal summary does not render redundant hub/home navigation buttons
+    assert 'grand-reveal-hub-btn' not in summary_js
+    assert 'grand-reveal-home-btn' not in summary_js
 
     # 3. reveal.js updates state.lastReveal for state consistency
     assert 'state.lastReveal = formattedReveal;' in reveal_js
@@ -1349,21 +1385,21 @@ def test_page_buttons_are_standard_links_and_not_toggles() -> None:
     assert 'bindClick(el.challengesNavBtn' not in app_js
 
 
-def test_challenge_album_shuffle_opponent_guesses_display() -> None:
-    """Verify that challenge reveal groups round guesses by player and populates album_shuffle_guesses."""
+def test_challenge_unshuffle_opponent_guesses_display() -> None:
+    """Verify that challenge reveal groups round guesses by player and populates unshuffle_guesses."""
     reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
 
-    # 1. reveal.js groups round_guesses by player and builds albumShuffleGuesses for opponents
+    # 1. reveal.js groups round_guesses by player and builds unshuffleGuesses for opponents
     assert 'const guessesByPlayer = new Map();' in reveal_js
     assert 'guessesByPlayer.set(guess.player_name, []);' in reveal_js
-    assert 'const isAlbumShuffle =' in reveal_js
-    assert 'album_shuffle_guesses: albumShuffleGuesses.length > 0 ? albumShuffleGuesses : null' in reveal_js
+    assert 'const isUnshuffle =' in reveal_js
+    assert 'unshuffle_guesses: unshuffleGuesses.length > 0 ? unshuffleGuesses : null' in reveal_js
     assert 'photo_id: g.asset_id' in reveal_js
     assert 'assigned_pin_id: g.assigned_pin_id || null' in reveal_js
     assert 'assigned_timeline_index:' in reveal_js
 
-    # 2. album_shuffle.js matches photo_id with robust string equality
+    # 2. unshuffle.js matches photo_id with robust string equality
     assert 'String(g.photo_id) === String(item.photo_id)' in shuffle_js
 
 
@@ -1371,7 +1407,7 @@ def test_challenge_pinpoint_opponent_guesses_display() -> None:
     """Verify that challenge reveal retains distance error, coordinates, and date guess for pinpoint opponents."""
     reveal_js = (JS_DIR / 'modules' / 'challenge' / 'reveal.js').read_text(encoding='utf-8')
 
-    # 1. isAlbumShuffle must not misclassify pinpoint matches based on asset_id or assigned_pin_id
+    # 1. isUnshuffle must not misclassify pinpoint matches based on asset_id or assigned_pin_id
     assert 'Boolean(g.asset_id)' not in reveal_js
     assert 'g.assigned_pin_id !== undefined' not in reveal_js
 
@@ -1613,7 +1649,7 @@ def test_dynamic_language_refresh_wiring() -> None:
     game_js = (JS_DIR / 'modules' / 'screens' / 'game.js').read_text(encoding='utf-8')
     reveal_js = (JS_DIR / 'modules' / 'screens' / 'reveal.js').read_text(encoding='utf-8')
     timer_js = (JS_DIR / 'modules' / 'timer.js').read_text(encoding='utf-8')
-    album_shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    unshuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
 
     # 1. MultiSelect has updateLanguage method that updates placeholder & clear buttons
     assert 'updateLanguage()' in multi_select_js
@@ -1630,10 +1666,10 @@ def test_dynamic_language_refresh_wiring() -> None:
     assert 'renderLeaderboard()' in setup_filters_js
     assert 'activeMode.renderSettings(container)' in setup_filters_js
 
-    # 4. Album Shuffle mode implements refreshQuestionLanguage and localizes up/down buttons
-    assert 'refreshQuestionLanguage(questionData)' in album_shuffle_js
-    assert 'upBtn.title = t("game.move_up");' in album_shuffle_js
-    assert 'downBtn.title = t("game.move_down");' in album_shuffle_js
+    # 4. Unshuffle mode implements refreshQuestionLanguage and localizes up/down buttons
+    assert 'refreshQuestionLanguage(questionData)' in unshuffle_js
+    assert 'upBtn.title = t("game.move_up");' in unshuffle_js
+    assert 'downBtn.title = t("game.move_down");' in unshuffle_js
 
     # 5. Timer exports refreshTimerLanguage
     assert 'export function refreshTimerLanguage()' in timer_js
@@ -1665,7 +1701,7 @@ def test_all_missing_components_have_dynamic_language_support():
     maps_js = (JS_DIR / 'modules' / 'maps.js').read_text(encoding='utf-8')
     timer_js = (JS_DIR / 'modules' / 'timer.js').read_text(encoding='utf-8')
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
     app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
 
     # 1. applyLanguage supports data-i18n-args
@@ -1692,16 +1728,18 @@ def test_all_missing_components_have_dynamic_language_support():
     assert 'data-i18n", "map.layer_satellite"' in maps_js
     assert 'export function refreshMapsLanguage()' in maps_js
 
-    # 5. reveal-actual & pinpoint-actual: pinpoint.js tags actual date and location chips
-    assert 'data-i18n", "reveal.actual_date"' in pinpoint_js
-    assert 'data-i18n", "reveal.actual_location"' in pinpoint_js
+    # 5. reveal-actual & pinpoint-actual: chips render icon and value without labels
+    assert 'dateChip.append(dateIcon, valSpan)' in pinpoint_js
+    assert 'locChip.append(locIcon, valSpan)' in pinpoint_js
+    assert 'reveal-chip-label' not in pinpoint_js
 
-    # 6. reveal-table: pinpoint.js tags table headers with data-i18n
-    assert 'data-i18n", "reveal.col_player"' in pinpoint_js
-    assert 'data-i18n", col.key' in pinpoint_js
+    reveal_table_js = (JS_DIR / 'modules' / 'components' / 'reveal_table.js').read_text(encoding='utf-8')
 
-    # 7. shuffle-reveal-table & shuffle-card-meta: album_shuffle.js tags table headers & card actions
-    assert 'data-i18n", "reveal.col_player"' in shuffle_js
+    # 6. reveal-table: reveal_table.js tags table headers with data-i18n
+    assert 'data-i18n", "reveal.col_player"' in reveal_table_js
+    assert 'data-i18n", col.key' in reveal_table_js
+
+    # 7. shuffle-reveal-table & shuffle-card-meta: unshuffle.js tags table headers & card actions
     assert 'reportPhotoBtn.setAttribute("data-i18n-title", "report.btn_label");' in shuffle_js
     assert 'reportPhotoBtn.setAttribute("data-i18n-aria-label", "report.btn_label");' in shuffle_js
     assert 'refreshQuestionLanguage(questionData)' in shuffle_js
@@ -1795,7 +1833,7 @@ def test_multi_select_mode_btn_two_lines_wrap() -> None:
 def test_local_game_round_review_no_player_pill() -> None:
     """Verify that during round review in local games, activePlayer is null and player pill is omitted."""
     pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
-    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'album_shuffle.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
 
     expected_pattern = (
         'const activePlayer = challenge && challenge.isActive() ? challenge.challengeSession?.sessionPlayerName : null;'
@@ -1845,3 +1883,422 @@ def test_preflight_count_updates_with_guess_mode() -> None:
     assert 'setup.preflight_count_both' in setup_filters_js
     assert 'setup.preflight_count_gps' in setup_filters_js
     assert 'setup.preflight_count_date' in setup_filters_js
+
+
+def test_player_autocomplete_extension_and_mobile() -> None:
+    """Verify that player autocomplete dropdown extends beyond the input container,
+    does not get clipped by modal pane or footer, and supports mobile viewports with
+    upward flipping and touch interactions.
+    """
+    autocomplete_js = (JS_DIR / 'modules' / 'components' / 'player_autocomplete.js').read_text(encoding='utf-8')
+    player_input_css = (STATIC_DIR / 'css' / 'components' / 'player_input.css').read_text(encoding='utf-8')
+    modals_css = (STATIC_DIR / 'css' / 'components' / 'modals.css').read_text(encoding='utf-8')
+
+    # 1. Dropdown is anchored to closest .player-input-container if present
+    assert "this.inputEl.closest('.player-input-container')" in autocomplete_js
+    assert 'this.anchorEl.appendChild(this.dropdownEl)' in autocomplete_js
+
+    # 2. Dynamic upward flipping for mobile / tight viewports
+    assert '_updatePosition()' in autocomplete_js
+    assert 'open-upwards' in autocomplete_js
+    assert '.player-autocomplete-dropdown.open-upwards' in player_input_css
+
+    # 3. Pointer and touch handling to avoid mobile blur issues
+    assert "el.addEventListener('pointerdown', handleSelect)" in autocomplete_js
+    assert "this.dropdownEl.addEventListener('pointerdown'" in autocomplete_js
+
+    # 4. CSS styling: full width, high z-index, and mobile touch targets
+    assert 'z-index: 2500;' in player_input_css
+    assert 'width: 100%;' in player_input_css
+    assert 'min-height: 48px;' in player_input_css
+
+    # 5. Modal & Card styling: overflow visible so dropdown floats over pane, modal footer, and challenge card
+    cards_css = (STATIC_DIR / 'css' / 'components' / 'cards.css').read_text(encoding='utf-8')
+    assert 'overflow: visible;' in modals_css
+    assert '#pane-local-game {' in modals_css
+    assert '#pane-challenge-game {' in modals_css
+    assert 'z-index: 20;' in modals_css
+    assert '#challenge-card {\n  overflow: visible;\n}' in cards_css
+
+
+def test_modal_backdrop_drag_selection_no_close() -> None:
+    """Verify that all modals only close on backdrop clicks if pointerdown started outside on the backdrop,
+    preventing accidental modal dismissal when text selection drags and releases outside.
+    """
+    admin_js = (JS_DIR / 'modules' / 'admin.js').read_text(encoding='utf-8')
+    report_js = (JS_DIR / 'modules' / 'components' / 'report_modal.js').read_text(encoding='utf-8')
+    shuffle_js = (JS_DIR / 'modules' / 'modes' / 'unshuffle.js').read_text(encoding='utf-8')
+    pinpoint_js = (JS_DIR / 'modules' / 'modes' / 'pinpoint.js').read_text(encoding='utf-8')
+
+    # Prepare game modal
+    assert '_isBackdropPress' in admin_js
+    assert '_modalEl.addEventListener("pointerdown"' in admin_js
+
+    # Report modal
+    assert '_isBackdropPress' in report_js
+    assert '_modalEl.addEventListener("pointerdown"' in report_js
+
+    # Unshuffle help modal
+    assert 'isBackdropPress' in shuffle_js
+    assert 'modal.addEventListener("pointerdown"' in shuffle_js
+
+    # Pinpoint help modal
+    assert 'isBackdropPress' in pinpoint_js
+    assert 'modal.addEventListener("pointerdown"' in pinpoint_js
+
+
+def test_gameplay_auto_scroll_to_game_card() -> None:
+    """Verify that during active games, the interface scrolls automatically to #game-card,
+    hiding the top app-header to maximize screen estate for gameplay.
+    """
+    common_js = (JS_DIR / 'modules' / 'screens' / 'common.js').read_text(encoding='utf-8')
+    game_js = (JS_DIR / 'modules' / 'screens' / 'game.js').read_text(encoding='utf-8')
+    challenge_game_js = (JS_DIR / 'modules' / 'challenge' / 'game.js').read_text(encoding='utf-8')
+    app_js = (JS_DIR / 'app.js').read_text(encoding='utf-8')
+    layout_css = (STATIC_DIR / 'css' / 'base' / 'layout.css').read_text(encoding='utf-8')
+
+    # 1. common.js exports scrollToGameCard helper
+    assert 'export function scrollToGameCard(' in common_js
+    assert 'scrollIntoView' in common_js
+    assert 'block: "start"' in common_js
+
+    # 2. game.js calls scrollToGameCard instead of window.scrollTo(top: 0)
+    assert 'import { scrollToGameCard } from "./common.js";' in game_js
+    assert 'scrollToGameCard("smooth");' in game_js
+
+    # 3. challenge/game.js calls scrollToGameCard instead of window.scrollTo(top: 0)
+    assert 'scrollToGameCard' in challenge_game_js
+
+    # 4. app.js calls scrollToGameCard in readyBtn and routeToActiveGame
+    assert 'scrollToGameCard' in app_js
+
+    # 5. layout.css specifies scroll-margin-top on #game-card for clean viewport alignment
+    assert '#game-card {\n  scroll-margin-top: env(safe-area-inset-top, 0px);\n}' in layout_css
+
+
+def test_match_replays_catalog_player_chips_and_styling() -> None:
+    """Verify that match replay catalog items correctly extract player names (from strings or objects),
+    determine winners from m.winners, and have complete CSS styling for chips and avatars.
+    """
+    replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
+    en_locale = (STATIC_DIR / 'js' / 'modules' / 'locales' / 'en_US.js').read_text(encoding='utf-8')
+    pt_locale = (STATIC_DIR / 'js' / 'modules' / 'locales' / 'pt_BR.js').read_text(encoding='utf-8')
+
+    # 1. Player name extraction handles both strings and objects
+    assert 'typeof a === "string"' in replay_js or 'typeof p === "string"' in replay_js
+    assert 'playerInitial(playerName)' in replay_js
+    assert 'winners.includes(playerName)' in replay_js
+
+    # 2. Chips and avatar classes are rendered
+    assert 'class="replay-player-chip' in replay_js
+    assert 'class="replay-player-avatar"' in replay_js
+    assert 'class="replay-player-name"' in replay_js
+    assert 'class="replay-winner-crown"' in replay_js
+
+    # 3. CSS rules exist in replay.css
+    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
+    assert '.replay-catalog-item {' in replay_css
+    assert '.replay-item-header {' in replay_css
+    assert '.replay-item-body {' in replay_css
+    assert '.replay-player-chip {' in replay_css
+    assert '.replay-player-chip.is-winner {' in replay_css
+    assert '.replay-player-avatar {' in replay_css
+    assert '.replay-player-name {' in replay_css
+    assert '.replay-winner-crown {' in replay_css
+    assert '.replay-item-footer {' in replay_css
+
+    # 4. Locale strings exist
+    assert '"replay.winner"' in en_locale
+    assert '"replay.winner"' in pt_locale
+
+    # 5. Challenge chip formatting in replay and catalog
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    assert 'badge-type-challenge' in replay_js
+    assert '.badge-type.badge-type-challenge' in replay_css
+    assert '.replay-item-badges .badge-tag.badge-type-challenge' in replay_css
+    assert 'text-transform: none;' in replay_css
+    assert 'border-radius: 6px;' in replay_css
+
+    # challenge.css scopes .badge-challenge and does not have an unscoped bare `.badge-challenge {`
+    assert not re.search(r'^\.badge-challenge\s*\{', challenge_css, re.MULTILINE)
+
+
+def test_player_stats_translations_and_tier_rendering_parity() -> None:
+    """Verify that all translation keys used in stats.js exist in both English and Portuguese
+    locales, that Accuracy Tier rendering uses tier_key (preventing stats.tier_undefined),
+    and that singular/plural round counters exist and are correctly used.
+    """
+    stats_js = (JS_DIR / 'modules' / 'screens' / 'stats.js').read_text(encoding='utf-8')
+    locales_dir = Path(__file__).resolve().parents[2] / 'locales'
+    en_json = json.loads((locales_dir / 'en-US.json').read_text(encoding='utf-8'))
+    pt_json = json.loads((locales_dir / 'pt-BR.json').read_text(encoding='utf-8'))
+
+    # 1. Tier key extraction must not produce 'tier_undefined'
+    assert 'tier.tier_key' in stats_js
+    assert 'stats.tier_${tierKey}' in stats_js
+    for tier in ['stats.tier_top', 'stats.tier_great', 'stats.tier_moderate', 'stats.tier_low']:
+        assert tier in en_json, f'Missing {tier} in en-US.json'
+        assert tier in pt_json, f'Missing {tier} in pt-BR.json'
+
+    # 2. Singular / plural counters exist and are used
+    assert 'stats.round_single' in en_json and 'stats.round_single' in pt_json
+    assert 'stats.rounds_plural' in en_json and 'stats.rounds_plural' in pt_json
+    assert 't("stats.round_single"' in stats_js
+    assert 't("stats.rounds_plural"' in stats_js
+
+    # 3. KPI and profile metrics exist in locales
+    for key in [
+        'stats.matches_played_count',
+        'stats.wins_count',
+        'stats.podium_rate',
+        'stats.best_match',
+        'stats.perfect_guesses',
+        'stats.last_played',
+        'stats.speed_and_timing',
+        'stats.best_date_diff',
+        'stats.days_plural',
+    ]:
+        assert key in en_json, f'Missing {key} in en-US.json'
+        assert key in pt_json, f'Missing {key} in pt-BR.json'
+
+
+def test_tables_mobile_optimization_and_replay_icon_unification() -> None:
+    """Verify table mobile optimizations across homepage leaderboard, recent matches, and standings:
+    - Replay buttons in table rows use icon-only (🎬) with proper titles/aria-labels.
+    - Playmode labels are omitted on mobile in the homepage leaderboard.
+    - Recent matches table wraps in .table-scroll and fits mobile viewports without overflowing.
+    - Standings tables define mobile responsive rules.
+    - Dark mode styling maintains high contrast on table surfaces and text.
+    """
+    leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
+    leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    stats_js = (JS_DIR / 'modules' / 'screens' / 'stats.js').read_text(encoding='utf-8')
+    stats_css = (STATIC_DIR / 'css' / 'components' / 'stats.css').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. Homepage leaderboard replay button: icon-only markup with aria-label
+    assert 'replayBtn.innerHTML = `<span class="replay-icon" aria-hidden="true">🎬</span>`;' in leaderboard_js
+    assert 'replayBtn.setAttribute("aria-label", replayTitle);' in leaderboard_js
+
+    # 2. Homepage leaderboard mobile styles: omit playmode-label, tighten mode/replay columns, enlarge player col
+    assert '.playmode-badge .playmode-label' in leaderboard_css
+    assert 'display: none !important;' in leaderboard_css
+    assert '#leaderboard-table th[data-sort="play_mode"]' in leaderboard_css
+    assert '#leaderboard-table th[data-sort="player_name"]' in leaderboard_css
+    assert '.leaderboard-player-link' in leaderboard_css
+
+    # 3. Stats page recent matches table: icon-only button and standard Replay column header
+    assert 'title="${t("replay.watch_replay")}"' in stats_js
+    assert 'aria-label="${t("replay.watch_replay")}"' in stats_js
+    assert '<span class="replay-icon" aria-hidden="true">🎬</span>' in stats_js
+    assert 'data-i18n="leaderboard.col_replay"' in stats_js
+    assert '<div class="table-scroll">' in stats_js
+
+    # 4. Stats CSS: responsive rules for recent-matches-table and compact replay-action-btn
+    assert '.recent-matches-table .col-mode .mode-label' in stats_css
+    assert '.recent-matches-table th.col-replay' in stats_css
+    assert '.recent-matches-table th.col-replay::after' in stats_css
+    assert '.replay-action-btn' in stats_css
+    assert '[data-theme="dark"] .recent-matches-table td' in stats_css
+
+    # 5. Challenges hub standings table has mobile responsive rules
+    assert '.standings-table th' in challenge_css
+    assert '.standings-table .col-score .max-score' in challenge_css
+
+
+def test_replay_screen_header_and_title_rendering() -> None:
+    """Verify that the replay screen header omits redundant round count from subtitle and
+    omits replay-badge-row, and renders challenge title and creator for challenge replays.
+    """
+    index_html = (STATIC_DIR / 'index.html').read_text(encoding='utf-8')
+    summary_js = (JS_DIR / 'modules' / 'screens' / 'summary.js').read_text(encoding='utf-8')
+    replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
+    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
+
+    # 1. HTML omits replay-badge-row and retains replay-main-heading + replay-match-title
+    assert '<div class="replay-badge-row">' not in index_html
+    assert 'id="replay-mode-badge"' not in index_html
+    assert 'id="replay-type-badge"' not in index_html
+    assert '<h2 class="replay-main-heading">' in index_html
+    assert '<p id="replay-match-title" class="replay-match-meta"></p>' in index_html
+
+    # 2. summary.js implements renderReplayTitleHeader and handles challenge vs local matches, with replay.js re-export
+    assert 'function renderReplayTitleHeader(' in summary_js
+    assert 'const isChallenge =' in summary_js
+    assert 'replay-challenge-title' in summary_js
+    assert 'replay-challenge-host' in summary_js
+    assert 'stats.rounds_count' not in summary_js  # Round count removed from replay subtitle
+    assert 'renderReplayTitleHeader' in replay_js
+
+    # 3. replay.css defines replay-match-meta layout and clean dark mode
+    assert '.replay-match-meta {' in replay_css
+    assert '.replay-challenge-title' in replay_css
+    assert '.replay-challenge-host' in replay_css
+    assert '.meta-separator' in replay_css
+    assert '.replay-badge-row' not in replay_css
+
+
+def test_sync_button_cooldown_frontend_integration() -> None:
+    """Verify that sync.js and filters.css implement button cooldown states, ticker, and tooltips."""
+    sync_js = (JS_DIR / 'modules' / 'sync.js').read_text(encoding='utf-8')
+    filters_css = (STATIC_DIR / 'css' / 'components' / 'filters.css').read_text(encoding='utf-8')
+
+    # 1. sync.js defines cooldown ticker and updates button state
+    assert 'startCooldownTicker' in sync_js
+    assert 'clearCooldownTimer' in sync_js
+    assert '.classList.toggle("cooldown"' in sync_js
+    assert 'setup.sync_cooldown_active' in sync_js
+    assert 'setup.sync_cooldown_toast' in sync_js
+
+    # 2. filters.css defines .sync-library-btn.cooldown
+    assert '.sync-library-btn.cooldown {' in filters_css
+    cooldown_block = filters_css.split('.sync-library-btn.cooldown {')[1].split('}')[0]
+    assert 'cursor: not-allowed;' in cooldown_block
+
+
+def test_strict_4_locale_file_parity() -> None:
+    """Verify strict 4-file parity mandate: locales/en-US.json, locales/pt-BR.json,
+    static/js/modules/locales/en_US.js, and static/js/modules/locales/pt_BR.js
+    must maintain 100% identical top-level key counts and keys.
+    """
+    root_dir = STATIC_DIR.parent
+    en_json_path = root_dir / 'locales' / 'en-US.json'
+    pt_json_path = root_dir / 'locales' / 'pt-BR.json'
+    en_js_path = JS_DIR / 'modules' / 'locales' / 'en_US.js'
+    pt_js_path = JS_DIR / 'modules' / 'locales' / 'pt_BR.js'
+
+    en_data = json.loads(en_json_path.read_text(encoding='utf-8'))
+    pt_data = json.loads(pt_json_path.read_text(encoding='utf-8'))
+
+    def parse_js_keys(path: Path) -> list[str]:
+        lines = path.read_text(encoding='utf-8').splitlines()
+        keys = []
+        for line in lines:
+            m = re.match(r'^  "([^"]+)"\s*:', line)
+            if m:
+                keys.append(m.group(1))
+        return keys
+
+    en_js_keys = parse_js_keys(en_js_path)
+    pt_js_keys = parse_js_keys(pt_js_path)
+
+    en_keys = set(en_data.keys())
+    pt_keys = set(pt_data.keys())
+    en_js_keys_set = set(en_js_keys)
+    pt_js_keys_set = set(pt_js_keys)
+
+    assert len(en_data) == len(pt_data) == len(en_js_keys) == len(pt_js_keys), (
+        f'Mismatch in key counts: en-US.json={len(en_data)}, pt-BR.json={len(pt_data)}, '
+        f'en_US.js={len(en_js_keys)}, pt_BR.js={len(pt_js_keys)}'
+    )
+    assert en_keys == pt_keys, f'Difference between en-US and pt-BR: {en_keys ^ pt_keys}'
+    assert en_keys == en_js_keys_set, f'Difference between en-US.json and en_US.js: {en_keys ^ en_js_keys_set}'
+    assert en_keys == pt_js_keys_set, f'Difference between en-US.json and pt_BR.js: {en_keys ^ pt_js_keys_set}'
+
+
+def test_standardized_chip_and_tag_styling_parity() -> None:
+    """Verify that chips and tags follow the standardized design system:
+    1. Universal .badge-tag has 6px border radius, title case, no drop shadow.
+    2. Challenge tags use matching vibrant purple (#7048e8 / rgba(112, 72, 232, 0.12)) across all screens.
+    3. summary.css does NOT override badge-tag with 999px pills or conflicting orange.
+    4. leaderboard.css .playmode-badge follows 6px border-radius and consistent challenge/local/room palette.
+    5. summary.js, replay.js, and index.html utilize standardized badge classes.
+    """
+    replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
+    summary_css = (STATIC_DIR / 'css' / 'components' / 'summary.css').read_text(encoding='utf-8')
+    leaderboard_css = (STATIC_DIR / 'css' / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+    summary_js = (JS_DIR / 'modules' / 'screens' / 'summary.js').read_text(encoding='utf-8')
+    replay_js = (JS_DIR / 'modules' / 'screens' / 'replay.js').read_text(encoding='utf-8')
+    index_html = (STATIC_DIR / 'index.html').read_text(encoding='utf-8')
+
+    # 1. Base .badge-tag rules
+    assert '.badge-tag' in replay_css
+    assert 'border-radius: 6px;' in replay_css
+    assert 'text-transform: none;' in replay_css
+    assert 'box-shadow: none;' in replay_css
+
+    # 2. Challenge color parity (#7048e8) across replay and challenge stylesheets
+    assert '#7048e8' in replay_css
+    assert 'rgba(112, 72, 232, 0.12)' in replay_css
+    assert '#7048e8' in challenge_css
+    assert 'rgba(112, 72, 232, 0.12)' in challenge_css
+
+    # 3. No conflicting 999px or orange overrides on badge-tag in summary.css
+    assert '.badge-tag.badge-type.badge-type-challenge' not in summary_css
+    assert '.summary-header-badge-row .badge-tag.badge-type' not in summary_css
+
+    # 4. leaderboard.css playmode badge standardized
+    assert '.playmode-badge.mode-challenge' in leaderboard_css
+    assert '#7048e8' in leaderboard_css
+    assert '.playmode-badge.mode-local' in leaderboard_css
+    assert '.playmode-badge.mode-room' in leaderboard_css
+
+    # 5. JS and HTML class consistency
+    assert 'badge-type-challenge' in summary_js
+    assert 'badge-type-local' in summary_js
+    assert 'badge-type-room' in summary_js
+    assert 'badge-type-challenge' in replay_js
+    assert 'badge-type-local' in replay_js
+    assert 'badge-type-room' in replay_js
+    assert 'id="summary-game-mode-badge" class="badge-tag badge-type badge-type-local"' in index_html
+
+
+def test_match_meta_unique_emojis_and_mobile_responsive_labels() -> None:
+    """Verify that match meta items have unique field emojis (no collision between MODE and GUESS),
+    and match-meta-item-label is hidden on mobile screens across all stylesheets.
+    """
+    match_meta_js = (JS_DIR / 'modules' / 'components' / 'match_meta.js').read_text(encoding='utf-8')
+    css_dir = STATIC_DIR / 'css'
+    leaderboard_css = (css_dir / 'components' / 'leaderboard.css').read_text(encoding='utf-8')
+    challenge_css = (css_dir / 'components' / 'challenge.css').read_text(encoding='utf-8')
+    filters_css = (css_dir / 'components' / 'filters.css').read_text(encoding='utf-8')
+
+    # 1. Targets (Guess) field has its own unique emojis, no longer hardcoded to 🎯
+    assert 'targetsIcon = "🧭"' in match_meta_js
+    assert 'targetsIcon = "🗂️"' in match_meta_js
+    assert 'targetsIcon = "📍"' in match_meta_js
+    assert 'targetsIcon = "📅"' in match_meta_js
+    assert 'type: "targets",\n      icon: targetsIcon,' in match_meta_js
+
+    # 2. Mode emojis remain 🎯 for Pinpoint and 🔀 for Unshuffle
+    assert 'modeEmoji = isShuffle ? "🔀" : "🎯"' in match_meta_js
+
+    # 3. Mobile responsiveness hides match-meta-item-label across all relevant stylesheets
+    assert '.match-meta-item-label {\n    display: none !important;\n  }' in leaderboard_css
+    assert '.match-meta-item-label {\n    display: none !important;\n  }' in challenge_css
+    assert (
+        '@media (max-width: 640px) {\n'
+        '  .filters-accordion-meta .match-meta-item-label {\n'
+        '    display: none !important;\n'
+        '  }\n'
+        '}'
+    ) in filters_css
+
+    # 4. Dark mode styles for match meta items exist
+    assert '[data-theme="dark"] .match-meta-category' in leaderboard_css
+    assert '[data-theme="dark"] .match-meta-item' in leaderboard_css
+    assert '[data-theme="dark"] .match-meta-item.meta-targets' in leaderboard_css
+
+
+def test_standings_table_compact_badges_and_no_redundant_crown() -> None:
+    """Verify that finished rounds pill omits the flag emoji to save table space,
+    and winner-crown is removed from formatPlayerCellHtml since rank-medal is already present.
+    """
+    formatters_js = (JS_DIR / 'modules' / 'formatters.js').read_text(encoding='utf-8')
+    challenge_css = (STATIC_DIR / 'css' / 'components' / 'challenge.css').read_text(encoding='utf-8')
+
+    # 1. formatRoundsBadge does not include flag emoji in finished badge
+    badge_func = formatters_js.split('function formatRoundsBadge')[1].split('function formatPlayerCellHtml')[0]
+    assert '🏁' not in badge_func
+    assert '<span class="challenge-rounds-pill finished"' in badge_func
+    assert '>${escapeHtml(progressStr)}</span>' in badge_func
+
+    # 2. formatPlayerCellHtml does not include winner-crown
+    cell_func = formatters_js.split('function formatPlayerCellHtml')[1].split('function formatDistance')[0]
+    assert 'winner-crown' not in cell_func
+    assert '👑' not in cell_func
+
+    # 3. Dead .winner-crown CSS is removed from challenge.css
+    assert '.winner-crown' not in challenge_css

@@ -11,12 +11,20 @@
 @import "./components/modals.css";
 @import "./components/multi_select.css";
 @import "./components/filters.css";
+@import "./components/hub_header.css";
+@import "./components/toolbar.css";
 @import "./components/range_slider.css";
 @import "./components/player_input.css";
 @import "./components/timer.css";
 @import "./components/challenge.css";
 @import "./components/reported.css";
+@import "./components/stats.css";
+@import "./components/round_stage.css";
+@import "./components/reveal_table.css";
+@import "./components/replay.css";
+@import "./components/review_deck.css";
+@import "./components/summary.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";
-@import "./modes/album_shuffle.css";
+@import "./modes/unshuffle.css";

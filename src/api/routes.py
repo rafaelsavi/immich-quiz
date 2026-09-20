@@ -1,4 +1,5 @@
 import asyncio
+import math
 from typing import Annotated, Any
 
 from cachetools import TTLCache
@@ -19,7 +20,12 @@ from src.models import (
     LeaderboardEntry,
     LeaderboardQuery,
     LibraryFiltersResponse,
+    MatchHistoryItem,
+    MatchReplayResponse,
     MatchSummaryResponse,
+    PlayerNameSuggestion,
+    PlayerProfileResponse,
+    PlayerSummaryItem,
     PreflightRequest,
     PreflightResponse,
     QuestionRequest,
@@ -177,11 +183,32 @@ async def sync_status(
 async def trigger_sync(
     request: Request,
     force_full: bool = Query(default=False),
+    bypass_cooldown: bool = Query(default=False),
     sync_engine: SyncEngine = Depends(get_sync_engine),
 ) -> dict[str, Any]:
-    invalidate_filters_cache()
     available = request.app.state.available_libraries
-    sync_engine.trigger_sync_all(force_full=force_full, available_libraries=available)
+    if sync_engine.is_any_syncing():
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail='A synchronization is already in progress. Please wait for it to complete.',
+        )
+
+    if not force_full and not bypass_cooldown:
+        remaining = sync_engine.get_cooldown_remaining(available_libraries=available)
+        if remaining > 0.0:
+            wait_secs = int(math.ceil(remaining))
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f'Sync was triggered recently. Please wait {wait_secs}s before syncing again.',
+                headers={'Retry-After': str(wait_secs)},
+            )
+
+    invalidate_filters_cache()
+    sync_engine.trigger_sync_all(
+        force_full=force_full,
+        bypass_cooldown=bypass_cooldown,
+        available_libraries=available,
+    )
     return sync_engine.get_sync_status(available_libraries=available)
 
 
@@ -191,6 +218,74 @@ async def leaderboard(
     store: LeaderboardStore = Depends(get_leaderboard_store),
 ) -> list[LeaderboardEntry]:
     return store.list_entries(query)
+
+
+@router.get('/players/names', response_model=list[PlayerNameSuggestion])
+async def player_names(
+    q: str = Query(default='', max_length=100),
+    limit: int = Query(default=10, ge=1, le=50),
+    store: LeaderboardStore = Depends(get_leaderboard_store),
+) -> list[PlayerNameSuggestion]:
+    """Return autocomplete suggestions for known player names ordered by recency and match count."""
+    return await asyncio.to_thread(store.get_known_player_names, q, limit)
+
+
+@router.get('/players', response_model=list[PlayerSummaryItem])
+async def players_directory(
+    search: str = Query(default='', max_length=100),
+    sort_by: str = Query(default='matches', pattern='^(matches|win_rate|points|name)$'),
+    limit: int = Query(default=50, ge=1, le=200),
+    store: LeaderboardStore = Depends(get_leaderboard_store),
+) -> list[PlayerSummaryItem]:
+    """Return player directory cards with high-level stats and career metrics."""
+    return await asyncio.to_thread(store.get_all_players_directory, search, sort_by, limit)
+
+
+@router.get('/players/{player_name}/profile', response_model=PlayerProfileResponse)
+async def player_profile(
+    player_name: str,
+    store: LeaderboardStore = Depends(get_leaderboard_store),
+) -> PlayerProfileResponse:
+    """Return comprehensive career performance analytics, accuracy tiers, and match log for a player."""
+    profile = await asyncio.to_thread(store.get_player_profile, player_name)
+    if profile is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Player {player_name} not found')
+    return profile
+
+
+@router.get('/matches', response_model=list[MatchHistoryItem])
+async def list_matches(
+    game_mode: str | None = Query(default=None),
+    play_mode: str | None = Query(default=None),
+    player: str | None = Query(default=None),
+    limit: int = Query(default=30, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    store: LeaderboardStore = Depends(get_leaderboard_store),
+) -> list[MatchHistoryItem]:
+    """Return searchable match history listing with participating players, winner, and mode tags."""
+    return await asyncio.to_thread(
+        store.list_matches_history,
+        limit,
+        offset,
+        game_mode,
+        play_mode,
+        player,
+    )
+
+
+@router.get('/match/{match_id}/replay', response_model=MatchReplayResponse)
+async def match_replay(
+    match_id: str,
+    store: LeaderboardStore = Depends(get_leaderboard_store),
+) -> MatchReplayResponse:
+    """Return detailed round-by-round guess data, actual coords/dates, and running scoreboard for replay."""
+    replay = await asyncio.to_thread(store.get_match_replay, match_id)
+    if replay is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Match {match_id} not found or has no replay records',
+        )
+    return replay
 
 
 @router.post('/game/preflight', response_model=PreflightResponse)

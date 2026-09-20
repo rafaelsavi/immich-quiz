@@ -553,7 +553,6 @@ def test_gameplay_question_and_answer_validation() -> None:
     from pydantic import ValidationError
 
     from src.models import (
-        AlbumShuffleAnswerItem,
         AnswerRequest,
         AnswerResponse,
         BatchPinItem,
@@ -561,6 +560,7 @@ def test_gameplay_question_and_answer_validation() -> None:
         QuestionRequest,
         QuestionResponse,
         RoundLength,
+        UnshuffleAnswerItem,
     )
 
     # QuestionRequest
@@ -629,11 +629,11 @@ def test_gameplay_question_and_answer_validation() -> None:
             round_length=RoundLength.minute_1,
         )
 
-    # AlbumShuffleAnswerItem
-    shuffle_item = AlbumShuffleAnswerItem(photo_id='ph1', assigned_timeline_index=2)
+    # UnshuffleAnswerItem
+    shuffle_item = UnshuffleAnswerItem(photo_id='ph1', assigned_timeline_index=2)
     assert shuffle_item.assigned_timeline_index == 2
     with pytest.raises(ValidationError):
-        AlbumShuffleAnswerItem(photo_id='ph1', assigned_timeline_index=-1)
+        UnshuffleAnswerItem(photo_id='ph1', assigned_timeline_index=-1)
 
     # AnswerRequest
     ans_ok = AnswerRequest(
@@ -958,7 +958,6 @@ def test_reusable_base_models_and_pinpoint_structures() -> None:
     from pydantic import ValidationError
 
     from src.models import (
-        AlbumShuffleAnswerItem,
         BaseAnswerSubmission,
         BaseQuestionContent,
         BatchPhotoItem,
@@ -975,6 +974,7 @@ def test_reusable_base_models_and_pinpoint_structures() -> None:
         RoundLength,
         RoundResultResponse,
         RoundScoreBreakdown,
+        UnshuffleAnswerItem,
     )
 
     # 1. GroundTruthLocationDate & BatchRevealItem & PinpointReveal
@@ -1120,11 +1120,11 @@ def test_reusable_base_models_and_pinpoint_structures() -> None:
     assert sub_pinpoint.time_taken_seconds == 12.5
 
     sub_shuffle = BaseAnswerSubmission(
-        album_shuffle=[AlbumShuffleAnswerItem(photo_id='p1', assigned_pin_id='B', assigned_timeline_index=0)],
+        unshuffle=[UnshuffleAnswerItem(photo_id='p1', assigned_pin_id='B', assigned_timeline_index=0)],
         time_taken_seconds=15.0,
     )
-    assert sub_shuffle.album_shuffle is not None
-    assert len(sub_shuffle.album_shuffle) == 1
+    assert sub_shuffle.unshuffle is not None
+    assert len(sub_shuffle.unshuffle) == 1
 
 
 def test_round_data_and_question_state_delegation() -> None:

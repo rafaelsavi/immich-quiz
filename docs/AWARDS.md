@@ -8,12 +8,12 @@ This guide documents all end-of-match performance awards in **Immich Quiz**, the
 
 | Award             | Icon | Requirement                                  | Description                                                                                                            | Tie-breaker           |
 |:------------------|:-----|:---------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------|:----------------------|
-| **Sniper**        | 🎯   | `≥ 1 perfect location guess`                 | Awarded to the player with the most **perfect location guesses** (100% score). *Disabled in Album Shuffle mode.*       | Higher location score |
-| **Time Traveler** | ⏳    | `≥ 1 perfect date guess`                     | Awarded to the player with the most **perfect date guesses** (100% score). *Disabled in Album Shuffle mode.*           | Higher date score     |
+| **Sniper**        | 🎯   | `≥ 1 perfect location guess`                 | Awarded to the player with the most **perfect location guesses** (100% score). *Disabled in Unshuffle mode.*       | Higher location score |
+| **Time Traveler** | ⏳    | `≥ 1 perfect date guess`                     | Awarded to the player with the most **perfect date guesses** (100% score). *Disabled in Unshuffle mode.*           | Higher date score     |
 | **Speed Demon**   | ⚡    | `≥ 1 fast round`; `Timed game`; `0 timeouts` | Awarded to the player with the maximum number of fast rounds (submitted within **≤ 50% of the max round time limit**). | Lower total duration  |
 
 > [!NOTE]
-> In **Album Shuffle** mode (`game_mode == 'album_shuffle'`), only the **⚡ Speed Demon** award is active.
+> In **Unshuffle** mode (`game_mode == 'unshuffle'`), only the **⚡ Speed Demon** award is active.
 > If a tie cannot be broken, the award is not given to any player.
 
 ---

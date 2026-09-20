@@ -344,13 +344,13 @@ function initModeSelector() {
     });
   }
 
-  const shuffleHelpBtn = document.getElementById("help-album-shuffle-btn");
+  const shuffleHelpBtn = document.getElementById("help-unshuffle-btn");
   if (shuffleHelpBtn && !shuffleHelpBtn.dataset.bound) {
     shuffleHelpBtn.dataset.bound = "true";
     shuffleHelpBtn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      GAME_MODES.album_shuffle?.openHelp?.();
+      GAME_MODES.unshuffle?.openHelp?.();
     });
   }
 
@@ -670,7 +670,7 @@ export function onGuessModeChanged() {
     }
 
     const roundCount = el.roundCount ? parseInt(el.roundCount.value, 10) : 10;
-    const required = activeMode?.name === "album_shuffle" ? 3 * roundCount : roundCount;
+    const required = activeMode?.name === "unshuffle" ? 3 * roundCount : roundCount;
 
     _lastPreflightData = {
       ..._lastPreflightData,
@@ -1010,9 +1010,9 @@ export function refreshFilterComponentsLanguage() {
   if (pinpointModal && !pinpointModal.classList.contains("hidden")) {
     GAME_MODES.pinpoint?.refreshHelpModal?.();
   }
-  const shuffleModal = document.getElementById("album-shuffle-help-modal");
+  const shuffleModal = document.getElementById("unshuffle-help-modal");
   if (shuffleModal && !shuffleModal.classList.contains("hidden")) {
-    GAME_MODES.album_shuffle?.refreshHelpModal?.();
+    GAME_MODES.unshuffle?.refreshHelpModal?.();
   }
   if (_lastPreflightData) {
     updatePreflightCount(_lastPreflightData);

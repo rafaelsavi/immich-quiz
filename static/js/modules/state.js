@@ -6,7 +6,7 @@ function getInitialLanguagePreference() {
       if (s.startsWith("pt")) return "pt-BR";
       if (s.startsWith("en")) return "en-US";
     }
-  } catch (_) {}
+  } catch (_) { }
   if (typeof navigator !== "undefined") {
     const browserLang = navigator.language || (navigator.languages && navigator.languages[0]);
     if (browserLang) {
@@ -60,8 +60,8 @@ export const state = {
     peopleMultiSelect: null,
     dateRangeSlider: null,
   },
-  // Album Shuffle mode batch assignment state
-  albumShuffleState: {
+  // Unshuffle mode batch assignment state
+  unshuffleState: {
     assignments: {}, // photoId -> { pinId: string|null, timelineIndex: number|null }
   },
   guessMap: null,
@@ -104,8 +104,12 @@ export const el = {
   langIcon: document.getElementById("lang-icon"),
   audioToggleBtn: document.getElementById("audio-toggle-btn"),
   audioIcon: document.getElementById("audio-icon"),
+  settingsToggleBtn: document.getElementById("settings-toggle-btn"),
+  settingsDropdown: document.getElementById("settings-dropdown"),
   homeNavBtn: document.getElementById("home-nav-btn"),
   challengesNavBtn: document.getElementById("challenges-nav-btn"),
+  statsNavBtn: document.getElementById("stats-nav-btn"),
+  replaysNavBtn: document.getElementById("replays-nav-btn"),
   headerChallengesBadge: document.getElementById("header-challenges-badge"),
   setupCard: document.getElementById("setup-card"),
   gameCard: document.getElementById("game-card"),
@@ -114,6 +118,8 @@ export const el = {
   challengesPageCard: document.getElementById("challenges-page-card"),
   reportedPageCard: document.getElementById("reported-page-card"),
   leaderboardCard: document.getElementById("leaderboard-card"),
+  statsPageCard: document.getElementById("stats-page-card"),
+  replaysPageCard: document.getElementById("replays-page-card"),
   guessingUi: document.getElementById("guessing-ui"),
   revealUi: document.getElementById("reveal-ui"),
   setupForm: document.getElementById("setup-form"),
@@ -146,6 +152,9 @@ export const el = {
   libraryMultiSelect: document.getElementById("library-multi-select"),
   syncLibraryBtn: document.getElementById("sync-library-btn"),
   syncBtnLabel: document.getElementById("sync-btn-label"),
+  get syncPopup() {
+    return document.getElementById("sync-popup");
+  },
   albumMultiSelect: document.getElementById("album-multi-select"),
   includeSharedCheckbox: document.getElementById("include-shared-checkbox"),
   labelIncludeShared: document.getElementById("label-include-shared"),
@@ -195,8 +204,8 @@ export const el = {
   get dateGuessMonth() {
     return document.getElementById("date-guess-month");
   },
-  get albumShuffleUi() {
-    return document.getElementById("album-shuffle-ui");
+  get unshuffleUi() {
+    return document.getElementById("unshuffle-ui");
   },
   get shuffleCardsList() {
     return document.getElementById("shuffle-cards-list");
@@ -207,20 +216,8 @@ export const el = {
   get shuffleMapShell() {
     return document.getElementById("shuffle-map-shell");
   },
-  get albumShuffleRevealUi() {
-    return document.getElementById("album-shuffle-reveal-ui");
-  },
-  get shuffleBreakdownHead() {
-    return document.getElementById("shuffle-breakdown-head");
-  },
-  get shuffleBreakdownContainer() {
-    return document.getElementById("shuffle-breakdown-container");
-  },
-  get shuffleBreakdownGrid() {
-    return document.getElementById("shuffle-breakdown-grid");
-  },
-  get shuffleRevealMapHead() {
-    return document.getElementById("shuffle-reveal-map-head");
+  get unshuffleRevealUi() {
+    return document.getElementById("unshuffle-reveal-ui");
   },
   get revealShuffleMapShell() {
     return document.getElementById("reveal-shuffle-map-shell");
@@ -234,8 +231,8 @@ export const el = {
   get shuffleRevealTableBody() {
     return document.querySelector("#shuffle-reveal-table tbody");
   },
-  get albumShuffleHelpModal() {
-    return document.getElementById("album-shuffle-help-modal");
+  get unshuffleHelpModal() {
+    return document.getElementById("unshuffle-help-modal");
   },
   get shuffleHelpCloseBtn() {
     return document.getElementById("shuffle-help-close-btn");
@@ -255,14 +252,13 @@ export const el = {
   get pinpointRevealUi() {
     return document.getElementById("pinpoint-reveal-ui");
   },
-  revealActual: document.getElementById("reveal-actual"),
+  get revealActual() {
+    return document.getElementById("reveal-actual");
+  },
   revealTableHead: document.querySelector("#reveal-table thead"),
   revealTableBody: document.querySelector("#reveal-table tbody"),
   get revealMapShell() {
     return document.getElementById("reveal-map-shell");
-  },
-  get revealMapHead() {
-    return document.getElementById("reveal-map-head");
   },
   get revealMapFullscreen() {
     return document.getElementById("reveal-map-fullscreen");
@@ -270,10 +266,33 @@ export const el = {
   nextRound: document.getElementById("next-round"),
   summaryWinner: document.getElementById("summary-winner"),
   summaryMeta: document.getElementById("summary-meta"),
+  get summaryGameModeBadge() {
+    return document.getElementById("summary-game-mode-badge");
+  },
+  get grandRevealLivePill() {
+    return document.getElementById("grand-reveal-live-pill");
+  },
+  get grandRevealLiveStatus() {
+    return document.getElementById("grand-reveal-live-status");
+  },
+  get summaryHeading() {
+    return document.getElementById("summary-heading");
+  },
+  get summaryMetaItems() {
+    return document.getElementById("summary-meta-items");
+  },
   summaryTableHead: document.querySelector("#summary-table thead"),
   summaryTableBody: document.querySelector("#summary-table tbody"),
-  newMatch: document.getElementById("new-match"),
   shareSummaryBtn: document.getElementById("share-summary-btn"),
+  get challengeInviteBtn() {
+    return document.getElementById("challenge-invite-btn");
+  },
+  get summaryInviteDrawer() {
+    return document.getElementById("summary-invite-drawer");
+  },
+  get summaryInviteShareBox() {
+    return document.getElementById("summary-invite-share-box");
+  },
   get journeyMapShell() {
     return document.getElementById("journey-map-shell");
   },
@@ -283,12 +302,16 @@ export const el = {
   get journeyMapFullscreen() {
     return document.getElementById("journey-map-fullscreen");
   },
-  polaroidGallery: document.getElementById("polaroid-gallery"),
+  get polaroidGallery() {
+    return document.getElementById("polaroid-gallery");
+  },
   gameRestartBtn: document.getElementById("game-restart-btn"),
   gameExitBtn: document.getElementById("game-exit-btn"),
   revealRestartBtn: document.getElementById("reveal-restart-btn"),
   revealExitBtn: document.getElementById("reveal-exit-btn"),
-  revealReportBtn: document.getElementById("reveal-report-btn"),
+  get revealReportBtn() {
+    return document.getElementById("reveal-report-btn");
+  },
   reportIssueModal: document.getElementById("report-issue-modal"),
   refreshLeaderboard: document.getElementById("refresh-leaderboard"),
   leaderboardScopePill: document.getElementById("leaderboard-scope-pill"),
@@ -340,7 +363,7 @@ export function saveActiveMatchSession() {
 export function clearActiveMatchSession() {
   try {
     sessionStorage.removeItem(SESSION_STORAGE_KEY);
-  } catch (_) {}
+  } catch (_) { }
 }
 
 export function loadActiveMatchSession() {

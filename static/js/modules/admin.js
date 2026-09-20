@@ -1,6 +1,6 @@
 /**
  * Unified Prepare Game & Challenge Creator Module for Immich Quiz.
- * Handles opening the 2-tab "Prepare Game" modal (Local Match & Challenge Link),
+ * Handles opening the 2-tab "Prepare Game" modal (Local Match & Challenge),
  * local player name configuration, preflight checking, auto-title generation,
  * async multiplayer challenge creation, and clipboard link sharing.
  */
@@ -23,6 +23,7 @@ import {
 } from "./setup_filters.js";
 import { loadChallengesList } from "./screens/challenges.js";
 import { getActiveMode } from "./modes/index.js";
+import { attachPlayerAutocomplete } from "./components/player_autocomplete.js";
 import { setupShareBox, SHARE_ICONS } from "./components/share_box.js";
 import { activateFocusTrap, deactivateFocusTrap } from "./components/focus_trap.js";
 
@@ -67,7 +68,7 @@ let _shareBoxController = null;
  */
 export function generateAutoChallengeTitle() {
   const mode = state.gameMode || "pinpoint";
-  const modeName = mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
+  const modeName = mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
   const rounds = el.roundCount ? el.roundCount.value : "5";
   const summary = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : "";
   const fullLibLabel = tOr("filters.full_library", t("leaderboard.scope_all"));
@@ -105,6 +106,9 @@ export function initAdminModal() {
   _formViewEl = document.getElementById("challenge-form-view");
   _titleInput = document.getElementById("challenge-title-input");
   _creatorNameInput = document.getElementById("challenge-creator-name-input");
+  if (_creatorNameInput) {
+    attachPlayerAutocomplete(_creatorNameInput);
+  }
   _expirationSelect = document.getElementById("challenge-expiration");
   _generateBtn = document.getElementById("challenge-generate-btn");
   _startMatchBtn = document.getElementById("start-match-btn");
@@ -139,11 +143,16 @@ export function initAdminModal() {
   if (_localCancelBtn) _localCancelBtn.addEventListener("click", closeAdminModal);
   if (_challengeCancelBtn) _challengeCancelBtn.addEventListener("click", closeAdminModal);
 
-  // Close on backdrop click
+  // Close on backdrop click (only if mouse/touch was pressed outside on the backdrop)
+  let _isBackdropPress = false;
+  _modalEl.addEventListener("pointerdown", (e) => {
+    _isBackdropPress = (e.target === _modalEl);
+  });
   _modalEl.addEventListener("click", (e) => {
-    if (e.target === _modalEl) {
+    if (_isBackdropPress && e.target === _modalEl) {
       closeAdminModal();
     }
+    _isBackdropPress = false;
   });
 
   // Close on Escape
@@ -256,7 +265,7 @@ async function handleGenerateChallenge(e) {
   // Save creator name for future sessions
   try {
     localStorage.setItem(CREATOR_NAME_STORAGE_KEY, creatorName);
-  } catch (_) {}
+  } catch (_) { }
 
   let title = _titleInput?.value?.trim() || generateAutoChallengeTitle();
   if (title.length > 100) {
@@ -402,7 +411,7 @@ function displayShareResult(challengeData) {
   // Refresh challenges list in hub if open
   try {
     loadChallengesList();
-  } catch (_) {}
+  } catch (_) { }
 }
 
 /**

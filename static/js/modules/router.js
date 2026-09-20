@@ -11,18 +11,45 @@ export const RouteType = {
   LOBBY: "LOBBY",
   GAME_ACTIVE: "GAME_ACTIVE",
   GAME_SUMMARY: "GAME_SUMMARY",
+  GAME_REPLAY: "GAME_REPLAY",
   CHALLENGE: "CHALLENGE",
   CHALLENGE_SUMMARY: "CHALLENGE_SUMMARY",
   CHALLENGES: "CHALLENGES",
   REPORTED: "REPORTED",
+  PLAYERS: "PLAYERS",
+  STATS: "PLAYERS",
+  REPLAYS: "REPLAYS",
+  PLAYER_PROFILE: "PLAYER_PROFILE",
   UNKNOWN: "UNKNOWN",
 };
 
 const ROUTE_DEFINITIONS = [
   {
     type: RouteType.LOBBY,
-    pattern: /^\/(stats)?$/,
+    pattern: /^\/$/,
     canonicalPath: () => "/",
+  },
+  {
+    type: RouteType.PLAYER_PROFILE,
+    pattern: /^\/players\/([^/]+)$/,
+    paramKeys: ["playerName"],
+    canonicalPath: (params) => `/players/${encodeURIComponent(params.playerName)}`,
+  },
+  {
+    type: RouteType.PLAYERS,
+    pattern: /^\/players\/?$/,
+    canonicalPath: () => "/players",
+  },
+  {
+    type: RouteType.REPLAYS,
+    pattern: /^\/replays\/?$/,
+    canonicalPath: () => "/replays",
+  },
+  {
+    type: RouteType.GAME_REPLAY,
+    pattern: /^\/game\/([^/]+)\/replay$/,
+    paramKeys: ["matchId"],
+    canonicalPath: (params) => `/game/${params.matchId}/replay`,
   },
   {
     type: RouteType.CHALLENGES,
@@ -79,7 +106,10 @@ export function parseRoute(pathname) {
       const params = {};
       if (def.paramKeys) {
         def.paramKeys.forEach((key, index) => {
-          params[key] = decodeURIComponent(match[index + 1]);
+          const rawVal = match[index + 1];
+          if (rawVal !== undefined) {
+            params[key] = decodeURIComponent(rawVal);
+          }
         });
       }
       return {

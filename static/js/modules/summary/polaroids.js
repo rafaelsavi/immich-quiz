@@ -9,19 +9,26 @@ export function renderPolaroidGallery(roundHistory, targetContainer = null) {
   container.replaceChildren();
 
   (roundHistory || []).forEach((round) => {
-    if (round.batch_reveal && Array.isArray(round.batch_reveal) && round.batch_reveal.length > 0) {
-      round.batch_reveal.forEach((item) => {
+    const batchList =
+      round.batch_reveal && Array.isArray(round.batch_reveal) && round.batch_reveal.length > 0
+        ? round.batch_reveal
+        : round.batch_photos && Array.isArray(round.batch_photos) && round.batch_photos.length > 0
+          ? round.batch_photos
+          : null;
+
+    if (batchList) {
+      batchList.forEach((item) => {
         const card = document.createElement("div");
         card.className = "polaroid-card";
 
         const imgWrap = document.createElement("div");
         imgWrap.className = "polaroid-img-wrap";
 
-        const imgUrl = `/api/media/${item.photo_id}`;
+        const imgUrl = item.media_url || `/api/media/${item.photo_id || item.asset_id}`;
         const img = document.createElement("img");
         img.className = "polaroid-img";
         img.src = imgUrl;
-        img.alt = `Round ${round.round_number} - Pin ${item.true_pin_id}`;
+        img.alt = `Round ${round.round_number} - Pin ${item.true_pin_id || ""}`;
         img.style.cursor = "pointer";
         img.addEventListener("click", () => openPhotoLightbox(imgUrl));
         imgWrap.appendChild(img);
@@ -54,13 +61,14 @@ export function renderPolaroidGallery(roundHistory, targetContainer = null) {
       const imgWrap = document.createElement("div");
       imgWrap.className = "polaroid-img-wrap";
 
-      if (round.media_url) {
+      const roundImgUrl = round.media_url || (round.asset_id ? `/api/media/${round.asset_id}` : "");
+      if (roundImgUrl) {
         const img = document.createElement("img");
         img.className = "polaroid-img";
-        img.src = round.media_url;
+        img.src = roundImgUrl;
         img.alt = `Round ${round.round_number}`;
         img.style.cursor = "pointer";
-        img.addEventListener("click", () => openPhotoLightbox(round.media_url));
+        img.addEventListener("click", () => openPhotoLightbox(roundImgUrl));
         imgWrap.appendChild(img);
       }
 

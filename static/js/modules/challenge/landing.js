@@ -12,6 +12,7 @@ import { navigate } from "../router.js";
 import { playerColor, playerInitial, registerPlayerColor, escapeHtml } from "../formatters.js";
 import { buildMatchMetaHtml } from "../components/match_meta.js";
 import { challengeSession } from "./session.js";
+import { attachPlayerAutocomplete } from "../components/player_autocomplete.js";
 
 /**
  * Render the challenge landing / entry screen with resume detection.
@@ -153,7 +154,7 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
   el.challengeCard.innerHTML = `
     <div class="challenge-landing">
       <div class="challenge-header">
-        <span class="badge badge-challenge">${t("challenge.badge")}</span>
+        <span class="badge badge-challenge badge-tag badge-type badge-type-challenge">⚔️ ${t("challenge.badge")}</span>
         <h2>${escapeHtml(data.title || `${data.creator_name}'s Challenge`)}</h2>
       </div>
 
@@ -176,6 +177,14 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
     nameInput.addEventListener("input", () => {
       const val = nameInput.value.trim();
       avatarPreview.textContent = val ? playerInitial(val) : "?";
+    });
+
+    attachPlayerAutocomplete(nameInput, {
+      onSelect: (playerName) => {
+        nameInput.value = playerName;
+        avatarPreview.textContent = playerInitial(playerName);
+        nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+      },
     });
   }
 

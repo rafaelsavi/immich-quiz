@@ -25,6 +25,8 @@
 }
 
 .app-header {
+  position: relative;
+  z-index: 2100;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -103,7 +105,7 @@
 #setup-form,
 #reveal-ui,
 #pinpoint-reveal-ui,
-#album-shuffle-reveal-ui {
+#unshuffle-reveal-ui {
   display: grid;
   gap: 0.75rem;
 }
@@ -119,6 +121,10 @@
 #leaderboard-card {
   display: grid;
   gap: 0.85rem;
+}
+
+#game-card {
+  scroll-margin-top: env(safe-area-inset-top, 0px);
 }
 
 #mode-active-host {

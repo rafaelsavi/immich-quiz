@@ -34,7 +34,7 @@ immich-quiz/
 │   │   └── challenge_routes.py Async & hybrid multiplayer challenge endpoints (create, start, question, answer, leaderboard, deactivate).
 │   ├── game/            Modular game mode system and session orchestration.
 │   │   ├── modes.py     BaseGameModeEngine, PinpointEngine,
-│   │   │                AlbumShuffleEngine, and GameModeRegistry.
+│   │   │                UnshuffleEngine, and GameModeRegistry.
 │   │   ├── selector.py  Candidate asset selection, spatial (≥100m) & temporal (≥60s)
 │   │   │                diversity filters, and least-played prioritization.
 │   │   ├── service.py   GameService managing match state, question drawing,
@@ -60,15 +60,16 @@ immich-quiz/
 │       │                active response times per turn.
 │       ├── challenge.py ChallengeStore managing challenges and challenge_sessions SQLite tables.
 │       └── leaderboard.py LeaderboardStore managing the 5-table relational match & challenge
-│                        schema (`challenges`, `challenge_sessions`, `matches`, `match_entries`, `match_round_guesses`).
+│                        schema (`challenges`, `challenge_sessions`, `matches`, `match_entries`, `match_round_guesses`),
+│                        career player performance analytics, and interactive match replay datasets.
 └── static/              Vanilla HTML/CSS/JS frontend.
     ├── index.html       Main quiz application HTML.
     ├── audio-playground.html Interactive Web Audio testing playground page.
     ├── css/             Modular CSS stylesheets:
     │   ├── style.css    Master entrypoint (@importing base, components, modes).
     │   ├── base/        Design tokens (variables.css), resets (reset.css), app shell (layout.css).
-    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css).
-    │   └── modes/       Game mode styles (pinpoint.css, album_shuffle.css).
+    │   ├── components/  UI components (buttons.css, cards.css, maps.css, leaderboard.css, challenge.css, modals.css, multi_select.css, player_input.css, range_slider.css, reported.css, filters.css, timer.css, hub_header.css, stats.css, round_stage.css, reveal_table.css, replay.css, review_deck.css, summary.css).
+    │   └── modes/       Game mode styles (pinpoint.css, unshuffle.css).
     ├── js/app.js        Main application coordinator and match lifecycle state machine.
     ├── js/audio-playground.js Playground controller & visualizer logic.
     └── js/modules/      Modular ES modules:
@@ -77,11 +78,15 @@ immich-quiz/
         │   ├── focus_trap.js Accessible modal focus trap utility (Tab / Shift+Tab) restoring focus.
         │   ├── lightbox.js  Zero-dependency modal photo lightbox with click-outside and Escape dismissal.
         │   ├── match_meta.js Match configuration rendering, game setup & library filter summary badges.
+        │   ├── match_replay.js Standardized multi-round replay canvas, round stepper, Leaflet map with spider lines, and reveal table.
         │   ├── multi_select.js Searchable tag-based multi-select with select-all/clear.
         │   ├── player_input.js Interactive player chip input with duplicate detection & colors.
         │   ├── qrcode.js    Zero-dependency SVG QR code generator for challenge links.
         │   ├── range_slider.js Dual-handle Year-Month range slider.
         │   ├── report_modal.js Photo issue reporting dialog with 3-field validation & Immich Web link.
+        │   ├── reveal_table.js Standardized 2-tier grouped header reveal table with score rollups.
+        │   ├── review_deck.js Universal 3-tab review deck (Match Replay, Journey Map, Photo Memories) with Leaflet dimension invalidation and location mode gating.
+        │   ├── round_stage.js Single source of truth for photo canvas, batch photo tabs, Leaflet map split view, and metadata caption pill chips across Live Pinpoint Reveal, Live Unshuffle Reveal, Match Replay, and Summary views.
         │   └── share_box.js Reusable, standardized share URL box, icon-only action button row, and QR code component.
         ├── challenge/   Modular challenge play mode sub-package:
         │   ├── session.js   Challenge state store, localStorage keys, reset, and map cleanup.
@@ -89,20 +94,22 @@ immich-quiz/
         │   ├── game.js      Challenge question loading, timer management, and answer submission.
         │   ├── reveal.js    Round personal reveal, 3-second social polling, and opponent pin drops.
         │   ├── intermission.js Final round "Invite Friends" intermission, QR code, and finisher polling.
-        │   ├── summary.js   Grand Reveal summary, 3D podium, awards, scatter carousel, and journey map.
+        │   ├── summary.js   Grand Reveal summary coordinator delegating to the unified review controller, managing live multiplayer background polling, activity toast notifications, provisional-to-podium transitions, and table updates.
         │   └── index.js     Unified facade re-assembling the challenge singleton interface.
         ├── modes/       Game mode strategy definitions & registry:
         │   ├── index.js     Mode registry and getActiveMode() strategy accessor.
         │   ├── pinpoint.js  Pinpoint single-photo mode strategy.
-        │   ├── album_shuffle.js Album Shuffle multi-photo mode strategy.
+        │   ├── unshuffle.js Unshuffle multi-photo mode strategy.
         │   └── common.js    Shared mode helpers.
         ├── screens/     Screen lifecycle controllers:
         │   ├── common.js    Card switching (showCard), DOM resets (resetGameUi), and navigation guards.
         │   ├── setup.js     Match configuration, preflight checks, returnToSetup, and restart.
         │   ├── game.js      Question fetching, media pre-verification, pass-device coordination, and answer submit.
         │   ├── reveal.js    Round results aggregation, reveal rendering, and turn progression.
-        │   ├── summary.js   Replay loading from SQLite, podium/awards display, and 404/ended cards.
+        │   ├── summary.js   Unified match review & replay controller (/game/:id/summary, /play/:token/summary, /game/:id/replay) managing Winner Podium, Standings Table, ReviewDeck (#summary-card), invite drawer, and ended card (#game-ended-card).
         │   ├── challenges.js Challenges Hub screen controller (#challenges-page-card, live timers, drawers).
+        │   ├── stats.js     Player Statistics Directory & Profile controller (#stats-page-card).
+        │   ├── replay.js    Match Replays Catalog & History controller (#replays-page-card).
         │   └── reported.js  Reported Asset Moderation Dashboard screen controller (#reported-page-card).
         ├── summary/     Post-game summary rendering submodules:
         │   ├── podium.js    3D podium and winner banner.
@@ -130,17 +137,21 @@ immich-quiz/
     ├── app_logging/     Observability and logging subsystem tests (test_logging.py).
     ├── e2e/             Playwright end-to-end browser automation test suites.
     │   ├── conftest.py  Live FastAPI test server fixture and async page context manager.
-    │   ├── test_pinpoint_gameplay.py Pinpoint Leaflet pin placement, polyline, and reveal.
-    │   ├── test_date_selection.py Timeline range slider and single year/month selection.
-    │   ├── test_album_shuffle_gameplay.py Photo card reordering and multi-pin placement.
     │   ├── test_challenge_gameplay.py Challenge lobby, rounds, polling, and Grand Reveal.
+    │   ├── test_date_selection.py Timeline range slider and single year/month selection.
+    │   ├── test_filters_accordion.py Filter accordion expansion and preflight reactivity.
+    │   ├── test_language_switch.py Dynamic bilingual toggle and label reactivity.
+    │   ├── test_pinpoint_gameplay.py Pinpoint Leaflet pin placement, polyline, and reveal.
+    │   ├── test_preflight_guess_mode.py Preflight validation for location and date game modes.
+    │   ├── test_replay_catalog_challenge_chip.py Challenge badge and type chips in replay catalog.
+    │   ├── test_replay_components_reuse.py Review deck, media frame, map shell, and strategy reuse.
     │   ├── test_report_issue.py Report Issue modal dialog, form validation, and submission.
     │   ├── test_reported_moderation.py Moderation dashboard list, search, filter, and resolve.
-    │   ├── test_language_switch.py Dynamic bilingual toggle and label reactivity.
-    │   ├── test_universal_language_switch.py Automated full-DOM translation parity scanner.
-    │   ├── test_filters_accordion.py Filter accordion expansion and preflight reactivity.
     │   ├── test_routing_and_recovery.py Deep links, SPA routing, and reload recovery.
-    │   └── test_summary_and_effects.py Score rollup animations and post-game awards.
+    │   ├── test_summary_and_effects.py Score rollup animations and post-game awards.
+    │   ├── test_sync_popup.py Metadata synchronization trigger and progress telemetry.
+    │   ├── test_universal_language_switch.py Automated full-DOM translation parity scanner.
+    │   └── test_unshuffle_gameplay.py Photo card reordering and multi-pin placement.
     ├── frontend/        Frontend regression and component tests (test_frontend_regressions.py, test_setup_card_bento_regression.py, test_multi_select.py, test_player_input.py, test_range_slider.py).
     ├── game/            Match selection, candidate pools, and diversity tests (test_diversity.py).
     ├── immich/          Immich client adapter tests (test_immich_client.py).
@@ -271,7 +282,7 @@ See [`docs/FILTERS.md`](FILTERS.md) for the full architecture, interaction matri
 Game modes implement the `BaseGameModeEngine` abstract interface in `src/game/modes.py`:
 
 - `select_question(...)`: Selects candidate photos respecting active filters, candidate diversity, and least-played priority, registering the question in the session store.
-- `build_question_response(...)`: Generates sanitized single (Pinpoint) or batch (Album Shuffle) question payloads for the client.
+- `build_question_response(...)`: Generates sanitized single (Pinpoint) or batch (Unshuffle) question payloads for the client.
 - `evaluate_and_apply_answer(...)`: Evaluates player guesses using mode-specific scoring algorithms and records round scores in session state.
 - `format_round_reveal(...)`: Formats round reveal data (actual locations, capture dates, distance/date errors, and player score breakdowns).
 

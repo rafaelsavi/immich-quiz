@@ -86,7 +86,9 @@ async def test_pinpoint_single_year_and_month_date_selection(page: Page) -> None
 
     # Verify Reveal screen displays date score, guessed date, and error
     await expect(page.locator('#reveal-ui')).to_be_visible()
-    await expect(page.locator('#reveal-actual')).to_contain_text(re.compile(r'Date|Actual', re.IGNORECASE))
+    date_chip = page.locator('#reveal-actual .reveal-chip-date')
+    await expect(date_chip).to_be_visible()
+    await expect(date_chip.locator('.reveal-chip-label')).to_have_count(0)
 
     reveal_table = page.locator('#reveal-table')
     await expect(reveal_table).to_be_visible()

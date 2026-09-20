@@ -46,11 +46,11 @@ export const challenge = {
       (name, color) => this.start(name, color),
       () => this.showGrandReveal()
     );
-    if (el.challengeCard && !el.challengeCard.classList.contains("hidden")) {
-      const grandRevealEl = el.challengeCard.querySelector(".challenge-grand-reveal");
-      if (grandRevealEl) {
-        this.showGrandReveal({ updateUrl: false });
-      }
+    if (
+      (el.challengeCard && !el.challengeCard.classList.contains("hidden")) ||
+      (el.summaryCard && !el.summaryCard.classList.contains("hidden") && el.summaryCard.classList.contains("challenge-grand-reveal"))
+    ) {
+      this.showGrandReveal({ updateUrl: false });
     }
   },
 
@@ -228,15 +228,6 @@ export const challenge = {
    */
   async showGrandReveal(options = {}) {
     return challengeSummary.showGrandReveal(options);
-  },
-
-  /**
-   * Render a specific round inside the Grand Reveal Carousel with scatter map and date comparisons.
-   * @param {object} data
-   * @param {number} roundIdx
-   */
-  renderCarouselRound(data, roundIdx, options = {}) {
-    return challengeSummary.renderCarouselRound(data, roundIdx, options);
   },
 
   /**

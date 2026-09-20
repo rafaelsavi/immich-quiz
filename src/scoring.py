@@ -508,7 +508,7 @@ def batch_exponential_location_score(
     decay_km: float = LOCATION_MAX_DECAY_KM,
     max_points: int = SCORE_MAX_POINTS,
 ) -> tuple[int, int, int]:
-    """Calculate Album Shuffle location score using batch-adaptive exponential distance decay.
+    """Calculate Unshuffle location score using batch-adaptive exponential distance decay.
 
     For each photo in the batch, computes the Haversine distance between the photo's true location
     and the assigned pin's location. Points are allocated equally (max_points / N per photo) and
@@ -571,7 +571,7 @@ def batch_exponential_date_score(
     decay_days: float = DATE_MAX_DECAY_DAYS,
     max_points: int = SCORE_MAX_POINTS,
 ) -> tuple[int, int, int]:
-    """Calculate Album Shuffle date score using batch-adaptive exponential temporal decay.
+    """Calculate Unshuffle date score using batch-adaptive exponential temporal decay.
 
     Ranks the batch's photos chronologically to determine the true target date for each timeline slot.
     For each photo placed in slot s, calculates the day error Delta D = |actual_date - slot_target_date|.

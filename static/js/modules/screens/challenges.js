@@ -40,6 +40,7 @@ let _modeFilterEl = null;
 let _sortSelectEl = null;
 let _refreshBtnEl = null;
 let _totalBadgeEl = null;
+let _searchClearBtnEl = null;
 
 let _isInitialized = false;
 let _hasLoaded = false;
@@ -53,6 +54,7 @@ export function initChallengesPage() {
   _pageCardEl = document.getElementById("challenges-page-card");
   _hubListEl = document.getElementById("challenges-hub-list");
   _searchInputEl = document.getElementById("challenges-search-input");
+  _searchClearBtnEl = document.getElementById("challenges-search-clear");
   _statusTabsEl = document.getElementById("challenges-status-tabs");
   _modeFilterEl = document.getElementById("challenges-mode-filter");
   _sortSelectEl = document.getElementById("challenges-sort-select");
@@ -63,7 +65,23 @@ export function initChallengesPage() {
   if (_searchInputEl) {
     _searchInputEl.addEventListener("input", (e) => {
       _searchQuery = e.target.value.trim().toLowerCase();
+      if (_searchClearBtnEl) {
+        _searchClearBtnEl.classList.toggle("hidden", !_searchInputEl.value);
+      }
       renderChallenges();
+    });
+  }
+
+  // Search clear button
+  if (_searchClearBtnEl) {
+    _searchClearBtnEl.addEventListener("click", () => {
+      if (_searchInputEl) {
+        _searchInputEl.value = "";
+        _searchClearBtnEl.classList.add("hidden");
+        _searchQuery = "";
+        _searchInputEl.focus();
+        renderChallenges();
+      }
     });
   }
 
@@ -139,7 +157,18 @@ export function initChallengesPage() {
         return;
       }
 
-      // 5. Deactivate challenge button
+      // 5. Replay challenge button
+      const replayBtn = e.target.closest(".btn-replay-challenge");
+      if (replayBtn) {
+        e.preventDefault();
+        const id = replayBtn.getAttribute("data-id");
+        if (id) {
+          navigate(`/game/${encodeURIComponent(id)}/replay`);
+        }
+        return;
+      }
+
+      // 6. Deactivate challenge button
       const deactivateBtn = e.target.closest(".btn-deactivate-challenge-hub");
       if (deactivateBtn) {
         e.stopPropagation();
@@ -362,7 +391,7 @@ export function renderChallenges() {
     if (_challenges.length === 0) {
       _hubListEl.innerHTML = `
         <div class="challenges-empty-state">
-          <div class="empty-state-icon">🌐</div>
+          <div class="empty-state-icon">⚔️</div>
           <h3>${t("challenges_page.empty_title")}</h3>
           <p>${t("challenges_page.empty_no_challenges")}</p>
           <button type="button" class="btn-primary" id="empty-state-create-btn">
@@ -371,6 +400,7 @@ export function renderChallenges() {
           </button>
         </div>
       `;
+
       const emptyBtn = document.getElementById("empty-state-create-btn");
       if (emptyBtn) {
         emptyBtn.addEventListener("click", () => openAdminModal("challenge"));
@@ -412,9 +442,9 @@ export function renderChallenges() {
 
   filtered.forEach((ch) => {
     const isActive = isChallengeActive(ch);
-    const modeEmoji = ch.game_mode === "album_shuffle" ? "🔀" : "🎯";
-    const modeLabel = ch.game_mode === "album_shuffle" ? t("mode.album_shuffle") : t("mode.pinpoint");
-    const modeDesc = ch.game_mode === "album_shuffle" ? t("admin.shuffle_desc") : t("admin.pinpoint_desc");
+    const modeEmoji = ch.game_mode === "unshuffle" ? "🔀" : "🎯";
+    const modeLabel = ch.game_mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
+    const modeDesc = ch.game_mode === "unshuffle" ? t("admin.shuffle_desc") : t("admin.pinpoint_desc");
 
     // Status pill
     let statusPillHtml = "";
@@ -512,6 +542,10 @@ export function renderChallenges() {
             <a href="/play/${ch.capability_token}/summary" class="btn-secondary btn-results-challenge" data-token="${ch.capability_token}">
               <span class="btn-icon">🏆</span>
               ${t("challenges_page.results_btn")}
+            </a>
+            <a href="/game/${encodeURIComponent(ch.challenge_id)}/replay" class="btn-secondary btn-replay-challenge" data-id="${escapeHtml(ch.challenge_id)}">
+              <span class="btn-icon">🎬</span>
+              ${t("challenges_page.replay_btn")}
             </a>
           </div>
 

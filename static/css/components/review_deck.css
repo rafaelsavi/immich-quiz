@@ -1,0 +1,133 @@
+/* ==========================================================================
+   Universal Review Deck Component Styles
+   Encapsulates the 3-tab review experience (Match Replay, Journey Map, Photo Memories)
+   used by Game Review, Match Replays, and Challenge Grand Reveal.
+   ========================================================================== */
+
+.review-deck {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  margin-top: 1rem;
+}
+
+/* ----------------------------------------------------------------- Tabs Bar */
+.review-deck-tabs-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin: 0.5rem 0 1rem 0;
+}
+
+.review-deck-tabs {
+  max-width: 580px;
+  width: 100%;
+  background: var(--bg-surface-secondary, #f1f5f9);
+  border: 1.5px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  padding: 3px;
+  gap: 4px;
+}
+
+[data-theme="dark"] .review-deck-tabs {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.review-deck-tabs .segmented-btn {
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding: 0.55rem 0.85rem;
+  color: var(--text-muted, #64748b);
+  border-radius: 9px;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.review-deck-tabs .segmented-btn:hover {
+  color: var(--ink, #0f172a);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .review-deck-tabs .segmented-btn:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.review-deck-tabs .segmented-btn.active {
+  background: var(--bg-surface, #ffffff);
+  color: var(--ink, #0f172a);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .review-deck-tabs .segmented-btn.active {
+  background: #334155;
+  color: #f8fafc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+/* ----------------------------------------------------------------- Panels */
+.review-deck-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  animation: deckPanelFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.review-deck-panel.hidden {
+  display: none !important;
+}
+
+@keyframes deckPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Journey Map Panel within Deck */
+.review-deck-journey-panel .map-shell {
+  min-height: 480px;
+  height: 520px;
+  border-radius: var(--border-radius-lg, 12px);
+  overflow: hidden;
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
+[data-theme="dark"] .review-deck-journey-panel .map-shell {
+  border-color: #334155;
+}
+
+/* Photo Memories Panel within Deck */
+.review-deck-memories-panel {
+  padding-top: 0.5rem;
+}
+
+/* ----------------------------------------------------------------- Mobile Viewports */
+@media (max-width: 600px) {
+  .review-deck-tabs-container {
+    margin: 0.25rem 0 0.75rem 0;
+  }
+
+  .review-deck-tabs {
+    max-width: 100%;
+  }
+
+  .review-deck-tabs .segmented-btn {
+    font-size: 0.82rem;
+    padding: 0.45rem 0.4rem;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .review-deck-journey-panel .map-shell {
+    min-height: 360px;
+    height: 400px;
+  }
+}

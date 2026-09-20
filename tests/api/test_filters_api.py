@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import time
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, cast
+from unittest.mock import MagicMock
 
 import pytest
 from cachetools import TTLCache
@@ -13,10 +14,12 @@ from src.game.selector import load_asset_pool, select_pinpoint_round_asset
 from src.immich.client import ImmichClient
 from src.models import (
     GameSetupRequest,
+    SyncStatus,
 )
 from src.storage.db import DatabaseManager
 from src.storage.metadata import MetadataStore
 from src.storage.session import MatchState
+from src.storage.sync import SyncEngine
 from tests.conftest import (
     CityInfo,
     FakeImmichClient,
@@ -789,6 +792,59 @@ def test_global_sync_endpoints(tmp_path: Path) -> None:
     res_sync = client.post('/api/sync')
     assert res_sync.status_code == 200
     assert res_sync.json()['is_syncing'] is True or res_sync.json()['sync_status'] in {'syncing', 'idle'}
+    assert 'cooldown_remaining_seconds' in res_sync.json()
+    assert 'is_on_cooldown' in res_sync.json()
+
+
+def test_sync_rate_limiting_and_cooldown(tmp_path: Path) -> None:
+    immich = FakeImmichClient()
+    client = build_client(tmp_path, immich)
+    sync_engine: SyncEngine = client.app.state.sync_engine  # type: ignore
+    sync_engine.trigger_sync_all = lambda *args, **kwargs: []  # type: ignore
+
+    # 1. Initial sync trigger succeeds because library has never synced
+    res1 = client.post('/api/sync')
+    assert res1.status_code == 200
+
+    # 2. If sync is actively running, subsequent trigger is blocked with 429
+    fake_task = MagicMock()
+    fake_task.done.return_value = False
+    sync_engine._active_sync_tasks['fake_lib'] = fake_task  # type: ignore
+    try:
+        res_conflict = client.post('/api/sync')
+        assert res_conflict.status_code == 429
+        assert 'already in progress' in res_conflict.json()['detail']
+    finally:
+        sync_engine._active_sync_tasks.pop('fake_lib', None)
+
+    # 3. Mark sync completed recently to activate cooldown
+    sync_engine._last_sync_completed_at['family'] = time.monotonic()
+    meta_store = client.app.state.metadata_store  # type: ignore
+    meta_store.set_sync_state(
+        'family',
+        status=SyncStatus.idle,
+        last_sync_at=datetime.now(UTC).isoformat(),
+        synced_assets=10,
+        total_assets=10,
+    )
+
+    # Cooldown is active
+    assert sync_engine.is_on_cooldown() is True
+    assert sync_engine.get_cooldown_remaining() > 0
+
+    # Calling POST /api/sync during cooldown returns 429 with Retry-After header
+    res_cooldown = client.post('/api/sync')
+    assert res_cooldown.status_code == 429
+    assert 'Retry-After' in res_cooldown.headers
+    assert int(res_cooldown.headers['Retry-After']) > 0
+    assert 'triggered recently' in res_cooldown.json()['detail']
+
+    # 4. Bypassing cooldown via bypass_cooldown=true or force_full=true succeeds
+    res_bypass = client.post('/api/sync?bypass_cooldown=true')
+    assert res_bypass.status_code == 200
+
+    res_force = client.post('/api/sync?force_full=true')
+    assert res_force.status_code == 200
 
 
 def test_multi_library_and_multi_album_filters_api(tmp_path: Path) -> None:

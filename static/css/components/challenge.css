@@ -12,20 +12,31 @@
   margin-bottom: 1.5rem;
 }
 
-.badge-challenge {
+.challenge-header .badge-challenge,
+.challenge-landing .badge-challenge,
+.badge.badge-challenge {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  background: linear-gradient(135deg, #0f7c7f 0%, #16a085 100%);
-  color: #ffffff;
-  font-size: 0.82rem;
+  gap: 0.35rem;
+  background: rgba(112, 72, 232, 0.12);
+  color: #7048e8;
+  border: 1px solid rgba(112, 72, 232, 0.25);
+  font-size: 0.78rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.35rem 0.9rem;
-  border-radius: 999px;
-  box-shadow: 0 4px 12px rgba(15, 124, 127, 0.3);
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  box-shadow: none;
   margin-bottom: 0.9rem;
+}
+
+[data-theme="dark"] .challenge-header .badge-challenge,
+[data-theme="dark"] .challenge-landing .badge-challenge,
+[data-theme="dark"] .badge.badge-challenge {
+  background: rgba(139, 92, 246, 0.16);
+  color: #c4b5fd;
+  border-color: rgba(167, 139, 250, 0.35);
 }
 
 .challenge-landing h2 {
@@ -831,35 +842,7 @@ tr.highlight-player-row {
 }
 
 /* ----------------------------------------------------------------- Challenges Hub Page */
-#challenges-page-card {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding: 1.5rem;
-}
-
-.challenges-page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-light);
-}
-
-.challenges-page-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-width: 720px;
-}
-
-.challenges-title-badge-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
+/* Note: Page card container and header are standardized in components/hub_header.css */
 
 .challenges-counter-pill {
   display: inline-flex;
@@ -875,134 +858,9 @@ tr.highlight-player-row {
   line-height: 1.2;
 }
 
-.challenges-page-title-group h2 {
-  margin: 0;
-  font-size: 1.85rem;
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.2;
-}
-
-.challenges-page-desc {
-  margin: 0;
-  font-size: 0.95rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
-.challenges-page-head-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-}
-
-/* Toolbar: Search, Filters & Sorting */
-.challenges-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  background: var(--bg-surface-secondary);
-  padding: 0.65rem 0.85rem;
-  border-radius: 12px;
-  border: 1px solid var(--border-light);
-}
-
-.challenges-search-wrap {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 0.45rem 0.75rem;
-  flex: 1;
-  min-width: 200px;
-  max-width: 420px;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.challenges-search-wrap:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(15, 124, 127, 0.15);
-}
-
-.search-icon {
-  font-size: 0.95rem;
-  line-height: 1;
-  opacity: 0.7;
-}
-
-.challenges-search-input {
-  border: none;
-  background: transparent;
-  outline: none;
-  width: 100%;
-  font-size: 0.88rem;
-  color: var(--ink);
-  font-family: inherit;
-}
-
-.challenges-filters-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.challenges-filter-pills {
-  display: inline-flex;
-  background: #f1f5f9;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 3px;
-  gap: 3px;
-  flex-shrink: 0;
-  height: 38px;
-  box-sizing: border-box;
-}
-
+/* Toolbar: Standardized via components/toolbar.css (.hub-toolbar) */
 .filter-pill {
-  background: transparent;
-  border: none;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: #64748b;
-  border-radius: 7px;
-  cursor: pointer;
   white-space: nowrap;
-  line-height: 1.2;
-  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.filter-pill:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.65);
-}
-
-.filter-pill.active {
-  background: #ffffff;
-  color: var(--ink);
-  font-weight: 700;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.challenges-mode-select,
-.challenges-sort-select {
-  padding: 0.42rem 0.75rem;
-  font-size: 0.84rem;
-  font-weight: 600;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background-color: var(--card);
-  color: var(--ink);
-  cursor: pointer;
 }
 
 /* Challenges List */
@@ -1348,7 +1206,8 @@ tr.highlight-player-row {
   font-size: 1rem;
 }
 
-.btn-results-challenge {
+.btn-results-challenge,
+.btn-replay-challenge {
   width: auto !important;
   display: inline-flex;
   align-items: center;
@@ -1367,7 +1226,8 @@ tr.highlight-player-row {
   white-space: nowrap;
 }
 
-.btn-results-challenge:hover {
+.btn-results-challenge:hover,
+.btn-replay-challenge:hover {
   background: var(--bg-surface-secondary);
   border-color: #94a3b8;
   transform: translateY(-1px);
@@ -1375,7 +1235,8 @@ tr.highlight-player-row {
   color: var(--ink) !important;
 }
 
-.btn-results-challenge .btn-icon {
+.btn-results-challenge .btn-icon,
+.btn-replay-challenge .btn-icon {
   font-size: 1rem;
 }
 
@@ -1595,14 +1456,6 @@ tr.highlight-player-row {
   white-space: nowrap;
 }
 
-.winner-crown {
-  font-size: 0.95rem;
-  line-height: 1;
-  display: inline-block;
-  vertical-align: middle;
-  filter: drop-shadow(0 1px 2px rgba(234, 179, 8, 0.35));
-}
-
 .player-awards-list {
   display: flex;
   gap: 0.3rem;
@@ -1619,8 +1472,7 @@ tr.highlight-player-row {
   border-radius: 4px;
 }
 
-.col-acc,
-.col-accuracy {
+.col-acc {
   color: var(--accent);
   font-weight: 700;
 }
@@ -1642,36 +1494,6 @@ tr.highlight-player-row {
 
 /* ----------------------------------------------------------------- Mobile Responsive Adjustments */
 @media (max-width: 768px) {
-  #challenges-page-card {
-    padding: 1rem;
-  }
-
-  .challenges-page-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .challenges-page-head-actions {
-    justify-content: stretch;
-  }
-
-  .challenges-page-head-actions button {
-    flex: 1;
-  }
-
-  .challenges-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .challenges-search-wrap {
-    max-width: 100%;
-  }
-
-  .challenges-filters-group {
-    justify-content: space-between;
-  }
-
   .detailed-challenge-card {
     padding: 1rem 1.1rem;
     gap: 0.85rem;
@@ -1695,6 +1517,7 @@ tr.highlight-player-row {
 
   .footer-left-actions .btn-play-challenge,
   .footer-left-actions .btn-results-challenge,
+  .footer-left-actions .btn-replay-challenge,
   .footer-left-actions .btn-secondary {
     flex: 1 1 0;
     width: 100% !important;
@@ -1853,6 +1676,44 @@ tr.highlight-player-row {
     vertical-align: middle;
   }
 
+  /* Challenges Hub Standings Table */
+  .standings-table {
+    font-size: 0.8rem;
+  }
+
+  .standings-table th,
+  .standings-table td {
+    padding: 0.45rem 0.35rem;
+    font-size: 0.78rem;
+  }
+
+  .standings-table .col-rank {
+    width: 32px;
+    padding-left: 0.2rem;
+    padding-right: 0.2rem;
+  }
+
+  .standings-table .col-player {
+    max-width: 120px;
+  }
+
+  .standings-table .player-name-text {
+    max-width: 85px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .standings-table .col-score .max-score {
+    display: none;
+  }
+
+  .standings-table .col-time {
+    white-space: nowrap;
+    font-size: 0.74rem;
+  }
 
   /* Grand Reveal Standings Table */
   #grand-reveal-table th,
@@ -1981,7 +1842,7 @@ tr.highlight-player-row {
     font-size: 0.78rem;
     max-width: 100%;
     box-sizing: border-box;
-    min-width: 0;
+    flex-shrink: 0;
   }
 
   .match-meta-item-body {
@@ -1991,8 +1852,7 @@ tr.highlight-player-row {
   }
 
   .match-meta-item-label {
-    font-size: 0.68rem;
-    flex-shrink: 0;
+    display: none !important;
   }
 
   .match-meta-item-val {

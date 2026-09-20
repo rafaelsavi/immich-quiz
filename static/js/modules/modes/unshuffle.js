@@ -6,15 +6,19 @@ import { playerNameCell, buildCell, renderRoundMeta } from "../formatters.js";
 import { animateScoreRollup, createPerfectBadge } from "../effects.js";
 import { openReportModal } from "../components/report_modal.js";
 import { openPhotoLightbox, closePhotoLightbox, isPhotoLightboxOpen } from "../components/lightbox.js";
+import { renderRevealTableHeaders, renderRevealTableRows } from "../components/reveal_table.js";
+import { RoundStage } from "../components/round_stage.js";
 import { challenge } from "../challenge/index.js";
 
 let shuffleMarkers = {}; // pinId -> Leaflet marker
 let spiderLines = {};    // pinId -> L.polyline connector line
 let truePinCoords = {};  // pinId -> { lat, lng } original coordinates
 let helpModalInitialized = false;
+let _shuffleStage = null;
+let _revealMarkerByKey = {};
 
 function ensureShuffleHelpModal() {
-  const modal = el.albumShuffleHelpModal || document.getElementById("album-shuffle-help-modal");
+  const modal = el.unshuffleHelpModal || document.getElementById("unshuffle-help-modal");
   if (!modal) return null;
 
   if (!helpModalInitialized) {
@@ -27,11 +31,16 @@ function ensureShuffleHelpModal() {
       });
     }
 
+    let isBackdropPress = false;
+    modal.addEventListener("pointerdown", (event) => {
+      isBackdropPress = (event.target === modal);
+    });
     modal.addEventListener("click", (event) => {
-      if (event.target === modal) {
+      if (isBackdropPress && event.target === modal) {
         modal.classList.add("hidden");
         modal.setAttribute("aria-hidden", "true");
       }
+      isBackdropPress = false;
     });
 
     document.addEventListener("keydown", (event) => {
@@ -95,8 +104,8 @@ function openShuffleHelpModal(questionData) {
   modal.setAttribute("aria-hidden", "false");
 }
 
-export const albumShuffleMode = {
-  name: "album_shuffle",
+export const unshuffleMode = {
+  name: "unshuffle",
 
   openHelp(questionData) {
     openShuffleHelpModal(questionData);
@@ -104,7 +113,7 @@ export const albumShuffleMode = {
 
   refreshHelpModal(questionData) {
     // If the help modal is currently visible, re-populate its body in the new language.
-    const modal = document.getElementById("album-shuffle-help-modal");
+    const modal = document.getElementById("unshuffle-help-modal");
     if (modal && !modal.classList.contains("hidden")) {
       openShuffleHelpModal(questionData);
     }
@@ -119,8 +128,8 @@ export const albumShuffleMode = {
   },
 
   setDisabled(disabled) {
-    state.albumShuffleDisabled = Boolean(disabled);
-    const uiContainer = document.getElementById("album-shuffle-ui");
+    state.unshuffleDisabled = Boolean(disabled);
+    const uiContainer = document.getElementById("unshuffle-ui");
     if (uiContainer) {
       if (disabled) {
         uiContainer.classList.add("shuffle-disabled");
@@ -135,7 +144,7 @@ export const albumShuffleMode = {
   },
 
   renderSettings(containerEl) {
-    renderGuessingModeSettings(containerEl, "album_shuffle");
+    renderGuessingModeSettings(containerEl, "unshuffle");
   },
 
   getModePayload() {
@@ -153,7 +162,7 @@ export const albumShuffleMode = {
     }
 
     return {
-      game_mode: "album_shuffle",
+      game_mode: "unshuffle",
       location_mode: locationMode,
       date_mode: dateMode,
     };
@@ -164,19 +173,19 @@ export const albumShuffleMode = {
     const host = document.getElementById("mode-active-host") || hostEl;
     if (host) {
       host.replaceChildren();
-      const tmpl = document.getElementById("tmpl-mode-album-shuffle");
+      const tmpl = document.getElementById("tmpl-mode-unshuffle");
       if (tmpl) {
         host.appendChild(tmpl.content.cloneNode(true));
       }
     }
-    const uiContainer = document.getElementById("album-shuffle-ui");
+    const uiContainer = document.getElementById("unshuffle-ui");
     if (uiContainer) {
       uiContainer.classList.remove("hidden");
     }
   },
 
   unmount() {
-    state.albumShuffleDisabled = false;
+    state.unshuffleDisabled = false;
     if (state.guessMap) {
       try { unregisterActiveMap(state.guessMap); state.guessMap.remove(); } catch (_) { }
       state.guessMap = null;
@@ -188,15 +197,12 @@ export const albumShuffleMode = {
     shuffleMarkers = {};
     spiderLines = {};
     truePinCoords = {};
-    state.albumShuffleState = null;
+    state.unshuffleState = null;
     if (el.modeActiveHost) {
       el.modeActiveHost.replaceChildren();
     }
-    if (el.albumShuffleRevealUi) {
-      el.albumShuffleRevealUi.classList.add("hidden");
-    }
-    if (el.shuffleBreakdownGrid) {
-      el.shuffleBreakdownGrid.replaceChildren();
+    if (el.unshuffleRevealUi) {
+      el.unshuffleRevealUi.classList.add("hidden");
     }
     if (el.shuffleRevealTableHead) {
       el.shuffleRevealTableHead.replaceChildren();
@@ -228,17 +234,17 @@ export const albumShuffleMode = {
   },
 
   renderQuestion(questionData) {
-    state.albumShuffleDisabled = false;
+    state.unshuffleDisabled = false;
     if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
-    let uiContainer = document.getElementById("album-shuffle-ui");
+    let uiContainer = document.getElementById("unshuffle-ui");
     if (!uiContainer) {
       const host = document.getElementById("mode-active-host") || this.hostEl || el.guessingUi;
-      const tmpl = document.getElementById("tmpl-mode-album-shuffle");
+      const tmpl = document.getElementById("tmpl-mode-unshuffle");
       if (tmpl && host) {
         host.appendChild(tmpl.content.cloneNode(true));
       }
-      uiContainer = document.getElementById("album-shuffle-ui");
+      uiContainer = document.getElementById("unshuffle-ui");
     }
     if (uiContainer) {
       uiContainer.classList.remove("hidden");
@@ -247,13 +253,13 @@ export const albumShuffleMode = {
 
     // Initialize photo order & pin assignments
     const photos = questionData.batch_photos || [];
-    state.albumShuffleState = {
+    state.unshuffleState = {
       orderedPhotoIds: photos.map((p) => p.photo_id),
       pinAssignments: {}, // photoId -> pinId
     };
 
     photos.forEach((p) => {
-      state.albumShuffleState.pinAssignments[p.photo_id] = null;
+      state.unshuffleState.pinAssignments[p.photo_id] = null;
     });
 
     const boardEl = uiContainer ? uiContainer.querySelector(".shuffle-board") : null;
@@ -287,8 +293,8 @@ export const albumShuffleMode = {
   },
 
   buildAnswerPayload(questionData, timedOut) {
-    const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
-    const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+    const orderedIds = state.unshuffleState ? state.unshuffleState.orderedPhotoIds || [] : [];
+    const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
 
     const answers = orderedIds.map((photoId, timelineIndex) => {
       return {
@@ -301,7 +307,7 @@ export const albumShuffleMode = {
     return {
       match_id: state.matchId,
       question_id: questionData.question_id,
-      album_shuffle: answers,
+      unshuffle: answers,
       timed_out: timedOut,
     };
   },
@@ -310,7 +316,7 @@ export const albumShuffleMode = {
     if (el.pinpointRevealUi) el.pinpointRevealUi.classList.add("hidden");
     if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
 
-    const targetContainer = el.albumShuffleRevealUi;
+    const targetContainer = el.unshuffleRevealUi;
     if (targetContainer) targetContainer.classList.remove("hidden");
     revealUi.classList.remove("hidden");
 
@@ -345,7 +351,7 @@ export const albumShuffleMode = {
     // Compute player accuracy metrics
     const playerAccuracy = {};
     playerResults.forEach((pRes) => {
-      const pGuesses = pRes.album_shuffle_guesses || [];
+      const pGuesses = pRes.unshuffle_guesses || [];
       let correctPins = 0;
       let correctRanks = 0;
 
@@ -365,207 +371,66 @@ export const albumShuffleMode = {
       playerAccuracy[pRes.player_name] = { correctPins, correctRanks };
     });
 
-    // --- SECTION 1: POINT SCORING RESULTS TABLE (PINPOINT STYLE) ---
-    const thead = el.shuffleRevealTableHead;
-    const tbody = el.shuffleRevealTableBody;
-    if (tbody) tbody.replaceChildren();
-
-    // Build Table Headers
-    const groups = [];
-    if (revealData.location_mode) {
-      groups.push({
-        key: "reveal.col_location",
-        label: t("reveal.col_location"),
-        columns: [
-          { key: "reveal.col_points", mobileKey: "reveal.col_location", label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
-          { key: "reveal.col_pins_correct", label: t("reveal.col_pins_correct"), class: "hide-on-mobile" },
-        ],
-      });
-    }
-    if (revealData.date_mode) {
-      groups.push({
-        key: "reveal.col_date",
-        label: t("reveal.col_date"),
-        columns: [
-          { key: "reveal.col_points", mobileKey: "reveal.col_date", label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
-          { key: "reveal.col_order_correct", label: t("reveal.col_order_correct"), class: "hide-on-mobile" },
-        ],
-      });
-    }
-    groups.push({
-      key: "reveal.col_score",
-      label: t("reveal.col_score"),
-      columns: [
-        { key: "reveal.col_round", label: t("reveal.col_round"), class: "hide-on-mobile" },
-        { key: "reveal.col_total", mobileKey: "reveal.col_score", label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
-      ],
-    });
-
-    const groupRow = document.createElement("tr");
-    groupRow.className = "group-head-row";
-    const playerHead = buildCell(t("reveal.col_player"), true);
-    playerHead.setAttribute("data-i18n", "reveal.col_player");
-    playerHead.rowSpan = 2;
-    groupRow.appendChild(playerHead);
-    groups.forEach((group) => {
-      const cell = buildCell(group.label, true);
-      if (group.key) cell.setAttribute("data-i18n", group.key);
-      cell.colSpan = group.columns.length;
-      cell.className = "group-head group-start";
-      groupRow.appendChild(cell);
-    });
-
-    const columnRow = document.createElement("tr");
-    columnRow.className = "column-head-row";
-    const playerSubHead = buildCell(t("reveal.col_player"), true);
-    playerSubHead.setAttribute("data-i18n", "reveal.col_player");
-    playerSubHead.className = "player-subhead hide-on-desktop";
-    columnRow.appendChild(playerSubHead);
-
-    groups.forEach((group) => {
-      group.columns.forEach((col, index) => {
-        const cell = buildCell("", true);
-        const labelSpan = document.createElement("span");
-        labelSpan.className = "desktop-head-label";
-        if (col.key) labelSpan.setAttribute("data-i18n", col.key);
-        labelSpan.textContent = col.label;
-        cell.appendChild(labelSpan);
-
-        if (col.mobileLabel) {
-          cell.setAttribute("data-mobile-label", col.mobileLabel);
-          if (col.mobileKey) cell.setAttribute("data-mobile-key", col.mobileKey);
-        }
-
-        const classes = [];
-        if (index === 0) classes.push("group-start");
-        if (col.class) classes.push(col.class);
-        if (classes.length > 0) cell.className = classes.join(" ");
-        columnRow.appendChild(cell);
-      });
-    });
-    thead.replaceChildren(groupRow, columnRow);
-
-    // Build Table Body
-    const maxPoints = revealData.score_max_points || state.scoreMaxPoints || 100;
-    const maxRoundPoints = (revealData.location_mode ? maxPoints : 0) + (revealData.date_mode ? maxPoints : 0);
-    const orderedResults = [...playerResults].sort((a, b) => (b.round_score ?? 0) - (a.round_score ?? 0));
-    let hasAnyPerfectInRound = false;
-
-    orderedResults.forEach((pRes, rIdx) => {
-      const acc = playerAccuracy[pRes.player_name] || { correctPins: 0, correctRanks: 0 };
-      const isPerfectLocation = revealData.location_mode && acc.correctPins === totalPhotos && totalPhotos > 0;
-      const isPerfectDate = revealData.date_mode && acc.correctRanks === totalPhotos && totalPhotos > 0;
-      const isPerfectRound = maxRoundPoints > 0 && pRes.round_score === maxRoundPoints;
-
-      if (isPerfectLocation || isPerfectDate || isPerfectRound) {
-        hasAnyPerfectInRound = true;
-      }
-
-      const row = document.createElement("tr");
-      const pCell = buildCell();
-      pCell.appendChild(playerNameCell(pRes.player_name, pRes.timed_out));
-      row.appendChild(pCell);
-
-      const valueGroups = [];
-      if (revealData.location_mode) {
-        valueGroups.push({
-          isPerfect: isPerfectLocation,
-          items: [
-            {
-              value: pRes.location_score === null || pRes.location_score === undefined ? "-" : String(pRes.location_score),
-              scoreNum: pRes.location_score,
-              isScore: pRes.location_score !== null && pRes.location_score !== undefined,
-              maxScore: maxPoints,
-              class: "",
-            },
-            {
-              value: `${acc.correctPins} / ${totalPhotos}`,
-              class: "hide-on-mobile",
-            },
-          ],
-        });
-      }
-      if (revealData.date_mode) {
-        valueGroups.push({
-          isPerfect: isPerfectDate,
-          items: [
-            {
-              value: pRes.date_score === null || pRes.date_score === undefined ? "-" : String(pRes.date_score),
-              scoreNum: pRes.date_score,
-              isScore: pRes.date_score !== null && pRes.date_score !== undefined,
-              maxScore: maxPoints,
-              class: "",
-            },
-            {
-              value: `${acc.correctRanks} / ${totalPhotos}`,
-              class: "hide-on-mobile",
-            },
-          ],
-        });
-      }
-      valueGroups.push({
-        isPerfect: isPerfectRound,
-        items: [
-          {
-            value: String(pRes.round_score ?? 0),
-            scoreNum: pRes.round_score ?? 0,
-            isScore: true,
-            maxScore: maxRoundPoints,
-            class: "hide-on-mobile",
-          },
-          {
-            value: String(pRes.total_score ?? 0),
-            scoreNum: pRes.total_score ?? 0,
-            startScore: Math.max(0, (pRes.total_score ?? 0) - (pRes.round_score ?? 0)),
-            isScore: true,
-            maxScore: maxRoundPoints,
-            class: "group-start-mobile",
-          },
-        ],
-      });
-
-      valueGroups.forEach((group) => {
-        group.items.forEach((itemObj, index) => {
-          const cell = buildCell(itemObj.value);
-          if (itemObj.class) {
-            cell.classList.add(...itemObj.class.split(" ").filter(Boolean));
-          }
-          if (itemObj.subtext) {
-            const subSpan = document.createElement("span");
-            subSpan.className = "subtext-mobile-only";
-            subSpan.textContent = `(${itemObj.subtext})`;
-            cell.appendChild(subSpan);
-          }
-          if (index === 0) {
-            cell.classList.add("group-start");
-            if (group.isPerfect) {
-              cell.classList.add("is-perfect-cell");
-              cell.appendChild(createPerfectBadge());
+    // --- SECTION 1: ROUND STAGE (PHOTO TABS & MAP SPLIT) ---
+    const stageEl = document.querySelector("#unshuffle-reveal-ui .round-stage");
+    if (stageEl) {
+      if (!_shuffleStage) {
+        _shuffleStage = new RoundStage(stageEl, {
+          idPrefix: "shuffle-",
+          showReportButton: true,
+          onPhotoChange: (idx, photo) => {
+            if (photo && photo.true_pin_id && _revealMarkerByKey[String(photo.true_pin_id)]) {
+              try {
+                _revealMarkerByKey[String(photo.true_pin_id)].openPopup();
+              } catch (_) {}
             }
-          }
-          if (itemObj.isScore) {
-            animateScoreRollup(cell, itemObj.scoreNum, itemObj.maxScore, "", skipEffects, itemObj.startScore || 0);
-          }
-          row.appendChild(cell);
+          },
+          onReportPhoto: (photoId, mediaUrl) => {
+            const pName = activePlayer || (state.players && state.players[0]) || null;
+            openReportModal(photoId, mediaUrl, pName);
+          },
         });
+      }
+      _shuffleStage.setModes({
+        locationMode: Boolean(revealData.location_mode),
+        dateMode: Boolean(revealData.date_mode),
       });
+      _shuffleStage.setPhotos(sortedTrueBatch, 0);
+    }
 
-      tbody.appendChild(row);
+    const reportPhotoBtn = document.getElementById("shuffle-report-btn");
+    if (reportPhotoBtn) {
+      reportPhotoBtn.setAttribute("data-i18n-title", "report.btn_label");
+      reportPhotoBtn.setAttribute("data-i18n-aria-label", "report.btn_label");
+    }
+
+    // --- SECTION 2: POINT SCORING RESULTS TABLE (PINPOINT STYLE) ---
+    const table = el.shuffleRevealTable || document.getElementById("shuffle-reveal-table");
+    renderRevealTableHeaders(table, {
+      locationMode: Boolean(revealData.location_mode),
+      dateMode: Boolean(revealData.date_mode),
+      gameMode: "unshuffle",
+      showRank: false,
     });
 
-    // --- SECTION 2: MAP LAYOUT (ONLY IF LOCATION MODE IS ACTIVE) ---
+    const maxPoints = revealData.score_max_points || state.scoreMaxPoints || 100;
+    renderRevealTableRows(table, playerResults, {
+      locationMode: Boolean(revealData.location_mode),
+      dateMode: Boolean(revealData.date_mode),
+      gameMode: "unshuffle",
+      maxPoints,
+      skipEffects,
+      showRank: false,
+      totalPhotos,
+      playerAccuracy,
+    });
+
+    // --- SECTION 3: MAP LAYOUT (ONLY IF LOCATION MODE IS ACTIVE) ---
     if (revealData.location_mode && el.revealShuffleMapShell) {
-      if (el.shuffleRevealMapHead) el.shuffleRevealMapHead.classList.remove("hidden");
       el.revealShuffleMapShell.classList.remove("hidden");
       renderBatchRevealMap(el.revealShuffleMapShell, batchReveal);
     } else {
-      if (el.shuffleRevealMapHead) el.shuffleRevealMapHead.classList.add("hidden");
       if (el.revealShuffleMapShell) el.revealShuffleMapShell.classList.add("hidden");
-    }
-
-    // --- SECTION 3: PHOTO BREAKDOWN VIEW ---
-    if (el.shuffleBreakdownGrid) {
-      renderPhotoCardsView(el.shuffleBreakdownGrid, sortedTrueBatch, playerResults, revealData);
     }
 
     // Update shared reveal action controls
@@ -614,10 +479,10 @@ export function getPinColor(pinId) {
 }
 
 function assignPinToPhoto(photoId, pinId, questionData, containerEl = null) {
-  if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-  if (!state.albumShuffleState) return;
+  if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
+  if (!state.unshuffleState) return;
 
-  const pinAssignments = state.albumShuffleState.pinAssignments || {};
+  const pinAssignments = state.unshuffleState.pinAssignments || {};
   const currentPinOfThisPhoto = pinAssignments[photoId];
 
   if (currentPinOfThisPhoto === pinId) {
@@ -645,156 +510,12 @@ function assignPinToPhoto(photoId, pinId, questionData, containerEl = null) {
   updateSubmitState();
 }
 
-function renderPhotoCardsView(container, sortedTrueBatch, playerResults, revealData) {
-  container.replaceChildren();
-
-  sortedTrueBatch.forEach((item, trueRankIdx) => {
-    const imgUrl = `/api/media/${item.photo_id}`;
-    const dateStr = item.actual_date
-      ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" })
-      : t("fmt.unknown_place");
-
-    const card = document.createElement("div");
-    card.className = "shuffle-photo-card";
-
-    const top = document.createElement("div");
-    top.className = "shuffle-card-top";
-
-    const thumbWrap = document.createElement("div");
-    thumbWrap.className = "shuffle-card-thumb-wrap";
-    const img = document.createElement("img");
-    img.className = "shuffle-card-thumb-lg";
-    img.src = imgUrl;
-    img.alt = `Photo ${trueRankIdx + 1}`;
-    img.addEventListener("click", () => openPhotoLightbox(imgUrl));
-    thumbWrap.appendChild(img);
-
-    const meta = document.createElement("div");
-    meta.className = "shuffle-card-meta";
-
-    const dateTag = document.createElement("div");
-    dateTag.className = "shuffle-card-date-tag";
-    dateTag.textContent = `📅 ${dateStr}`;
-    meta.appendChild(dateTag);
-
-    const reportPhotoBtn = document.createElement("button");
-    reportPhotoBtn.type = "button";
-    reportPhotoBtn.className = "btn-report-photo-mini";
-    reportPhotoBtn.title = t("report.btn_label");
-    reportPhotoBtn.setAttribute("data-i18n-title", "report.btn_label");
-    reportPhotoBtn.setAttribute("aria-label", t("report.btn_label"));
-    reportPhotoBtn.setAttribute("data-i18n-aria-label", "report.btn_label");
-    reportPhotoBtn.innerHTML = `<span aria-hidden="true">🚩</span>`;
-    reportPhotoBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const playerName = state.currentQuestion?.player_name || (state.players && state.players[0]) || null;
-      openReportModal(item.photo_id, imgUrl, playerName);
-    });
-    meta.appendChild(reportPhotoBtn);
-
-    top.append(meta, thumbWrap);
-    card.appendChild(top);
-
-    const guessesList = document.createElement("div");
-    guessesList.className = "shuffle-card-guesses";
-
-    // Integrated Correct Answer Row at the top of guesses breakdown
-    const actualRow = document.createElement("div");
-    actualRow.className = "player-guess-row true-val-row";
-
-    const actualLabel = document.createElement("span");
-    actualLabel.className = "player-cell actual-label-cell";
-
-    const checkBadge = document.createElement("span");
-    checkBadge.className = "legend-badge actual-badge";
-    checkBadge.textContent = "✓";
-
-    const labelText = document.createElement("strong");
-    labelText.setAttribute("data-i18n", "reveal.correct_answer");
-    labelText.textContent = t("reveal.correct_answer");
-
-    actualLabel.append(checkBadge, labelText);
-    actualRow.appendChild(actualLabel);
-
-    const actualChipsWrap = document.createElement("div");
-    actualChipsWrap.className = "player-guess-chips";
-
-    if (revealData.date_mode) {
-      const dateChip = document.createElement("span");
-      dateChip.className = "guess-chip true-val-chip";
-      dateChip.textContent = `📅 #${trueRankIdx + 1}`;
-      actualChipsWrap.appendChild(dateChip);
-    }
-
-    if (revealData.location_mode) {
-      const pinChip = document.createElement("span");
-      pinChip.className = "guess-chip true-val-chip";
-      pinChip.innerHTML = `📍 Pin <strong>${item.true_pin_id}</strong>`;
-      actualChipsWrap.appendChild(pinChip);
-    }
-
-    actualRow.appendChild(actualChipsWrap);
-    guessesList.appendChild(actualRow);
-
-    playerResults.forEach((pRes) => {
-      const pRow = document.createElement("div");
-      pRow.className = "player-guess-row";
-
-      const pName = playerNameCell(pRes.player_name, pRes.timed_out);
-      pRow.appendChild(pName);
-
-      const chipsWrap = document.createElement("div");
-      chipsWrap.className = "player-guess-chips";
-
-      const pGuesses = pRes.album_shuffle_guesses || [];
-      const pGuess = pGuesses.find((g) => String(g.photo_id) === String(item.photo_id));
-
-      if (revealData.date_mode) {
-        const pSubmittedRank = pGuess ? pGuess.assigned_timeline_index : null;
-        const isRankCorrect = pSubmittedRank === trueRankIdx;
-        const rankChip = document.createElement("span");
-        rankChip.className = `guess-chip ${isRankCorrect ? "correct" : "incorrect"}`;
-
-        const rankText = pSubmittedRank !== null && pSubmittedRank !== undefined ? `#${pSubmittedRank + 1}` : "None";
-
-        if (isRankCorrect) {
-          rankChip.textContent = `${rankText} ✓`;
-        } else {
-          rankChip.textContent = `${rankText} ✗`;
-        }
-        chipsWrap.appendChild(rankChip);
-      }
-
-      if (revealData.location_mode) {
-        const isPinCorrect = pGuess && String(pGuess.assigned_pin_id) === String(item.true_pin_id);
-        const pinChip = document.createElement("span");
-        pinChip.className = `guess-chip ${isPinCorrect ? "correct" : "incorrect"}`;
-
-        const assignedPin = pGuess && pGuess.assigned_pin_id ? pGuess.assigned_pin_id : "None";
-
-        if (isPinCorrect) {
-          pinChip.innerHTML = `📍 Pin ${assignedPin} ✓`;
-        } else {
-          pinChip.innerHTML = `📍 ${assignedPin === "None" ? "None" : "Pin " + assignedPin} ✗`;
-        }
-        chipsWrap.appendChild(pinChip);
-      }
-
-      pRow.appendChild(chipsWrap);
-      guessesList.appendChild(pRow);
-    });
-
-    card.appendChild(guessesList);
-    container.appendChild(card);
-  });
-}
-
 function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
   containerEl.replaceChildren();
 
-  const isDisabled = Boolean(state.timedOut || state.albumShuffleDisabled);
-  const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
-  const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+  const isDisabled = Boolean(state.timedOut || state.unshuffleDisabled);
+  const orderedIds = state.unshuffleState ? state.unshuffleState.orderedPhotoIds || [] : [];
+  const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
   const photosMap = {};
   (questionData.batch_photos || []).forEach((p) => {
     photosMap[p.photo_id] = p;
@@ -930,7 +651,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     upBtn.disabled = index === 0 || isDisabled;
     upBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+      if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
       if (index > 0) {
         const temp = orderedIds[index - 1];
         orderedIds[index - 1] = orderedIds[index];
@@ -950,7 +671,7 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
     downBtn.disabled = index === orderedIds.length - 1 || isDisabled;
     downBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
+      if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
       if (index < orderedIds.length - 1) {
         const temp = orderedIds[index + 1];
         orderedIds[index + 1] = orderedIds[index];
@@ -994,8 +715,8 @@ function renderPhotoCardsList(containerEl, questionData, focusOptions = null) {
 }
 
 function getPinMarkerDetails(pinId) {
-  const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
-  const orderedIds = state.albumShuffleState ? state.albumShuffleState.orderedPhotoIds || [] : [];
+  const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
+  const orderedIds = state.unshuffleState ? state.unshuffleState.orderedPhotoIds || [] : [];
   const assignedPhotoId = Object.keys(pinAssignments).find(
     (photoId) => pinAssignments[photoId] === pinId
   );
@@ -1085,8 +806,8 @@ function renderShuffleMap(containerEl, pins, questionData) {
     shuffleMarkers[pin.pin_id] = marker;
 
     marker.on("click", () => {
-      if (state.timedOut || state.submitting || state.albumShuffleDisabled) return;
-      const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+      if (state.timedOut || state.submitting || state.unshuffleDisabled) return;
+      const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
       const assignedPhotoId = Object.keys(pinAssignments).find((pid) => pinAssignments[pid] === pin.pin_id);
       if (assignedPhotoId) {
         const photo = (questionData.batch_photos || []).find((p) => p.photo_id === assignedPhotoId);
@@ -1146,14 +867,28 @@ function renderBatchRevealMap(containerEl, batchItems) {
     revealTrueCoords[key] = { lat, lng: lon };
 
     const pinColor = getPinColor(item.true_pin_id);
-    const icon = createBadgePinIcon(item.true_pin_id, pinColor, { isTaken: true, size: 36 });
+    const photoUrl = item.media_url || (item.photo_id ? `/api/media/${item.photo_id}` : (item.asset_id ? `/api/media/${encodeURIComponent(item.asset_id)}` : null));
+    const icon = createBadgePinIcon(item.true_pin_id, pinColor, { isTaken: true, size: 36, photoUrl });
 
     const dateStr = item.actual_date ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" }) : "";
     const marker = L.marker([lat, lon], { icon })
       .bindPopup(`<b>${item.true_pin_id}</b><br>${dateStr}`)
       .addTo(map);
+
+    const selectPhoto = () => {
+      if (_shuffleStage && Array.isArray(_shuffleStage.photos)) {
+        const pIdx = _shuffleStage.photos.findIndex((p) => String(p.true_pin_id) === String(item.true_pin_id));
+        if (pIdx >= 0) {
+          _shuffleStage.setActivePhoto(pIdx);
+        }
+      }
+    };
+    marker.on("click", selectPhoto);
+    marker.on("popupopen", selectPhoto);
+
     revealMarkerByKey[key] = marker;
   });
+  _revealMarkerByKey = revealMarkerByKey;
 
   // Register zoom-aware spiderfy.
   map.on("zoomend", () =>

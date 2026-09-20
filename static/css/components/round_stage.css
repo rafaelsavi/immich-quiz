@@ -1,0 +1,335 @@
+/* ==========================================================================
+   Round Stage Component Styles
+   Shared stage layout containing photo canvas (single/batch with tabs)
+   alongside interactive Leaflet round map shell.
+   ========================================================================== */
+
+.round-stage,
+.replay-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* Photo & Map Split View */
+.round-media-map-row,
+.replay-media-map-row {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) 1fr;
+  gap: 1.25rem;
+  align-items: stretch;
+  width: 100%;
+}
+
+.round-media-map-row.single-col,
+.replay-media-map-row.single-col {
+  grid-template-columns: 1fr;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .round-media-map-row,
+  .replay-media-map-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* Map shell doesn't need a large min-height on single-column stacked layout */
+  .round-map-shell,
+  .replay-map-shell {
+    min-height: 320px;
+  }
+
+  .round-map-shell > div[id*="map"],
+  .replay-map-shell #replay-leaflet-map,
+  #replay-leaflet-map {
+    min-height: 320px;
+  }
+}
+
+/* Photo Frame Card */
+.round-photo-card,
+.replay-photo-card {
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-lg, 14px);
+  padding: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.round-media-frame,
+.replay-media-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  min-height: 240px;
+  border-radius: var(--radius-lg, 14px);
+  background: #eef2fb;
+  border: 1px solid var(--border-color, #d5dcec);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.round-media-frame:fullscreen,
+.replay-media-frame:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  border: none;
+  border-radius: 0;
+  background: var(--card, #0f172a);
+}
+
+.round-photo-img,
+.replay-photo-img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.round-photo-img:hover,
+.replay-photo-img:hover {
+  opacity: 0.95;
+}
+
+.round-media-frame .map-fullscreen-btn,
+.replay-media-frame .map-fullscreen-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+}
+
+/* Photo Caption */
+.round-photo-caption,
+.replay-photo-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.2rem 0.4rem;
+  min-height: 48px;
+  box-sizing: border-box;
+  justify-content: center;
+}
+
+.round-photo-caption .reveal-actual-row,
+.replay-photo-caption .reveal-actual-row,
+.round-caption-location-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.reveal-actual,
+.round-photo-caption .reveal-actual,
+.replay-photo-caption .reveal-actual {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  line-height: 1;
+}
+
+.reveal-actual-chip,
+.round-photo-caption .reveal-actual-chip,
+.replay-photo-caption .reveal-actual-chip {
+  height: 28px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-surface, #ffffff);
+  border: 1px solid #d0d7e2;
+  color: var(--ink, #1f2a44);
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  white-space: nowrap;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.reveal-actual-chip:hover,
+.round-photo-caption .reveal-actual-chip:hover,
+.replay-photo-caption .reveal-actual-chip:hover {
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 2px 4px rgba(15, 124, 127, 0.12);
+}
+
+.reveal-chip-icon,
+.round-photo-caption .reveal-chip-icon,
+.replay-photo-caption .reveal-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.reveal-chip-val,
+.round-photo-caption .reveal-chip-val,
+.replay-photo-caption .reveal-chip-val {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  color: var(--ink, #0f172a);
+  line-height: 1;
+}
+
+.round-caption-location-row > :first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-photo-loc,
+.replay-photo-loc,
+.round-photo-date,
+.replay-photo-date {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-color, #0f172a);
+  line-height: 1.4;
+}
+
+/* Multi-photo Selector Tabs (e.g. Album Shuffle rounds) */
+.round-photo-tabs,
+.replay-photo-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.round-photo-tab-btn,
+.replay-photo-tab-btn {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--bg-secondary, #f1f5f9);
+  border: 1px solid var(--border-color, #e2e8f0);
+  cursor: pointer;
+  color: var(--text-muted, #64748b);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.round-photo-tab-btn:hover,
+.replay-photo-tab-btn:hover {
+  background: var(--bg-hover, #e2e8f0);
+  color: var(--text-color, #0f172a);
+}
+
+.round-photo-tab-btn.active,
+.replay-photo-tab-btn.active {
+  background: var(--accent, #0f7c7f);
+  color: #ffffff;
+  border-color: var(--accent, #0f7c7f);
+}
+
+/* Standardized Map Shell in Stage */
+.round-map-shell,
+.replay-map-shell {
+  align-self: stretch;
+  min-height: 420px;
+  border-radius: var(--radius-lg, 14px);
+  border: 1px solid var(--border-color, #e2e8f0);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.replay-map-shell #replay-leaflet-map,
+.replay-map-shell .leaflet-container,
+.replay-map-shell > div[id*="map"],
+.replay-map-shell > .round-leaflet-map,
+#replay-leaflet-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+}
+
+.replay-map-shell #reveal-map,
+.replay-map-shell #reveal-shuffle-map,
+.replay-map-shell #replay-leaflet-map {
+  height: auto;
+  min-height: 0;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .round-photo-card,
+[data-theme="dark"] .replay-photo-card,
+[data-theme="dark"] .round-map-shell,
+[data-theme="dark"] .replay-map-shell {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .round-media-frame,
+[data-theme="dark"] .replay-media-frame {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .round-photo-tab-btn,
+[data-theme="dark"] .replay-photo-tab-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .round-photo-tab-btn:hover,
+[data-theme="dark"] .replay-photo-tab-btn:hover {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .round-photo-tab-btn.active,
+[data-theme="dark"] .replay-photo-tab-btn.active {
+  background: var(--accent, #0f7c7f);
+  color: #ffffff;
+  border-color: var(--accent, #0f7c7f);
+}
+
+[data-theme="dark"] .round-photo-loc,
+[data-theme="dark"] .replay-photo-loc,
+[data-theme="dark"] .round-photo-date,
+[data-theme="dark"] .replay-photo-date {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .round-photo-caption .reveal-actual-chip,
+[data-theme="dark"] .replay-photo-caption .reveal-actual-chip {
+  background: var(--bg-elevated, #1e293b);
+  border-color: var(--border-subtle, #334155);
+  color: var(--ink, #f1f5f9);
+}
+
+[data-theme="dark"] .round-photo-caption .reveal-chip-val,
+[data-theme="dark"] .replay-photo-caption .reveal-chip-val {
+  color: var(--ink, #f8fafc);
+}

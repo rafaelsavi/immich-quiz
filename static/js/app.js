@@ -48,6 +48,7 @@ import {
 import { getActiveMode } from "./modules/modes/index.js";
 import {
   showCard,
+  scrollToGameCard,
   isGameActive,
   handleBeforeUnload,
 } from "./modules/screens/common.js";
@@ -59,7 +60,7 @@ import {
 } from "./modules/screens/setup.js";
 import { loadQuestion, submitAnswer, refreshGameLanguage } from "./modules/screens/game.js";
 import { handleNextRound, refreshRevealLanguage } from "./modules/screens/reveal.js";
-import { initReportModal, openReportModal } from "./modules/components/report_modal.js";
+import { initReportModal } from "./modules/components/report_modal.js";
 import { initAdminModal, openAdminModal } from "./modules/admin.js";
 import {
   showMatchSummaryByMatchId,
@@ -82,6 +83,19 @@ import {
   openReportedPage,
   refreshReportedPageLanguage,
 } from "./modules/screens/reported.js";
+import {
+  initStats,
+  showPlayerDirectory,
+  showPlayerProfile,
+  refreshStatsPageLanguage,
+} from "./modules/screens/stats.js";
+import {
+  initReplay,
+  showReplaysCatalog,
+  showMatchReplay,
+  refreshReplayPageLanguage,
+} from "./modules/screens/replay.js";
+import { initSettingsMenu } from "./modules/components/settings_menu.js";
 
 // Re-export / configure global mode accessor
 
@@ -93,6 +107,7 @@ async function routeToActiveGame(matchId) {
   if (state.matchId === matchId && !state.matchFinished && isGameActive()) {
     showCard(el.gameCard);
     el.leaderboardCard.classList.add("hidden");
+    scrollToGameCard("smooth");
     return;
   }
 
@@ -102,6 +117,7 @@ async function routeToActiveGame(matchId) {
 
     el.leaderboardCard.classList.add("hidden");
     showCard(el.gameCard);
+    scrollToGameCard("smooth");
 
     const activeMode = getActiveMode();
     activeMode.mount(el.guessingUi, state.lastMatchConfig || {});
@@ -115,6 +131,7 @@ async function routeToActiveGame(matchId) {
       el.nextRound.textContent = session.lastReveal.match_finished
         ? t("reveal.see_results_btn")
         : t("reveal.next_round_btn");
+      scrollToGameCard("smooth");
       return;
     }
 
@@ -152,7 +169,7 @@ async function routeToActiveGame(matchId) {
       );
       return;
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // Match does not exist in local session or backend -> 404 Match Not Found
   showGameEndedCard(
@@ -171,7 +188,49 @@ async function handleRoute(route) {
   if (el.challengesNavBtn) {
     el.challengesNavBtn.classList.toggle("active", route.type === RouteType.CHALLENGES);
   }
+  if (el.statsNavBtn) {
+    el.statsNavBtn.classList.toggle(
+      "active",
+      route.type === RouteType.PLAYERS ||
+      route.type === RouteType.PLAYER_PROFILE
+    );
+  }
+  if (el.replaysNavBtn) {
+    el.replaysNavBtn.classList.toggle(
+      "active",
+      route.type === RouteType.REPLAYS ||
+      route.type === RouteType.GAME_REPLAY
+    );
+  }
   switch (route.type) {
+    case RouteType.PLAYERS: {
+      challenge.reset();
+      clearActiveMatchSession();
+      showPlayerDirectory();
+      break;
+    }
+
+    case RouteType.REPLAYS: {
+      challenge.reset();
+      clearActiveMatchSession();
+      showReplaysCatalog();
+      break;
+    }
+
+    case RouteType.PLAYER_PROFILE: {
+      challenge.reset();
+      clearActiveMatchSession();
+      await showPlayerProfile(route.params.playerName);
+      break;
+    }
+
+    case RouteType.GAME_REPLAY: {
+      challenge.reset();
+      clearActiveMatchSession();
+      await showMatchReplay(route.params.matchId);
+      break;
+    }
+
     case RouteType.GAME_ACTIVE: {
       challenge.reset();
       await routeToActiveGame(route.params.matchId);
@@ -262,6 +321,7 @@ bindClick(el.readyBtn, () => {
   state.currentScreen = "guessing";
   state.passConfirmed = true;
   el.passOverlay?.classList.add("hidden");
+  scrollToGameCard("smooth");
   const activeMode = getActiveMode();
   activeMode.onReady(state.currentQuestion);
 
@@ -304,10 +364,6 @@ bindClick(el.nextRound, () => {
   handleNextRound().catch((err) => showAlert(err.message || err));
 });
 
-bindClick(el.newMatch, () => {
-  returnToSetup();
-});
-
 bindClick(el.gameEndedLobbyBtn, () => {
   returnToSetup();
 });
@@ -342,15 +398,6 @@ bindClick(el.revealRestartBtn, () => {
 
 bindClick(el.revealExitBtn, () => {
   handleAbandonGame("exit");
-});
-
-bindClick(el.revealReportBtn, () => {
-  const currentAssetId = state.lastReveal?.asset_id || state.currentQuestion?.asset_id;
-  const previewUrl = state.lastReveal?.media_url || state.currentQuestion?.media_url;
-  const playerName = state.currentQuestion?.player_name || (state.players && state.players[0]) || null;
-  if (currentAssetId) {
-    openReportModal(currentAssetId, previewUrl, playerName);
-  }
 });
 
 bindClick(el.refreshLeaderboard, () => {
@@ -396,7 +443,7 @@ bindGlobalShortcuts({
   },
   onToggleFullscreen: () => {
     if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(() => { });
       return;
     }
     if (state.currentScreen === "reveal") {
@@ -472,6 +519,8 @@ function refreshActiveScreenLanguage() {
   refreshRevealLanguage();
   refreshChallengesPageLanguage();
   refreshReportedPageLanguage();
+  refreshStatsPageLanguage();
+  refreshReplayPageLanguage();
   challenge.refreshLanguage?.();
   const activeMode = getActiveMode();
   activeMode?.refreshHelpModal?.(state.currentQuestion);
@@ -547,6 +596,24 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
   initAdminModal();
   initChallengesPage();
   initReportedPage();
+  initStats();
+  initReplay();
+  initSettingsMenu();
+
+  if (el.statsNavBtn) {
+    el.statsNavBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/players");
+    });
+  }
+
+  if (el.replaysNavBtn) {
+    el.replaysNavBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/replays");
+    });
+  }
+
   initMapFullscreenControls();
   updateHeaderChallengeBadge();
   refreshActiveScreenLanguage();

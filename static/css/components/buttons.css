@@ -21,10 +21,96 @@
 }
 
 .challenges-nav-btn.active,
-.home-nav-btn.active {
+.home-nav-btn.active,
+.stats-nav-btn.active,
+.players-nav-btn.active,
+.replays-nav-btn.active {
   border-color: var(--accent);
   background: rgba(15, 124, 127, 0.12);
   box-shadow: 0 0 0 2.5px rgba(15, 124, 127, 0.25);
+}
+
+/* Settings Dropdown Menu */
+.settings-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.settings-dropdown:hover,
+.settings-dropdown.hovered,
+.settings-dropdown.open {
+  z-index: 2200;
+}
+
+.settings-toggle-btn #settings-icon {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.settings-dropdown:hover .settings-toggle-btn #settings-icon,
+.settings-dropdown.hovered .settings-toggle-btn #settings-icon,
+.settings-dropdown.open .settings-toggle-btn #settings-icon {
+  transform: rotate(45deg);
+}
+
+/* Invisible bridge so mouse hover doesn't break between button and menu */
+.settings-dropdown::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 10px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.settings-dropdown:hover::after,
+.settings-dropdown.hovered::after {
+  pointer-events: auto;
+}
+
+.settings-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--card, #ffffff);
+  border: 1px solid #c7ccd8;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.18), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2200;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-6px) scale(0.95);
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.settings-dropdown:hover .settings-menu,
+.settings-dropdown.hovered .settings-menu,
+.settings-dropdown.open .settings-menu {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.settings-menu .header-icon-btn {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .settings-menu {
+  background: var(--card, #1e293b);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
 }
 
 .header-challenges-badge {
@@ -242,6 +328,64 @@ button:disabled {
   #lang-icon {
     width: 22px;
     height: 22px;
+  }
+}
+
+/* Standardized Page Back Button across Stats Profile and Match Replay */
+.page-back-btn {
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  padding: 0.42rem 0.85rem;
+  border-radius: 9px;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1);
+  color: var(--text-color, #1e293b);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.page-back-btn:hover {
+  transform: translateX(-2px);
+  background: var(--bg-hover, #f8fafc);
+  border-color: var(--accent, #0f7c7f);
+  color: var(--accent, #0f7c7f);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.page-back-btn:active {
+  transform: translateX(0) scale(0.98);
+}
+
+[data-theme="dark"] .page-back-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .page-back-btn:hover {
+  background: #334155;
+  border-color: var(--accent, #0f7c7f);
+  color: #38bdf8;
+}
+
+@media (max-width: 600px) {
+  .page-back-btn {
+    font-size: 0.82rem;
+    padding: 0.35rem 0.7rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .page-back-btn {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
   }
 }
 

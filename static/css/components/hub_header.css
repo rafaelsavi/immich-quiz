@@ -1,0 +1,219 @@
+/* ==========================================================================
+   Immich Quiz - Unified Hub Page Header Component (.hub-page-header)
+   Standardized header layout, typography, badges, and card spacing across
+   Challenges, Match Replays, and Player Directory & Statistics screens.
+   ========================================================================== */
+
+/* ----------------------------------------------------------------- Hub Card Containers */
+#challenges-page-card,
+#stats-page-card,
+#replays-page-card,
+#reported-page-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* ----------------------------------------------------------------- Header Shell */
+.hub-page-header,
+.challenges-page-header,
+.stats-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* ----------------------------------------------------------------- Title Group */
+.hub-page-title-group,
+.challenges-page-title-group,
+.stats-page-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 720px;
+  flex: 1;
+}
+
+/* ----------------------------------------------------------------- Badge Row */
+.hub-title-badge-row,
+.challenges-title-badge-row,
+.stats-title-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* ----------------------------------------------------------------- Hub Page Badges */
+.hub-page-badge,
+#challenges-page-card .badge-challenge,
+#stats-page-card .badge-stats,
+#replays-page-card .badge-stats,
+#reported-page-card .badge-reported,
+.badge-challenges,
+.badge-players,
+.badge-replays,
+.badge-reported {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.24rem 0.65rem;
+  border-radius: 999px;
+  line-height: 1.2;
+  margin-bottom: 0;
+  box-shadow: none;
+  border-width: 1px;
+  border-style: solid;
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* Challenges Theme (Teal) */
+.badge-challenges,
+#challenges-page-card .badge-challenge {
+  background: rgba(15, 124, 127, 0.12);
+  color: var(--accent, #0f7c7f);
+  border-color: rgba(15, 124, 127, 0.25);
+}
+
+/* Players Theme (Purple / Violet) */
+.badge-players,
+#stats-page-card .badge-stats {
+  background: rgba(112, 72, 232, 0.12);
+  color: #7048e8;
+  border-color: rgba(112, 72, 232, 0.25);
+}
+
+/* Match Replays Theme (Indigo / Deep Blue) */
+.badge-replays,
+#replays-page-card .badge-stats,
+#replays-page-card .badge-replays {
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+  border-color: rgba(79, 70, 229, 0.25);
+}
+
+/* Reported Moderation Theme (Rose / Crimson) */
+.badge-reported,
+#reported-page-card .badge-reported {
+  background: rgba(225, 29, 72, 0.12);
+  color: #e11d48;
+  border-color: rgba(225, 29, 72, 0.25);
+}
+
+/* ----------------------------------------------------------------- Headings */
+.hub-page-heading,
+.challenges-page-title-group h2,
+#stats-page-heading,
+#replays-page-heading {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: var(--ink, #1f2a44);
+  line-height: 1.2;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+/* ----------------------------------------------------------------- Descriptions */
+.hub-page-desc,
+.challenges-page-desc,
+.stats-page-desc,
+#stats-page-desc,
+#replays-page-desc {
+  font-size: 0.95rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.45;
+  margin: 0;
+}
+
+/* ----------------------------------------------------------------- Header Action Buttons */
+.hub-page-head-actions,
+.challenges-page-head-actions,
+.stats-page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------- Responsive Layout */
+@media (max-width: 768px) {
+  #challenges-page-card,
+  #stats-page-card,
+  #replays-page-card,
+  #reported-page-card {
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .hub-page-heading,
+  .challenges-page-title-group h2,
+  #stats-page-heading,
+  #replays-page-heading {
+    font-size: 1.5rem;
+  }
+
+  .hub-page-desc,
+  .challenges-page-desc,
+  .stats-page-desc {
+    font-size: 0.88rem;
+  }
+}
+
+
+/* ----------------------------------------------------------------- Dark Theme Support */
+[data-theme="dark"] .hub-page-heading,
+[data-theme="dark"] .challenges-page-title-group h2,
+[data-theme="dark"] #stats-page-heading,
+[data-theme="dark"] #replays-page-heading {
+  color: var(--ink, #f1f5f9);
+}
+
+[data-theme="dark"] .hub-page-desc,
+[data-theme="dark"] .challenges-page-desc,
+[data-theme="dark"] .stats-page-desc,
+[data-theme="dark"] #stats-page-desc,
+[data-theme="dark"] #replays-page-desc {
+  color: var(--text-muted, #94a3b8);
+}
+
+[data-theme="dark"] .badge-challenges,
+[data-theme="dark"] #challenges-page-card .badge-challenge {
+  background: rgba(20, 184, 166, 0.16);
+  color: #2dd4bf;
+  border-color: rgba(20, 184, 166, 0.35);
+}
+
+[data-theme="dark"] .badge-players,
+[data-theme="dark"] #stats-page-card .badge-stats {
+  background: rgba(167, 139, 250, 0.16);
+  color: #c4b5fd;
+  border-color: rgba(167, 139, 250, 0.35);
+}
+
+[data-theme="dark"] .badge-replays,
+[data-theme="dark"] #replays-page-card .badge-stats,
+[data-theme="dark"] #replays-page-card .badge-replays {
+  background: rgba(129, 140, 248, 0.16);
+  color: #a5b4fc;
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+[data-theme="dark"] .badge-reported,
+[data-theme="dark"] #reported-page-card .badge-reported {
+  background: rgba(244, 63, 94, 0.16);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.35);
+}

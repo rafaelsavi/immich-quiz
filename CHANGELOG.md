@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-09-20
+
+### Added
+
+- **Player Statistics, Profiles & Analytics (`/players`, `/players/:playerName`)**:
+  - Comprehensive player profiles with lifetime statistics: career points, win rates, podiums, peak accuracy, best distance, perfect round tallies, average response times, and 4-tier Location and Date accuracy distributions.
+  - Dedicated **Player Directory** (`/players`) with real-time telemetry badges, search and sorting (by matches, win rate, points, name), and guided onboarding empty states.
+  - Interactive player name links on the Home Leaderboard routing directly to player profile analytics.
+- **Match Replay Engine & Universal Review Deck (`/replays`, `/game/:matchId/replay`)**:
+  - Interactive round-by-round match replay viewer featuring photo lightbox previews, dynamic Leaflet maps with true photo locations, player guess pins, distance connector lines, and cumulative scoreboards.
+  - Universal 3-tab **Review Deck** (`🎬 Match Replay`, `🗺️ Journey Map`, `📸 Photo Memories`) unified across live game summaries, challenge summaries, and replay archives.
+  - Dedicated **Match Replay Catalog** (`/replays`) with search, mode/type filtering, and direct replay action shortcuts from challenge cards.
+  - 3D Winner Podium & Final Standings Outcome Hero integrated directly into historical match replays and challenge summaries.
+  - Match Specification Panel detailing game settings, rounds, time limits, and library filter scopes in replay headers.
+- **Smart Player Name Autocomplete**:
+  - Intelligent autocomplete dropdown querying player history with match frequency, recency, and avatar initials.
+  - Seamlessly integrated into Local Game setup, Challenge creation, and Challenge join screens with keyboard accessibility and mobile-optimized touch targets.
+- **Sync Telemetry & Rate Limiting**:
+  - Animated post-sync completion popup displaying detailed breakdown metrics: sync mode, photos indexed/updated, albums linked, tags, pruned assets, and execution duration.
+  - Configurable sync cooldown (`SYNC_COOLDOWN_SECONDS`) with HTTP 429 throttling and a real-time countdown button indicator.
+- **New REST API Endpoints**:
+  - `GET /api/players/names` (autocomplete query with match frequency).
+  - `GET /api/players` (player directory with sorting and pagination).
+  - `GET /api/players/{player_name}/profile` (career stats and accuracy distribution analytics).
+  - `GET /api/matches` (paginated match history filterable by game mode, play mode, and player).
+  - `GET /api/match/{match_id}/replay` (round-by-round guess telemetry and cumulative scoreboard).
+
+### Changed
+
+- **UI & Navigation Modernization**:
+  - Consolidated language and audio preferences into a clean header settings dropdown (`⚙️`).
+  - Standardized `.hub-page-header` and `.hub-toolbar` design system across Challenges, Replays, Players, and Moderation views with unified search inputs, SVG icons, and baseline alignment.
+  - Automatic viewport auto-scroll to `#game-card` during active gameplay to maximize vertical screen real estate for maps and photo media.
+  - Unified challenge play mode icon to crossed swords (`⚔️`) across all UI elements, badges, and headers.
+- **Mobile Summary Screen & Chip Optimization**:
+  - Omitted `.match-meta-item-label` on mobile viewports (`<= 640px`) across all summary variations, Challenges Hub cards, and the setup filters accordion, displaying a clean, compact `[icon] [value]` chip layout that fits comfortably side-by-side without horizontal scrolling.
+  - Constrained `.match-review-card`, `.match-review-shell`, and `.review-content` with `min-width: 0; max-width: 100%` and set `flex-shrink: 0` on chips, ensuring match cards remain perfectly proportioned within narrow mobile screens while standings tables scroll smoothly.
+  - Enhanced podium step readability and dark mode contrast across summary cards.
+  - Omitted flag emoji (`🏁`) from `challenge-rounds-pill finished` in standings tables, keeping the pill compact (`10/10`) and saving valuable horizontal column space on mobile screens.
+
 ## [3.0.4] - 2026-09-11
 
 ### Added
@@ -100,7 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Unified consistent, accessible naming in English and Portuguese across navigation, game setup, play styles, and awards (e.g., *"Solo"*, *"Pass & Play"*, *"Submit Guess"*, *"Photo Memories"*).
   - Streamlined mode descriptions, scoring documentation, and help modal instructions.
 - **Symmetric Architecture & Decoupled Game Engines**:
-  - Symmetrically decoupled data models (`PinpointReveal`, `AlbumShuffleAnswerItem`), unified backend round state (`RoundData`), and cleanly scoped frontend state.
+  - Symmetrically decoupled data models (`PinpointReveal`, `UnshuffleAnswerItem`), unified backend round state (`RoundData`), and cleanly scoped frontend state.
   - Standardized round review layout, responsive map token heights, and full-resolution lightbox support across all game modes.
 - **Dynamic Asset Stamping & Caching**:
   - Automatic version stamping in HTML templates and Service Worker (`sw.js`) eliminating stale cache issues on upgrades.
@@ -134,7 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Live FastAPI test harness with simulated Immich client (`tests/e2e/conftest.py`).
   - Pinpoint map pin placement, distance lines, and round reveal tests (`test_pinpoint_gameplay.py`).
   - Dual-handle timeline range slider and single-year/month date guessing tests (`test_date_selection.py`).
-  - Album Shuffle photo card reordering and multi-pin (A, B, C) placement tests (`test_album_shuffle_gameplay.py`).
+  - Album Shuffle photo card reordering and multi-pin (A, B, C) placement tests (`test_unshuffle_gameplay.py`).
   - Client routing, deep links, reload recovery, and guard tests (`test_routing_and_recovery.py`).
   - Score rollup animations, podium rendering, and polaroid gallery tests (`test_summary_and_effects.py`).
   - Playwright Chromium installation in CI workflow and pre-push git hook.

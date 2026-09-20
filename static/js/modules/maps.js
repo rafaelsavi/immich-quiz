@@ -101,9 +101,9 @@ export function updateSubmitState() {
     return;
   }
 
-  if (state.currentQuestion && state.currentQuestion.game_mode === "album_shuffle") {
+  if (state.currentQuestion && state.currentQuestion.game_mode === "unshuffle") {
     const needsPin = Boolean(state.currentQuestion.location_mode);
-    const pinAssignments = state.albumShuffleState ? state.albumShuffleState.pinAssignments || {} : {};
+    const pinAssignments = state.unshuffleState ? state.unshuffleState.pinAssignments || {} : {};
     const totalPhotos = (state.currentQuestion.batch_photos || []).length;
     const assignedCount = Object.values(pinAssignments).filter(Boolean).length;
     const missingPin = needsPin && totalPhotos > 0 && assignedCount < totalPhotos;
@@ -236,6 +236,10 @@ export function unregisterActiveMap(map) {
       } catch (_) {}
       map._resizeObserver = null;
     }
+    const container = map.getContainer ? map.getContainer() : map._container;
+    if (container && container._leaflet_map === map) {
+      delete container._leaflet_map;
+    }
     activeMapRegistry.delete(map);
   }
 }
@@ -367,6 +371,8 @@ export function createStandardMap(containerOrEl, options = {}) {
   map._initialCenter = center;
   map._initialZoom = zoom;
 
+  containerEl._leaflet_map = map;
+
   updateMapMinZoom(map);
 
   map.on("resize", () => {
@@ -374,8 +380,26 @@ export function createStandardMap(containerOrEl, options = {}) {
   });
 
   if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => {
-      updateMapMinZoom(map);
+    let wasZero = !containerEl.clientWidth || !containerEl.clientHeight;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries && entries[0];
+      const width = entry ? entry.contentRect.width : (containerEl.clientWidth || 0);
+      const height = entry ? entry.contentRect.height : (containerEl.clientHeight || 0);
+      const isVisibleNow = width > 0 && height > 0;
+
+      if (wasZero && isVisibleNow) {
+        wasZero = false;
+        try {
+          map.invalidateSize();
+          updateMapMinZoom(map);
+          if (map._needsFitWhenVisible && map._lastFitBounds) {
+            map._needsFitWhenVisible = false;
+            refitMap(map, true);
+          }
+        } catch (_) {}
+      } else {
+        updateMapMinZoom(map);
+      }
     });
     ro.observe(containerEl);
     map._resizeObserver = ro;
@@ -678,18 +702,25 @@ export function applySpiderfy(
 export function renderJourneyMap(roundHistory, locationMode = true, options = {}) {
   const mapShell = options.mapShell || el.journeyMapShell;
   const mapHead = options.mapHead || el.journeyMapHead;
-  if (!mapShell || !mapHead) return null;
+  if (!mapShell) return null;
 
   if (!locationMode) {
     mapShell.classList.add("hidden");
-    mapHead.classList.add("hidden");
+    if (mapHead) mapHead.classList.add("hidden");
     return null;
   }
 
   const allPins = [];
   (roundHistory || []).forEach((r) => {
-    if (r.batch_reveal && Array.isArray(r.batch_reveal) && r.batch_reveal.length > 0) {
-      r.batch_reveal.forEach((item) => {
+    const batchList =
+      r.batch_reveal && Array.isArray(r.batch_reveal) && r.batch_reveal.length > 0
+        ? r.batch_reveal
+        : r.batch_photos && Array.isArray(r.batch_photos) && r.batch_photos.length > 0
+          ? r.batch_photos
+          : null;
+
+    if (batchList) {
+      batchList.forEach((item) => {
         const lat = Number(item.actual_latitude);
         const lon = Number(item.actual_longitude);
         if (
@@ -702,10 +733,10 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
             ? formatDate(item.actual_date, { year: "numeric", month: "short", day: "numeric" })
             : "";
           allPins.push({
-            label: `${r.round_number}-${item.true_pin_id}`,
+            label: `${r.round_number}-${item.true_pin_id || ""}`,
             lat,
             lon,
-            popupText: `<b>${t("summary.journey_round", r.round_number)} - Pin ${item.true_pin_id}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
+            popupText: `<b>${t("summary.journey_round", r.round_number)} - Pin ${item.true_pin_id || ""}</b><br>${locStr}${dateStr ? `<br>📅 ${dateStr}` : ""}`,
           });
         }
       });
@@ -733,22 +764,22 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
 
   if (allPins.length === 0) {
     mapShell.classList.add("hidden");
-    mapHead.classList.add("hidden");
+    if (mapHead) mapHead.classList.add("hidden");
     return null;
   }
 
   mapShell.classList.remove("hidden");
-  mapHead.classList.remove("hidden");
+  if (mapHead) mapHead.classList.remove("hidden");
 
   let mapInstance;
   let spiderLinesObj;
   let trueCoordsObj;
   let layersArr;
 
-  const container = options.container || document.getElementById(options.containerId || "journey-map");
+  const container = options.mapEl || options.container || document.getElementById(options.containerId || "journey-map");
   if (!container) return null;
 
-  if (options.container || options.containerId) {
+  if (options.mapEl || options.container || options.containerId) {
     if (options.existingMap) {
       mapInstance = options.existingMap;
       mapInstance.eachLayer((layer) => {
@@ -805,15 +836,20 @@ export function renderJourneyMap(roundHistory, locationMode = true, options = {}
     return m;
   };
 
-  mapInstance.on("zoomend", () =>
-    applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR)
-  );
+  const triggerSpiderfy = () => {
+    applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR);
+  };
+
+  mapInstance._applyJourneySpiderfy = triggerSpiderfy;
+  mapInstance.on("zoomend", triggerSpiderfy);
 
   if (points.length > 0) {
+    const isZero = !container || !container.clientWidth || !container.clientHeight;
+    if (isZero) {
+      mapInstance._needsFitWhenVisible = true;
+    }
     fitMapToBounds(mapInstance, points, { padding: [50, 50], maxZoom: 15 });
-    mapInstance.once("moveend", () =>
-      applySpiderfy(mapInstance, trueCoordsObj, buildMarkerByKey(), spiderLinesObj, () => ACTUAL_COLOR)
-    );
+    mapInstance.once("moveend", triggerSpiderfy);
   }
 
   requestAnimationFrame(() => {
@@ -834,6 +870,12 @@ export function refitMap(map, forceRefitBounds = false) {
       const padding = (map._lastFitOptions && map._lastFitOptions.padding) || [50, 50];
       const maxZoom = (map._lastFitOptions && map._lastFitOptions.maxZoom !== undefined) ? map._lastFitOptions.maxZoom : 15;
       map.fitBounds(map._lastFitBounds, { padding, maxZoom });
+      if (typeof map._applyJourneySpiderfy === "function") {
+        map.once("moveend", map._applyJourneySpiderfy);
+        requestAnimationFrame(() => {
+          try { map._applyJourneySpiderfy(); } catch (_) {}
+        });
+      }
     }
   } catch (_) {}
 }
@@ -874,6 +916,12 @@ export function fitMapToBounds(map, pointsOrBounds, options = {}) {
 
   map._lastFitBounds = bounds;
   map._lastFitOptions = options;
+
+  const container = map.getContainer ? map.getContainer() : map._container;
+  const isZero = !container || !container.clientWidth || !container.clientHeight;
+  if (isZero) {
+    map._needsFitWhenVisible = true;
+  }
 
   const padding = options.padding || [50, 50];
   const maxZoom = options.maxZoom !== undefined ? options.maxZoom : 15;

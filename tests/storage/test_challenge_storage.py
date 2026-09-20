@@ -5,12 +5,12 @@ import pytest
 from pydantic import ValidationError
 
 from src.models import (
-    AlbumShuffleAnswerItem,
     ChallengeAnswerRequest,
     ChallengeCreateRequest,
     ChallengeExpirationOption,
     PinpointAnswerItem,
     RoundLength,
+    UnshuffleAnswerItem,
 )
 from src.storage.challenge import PLAYER_COLORS, ChallengeStore
 from src.storage.db import DatabaseManager
@@ -426,24 +426,24 @@ def test_challenge_models_validation() -> None:
             guessed_month=None,
         )
 
-    # Valid album shuffle answer
+    # Valid unshuffle answer
     ans_shuffle = ChallengeAnswerRequest(
         round_index=0,
-        album_shuffle=[
-            AlbumShuffleAnswerItem(photo_id='p1', assigned_pin_id='A', assigned_timeline_index=0),
-            AlbumShuffleAnswerItem(photo_id='p2', assigned_pin_id='B', assigned_timeline_index=1),
+        unshuffle=[
+            UnshuffleAnswerItem(photo_id='p1', assigned_pin_id='A', assigned_timeline_index=0),
+            UnshuffleAnswerItem(photo_id='p2', assigned_pin_id='B', assigned_timeline_index=1),
         ],
         time_taken_seconds=15.0,
     )
-    assert ans_shuffle.album_shuffle is not None
-    assert len(ans_shuffle.album_shuffle) == 2
+    assert ans_shuffle.unshuffle is not None
+    assert len(ans_shuffle.unshuffle) == 2
 
     # 3. Expiration Enum
     assert ChallengeExpirationOption.TWENTY_FOUR_HOURS.value == '24h'
     assert ChallengeExpirationOption.NEVER.value == 'never'
 
 
-def test_challenge_album_shuffle_standings_time_calculation(tmp_path: Path) -> None:
+def test_challenge_unshuffle_standings_time_calculation(tmp_path: Path) -> None:
     """Verify that get_challenge_standings calculates total elapsed time accurately without multiplying by photos."""
     db_path = tmp_path / 'leaderboard.db'
     db = DatabaseManager(db_path)
@@ -451,7 +451,7 @@ def test_challenge_album_shuffle_standings_time_calculation(tmp_path: Path) -> N
     challenge_store = ChallengeStore(db)
 
     config = {
-        'game_mode': 'album_shuffle',
+        'game_mode': 'unshuffle',
         'round_count': 2,
         'round_length': '1m',
         'location_mode': True,
@@ -476,7 +476,7 @@ def test_challenge_album_shuffle_standings_time_calculation(tmp_path: Path) -> N
             player_name='Player1',
             round_index=0,
             photo_index=photo_idx,
-            game_mode='album_shuffle',
+            game_mode='unshuffle',
             asset_id=pid,
             round_score=33,
             location_points=16,

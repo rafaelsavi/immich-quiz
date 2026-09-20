@@ -38,10 +38,10 @@ class RoundLength(str, Enum):
 
 
 class GameMode(str, Enum):
-    """Supported gameplay mechanics ('pinpoint' single photo guess, 'album_shuffle' batch ordering)."""
+    """Supported gameplay mechanics ('pinpoint' single photo guess, 'unshuffle' batch ordering)."""
 
     pinpoint = 'pinpoint'
-    album_shuffle = 'album_shuffle'
+    unshuffle = 'unshuffle'
 
 
 class PeopleMode(str, Enum):
@@ -107,7 +107,10 @@ class SyncStateResponse(BaseModel):
     total_assets: int = Field(default=0, ge=0)
     synced_assets: int = Field(default=0, ge=0)
     last_sync_duration_seconds: float | None = Field(default=None, ge=0.0)
+    last_sync_summary: dict[str, Any] | None = None
     warnings: dict[str, str] = Field(default_factory=dict)
+    cooldown_remaining_seconds: float = Field(default=0.0, ge=0.0)
+    is_on_cooldown: bool = False
 
 
 class MapBounds(BaseModel):
@@ -554,7 +557,7 @@ class QuestionRequest(BaseModel):
 
 
 class BatchPhotoItem(BaseModel):
-    """Photo asset item within an album shuffle batch round."""
+    """Photo asset item within an unshuffle batch round."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -563,7 +566,7 @@ class BatchPhotoItem(BaseModel):
 
 
 class BatchPinItem(BaseModel):
-    """Map pin item containing randomized coordinate options in an album shuffle batch round."""
+    """Map pin item containing randomized coordinate options in an unshuffle batch round."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -681,8 +684,8 @@ class RoundScoreBreakdown(BaseModel):
     total_score: int = Field(ge=0)
 
 
-class AlbumShuffleAnswerItem(BaseModel):
-    """Individual photo mapping assignment submitted during an album shuffle round."""
+class UnshuffleAnswerItem(BaseModel):
+    """Individual photo mapping assignment submitted during an unshuffle round."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -697,7 +700,7 @@ class BaseAnswerSubmission(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     pinpoint: PinpointAnswerItem | None = None
-    album_shuffle: list[AlbumShuffleAnswerItem] | None = None
+    unshuffle: list[UnshuffleAnswerItem] | None = None
     timed_out: bool = False
     time_taken_seconds: float | None = Field(default=None, ge=0.0)
 
@@ -743,7 +746,7 @@ class PlayerRoundResult(RoundScoreBreakdown):
     player_name: str = Field(min_length=1)
     timed_out: bool = False
     pinpoint: PinpointRoundResult | None = None
-    album_shuffle_guesses: list[AlbumShuffleAnswerItem] | None = None
+    unshuffle_guesses: list[UnshuffleAnswerItem] | None = None
 
 
 class RoundResultRequest(BaseModel):
@@ -756,7 +759,7 @@ class RoundResultRequest(BaseModel):
 
 
 class BatchRevealItem(GroundTruthLocationDate):
-    """Ground truth location and date details for a photo in an album shuffle batch reveal."""
+    """Ground truth location and date details for a photo in an unshuffle batch reveal."""
 
     photo_id: str = Field(min_length=1)
     true_pin_id: str | None = None
@@ -798,6 +801,7 @@ class MatchSummaryPlayer(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     player_name: str = Field(min_length=1)
+    player_color: str | None = None
     location_score: int | None = Field(default=None, ge=0)
     date_score: int | None = Field(default=None, ge=0)
     total_score: int = Field(ge=0)
@@ -861,6 +865,216 @@ class LeaderboardEntry(BaseModel):
     room_id: str | None = None
     room_name: str | None = None
     awards: list[str] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Player Statistics & Match Replay Models
+# ---------------------------------------------------------------------------
+
+
+class PlayerNameSuggestion(BaseModel):
+    """Autocomplete suggestion for a previously active player name."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    match_count: int = Field(ge=0)
+    last_played_at: str | None = None
+    avatar_color: str | None = None
+
+
+class AccuracyTierBucket(BaseModel):
+    """Accuracy percentage distribution tier (shared symmetrically by Location and Date)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    tier_key: str = Field(min_length=1)  # 'top', 'great', 'moderate', 'low'
+    label: str = Field(min_length=1)  # e.g. 'Top Tier (90–100%)', 'Great (75–89%)'
+    count: int = Field(ge=0)
+    percentage: float = Field(ge=0.0, le=100.0)
+
+
+class GameModeStats(BaseModel):
+    """Player performance breakdown for a specific game mode."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    game_mode: str = Field(min_length=1)
+    matches_played: int = Field(ge=0)
+    wins: int = Field(ge=0)
+    win_rate_pct: float = Field(ge=0.0, le=100.0)
+    avg_accuracy_pct: float = Field(ge=0.0, le=100.0)
+
+
+class PlayerPerformanceStats(BaseModel):
+    """Core lifetime performance statistics and career metrics for a player."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    avatar_color: str
+    legacy_title: str
+    matches_played: int = Field(ge=0)
+    matches_won: int = Field(ge=0)
+    win_rate_pct: float = Field(ge=0.0, le=100.0)
+    podiums_count: int = Field(ge=0)
+    peak_match_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    avg_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    career_points: int = Field(ge=0)
+    total_rounds_played: int = Field(ge=0)
+    first_played_at: str | None = None
+    last_played_at: str | None = None
+
+
+class PlayerAccuracyAnalytics(BaseModel):
+    """Symmetrical location and date accuracy metrics, response times, and game mode mastery."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    location_tiers: list[AccuracyTierBucket]
+    avg_location_accuracy_pct: float = Field(default=0.0, ge=0.0, le=100.0)
+    best_distance_km: float | None = None
+    perfect_location_rounds_count: int = Field(ge=0)
+    date_tiers: list[AccuracyTierBucket]
+    avg_date_accuracy_pct: float = Field(default=0.0, ge=0.0, le=100.0)
+    exact_year_month_pct: float = Field(ge=0.0, le=100.0)
+    exact_year_pct: float = Field(ge=0.0, le=100.0)
+    perfect_date_rounds_count: int = Field(ge=0)
+    avg_response_time_seconds: float = Field(ge=0.0)
+    fastest_response_time_seconds: float = Field(ge=0.0)
+    total_active_time_seconds: float = Field(ge=0.0)
+    mode_mastery: list[GameModeStats]
+    preferred_cadence: str | None = None
+
+
+class PlayerSummaryItem(BaseModel):
+    """Roster summary for a player in the player directory."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    avatar_color: str
+    matches_played: int = Field(ge=0)
+    matches_won: int = Field(ge=0)
+    win_rate_pct: float = Field(ge=0.0, le=100.0)
+    avg_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    career_points: int = Field(ge=0)
+    last_played_at: str | None = None
+
+
+class PlayerProfileResponse(BaseModel):
+    """Comprehensive player legacy profile response."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player: PlayerPerformanceStats
+    analytics: PlayerAccuracyAnalytics
+    recent_matches: list[dict[str, Any]]
+
+
+class MatchHistoryItem(BaseModel):
+    """Summary item in the Match Replays catalog."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    match_id: str = Field(min_length=1)
+    played_at: str
+    play_mode: str
+    game_mode: str
+    rounds: int
+    round_length: str
+    player_count: int
+    duration_seconds: float | None = None
+    winners: list[str] = Field(default_factory=list)
+    players: list[str] = Field(default_factory=list)
+    top_score: int = Field(ge=0)
+    top_accuracy_pct: float = Field(ge=0.0, le=100.0)
+    challenge_id: str | None = None
+    challenge_title: str | None = None
+    challenge_creator: str | None = None
+
+
+class MatchReplayPlayerGuess(BaseModel):
+    """Detailed guess and score breakdown for a single player in a replay round."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    player_name: str = Field(min_length=1)
+    player_color: str | None = None
+    location_score: int | None = None
+    date_score: int | None = None
+    round_score: int = Field(ge=0)
+    cumulative_score: int = Field(ge=0)
+    time_taken_seconds: float = Field(ge=0.0)
+    timed_out: bool = False
+    guess_latitude: float | None = None
+    guess_longitude: float | None = None
+    distance_km: float | None = None
+    guess_date: str | None = None
+    date_diff_days: int | None = None
+    is_correct_location: bool | None = None
+    is_correct_date_order: bool | None = None
+    assigned_pin_id: str | None = None
+    assigned_timeline_index: int | None = None
+
+
+class MatchReplayBatchPhoto(BaseModel):
+    """Photo truth data for unshuffle multi-photo rounds."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    asset_id: str
+    true_pin_id: str | None = None
+    media_url: str | None = None
+    actual_latitude: float | None = None
+    actual_longitude: float | None = None
+    actual_date: str | None = None
+    actual_year: int | None = None
+    actual_month: int | None = None
+    actual_city: str | None = None
+    actual_country: str | None = None
+
+
+class MatchReplayRound(BaseModel):
+    """Single round in an interactive match replay."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    round_number: int = Field(ge=1)
+    game_mode: str
+    media_url: str | None = None
+    asset_id: str | None = None
+    actual_latitude: float | None = None
+    actual_longitude: float | None = None
+    actual_date: str | None = None
+    actual_year: int | None = None
+    actual_month: int | None = None
+    actual_city: str | None = None
+    actual_country: str | None = None
+    batch_photos: list[MatchReplayBatchPhoto] = Field(default_factory=list)
+    player_guesses: list[MatchReplayPlayerGuess] = Field(default_factory=list)
+
+
+class MatchReplayResponse(BaseModel):
+    """Full payload required to step through a match replay round-by-round."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    match_id: str = Field(min_length=1)
+    played_at: str
+    play_mode: str
+    game_mode: str
+    rounds: int = Field(ge=1)
+    round_length: str
+    location_mode: bool
+    date_mode: bool
+    challenge_id: str | None = None
+    challenge_title: str | None = None
+    challenge_creator: str | None = None
+    winners: list[str] = Field(default_factory=list)
+    players: list[MatchSummaryPlayer] = Field(default_factory=list)
+    rounds_data: list[MatchReplayRound] = Field(default_factory=list)
+    config: MatchConfig = Field(default_factory=MatchConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -1031,7 +1245,7 @@ class ChallengeAnswerRequest(BaseAnswerSubmission):
     """Player guess submission for a challenge round.
 
     Uses guessed_year/guessed_month (not a date string) to match AnswerRequest convention.
-    Supports both Pinpoint (lat/lng + year/month) and Album Shuffle (batch assignments).
+    Supports both Pinpoint (lat/lng + year/month) and Unshuffle (batch assignments).
     """
 
     round_index: int = Field(ge=0)
@@ -1064,8 +1278,8 @@ class ChallengePinpointGuessData(GroundTruthLocationDate, PinpointGuessFields, P
     model_config = ConfigDict(str_strip_whitespace=True)
 
 
-class ChallengeAlbumShuffleGuessData(BaseModel):
-    """Album Shuffle photo assignment and correctness metrics for a challenge round photo."""
+class ChallengeUnshuffleGuessData(BaseModel):
+    """Unshuffle photo assignment and correctness metrics for a challenge round photo."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -1092,7 +1306,7 @@ class ChallengeRoundGuessData(BaseModel):
     time_taken_seconds: float
     timed_out: bool = False
     pinpoint: ChallengePinpointGuessData | None = None
-    album_shuffle: ChallengeAlbumShuffleGuessData | None = None
+    unshuffle: ChallengeUnshuffleGuessData | None = None
 
 
 class ChallengeLeaderboardEntry(BaseModel):
@@ -1112,6 +1326,7 @@ class ChallengeLeaderboardEntry(BaseModel):
     total_time_seconds: float
     completed_rounds: int
     is_finished: bool = False  # True if player has completed all rounds
+    match_id: str | None = None
     awards: list[str] = Field(default_factory=list)
 
 
@@ -1121,6 +1336,7 @@ class ChallengeLeaderboardResponse(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     challenge_id: str
+    match_id: str | None = None
     title: str | None = None
     game_mode: GameMode
     up_to_round: int

@@ -31,9 +31,9 @@ are computed **once** at challenge creation time from the selected photo pool an
 
 ### Creating a Challenge
 
-1. Open the game setup screen and configure game settings (Mode: **Pinpoint** or **Album Shuffle**, Targets: **Location**, **Date**, or **Both**, Rounds, Round Length, and Library Filters).
+1. Open the game setup screen and configure game settings (Mode: **Pinpoint** or **Unshuffle**, Targets: **Location**, **Date**, or **Both**, Rounds, Round Length, and Library Filters).
 2. Click **🎮 Prepare Game** to open the match preparation modal.
-3. Switch to the **Challenge Link** tab:
+3. Switch to the **Challenge** tab:
    - **Challenge Title**: Auto-generated from active filter criteria (e.g. *"Summer Vacation 2024 (10 Rounds)"*) or custom-edited.
    - **Expiration Window**: Choose when the challenge closes:
      - `1h` — Quick party match
@@ -53,7 +53,7 @@ The **Challenges Hub** provides an administrative overview of all challenges:
 - **Toolbar & Filtering**:
   - **Search**: Live filter by challenge title, host name, album, or tagged person.
   - **Status Pills**: Filter by **All**, **Active**, or **Expired**.
-  - **Game Mode Filter**: Filter by **Pinpoint** or **Album Shuffle**.
+  - **Game Mode Filter**: Filter by **Pinpoint** or **Unshuffle**.
   - **Sorting**: Sort by *Newest First*, *Most Players*, *Ending Soonest*, or *Title (A–Z)*.
 - **Card Actions**:
   - **Share Drawer**: Click the share icon (`🔗`) in the header to expand a drawer with the full URL, 1-click clipboard copy, and high-resolution SVG QR code.
@@ -94,7 +94,7 @@ Grand Reveal Summary (/play/:token/summary)
 
 ### 2. In-Game Round Gameplay
 
-- Single-player experience matching local game rules (Pinpoint map pin & date picker, or Album Shuffle card reordering and pin matching).
+- Single-player experience matching local game rules (Pinpoint map pin & date picker, or Unshuffle card reordering and pin matching).
 - Local restart buttons are hidden to prevent accidental session abandonment.
 - Turn timer features smooth 60 FPS transitions with audible ticks under 10s. If the timer expires, inputs freeze and zero points are scored cleanly.
 
@@ -121,7 +121,7 @@ Grand Reveal Summary (/play/:token/summary)
 - **Awards Section**: Awards such as 🎯 *Sniper*, ⏳ *Time Traveler*, and ⚡ *Speed Demon*.
 - **Visual Match Review**:
   - **Pinpoint Mode**: An interactive **Round Carousel** with photo preview, fullscreen SVG lightbox, scatter map of all players' guesses and connector lines, and date comparison chips.
-  - **Album Shuffle Mode**: A **World Journey Map** with spiderfy pin clustering and a **Polaroid Gallery** of all round photos.
+  - **Unshuffle Mode**: A **World Journey Map** with spiderfy pin clustering and a **Polaroid Gallery** of all round photos.
 - **Navigation Actions**: 1-click buttons to *Copy Invite Link*, *Copy Summary Link*, visit the *Challenges Hub*, or return *Home*.
 
 ---
@@ -160,10 +160,11 @@ Immich Quiz implements defense-in-depth protections for challenge matches:
 ## 5. Reverse Proxy & Zero Trust Deployment
 
 Immich Quiz consolidates all public player traffic under two clean prefixes:
+
 1. **`/play/*`**: Challenge SPA pages, player APIs, in-game photo flagging, and scoped media streaming.
 2. **`/static/*`**: Frontend assets (JavaScript bundles, CSS stylesheets, sound effects, favicons).
 
-All administrative, host-only, and moderation routes (`/`, `/challenges`, `/reported`, `/api/*`) remain strictly protected.
+All administrative, host-only, and moderation routes (`/`, `/challenges`, `/players`, `/replays`, `/reported`, `/api/*`) remain strictly protected.
 
 ### Path Protection Rules
 
@@ -173,6 +174,8 @@ All administrative, host-only, and moderation routes (`/`, `/challenges`, `/repo
 | `/static/*`        | **Public**            | Static frontend assets (JS, CSS, audio, icons)                              |
 | `/` (root lobby)   | **Protected / Host**  | Local game setup, quick solo/pass & play matches                            |
 | `/challenges`      | **Protected / Host**  | Challenges Hub management dashboard                                         |
+| `/players`         | **Protected / Host**  | Player Statistics Directory & Profiles                                      |
+| `/replays`         | **Protected / Host**  | Match Replay Catalog & Archives                                             |
 | `/reported`        | **Protected / Host**  | Photo inconsistency moderation dashboard                                    |
 | `/api/*`           | **Protected / Host**  | Host APIs (`/api/challenge/create`, `/api/challenge/list`, `/api/assets/*`, `/api/sync*`) |
 
@@ -183,6 +186,7 @@ All administrative, host-only, and moderation routes (`/`, `/challenges`, `/repo
 If you run Immich Quiz behind Cloudflare Zero Trust (Cloudflare Access), protecting your instance requires zero reverse-proxy regexes or priority conflicts:
 
 #### 1. Public Challenge Bypass Application
+
 - **Application Type**: Self-hosted
 - **Application Name**: `Immich Quiz - Challenge Player`
 - **Application Domain**: `quiz.example.com`
@@ -193,6 +197,7 @@ If you run Immich Quiz behind Cloudflare Zero Trust (Cloudflare Access), protect
   - Rule (Include): **Everyone**
 
 #### 2. Default Protected Application
+
 - **Application Type**: Self-hosted
 - **Application Name**: `Immich Quiz - Host`
 - **Application Domain**: `quiz.example.com`
@@ -274,4 +279,3 @@ services:
       - "traefik.http.routers.quiz-admin.service=quiz-service"
       - "traefik.http.services.quiz-service.loadbalancer.server.port=8010"
 ```
-

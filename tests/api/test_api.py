@@ -688,7 +688,7 @@ def test_audio_playground_endpoint(client: TestClient) -> None:
     assert 'playChime()' in res.text
 
 
-def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
+def test_unshuffle_multi_round_game(tmp_path: Path) -> None:
     assets = [
         make_asset(
             f'asset-{i}',
@@ -701,7 +701,7 @@ def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
-    payload = setup_payload(game_mode='album_shuffle', round_count=5, players=['Player 1'])
+    payload = setup_payload(game_mode='unshuffle', round_count=5, players=['Player 1'])
     setup_res = client.post('/api/game/setup', json=payload)
     assert setup_res.status_code == 200
     match_id = setup_res.json()['match_id']
@@ -711,14 +711,14 @@ def test_album_shuffle_multi_round_game(tmp_path: Path) -> None:
         q_res = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': played})
         assert q_res.status_code == 200
         q_data = q_res.json()
-        assert q_data['game_mode'] == 'album_shuffle'
+        assert q_data['game_mode'] == 'unshuffle'
 
         a_res = client.post(
             '/api/answer',
             json={
                 'match_id': match_id,
                 'question_id': q_data['question_id'],
-                'album_shuffle': [
+                'unshuffle': [
                     {'photo_id': p['photo_id'], 'assigned_pin_id': 'A', 'assigned_timeline_index': idx}
                     for idx, p in enumerate(q_data['batch_photos'])
                 ],
@@ -764,7 +764,7 @@ def test_batch_validation_distance_and_time_constraints() -> None:
     assert is_asset_valid_for_batch(valid_cand, [sel_asset], location_mode=True, date_mode=True) is True
 
 
-def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> None:
+def test_unshuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> None:
     assets = [
         make_asset(
             f'asset-{i}',
@@ -777,7 +777,7 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
-    payload = setup_payload(game_mode='album_shuffle', round_count=5, players=['Player 1'])
+    payload = setup_payload(game_mode='unshuffle', round_count=5, players=['Player 1'])
     setup_res = client.post('/api/game/setup', json=payload)
     match_id = setup_res.json()['match_id']
 
@@ -789,7 +789,7 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
         json={
             'match_id': match_id,
             'question_id': q_data['question_id'],
-            'album_shuffle': [],
+            'unshuffle': [],
             'timed_out': True,
         },
     )
@@ -803,7 +803,7 @@ def test_album_shuffle_timed_out_answers_receive_zero_points(tmp_path: Path) -> 
     assert entry['round_score'] == 0
 
 
-def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) -> None:
+def test_unshuffle_timed_out_with_answers_receives_points(tmp_path: Path) -> None:
     assets = [
         make_asset(
             f'asset-{i}',
@@ -816,7 +816,7 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
-    payload = setup_payload(game_mode='album_shuffle', round_count=5, players=['Player 1'])
+    payload = setup_payload(game_mode='unshuffle', round_count=5, players=['Player 1'])
     setup_res = client.post('/api/game/setup', json=payload)
     match_id = setup_res.json()['match_id']
 
@@ -843,7 +843,7 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
         json={
             'match_id': match_id,
             'question_id': q_data['question_id'],
-            'album_shuffle': answers,
+            'unshuffle': answers,
             'timed_out': True,
         },
     )
@@ -855,7 +855,7 @@ def test_album_shuffle_timed_out_with_answers_receives_points(tmp_path: Path) ->
     assert entry['date_score'] == 100
 
 
-def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> None:
+def test_unshuffle_exact_sequence_placement_date_score(tmp_path: Path) -> None:
     assets = [
         make_asset(
             f'asset-{i}',
@@ -868,7 +868,7 @@ def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> No
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
-    payload = setup_payload(game_mode='album_shuffle', round_count=5, players=['Player 1'])
+    payload = setup_payload(game_mode='unshuffle', round_count=5, players=['Player 1'])
     setup_res = client.post('/api/game/setup', json=payload)
     match_id = setup_res.json()['match_id']
 
@@ -887,7 +887,7 @@ def test_album_shuffle_exact_sequence_placement_date_score(tmp_path: Path) -> No
     ]
     a_res = client.post(
         '/api/answer',
-        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle': answers_perfect},
+        json={'match_id': match_id, 'question_id': q_data['question_id'], 'unshuffle': answers_perfect},
     )
     assert a_res.status_code == 200
     res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
@@ -918,7 +918,7 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
     client = build_client(tmp_path, immich)
 
     payload = setup_payload(
-        game_mode='album_shuffle',
+        game_mode='unshuffle',
         location_mode=False,
         date_mode=True,
         round_count=5,
@@ -933,14 +933,14 @@ def test_batch_pins_omitted_when_location_mode_is_false(tmp_path: Path) -> None:
     assert q_data['batch_pins'] is None
     assert len(q_data['batch_photos']) == 3
 
-    # Answer and fetch round result in Date-Only Album Shuffle mode
+    # Answer and fetch round result in Date-Only Unshuffle mode
     answers = [
         {'photo_id': p['photo_id'], 'assigned_pin_id': None, 'assigned_timeline_index': i}
         for i, p in enumerate(q_data['batch_photos'])
     ]
     a_res = client.post(
         '/api/answer',
-        json={'match_id': match_id, 'question_id': q_data['question_id'], 'album_shuffle': answers},
+        json={'match_id': match_id, 'question_id': q_data['question_id'], 'unshuffle': answers},
     )
     assert a_res.status_code == 200
     res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1})
@@ -998,13 +998,13 @@ def test_all_players_in_same_round_receive_same_photo_even_with_played_asset_ids
     assert q_bob['asset_id'] == alice_asset_id
 
 
-def test_album_shuffle_reselects_batch_when_asset_marked_played(tmp_path: Path) -> None:
+def test_unshuffle_reselects_batch_when_asset_marked_played(tmp_path: Path) -> None:
     assets = [make_asset(f'asset-{i}', captured=f'2024-01-{i + 1:02d}T10:00:00Z') for i in range(15)]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
     payload = setup_payload(
-        game_mode='album_shuffle',
+        game_mode='unshuffle',
         location_mode=False,
         date_mode=True,
         round_count=5,
@@ -1064,13 +1064,13 @@ def test_setup_smart_map_zoom_disabled_when_location_mode_false(tmp_path: Path) 
     assert res.json()['map_bounds'] is None
 
 
-def test_setup_smart_map_zoom_disabled_for_album_shuffle(tmp_path: Path) -> None:
+def test_setup_smart_map_zoom_disabled_for_unshuffle(tmp_path: Path) -> None:
     assets = [make_asset(f'photo-{i}', latitude=43.76 + i * 0.01, longitude=11.25 + i * 0.01) for i in range(15)]
     immich = FakeImmichClient(assets)
     client = build_client(tmp_path, immich)
 
     payload = setup_payload(
-        game_mode='album_shuffle',
+        game_mode='unshuffle',
         location_mode=True,
         date_mode=True,
     )
@@ -1529,7 +1529,8 @@ def test_spa_catch_all_routes_return_html(client: TestClient) -> None:
         '/game/abc-123',
         '/game/abc-123/summary',
         '/play/challenge-tok-123',
-        '/stats',
+        '/players',
+        '/replays',
     ):
         response = client.get(path)
         assert response.status_code == 200
@@ -1664,8 +1665,8 @@ def test_multiplayer_same_round_same_asset_and_reload_persistence(tmp_path: Path
     assert round_res['pinpoint_reveal']['media_url'] == f'/api/media/{asset_id_round_1}'
 
 
-def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) -> None:
-    """Verify Album Shuffle preserves identical batch assets across players and on reload."""
+def test_unshuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) -> None:
+    """Verify Unshuffle preserves identical batch assets across players and on reload."""
     immich = FakeImmichClient(
         [
             make_asset(
@@ -1680,7 +1681,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
     client = build_client(tmp_path, immich)
     payload = setup_payload(
         players=['Alice', 'Bob'],
-        game_mode='album_shuffle',
+        game_mode='unshuffle',
         round_count=5,
         location_mode=True,
         date_mode=True,
@@ -1689,10 +1690,10 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
     assert res.status_code == 200
     match_id = res.json()['match_id']
 
-    # 1. Alice gets Round 1 question in Album Shuffle
+    # 1. Alice gets Round 1 question in Unshuffle
     q_alice = client.post('/api/question', json={'match_id': match_id, 'played_asset_ids': []}).json()
     assert q_alice['player_name'] == 'Alice'
-    assert q_alice['game_mode'] == 'album_shuffle'
+    assert q_alice['game_mode'] == 'unshuffle'
     assert len(q_alice['batch_photos']) == 3
     alice_photo_ids = [p['photo_id'] for p in q_alice['batch_photos']]
     alice_pins = q_alice['batch_pins']
@@ -1708,7 +1709,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
         json={
             'match_id': match_id,
             'question_id': q_alice['question_id'],
-            'album_shuffle': [
+            'unshuffle': [
                 {'photo_id': alice_photo_ids[0], 'assigned_pin_id': 'A', 'assigned_timeline_index': 0},
                 {'photo_id': alice_photo_ids[1], 'assigned_pin_id': 'B', 'assigned_timeline_index': 1},
                 {'photo_id': alice_photo_ids[2], 'assigned_pin_id': 'C', 'assigned_timeline_index': 2},
@@ -1734,7 +1735,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
         json={
             'match_id': match_id,
             'question_id': q_bob['question_id'],
-            'album_shuffle': [
+            'unshuffle': [
                 {'photo_id': alice_photo_ids[0], 'assigned_pin_id': 'A', 'assigned_timeline_index': 0},
                 {'photo_id': alice_photo_ids[1], 'assigned_pin_id': 'B', 'assigned_timeline_index': 1},
                 {'photo_id': alice_photo_ids[2], 'assigned_pin_id': 'C', 'assigned_timeline_index': 2},
@@ -1745,7 +1746,7 @@ def test_album_shuffle_multiplayer_same_round_and_reveal_reload(tmp_path: Path) 
 
     # 7. Fetch round result -> batch_reveal must contain all 3 photos with metadata
     round_res = client.post('/api/round/result', json={'match_id': match_id, 'round_number': 1}).json()
-    assert round_res['game_mode'] == 'album_shuffle'
+    assert round_res['game_mode'] == 'unshuffle'
     assert len(round_res['batch_reveal']) == 3
     reveal_pids = [br['photo_id'] for br in round_res['batch_reveal']]
     assert set(reveal_pids) == set(alice_photo_ids)

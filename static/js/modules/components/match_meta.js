@@ -48,25 +48,31 @@ export function getMatchMetaCategories(data) {
 
   const filterConfig = data.config || data;
 
-  const isShuffle = (data.game_mode || filterConfig.game_mode) === "album_shuffle";
+  const isShuffle = (data.game_mode || filterConfig.game_mode) === "unshuffle";
   const modeEmoji = isShuffle ? "🔀" : "🎯";
-  const modeLabel = isShuffle ? t("mode.album_shuffle") : t("mode.pinpoint");
-  const modeDesc = isShuffle ? t("mode.album_shuffle_desc") : t("mode.pinpoint_desc");
+  const modeLabel = isShuffle ? t("mode.unshuffle") : t("mode.pinpoint");
+  const modeDesc = isShuffle ? t("mode.unshuffle_desc") : t("mode.pinpoint_desc");
 
   // 1. Targets / Guessing Mode
   const locMode = data.location_mode !== undefined ? data.location_mode : filterConfig.location_mode;
   const dateMode = data.date_mode !== undefined ? data.date_mode : filterConfig.date_mode;
   let targetsLabel = "";
+  let targetsIcon = "🧭";
   if (isShuffle) {
     targetsLabel = tOr("meta.targets_shuffle", "Pins & Timeline");
+    targetsIcon = "🗂️";
   } else if (locMode && dateMode) {
     targetsLabel = tOr("meta.targets_loc_date", "Location & Date");
+    targetsIcon = "🧭";
   } else if (locMode) {
     targetsLabel = tOr("meta.targets_loc_only", "Location only");
+    targetsIcon = "📍";
   } else if (dateMode) {
     targetsLabel = tOr("meta.targets_date_only", "Date only");
+    targetsIcon = "📅";
   } else {
     targetsLabel = "—";
+    targetsIcon = "🧭";
   }
 
   // 2. Rounds Count
@@ -94,7 +100,7 @@ export function getMatchMetaCategories(data) {
     },
     {
       type: "targets",
-      icon: "🎯",
+      icon: targetsIcon,
       label: tOr("meta.targets_label", "Targets"),
       val: targetsLabel,
       title: `${t("setup.game_settings_label") || "What to Guess"}: ${targetsLabel}`,

@@ -23,7 +23,12 @@ import {
   launchStarBurst,
 } from "../effects.js";
 import { playChime, playPinDropSound } from "../audio.js";
+import { renderRevealTableHeaders, renderRevealTableRows } from "../components/reveal_table.js";
+import { RoundStage } from "../components/round_stage.js";
+import { openReportModal } from "../components/report_modal.js";
 import { challenge } from "../challenge/index.js";
+
+let _pinpointStage = null;
 
 const EARLIEST_YEAR = 1930;
 const SMART_MAP_MAX_INITIAL_ZOOM = 13;
@@ -178,145 +183,54 @@ function renderRevealSummary(reveal, skipEffects = false) {
     playerName: activePlayer,
   });
 
-  el.revealActual.replaceChildren();
+  if (!_pinpointStage && el.revealActual) {
+    el.revealActual.replaceChildren();
 
-  const pr = reveal.pinpoint_reveal;
-  if (reveal.date_mode && pr) {
-    const dateChip = document.createElement("span");
-    dateChip.className = "reveal-actual-chip reveal-chip-date";
+    const pr = reveal.pinpoint_reveal;
+    if (reveal.date_mode && pr) {
+      const dateChip = document.createElement("span");
+      dateChip.className = "reveal-actual-chip reveal-chip-date";
 
-    const dateIcon = document.createElement("span");
-    dateIcon.className = "reveal-chip-icon";
-    dateIcon.setAttribute("aria-hidden", "true");
-    dateIcon.textContent = "📅";
+      const dateIcon = document.createElement("span");
+      dateIcon.className = "reveal-chip-icon";
+      dateIcon.setAttribute("aria-hidden", "true");
+      dateIcon.textContent = "📅";
 
-    const labelSpan = document.createElement("span");
-    labelSpan.className = "reveal-chip-label";
-    labelSpan.setAttribute("data-i18n", "reveal.actual_date");
-    labelSpan.textContent = t("reveal.actual_date");
+      const valSpan = document.createElement("strong");
+      valSpan.className = "reveal-chip-val";
+      valSpan.textContent = ` ${formatMonth(pr.actual_year, pr.actual_month)}`;
 
-    const valSpan = document.createElement("strong");
-    valSpan.className = "reveal-chip-val";
-    valSpan.textContent = ` ${formatMonth(pr.actual_year, pr.actual_month)}`;
+      dateChip.append(dateIcon, valSpan);
+      el.revealActual.appendChild(dateChip);
+    }
+    if (reveal.location_mode && pr) {
+      const locChip = document.createElement("span");
+      locChip.className = "reveal-actual-chip reveal-chip-location";
 
-    dateChip.append(dateIcon, labelSpan, valSpan);
-    el.revealActual.appendChild(dateChip);
-  }
-  if (reveal.location_mode && pr) {
-    const locChip = document.createElement("span");
-    locChip.className = "reveal-actual-chip reveal-chip-location";
+      const locIcon = document.createElement("span");
+      locIcon.className = "reveal-chip-icon";
+      locIcon.setAttribute("aria-hidden", "true");
+      locIcon.textContent = "🗺️";
 
-    const locIcon = document.createElement("span");
-    locIcon.className = "reveal-chip-icon";
-    locIcon.setAttribute("aria-hidden", "true");
-    locIcon.textContent = "🗺️";
+      const valSpan = document.createElement("strong");
+      valSpan.className = "reveal-chip-val";
+      valSpan.textContent = ` ${formatPlace(pr)}`;
 
-    const labelSpan = document.createElement("span");
-    labelSpan.className = "reveal-chip-label";
-    labelSpan.setAttribute("data-i18n", "reveal.actual_location");
-    labelSpan.textContent = t("reveal.actual_location");
-
-    const valSpan = document.createElement("strong");
-    valSpan.className = "reveal-chip-val";
-    valSpan.textContent = ` ${formatPlace(pr)}`;
-
-    locChip.append(locIcon, labelSpan, valSpan);
-    el.revealActual.appendChild(locChip);
+      locChip.append(locIcon, valSpan);
+      el.revealActual.appendChild(locChip);
+    }
   }
 
-  const groups = [];
-  if (reveal.location_mode) {
-    groups.push({
-      key: "reveal.col_location",
-      label: t("reveal.col_location"),
-      columns: [
-        { key: "reveal.col_points", mobileKey: "reveal.col_location", label: t("reveal.col_points"), mobileLabel: t("reveal.col_location"), class: "" },
-        { key: "reveal.col_distance_error", label: t("reveal.col_distance_error"), class: "hide-on-mobile" },
-      ],
-    });
-  }
-  if (reveal.date_mode) {
-    groups.push({
-      key: "reveal.col_date",
-      label: t("reveal.col_date"),
-      columns: [
-        { key: "reveal.col_points", mobileKey: "reveal.col_date", label: t("reveal.col_points"), mobileLabel: t("reveal.col_date"), class: "" },
-        { key: "reveal.col_guessed", label: t("reveal.col_guessed"), class: "hide-on-mobile" },
-        { key: "reveal.col_date_error", label: t("reveal.col_date_error"), class: "hide-on-mobile" },
-      ],
-    });
-  }
-  groups.push({
-    key: "reveal.col_score",
-    label: t("reveal.col_score"),
-    columns: [
-      { key: "reveal.col_round", label: t("reveal.col_round"), class: "hide-on-mobile" },
-      { key: "reveal.col_total", mobileKey: "reveal.col_score", label: t("reveal.col_total"), mobileLabel: t("reveal.col_score"), class: "group-start-mobile" },
-    ],
-  });
-
-  const groupRow = document.createElement("tr");
-  groupRow.className = "group-head-row";
-  const playerHead = buildCell(t("reveal.col_player"), true);
-  playerHead.setAttribute("data-i18n", "reveal.col_player");
-  playerHead.rowSpan = 2;
-  groupRow.appendChild(playerHead);
-  groups.forEach((group) => {
-    const cell = buildCell(group.label, true);
-    if (group.key) cell.setAttribute("data-i18n", group.key);
-    cell.colSpan = group.columns.length;
-    cell.className = "group-head group-start";
-    groupRow.appendChild(cell);
-  });
-
-  const columnRow = document.createElement("tr");
-  columnRow.className = "column-head-row";
-  const playerSubHead = buildCell(t("reveal.col_player"), true);
-  playerSubHead.setAttribute("data-i18n", "reveal.col_player");
-  playerSubHead.className = "player-subhead hide-on-desktop";
-  columnRow.appendChild(playerSubHead);
-
-  groups.forEach((group) => {
-    group.columns.forEach((col, index) => {
-      const cell = buildCell("", true);
-      const labelSpan = document.createElement("span");
-      labelSpan.className = "desktop-head-label";
-      if (col.key) labelSpan.setAttribute("data-i18n", col.key);
-      labelSpan.textContent = col.label;
-      cell.appendChild(labelSpan);
-
-      if (col.mobileLabel) {
-        cell.setAttribute("data-mobile-label", col.mobileLabel);
-        if (col.mobileKey) cell.setAttribute("data-mobile-key", col.mobileKey);
-      }
-
-      const classes = [];
-      if (index === 0) classes.push("group-start");
-      if (col.class) classes.push(col.class);
-      if (classes.length > 0) cell.className = classes.join(" ");
-      columnRow.appendChild(cell);
-    });
-  });
-  const targetTableHead = el.revealTableHead || document.querySelector("#reveal-table thead");
-  if (targetTableHead) targetTableHead.replaceChildren(groupRow, columnRow);
-
+  // Update persistent player stats
   const maxPoints = reveal.score_max_points || state.scoreMaxPoints || 100;
   const maxRoundPoints = (reveal.location_mode ? maxPoints : 0) + (reveal.date_mode ? maxPoints : 0);
-  let hasAnyPerfectInRound = false;
 
-  const ordered = [...reveal.results].sort((a, b) => b.round_score - a.round_score);
-  el.revealTableBody.replaceChildren();
-
-  ordered.forEach((result, rIdx) => {
+  (reveal.results || []).forEach((result) => {
     const p = result.pinpoint || result;
     const isPerfectLocation = reveal.location_mode && (result.location_score === maxPoints || p.distance_km === 0);
     const isPerfectDate = reveal.date_mode && (result.date_score === maxPoints || p.date_diff_days === 0);
     const isPerfectRound = maxRoundPoints > 0 && result.round_score === maxRoundPoints;
     const isPerfectPlayer = isPerfectLocation || isPerfectDate || isPerfectRound;
-
-    if (isPerfectPlayer) {
-      hasAnyPerfectInRound = true;
-    }
 
     if (isPerfectPlayer) {
       state.perfectCounts[result.player_name] = (state.perfectCounts[result.player_name] || 0) + 1;
@@ -343,117 +257,23 @@ function renderRevealSummary(reveal, skipEffects = false) {
     if (isPerfectDate) ps.perfectDateCount += 1;
     if (isPerfectPlayer) ps.perfectRounds += 1;
     if (result.timed_out) ps.timedOutCount += 1;
+  });
 
-    const row = document.createElement("tr");
-    if (isPerfectPlayer) {
-      row.className = "is-perfect-row";
-    }
+  const table = el.revealTable || document.getElementById("reveal-table");
+  renderRevealTableHeaders(table, {
+    locationMode: Boolean(reveal.location_mode),
+    dateMode: Boolean(reveal.date_mode),
+    gameMode: "pinpoint",
+    showRank: false,
+  });
 
-    const nameCell = playerNameCell(result.player_name, result.timed_out);
-    const count = state.perfectCounts[result.player_name] || 0;
-    if (count > 0) {
-      const countBadge = document.createElement("span");
-      countBadge.className = "perfect-count-badge";
-      countBadge.textContent = t("fmt.perfect_count", count);
-      nameCell.appendChild(countBadge);
-    }
-    row.appendChild(buildCell(nameCell));
-
-    const valueGroups = [];
-    if (reveal.location_mode) {
-      const distStr = p.guessed_latitude === null || p.guessed_latitude === undefined ? t("fmt.no_guess") : formatDistance(p.distance_km);
-      valueGroups.push({
-        isPerfect: isPerfectLocation,
-        items: [
-          {
-            value: result.location_score === null ? "-" : String(result.location_score),
-            scoreNum: result.location_score,
-            isScore: result.location_score !== null && result.location_score !== undefined,
-            maxScore: maxPoints,
-            subtext: distStr !== t("fmt.no_guess") ? distStr : null,
-            class: "",
-          },
-          {
-            value: distStr,
-            class: "hide-on-mobile",
-          },
-        ],
-      });
-    }
-    if (reveal.date_mode) {
-      const dateErrStr = formatMonthError(result);
-      const guessedDateStr = formatMonth(p.guessed_year, p.guessed_month);
-      valueGroups.push({
-        isPerfect: isPerfectDate,
-        items: [
-          {
-            value: result.date_score === null ? "-" : String(result.date_score),
-            scoreNum: result.date_score,
-            isScore: result.date_score !== null && result.date_score !== undefined,
-            maxScore: maxPoints,
-            subtext: dateErrStr !== "-" ? dateErrStr : null,
-            class: "",
-          },
-          {
-            value: guessedDateStr,
-            class: "hide-on-mobile",
-          },
-          {
-            value: dateErrStr,
-            class: "hide-on-mobile",
-          },
-        ],
-      });
-    }
-
-    valueGroups.push({
-      isPerfect: isPerfectRound,
-      items: [
-        {
-          value: String(result.round_score ?? 0),
-          scoreNum: result.round_score ?? 0,
-          isScore: true,
-          maxScore: maxRoundPoints,
-          class: "hide-on-mobile",
-        },
-        {
-          value: String(result.total_score ?? 0),
-          scoreNum: result.total_score ?? 0,
-          startScore: Math.max(0, (result.total_score ?? 0) - (result.round_score ?? 0)),
-          isScore: true,
-          maxScore: maxRoundPoints,
-          class: "group-start-mobile",
-        },
-      ],
-    });
-
-    valueGroups.forEach((group) => {
-      group.items.forEach((itemObj, index) => {
-        const cell = buildCell(itemObj.value);
-        if (itemObj.class) {
-          cell.classList.add(...itemObj.class.split(" ").filter(Boolean));
-        }
-        if (itemObj.subtext) {
-          const subSpan = document.createElement("span");
-          subSpan.className = "subtext-mobile-only";
-          subSpan.textContent = `(${itemObj.subtext})`;
-          cell.appendChild(subSpan);
-        }
-        if (index === 0) {
-          cell.classList.add("group-start");
-          if (group.isPerfect) {
-            cell.classList.add("is-perfect-cell");
-            cell.appendChild(createPerfectBadge());
-          }
-        }
-        if (itemObj.isScore) {
-          animateScoreRollup(cell, itemObj.scoreNum, itemObj.maxScore, "", skipEffects, itemObj.startScore || 0);
-        }
-        row.appendChild(cell);
-      });
-    });
-
-    el.revealTableBody.appendChild(row);
+  const hasAnyPerfectInRound = renderRevealTableRows(table, reveal.results, {
+    locationMode: Boolean(reveal.location_mode),
+    dateMode: Boolean(reveal.date_mode),
+    gameMode: "pinpoint",
+    maxPoints,
+    skipEffects,
+    showRank: false,
   });
 
   if (!skipEffects && hasAnyPerfectInRound) {
@@ -464,12 +284,15 @@ function renderRevealSummary(reveal, skipEffects = false) {
 }
 
 function renderRevealMap(reveal) {
-  el.revealMapShell.classList.toggle("hidden", !reveal.location_mode);
-  el.revealMapHead.classList.toggle("hidden", !reveal.location_mode);
+  const mediaRow = document.getElementById("pinpoint-media-map-row");
   if (!reveal.location_mode) {
+    if (el.revealMapShell) el.revealMapShell.classList.add("hidden");
+    if (mediaRow) mediaRow.classList.add("single-col");
     clearRevealAnimation();
     return;
   }
+  if (el.revealMapShell) el.revealMapShell.classList.remove("hidden");
+  if (mediaRow) mediaRow.classList.remove("single-col");
 
   ensureRevealMap();
   clearRevealAnimation();
@@ -596,11 +419,16 @@ function ensurePinpointHelpModal() {
       });
     }
 
+    let isBackdropPress = false;
+    modal.addEventListener("pointerdown", (event) => {
+      isBackdropPress = (event.target === modal);
+    });
     modal.addEventListener("click", (event) => {
-      if (event.target === modal) {
+      if (isBackdropPress && event.target === modal) {
         modal.classList.add("hidden");
         modal.setAttribute("aria-hidden", "true");
       }
+      isBackdropPress = false;
     });
 
     document.addEventListener("keydown", (event) => {
@@ -760,6 +588,13 @@ export const pinpointMode = {
   },
 
   togglePhotoFullscreen() {
+    if (state.currentScreen === "reveal") {
+      const stageMediaFrame = document.getElementById("pinpoint-reveal-media-frame");
+      if (stageMediaFrame) {
+        toggleMapFullscreen(stageMediaFrame);
+        return;
+      }
+    }
     if (el.mediaFrame) {
       toggleMapFullscreen(el.mediaFrame);
     }
@@ -897,20 +732,50 @@ export const pinpointMode = {
 
   renderReveal(revealUi, revealData) {
     const pinpointReveal = document.getElementById("pinpoint-reveal-ui");
-    const shuffleReveal = document.getElementById("album-shuffle-reveal-ui");
+    const shuffleReveal = document.getElementById("unshuffle-reveal-ui");
     if (pinpointReveal) pinpointReveal.classList.remove("hidden");
     if (shuffleReveal) shuffleReveal.classList.add("hidden");
 
-    if (el.mediaFrame) el.mediaFrame.classList.remove("hidden");
-    if (el.quizImage) {
-      const mediaUrl = revealData?.pinpoint_reveal?.media_url || revealData?.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null);
-      if (mediaUrl) {
-        el.quizImage.src = mediaUrl;
-      }
-      el.quizImage.classList.remove("hidden");
+    if (el.mediaFrame) el.mediaFrame.classList.add("hidden");
+
+    const mediaUrl = revealData?.pinpoint_reveal?.media_url || revealData?.media_url || (state.currentQuestion ? state.currentQuestion.media_url : null);
+    if (el.quizImage && mediaUrl) {
+      el.quizImage.src = mediaUrl;
     }
-    if (el.quizImageFullscreen) el.quizImageFullscreen.classList.remove("hidden");
-    if (el.mediaPlaceholder) el.mediaPlaceholder.classList.add("hidden");
+
+    const stageEl = document.querySelector("#pinpoint-reveal-ui .round-stage");
+    if (stageEl) {
+      if (!_pinpointStage) {
+        _pinpointStage = new RoundStage(stageEl, {
+          idPrefix: "pinpoint-",
+          showReportButton: true,
+          onReportPhoto: (assetId, previewUrl) => {
+            const pName = (challenge && challenge.isActive() ? challenge.challengeSession?.sessionPlayerName : null) || (state.players && state.players[0]) || null;
+            openReportModal(assetId, previewUrl, pName);
+          },
+        });
+      }
+      _pinpointStage.setModes({
+        locationMode: Boolean(revealData?.location_mode),
+        dateMode: Boolean(revealData?.date_mode),
+      });
+      const pr = revealData?.pinpoint_reveal;
+      const assetId = pr?.asset_id || revealData?.asset_id || (state.currentQuestion ? state.currentQuestion.asset_id : "");
+      _pinpointStage.setPhotos([
+        {
+          asset_id: assetId,
+          media_url: mediaUrl || "",
+          actual_latitude: pr?.actual_latitude,
+          actual_longitude: pr?.actual_longitude,
+          actual_city: pr?.actual_city,
+          actual_country: pr?.actual_country,
+          actual_date: pr?.actual_date,
+          actual_year: pr?.actual_year,
+          actual_month: pr?.actual_month,
+        },
+      ], 0);
+    }
+
     renderRevealSummary(revealData);
     renderRevealMap(revealData);
   },

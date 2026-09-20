@@ -7,7 +7,7 @@ from pathlib import Path
 
 from conftest import FakeImmichClient, build_client, make_asset
 
-from src.models import AlbumShuffleAnswerItem
+from src.models import UnshuffleAnswerItem
 
 
 def _create_mock_assets(count: int = 25) -> list[dict]:
@@ -78,14 +78,14 @@ def test_challenge_create_auto_title_when_omitted(tmp_path: Path) -> None:
     assert "Alice's" in data['title']
 
 
-def test_challenge_create_album_shuffle(tmp_path: Path) -> None:
+def test_challenge_create_unshuffle(tmp_path: Path) -> None:
     immich = FakeImmichClient(_create_mock_assets(25))
     client = build_client(tmp_path, immich)
 
     payload = {
         'creator_name': 'Host',
         'title': 'Shuffle Match',
-        'game_mode': 'album_shuffle',
+        'game_mode': 'unshuffle',
         'round_count': 5,  # 5 rounds * 3 photos = 15 photos needed
         'round_length': '1m',
         'location_mode': True,
@@ -96,7 +96,7 @@ def test_challenge_create_album_shuffle(tmp_path: Path) -> None:
     assert res.status_code == 200
     data = res.json()
     assert data['rounds'] == 5
-    assert data['game_mode'] == 'album_shuffle'
+    assert data['game_mode'] == 'unshuffle'
 
 
 def test_challenge_create_insufficient_photos(tmp_path: Path) -> None:
@@ -324,13 +324,13 @@ def test_challenge_answer_pinpoint_and_personal_reveal(tmp_path: Path) -> None:
     assert conflict_q.status_code == 409
 
 
-def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
+def test_challenge_answer_unshuffle(tmp_path: Path) -> None:
     immich = FakeImmichClient(_create_mock_assets(25))
     client = build_client(tmp_path, immich)
 
     create_res = client.post(
         '/api/challenge/create',
-        json={'creator_name': 'Host', 'game_mode': 'album_shuffle', 'round_count': 5},
+        json={'creator_name': 'Host', 'game_mode': 'unshuffle', 'round_count': 5},
     )
     token = create_res.json()['capability_token']
 
@@ -356,18 +356,18 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
-            'album_shuffle': [
-                AlbumShuffleAnswerItem(
+            'unshuffle': [
+                UnshuffleAnswerItem(
                     photo_id=p_ids[0],
                     assigned_pin_id=pin_ids[0],
                     assigned_timeline_index=0,
                 ).model_dump(),
-                AlbumShuffleAnswerItem(
+                UnshuffleAnswerItem(
                     photo_id=p_ids[1],
                     assigned_pin_id=pin_ids[1],
                     assigned_timeline_index=1,
                 ).model_dump(),
-                AlbumShuffleAnswerItem(
+                UnshuffleAnswerItem(
                     photo_id=p_ids[2],
                     assigned_pin_id=pin_ids[2],
                     assigned_timeline_index=2,
@@ -378,7 +378,7 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
     )
     assert ans_res.status_code == 200
     ans = ans_res.json()
-    assert ans['game_mode'] == 'album_shuffle'
+    assert ans['game_mode'] == 'unshuffle'
     assert ans['batch_reveal'] is not None
     assert len(ans['batch_reveal']) == 3
     assert ans['is_game_over'] is False
@@ -390,7 +390,7 @@ def test_challenge_answer_album_shuffle(tmp_path: Path) -> None:
     )
     assert lb_res.status_code == 200
     lb_data = lb_res.json()
-    assert lb_data['game_mode'] == 'album_shuffle'
+    assert lb_data['game_mode'] == 'unshuffle'
     assert lb_data['location_mode'] is True
     assert lb_data['date_mode'] is True
     assert len(lb_data['round_history']) == 1
@@ -625,7 +625,7 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
 
     c2 = client.post(
         '/api/challenge/create',
-        json={'creator_name': 'Host2', 'title': 'Shuffle Match', 'game_mode': 'album_shuffle', 'round_count': 3},
+        json={'creator_name': 'Host2', 'title': 'Shuffle Match', 'game_mode': 'unshuffle', 'round_count': 3},
     ).json()
 
     # 2. Add player to c1 to test participant count
@@ -642,7 +642,7 @@ def test_challenge_list_and_deactivate_endpoints(tmp_path: Path) -> None:
     # Check first item (c2 was created last so appears first)
     c2_item = next(c for c in challenges if c['challenge_id'] == c2['challenge_id'])
     assert c2_item['title'] == 'Shuffle Match'
-    assert c2_item['game_mode'] == 'album_shuffle'
+    assert c2_item['game_mode'] == 'unshuffle'
     assert c2_item['rounds'] == 3
     assert c2_item['is_active'] is True
     assert c2_item['total_participants'] == 0
@@ -791,14 +791,14 @@ def test_challenge_individual_player_colors_api(tmp_path: Path) -> None:
     assert lb_data['round_guesses'][0]['player_color'] == '#f25f5c'
 
 
-def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> None:
+def test_challenge_unshuffle_opponent_guesses_retrieval(tmp_path: Path) -> None:
     immich = FakeImmichClient(_create_mock_assets(25))
     client = build_client(tmp_path, immich)
 
-    # 1. Create Album Shuffle Challenge
+    # 1. Create Unshuffle Challenge
     create_res = client.post(
         '/api/challenge/create',
-        json={'creator_name': 'Host', 'game_mode': 'album_shuffle', 'round_count': 3},
+        json={'creator_name': 'Host', 'game_mode': 'unshuffle', 'round_count': 3},
     )
     assert create_res.status_code == 200
     token = create_res.json()['capability_token']
@@ -828,7 +828,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
         headers={'X-Player-Token': host_token},
         json={
             'round_index': 0,
-            'album_shuffle': [
+            'unshuffle': [
                 {'photo_id': photo_ids[0], 'assigned_pin_id': pin_ids[0], 'assigned_timeline_index': 0},
                 {'photo_id': photo_ids[1], 'assigned_pin_id': pin_ids[1], 'assigned_timeline_index': 1},
                 {'photo_id': photo_ids[2], 'assigned_pin_id': pin_ids[2], 'assigned_timeline_index': 2},
@@ -844,7 +844,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
         headers={'X-Player-Token': bob_token},
         json={
             'round_index': 0,
-            'album_shuffle': [
+            'unshuffle': [
                 {'photo_id': photo_ids[0], 'assigned_pin_id': pin_ids[1], 'assigned_timeline_index': 2},
                 {'photo_id': photo_ids[1], 'assigned_pin_id': pin_ids[2], 'assigned_timeline_index': 0},
                 {'photo_id': photo_ids[2], 'assigned_pin_id': pin_ids[0], 'assigned_timeline_index': 1},
@@ -861,7 +861,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     )
     assert lb_res.status_code == 200
     lb_data = lb_res.json()
-    assert lb_data['game_mode'] == 'album_shuffle'
+    assert lb_data['game_mode'] == 'unshuffle'
 
     # Verify round_guesses contains both players' 3 photo guesses each (total 6)
     round_guesses = lb_data['round_guesses']
@@ -873,7 +873,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     assert len(bob_guesses) == 3
 
     # Check Host's assigned pins and timeline indexes are accurately preserved
-    host_map = {g['album_shuffle']['asset_id']: g['album_shuffle'] for g in host_guesses}
+    host_map = {g['unshuffle']['asset_id']: g['unshuffle'] for g in host_guesses}
     assert host_map[photo_ids[0]]['assigned_pin_id'] == pin_ids[0]
     assert host_map[photo_ids[0]]['assigned_timeline_index'] == 0
     assert host_map[photo_ids[1]]['assigned_pin_id'] == pin_ids[1]
@@ -882,7 +882,7 @@ def test_challenge_album_shuffle_opponent_guesses_retrieval(tmp_path: Path) -> N
     assert host_map[photo_ids[2]]['assigned_timeline_index'] == 2
 
     # Check Bob's assigned pins and timeline indexes are accurately preserved
-    bob_map = {g['album_shuffle']['asset_id']: g['album_shuffle'] for g in bob_guesses}
+    bob_map = {g['unshuffle']['asset_id']: g['unshuffle'] for g in bob_guesses}
     assert bob_map[photo_ids[0]]['assigned_pin_id'] == pin_ids[1]
     assert bob_map[photo_ids[0]]['assigned_timeline_index'] == 2
     assert bob_map[photo_ids[1]]['assigned_pin_id'] == pin_ids[2]
@@ -949,13 +949,13 @@ def test_challenge_standings_completion_status_for_in_progress_viewer(tmp_path: 
     assert p_map['Player3']['is_winner'] is False
 
 
-def test_challenge_album_shuffle_timeout(tmp_path: Path) -> None:
+def test_challenge_unshuffle_timeout(tmp_path: Path) -> None:
     immich = FakeImmichClient(_create_mock_assets(25))
     client = build_client(tmp_path, immich)
 
     create_res = client.post(
         '/api/challenge/create',
-        json={'creator_name': 'Host', 'game_mode': 'album_shuffle', 'round_count': 3},
+        json={'creator_name': 'Host', 'game_mode': 'unshuffle', 'round_count': 3},
     )
     assert create_res.status_code == 200
     token = create_res.json()['capability_token']
@@ -969,7 +969,7 @@ def test_challenge_album_shuffle_timeout(tmp_path: Path) -> None:
         headers={'X-Player-Token': p_token},
         json={
             'round_index': 0,
-            'album_shuffle_answers': [],
+            'unshuffle_answers': [],
             'time_taken_seconds': 60.0,
             'timed_out': True,
         },

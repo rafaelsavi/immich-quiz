@@ -1,4 +1,4 @@
-"""Playwright E2E tests for Album Shuffle gameplay: photo card reordering and multi-pin map assignment."""
+"""Playwright E2E tests for Unshuffle gameplay: photo card reordering and multi-pin map assignment."""
 
 from __future__ import annotations
 
@@ -7,13 +7,13 @@ import re
 from playwright.async_api import Page, expect
 
 
-async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page) -> None:
-    """Verify Album Shuffle interactive photo reordering, map pin selection, and reveal scoring."""
+async def test_unshuffle_card_reordering_and_multi_pin_placement(page: Page) -> None:
+    """Verify Unshuffle interactive photo reordering, map pin selection, and reveal scoring."""
     await page.goto('/')
 
-    # Select Album Shuffle mode
-    await page.locator('#mode-album-shuffle-btn').click()
-    await expect(page.locator('#mode-album-shuffle-btn')).to_have_class(re.compile(r'active'))
+    # Select Unshuffle mode
+    await page.locator('#mode-unshuffle-btn').click()
+    await expect(page.locator('#mode-unshuffle-btn')).to_have_class(re.compile(r'active'))
 
     # Start match
     await page.locator('#prepare-game-btn').click()
@@ -24,8 +24,8 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
         await page.locator('#ready-btn').click()
         await expect(page.locator('#pass-overlay')).to_be_hidden()
 
-    # Verify Album Shuffle Board & Cards
-    shuffle_ui = page.locator('#album-shuffle-ui')
+    # Verify Unshuffle Board & Cards
+    shuffle_ui = page.locator('#unshuffle-ui')
     await expect(shuffle_ui).to_be_visible()
 
     cards = page.locator('#shuffle-cards-list .shuffle-card-row')
@@ -88,22 +88,24 @@ async def test_album_shuffle_card_reordering_and_multi_pin_placement(page: Page)
     await submit_btn.click()
 
     await expect(page.locator('#reveal-ui')).to_be_visible()
-    await expect(page.locator('#album-shuffle-reveal-ui')).to_be_visible()
+    await expect(page.locator('#unshuffle-reveal-ui')).to_be_visible()
 
     # Verify reveal score table rendered
     reveal_table = page.locator('#shuffle-reveal-table')
     await expect(reveal_table).to_be_visible()
     await expect(reveal_table.locator('tbody tr')).to_have_count(1)
 
-    # Verify photo breakdown cards rendered and positioned side-by-side on wide viewport
-    breakdown_cards = page.locator('#shuffle-breakdown-grid .shuffle-photo-card')
-    await expect(breakdown_cards).to_have_count(3)
-    card0_offset_left = await breakdown_cards.nth(0).evaluate('el => el.offsetLeft')
-    card1_offset_left = await breakdown_cards.nth(1).evaluate('el => el.offsetLeft')
-    card0_offset_top = await breakdown_cards.nth(0).evaluate('el => el.offsetTop')
-    card1_offset_top = await breakdown_cards.nth(1).evaluate('el => el.offsetTop')
-    assert card0_offset_left < card1_offset_left, 'Cards should be laid out horizontally side-by-side'
-    assert card0_offset_top == card1_offset_top, 'Cards should be on the same row on desktop viewports'
+    # Verify stage photo & map row rendered alongside score table
+    stage_row = page.locator('#shuffle-media-map-row')
+    await expect(stage_row).to_be_visible()
+    photo_tabs = page.locator('#shuffle-photo-tabs-container .round-photo-tab-btn')
+    await expect(photo_tabs).to_have_count(3)
+    await expect(page.locator('#shuffle-reveal-img')).to_be_visible()
+    await expect(page.locator('#reveal-shuffle-map-shell')).to_be_visible()
+
+    # Verify photo tab switching updates active tab
+    await photo_tabs.nth(1).click()
+    await expect(photo_tabs.nth(1)).to_have_class(re.compile(r'active'))
 
     # Verify round meta in reveal shows round number and reveal badge, but no player chip in local match
     await expect(page.locator('#round-meta .round-meta-number')).to_be_visible()

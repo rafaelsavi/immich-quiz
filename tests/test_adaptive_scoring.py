@@ -188,7 +188,7 @@ def test_scoring_rewards_city_accuracy() -> None:
     assert city_score_500m == 90
 
 
-def test_album_shuffle_adaptive_location_scoring_city_vs_global() -> None:
+def test_unshuffle_adaptive_location_scoring_city_vs_global() -> None:
     # 3 photos in Rome (Colosseum, Vatican ~3.5 km apart, Villa Borghese)
     photo_coords = {
         'p1': (41.8902, 12.4922),  # Colosseum
@@ -214,7 +214,7 @@ def test_album_shuffle_adaptive_location_scoring_city_vs_global() -> None:
     assert 97 <= global_score <= 100
 
 
-def test_album_shuffle_adaptive_date_scoring_vacation_vs_archive() -> None:
+def test_unshuffle_adaptive_date_scoring_vacation_vs_archive() -> None:
     # Batch 1: 10-year family archive with 2 photos 2 days apart
     archive_dates = {
         'p1': _make_answer(None, None, '2014-06-01T12:00:00Z').capture_date,

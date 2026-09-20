@@ -1,4 +1,4 @@
-"""Gameplay mode engine implementations for Pinpoint and Album Shuffle modes."""
+"""Gameplay mode engine implementations for Pinpoint and Unshuffle modes."""
 
 from __future__ import annotations
 
@@ -12,7 +12,6 @@ from src.config import AppSettings
 from src.game.selector import select_batch_round_assets, select_pinpoint_round_asset
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
-    AlbumShuffleAnswerItem,
     AnswerRequest,
     BatchPhotoItem,
     BatchPinItem,
@@ -23,6 +22,7 @@ from src.models import (
     PinpointRoundResult,
     PlayerRoundResult,
     QuestionResponse,
+    UnshuffleAnswerItem,
 )
 from src.scoring import (
     batch_exponential_date_score,
@@ -315,14 +315,14 @@ class PinpointEngine(BaseGameModeEngine):
                     total_score=cumulative,
                     timed_out=question.timed_out,
                     pinpoint=pinpoint_result,
-                    album_shuffle_guesses=None,
+                    unshuffle_guesses=None,
                 )
             )
         return None, results
 
 
-class AlbumShuffleEngine(BaseGameModeEngine):
-    """Album shuffle game mode engine (batch photo-to-pin mapping and timeline ordering)."""
+class UnshuffleEngine(BaseGameModeEngine):
+    """Unshuffle game mode engine (batch photo-to-pin mapping and timeline ordering)."""
 
     async def select_question(
         self,
@@ -401,7 +401,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
     ) -> MatchState:
         location_points = 0
         date_points = 0
-        answers = payload.album_shuffle or []
+        answers = payload.unshuffle or []
         batch_assets = question_state.round_data.assets
         batch_pins = question_state.round_data.pins
 
@@ -419,7 +419,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         assigned_pins = {ans.photo_id: ans.assigned_pin_id for ans in answers}
         assigned_timeline = {ans.photo_id: ans.assigned_timeline_index for ans in answers}
 
-        album_shuffle_guesses: list[dict[str, Any]] = [
+        unshuffle_guesses: list[dict[str, Any]] = [
             {
                 'photo_id': ans.photo_id,
                 'assigned_pin_id': ans.assigned_pin_id,
@@ -465,7 +465,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
             else 'N/A'
         )
         logger.info(
-            'Match %s (R%d) Album Shuffle evaluated: location=[%s], date=[%s]',
+            'Match %s (R%d) Unshuffle evaluated: location=[%s], date=[%s]',
             payload.match_id,
             state.current_round_index + 1,
             loc_desc,
@@ -473,14 +473,14 @@ class AlbumShuffleEngine(BaseGameModeEngine):
         )
 
         try:
-            return store.apply_album_shuffle_score(
+            return store.apply_unshuffle_score(
                 payload.match_id,
                 payload.question_id,
                 location_points,
                 date_points,
                 timed_out=payload.timed_out,
                 time_taken_seconds=payload.time_taken_seconds,
-                album_shuffle_guesses=album_shuffle_guesses,
+                unshuffle_guesses=unshuffle_guesses,
             )
         except QuestionAlreadyAnsweredError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -518,16 +518,16 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                 if other.player_name == question.player_name and other.answered and other.round_index <= round_index
             )
             shuffle_guesses = None
-            if question.album_shuffle_guesses:
+            if question.unshuffle_guesses:
                 shuffle_guesses = [
-                    AlbumShuffleAnswerItem(
+                    UnshuffleAnswerItem(
                         photo_id=str(g['photo_id']),
                         assigned_pin_id=str(g['assigned_pin_id']) if g.get('assigned_pin_id') else None,
                         assigned_timeline_index=int(g['assigned_timeline_index'])
                         if g.get('assigned_timeline_index') is not None
                         else None,
                     )
-                    for g in question.album_shuffle_guesses
+                    for g in question.unshuffle_guesses
                 ]
             results.append(
                 PlayerRoundResult(
@@ -538,7 +538,7 @@ class AlbumShuffleEngine(BaseGameModeEngine):
                     total_score=cumulative,
                     timed_out=question.timed_out,
                     pinpoint=None,
-                    album_shuffle_guesses=shuffle_guesses,
+                    unshuffle_guesses=shuffle_guesses,
                 )
             )
 
@@ -564,4 +564,4 @@ class GameModeRegistry:
 
 default_game_mode_registry = GameModeRegistry()
 default_game_mode_registry.register(GameMode.pinpoint, PinpointEngine())
-default_game_mode_registry.register(GameMode.album_shuffle, AlbumShuffleEngine())
+default_game_mode_registry.register(GameMode.unshuffle, UnshuffleEngine())

@@ -3,7 +3,7 @@
 Immich Quiz awards up to **100 points** for each enabled objective in a round (Location and/or Date). The scoring style depends on the game mode:
 
 - **Pinpoint**: Uses exponential decay—the closer your guess, the more points you get.
-- **Album Shuffle**: Uses strict matching—points are split evenly among correctly matched or sequenced photos in the batch.
+- **Unshuffle**: Uses strict matching—points are split evenly among correctly matched or sequenced photos in the batch.
 
 ---
 
@@ -59,9 +59,9 @@ The `span_ratio` translates the total geographic or temporal scope of an album i
 
 ---
 
-## Album Shuffle Game
+## Unshuffle Game
 
-In **Album Shuffle** mode, 3 photos are presented simultaneously. Each photo is allocated an equal share of the round's maximum score ($\frac{100}{N} \approx 33.33\text{ points}$ per enabled goal). Both map location matching and timeline chronological ordering use **adaptive exponential decay**:
+In **Unshuffle** mode, 3 photos are presented simultaneously. Each photo is allocated an equal share of the round's maximum score ($\frac{100}{N} \approx 33.33\text{ points}$ per enabled goal). Both map location matching and timeline chronological ordering use **adaptive exponential decay**:
 
 $$\text{Round Score} = \max\left(0, \min\left(100, \text{round}\left(\frac{100}{N} \sum_{i=1}^N \exp\left(-\frac{\text{error}_i}{\text{decay}}\right)\right)\right)\right)$$
 

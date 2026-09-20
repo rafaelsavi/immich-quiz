@@ -2,10 +2,10 @@ import { t } from "../i18n.js";
 
 /**
  * Standard GameMode Interface specification.
- * Both pinpointMode and albumShuffleMode must implement all of the following:
+ * Both pinpointMode and unshuffleMode must implement all of the following:
  * 
  * @typedef {Object} GameMode
- * @property {string} name - Unique mode identifier ("pinpoint", "album_shuffle")
+ * @property {string} name - Unique mode identifier ("pinpoint", "unshuffle")
  * @property {function(HTMLElement): void} renderSettings - Render mode settings cards into setup container
  * @property {function(): Object} getModePayload - Get mode setup payload properties
  * @property {function(HTMLElement, Object): void} mount - Lifecycle hook: called once when a match starts
@@ -19,7 +19,7 @@ import { t } from "../i18n.js";
 
 /**
  * Renders multi-selection card buttons for Guessing mode (Location & Date).
- * Used across game modes (Pinpoint, Album Shuffle).
+ * Used across game modes (Pinpoint, Unshuffle).
  * @param {HTMLElement} containerEl 
  * @param {string} [modeName="pinpoint"]
  */

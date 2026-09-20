@@ -314,13 +314,13 @@ async def test_universal_scanner_pinpoint_gameplay_and_reveal(page: Page) -> Non
     await assert_universal_dynamic_language_switch(page, 'Pinpoint Reveal UI', min_expected_elements=5)
 
 
-async def test_universal_scanner_album_shuffle_gameplay_and_reveal(page: Page) -> None:
-    """Universal scanner dynamically verifies Album Shuffle guessing UI, cards, and reveal table."""
+async def test_universal_scanner_unshuffle_gameplay_and_reveal(page: Page) -> None:
+    """Universal scanner dynamically verifies Unshuffle guessing UI, cards, and reveal table."""
     await page.goto('/')
     await _ensure_language(page, 'en-US')
 
-    # Switch to Album Shuffle
-    await page.locator('#mode-album-shuffle-btn').click()
+    # Switch to Unshuffle
+    await page.locator('#mode-unshuffle-btn').click()
     await page.locator('#prepare-game-btn').click()
     await page.locator('#start-match-btn').click()
 
@@ -328,10 +328,10 @@ async def test_universal_scanner_album_shuffle_gameplay_and_reveal(page: Page) -
         await page.locator('#ready-btn').click()
         await expect(page.locator('#pass-overlay')).to_be_hidden()
 
-    await expect(page.locator('#album-shuffle-ui')).to_be_visible()
+    await expect(page.locator('#unshuffle-ui')).to_be_visible()
 
-    # 1. Scan Album Shuffle Guessing UI
-    await assert_universal_dynamic_language_switch(page, 'Album Shuffle Guessing UI', min_expected_elements=5)
+    # 1. Scan Unshuffle Guessing UI
+    await assert_universal_dynamic_language_switch(page, 'Unshuffle Guessing UI', min_expected_elements=5)
 
     # Assign map pins to photo cards via direct chips to enable submit button
     cards = page.locator('#shuffle-cards-list .shuffle-card-row')
@@ -342,8 +342,8 @@ async def test_universal_scanner_album_shuffle_gameplay_and_reveal(page: Page) -
     await page.locator('#submit-answer').click()
     await expect(page.locator('#reveal-ui')).to_be_visible()
 
-    # 2. Scan Album Shuffle Reveal UI
-    await assert_universal_dynamic_language_switch(page, 'Album Shuffle Reveal UI', min_expected_elements=5)
+    # 2. Scan Unshuffle Reveal UI
+    await assert_universal_dynamic_language_switch(page, 'Unshuffle Reveal UI', min_expected_elements=5)
 
 
 async def test_universal_scanner_challenges_hub(page: Page) -> None:
