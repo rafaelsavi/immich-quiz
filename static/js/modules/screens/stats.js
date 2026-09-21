@@ -99,7 +99,7 @@ async function loadPlayerDirectory() {
   const search = searchInput ? searchInput.value.trim() : "";
   const sortBy = sortSelect ? sortSelect.value : "matches";
 
-  container.innerHTML = `<div class="challenges-loading">${t("challenges_page.loading")}</div>`;
+  container.innerHTML = `<div class="challenges-loading">${t("common.loading")}</div>`;
 
   try {
     const players = await api(`/api/players?search=${encodeURIComponent(search)}&sort_by=${encodeURIComponent(sortBy)}&limit=60`);
@@ -284,7 +284,7 @@ export async function showPlayerProfile(playerName) {
 
   if (profileView) {
     profileView.classList.remove("hidden");
-    profileView.innerHTML = `<div class="challenges-loading">${t("challenges_page.loading")}</div>`;
+    profileView.innerHTML = `<div class="challenges-loading">${t("common.loading")}</div>`;
   }
 
   try {

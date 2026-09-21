@@ -69,17 +69,7 @@ export function renderReplayTitleHeader(data = null) {
       parts.push(`<span class="replay-match-date">${escapeHtml(dateText)}</span>`);
     }
     titleEl.innerHTML = parts.join(` <span class="meta-separator" aria-hidden="true">•</span> `);
-  } else if (data.play_mode === "room" && data.room_name) {
-    if (headingTitleEl) {
-      headingTitleEl.removeAttribute("data-i18n");
-      headingTitleEl.textContent = data.room_name;
-    }
-    const dateText = formatDateTime(data.played_at);
-    titleEl.innerHTML = `
-      <span class="badge-tag badge-type badge-type-room">🏠 ${t("replay.play_mode_room")}</span>
-      <span class="meta-separator" aria-hidden="true">•</span>
-      <span class="replay-match-date">${escapeHtml(dateText)}</span>
-    `;
+
   } else {
     if (headingTitleEl) {
       headingTitleEl.setAttribute("data-i18n", "replay.title");
@@ -133,16 +123,7 @@ export function renderSummaryTitleHeader(data = null) {
       ).length;
       liveStatus.textContent = t("challenge.live_finished_tally", finishedCount, participants.length);
     }
-  } else if (data.play_mode === "room" && data.room_name) {
-    if (badgeEl) {
-      badgeEl.className = "badge-tag badge-type badge-type-room";
-      badgeEl.innerHTML = `🏠 ${t("replay.play_mode_room")}`;
-    }
-    if (headingEl) {
-      headingEl.removeAttribute("data-i18n");
-      headingEl.textContent = data.room_name;
-    }
-    if (livePill) livePill.classList.add("hidden");
+
   } else {
     if (badgeEl) {
       badgeEl.className = "badge-tag badge-type badge-type-local";
@@ -458,10 +439,14 @@ export async function showMatchSummaryByMatchId(
       playVictoryFanfare();
     }
 
-    // Always show All-Time Leaderboard Card in both game reviews
+    // Show All-Time Leaderboard Card in review only for Creator
     if (el.leaderboardCard) {
-      el.leaderboardCard.classList.remove("hidden");
-      await loadLeaderboard();
+      if (state.auth?.role === "creator") {
+        el.leaderboardCard.classList.remove("hidden");
+        await loadLeaderboard();
+      } else {
+        el.leaderboardCard.classList.add("hidden");
+      }
     }
   } else {
     // Mode: Local Match Summary
@@ -496,10 +481,14 @@ export async function showMatchSummaryByMatchId(
         playVictoryFanfare();
       }
 
-      // Always show All-Time Leaderboard Card in both game reviews
+      // Show All-Time Leaderboard Card in review only for Creator
       if (el.leaderboardCard) {
-        el.leaderboardCard.classList.remove("hidden");
-        await loadLeaderboard();
+        if (state.auth?.role === "creator") {
+          el.leaderboardCard.classList.remove("hidden");
+          await loadLeaderboard();
+        } else {
+          el.leaderboardCard.classList.add("hidden");
+        }
       }
     } catch (err) {
       console.warn("Failed to load match summary:", err);

@@ -159,6 +159,12 @@ class AppSettings:
     app_port: int = 8010
     language: SupportedLanguage = SupportedLanguage.EN
 
+    # 3. Access Control
+    auth_mode: str = 'disabled'
+    cf_creator_emails: frozenset[str] = frozenset()
+    cf_user_emails: frozenset[str] = frozenset()
+    dev_mock_email: str | None = None
+
     # 4. Global Filter Safeguards
     date_lower_bound: date | None = None
     date_upper_bound: date | None = None
@@ -195,6 +201,18 @@ class AppSettings:
 
         # Resolve data path to absolute filesystem path
         object.__setattr__(self, 'data_path', self.data_path.expanduser().resolve())
+
+        # Validate auth_mode
+        valid_auth_modes = {'disabled', 'cloudflare'}
+        norm_auth = self.auth_mode.strip().lower()
+        if norm_auth not in valid_auth_modes:
+            raise ConfigError(f'AUTH_MODE must be one of {sorted(valid_auth_modes)}, got {self.auth_mode!r}')
+        object.__setattr__(self, 'auth_mode', norm_auth)
+
+        # Validate email overlap between creator and user lists
+        overlap = self.cf_creator_emails & self.cf_user_emails
+        if overlap:
+            raise ConfigError(f'CF_CREATOR_EMAILS and CF_USER_EMAILS cannot overlap: {", ".join(sorted(overlap))}')
 
         # Validate network port
         if not (1 <= self.app_port <= 65535):
@@ -294,6 +312,16 @@ def load_settings() -> AppSettings:
         kwargs['app_port'] = _parse_int_range(val, 'APP_PORT', min_value=1, max_value=65535)
     if val := _get_env('LANGUAGE'):
         kwargs['language'] = _parse_language(val)
+
+    # Access Control
+    if val := _get_env('AUTH_MODE'):
+        kwargs['auth_mode'] = val.strip().lower()
+    if val := _get_env('CF_CREATOR_EMAILS'):
+        kwargs['cf_creator_emails'] = _parse_comma_set(val)
+    if val := _get_env('CF_USER_EMAILS'):
+        kwargs['cf_user_emails'] = _parse_comma_set(val)
+    if val := _get_env('DEV_MOCK_EMAIL'):
+        kwargs['dev_mock_email'] = val.strip().lower()
 
     # Date Bounds
     if val := _get_env('DATE_LOWER_BOUND', 'FETCH_PHOTOS_DATE_LOWER_BOUND'):

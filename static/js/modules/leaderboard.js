@@ -85,13 +85,7 @@ export function getPlayModeInfo(mode) {
         className: "mode-challenge",
         title: t("leaderboard.mode_challenge_desc") !== "leaderboard.mode_challenge_desc" ? t("leaderboard.mode_challenge_desc") : "Multiplayer Challenge",
       };
-    case "room":
-      return {
-        label: t("leaderboard.mode_room"),
-        icon: "⚡",
-        className: "mode-room",
-        title: t("leaderboard.mode_room_desc") !== "leaderboard.mode_room_desc" ? t("leaderboard.mode_room_desc") : "Live Room",
-      };
+
     case "local":
     default:
       return {

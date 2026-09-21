@@ -858,7 +858,7 @@ def test_challenges_ui_streamlining_and_minimal_refresh_buttons() -> None:
     assert 'card-time-status' not in challenges_page_js
     assert 'timeStatusHtml' not in challenges_page_js
     assert 'card-time-status' not in challenge_css
-    assert '${t("admin.status_active")} • ${formatRelativeTime(diffMs, false)}' in challenges_page_js
+    assert '${t("challenges_page.status_active")} • ${formatRelativeTime(diffMs, false)}' in challenges_page_js
 
     # 4. Filter pill prevents line breaking
     assert 'white-space: nowrap;' in challenge_css
@@ -926,7 +926,6 @@ def test_home_leaderboard_play_mode_and_accordion_meta() -> None:
     assert '.playmode-badge' in leaderboard_css
     assert '.playmode-badge.mode-local' in leaderboard_css
     assert '.playmode-badge.mode-challenge' in leaderboard_css
-    assert '.playmode-badge.mode-room' in leaderboard_css
 
     # 2. Locale strings for play mode
     assert '"leaderboard.col_play_mode": "Mode"' in en_us
@@ -2202,7 +2201,7 @@ def test_standardized_chip_and_tag_styling_parity() -> None:
     1. Universal .badge-tag has 6px border radius, title case, no drop shadow.
     2. Challenge tags use matching vibrant purple (#7048e8 / rgba(112, 72, 232, 0.12)) across all screens.
     3. summary.css does NOT override badge-tag with 999px pills or conflicting orange.
-    4. leaderboard.css .playmode-badge follows 6px border-radius and consistent challenge/local/room palette.
+    4. leaderboard.css .playmode-badge follows 6px border-radius and consistent challenge/local palette.
     5. summary.js, replay.js, and index.html utilize standardized badge classes.
     """
     replay_css = (STATIC_DIR / 'css' / 'components' / 'replay.css').read_text(encoding='utf-8')
@@ -2233,15 +2232,12 @@ def test_standardized_chip_and_tag_styling_parity() -> None:
     assert '.playmode-badge.mode-challenge' in leaderboard_css
     assert '#7048e8' in leaderboard_css
     assert '.playmode-badge.mode-local' in leaderboard_css
-    assert '.playmode-badge.mode-room' in leaderboard_css
 
     # 5. JS and HTML class consistency
     assert 'badge-type-challenge' in summary_js
     assert 'badge-type-local' in summary_js
-    assert 'badge-type-room' in summary_js
     assert 'badge-type-challenge' in replay_js
     assert 'badge-type-local' in replay_js
-    assert 'badge-type-room' in replay_js
     assert 'id="summary-game-mode-badge" class="badge-tag badge-type badge-type-local"' in index_html
 
 

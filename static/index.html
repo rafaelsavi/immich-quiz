@@ -48,6 +48,7 @@
         <p>{{APP_TAGLINE}}</p>
       </div>
       <div class="header-controls">
+        <span id="identity-badge" class="identity-badge hidden"></span>
         <button type="button" id="pwa-install-btn" class="header-icon-btn pwa-install-btn hidden"
           data-i18n-title="pwa.install_title" data-i18n-aria-label="pwa.install_title" title="Install App"
           aria-label="Install App">
@@ -292,6 +293,59 @@
           </button>
         </div>
       </form>
+    </section>
+
+    <section id="home-card" class="card hidden">
+      <div class="home-hero">
+        <div class="home-hero-icon" aria-hidden="true">📸</div>
+        <h2 id="home-welcome-title" class="home-welcome-heading" data-i18n="home.welcome_title">Welcome to Immich Quiz</h2>
+        <p id="home-welcome-subtitle" class="home-welcome-desc" data-i18n="home.welcome_subtitle">Play multiplayer photo challenges with family and friends.</p>
+      </div>
+
+      <div class="home-challenge-box">
+        <label for="home-challenge-code-input" class="home-box-label" data-i18n="home.enter_challenge_code">Enter a Challenge Code</label>
+        <div class="home-input-row">
+          <input type="text" id="home-challenge-code-input" class="home-challenge-code-input"
+            data-i18n-placeholder="home.challenge_code_placeholder" placeholder="e.g. 7K2M9P or paste link"
+            autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" maxlength="128" />
+          <button type="button" id="home-join-btn" class="btn-primary home-join-btn">
+            <span class="btn-icon" aria-hidden="true">🚀</span>
+            <span data-i18n="home.join_challenge">Join Challenge</span>
+          </button>
+        </div>
+        <p class="home-box-help" data-i18n="home.challenge_code_help">Paste a full game URL or enter the 6-character code.</p>
+        <div id="home-join-error" class="home-join-error hidden" role="alert"></div>
+      </div>
+
+      <div id="home-quick-links" class="home-quick-links">
+        <h3 class="home-quick-heading" data-i18n="home.quick_links_title">Explore More</h3>
+        <div class="home-quick-grid">
+          <a href="/challenges" id="home-quick-challenges" class="home-quick-card">
+            <div class="home-quick-icon">⚔️</div>
+            <div class="home-quick-info">
+              <span class="home-quick-title" data-i18n="home.quick_challenges_title">Active Challenges</span>
+              <span class="home-quick-desc" data-i18n="home.quick_challenges_desc">Browse and join available community challenges</span>
+            </div>
+            <span class="home-quick-arrow" aria-hidden="true">→</span>
+          </a>
+          <a href="/players" id="home-quick-players" class="home-quick-card">
+            <div class="home-quick-icon">👥</div>
+            <div class="home-quick-info">
+              <span class="home-quick-title" data-i18n="home.quick_players_title">Player Directory</span>
+              <span class="home-quick-desc" data-i18n="home.quick_players_desc">View lifetime rankings, win rates, and player cards</span>
+            </div>
+            <span class="home-quick-arrow" aria-hidden="true">→</span>
+          </a>
+          <a href="/replays" id="home-quick-replays" class="home-quick-card">
+            <div class="home-quick-icon">🎬</div>
+            <div class="home-quick-info">
+              <span class="home-quick-title" data-i18n="home.quick_replays_title">Match Replays</span>
+              <span class="home-quick-desc" data-i18n="home.quick_replays_desc">Relive round-by-round guesses and photo journeys</span>
+            </div>
+            <span class="home-quick-arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </div>
     </section>
 
     <section id="game-card" class="card hidden">
@@ -810,8 +864,9 @@
             career accuracy analytics, and competitive profiles.</p>
         </div>
         <div class="stats-page-head-actions hub-page-head-actions">
-          <button type="button" id="stats-page-refresh-btn" class="btn-icon-action" title="Refresh" aria-label="Refresh"
-            data-i18n-title="challenges_page.refresh_btn" data-i18n-aria-label="challenges_page.refresh_btn">
+          <button type="button" id="stats-page-refresh-btn" class="btn-icon-action" title="Refresh"
+            aria-label="Refresh"
+            data-i18n-title="common.refresh" data-i18n-aria-label="common.refresh">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
               class="sync-icon" aria-hidden="true">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
@@ -865,8 +920,8 @@
         </div>
         <div class="stats-page-head-actions replays-page-head-actions hub-page-head-actions">
           <button type="button" id="replays-page-refresh-btn" class="btn-icon-action" title="Refresh"
-            aria-label="Refresh" data-i18n-title="challenges_page.refresh_btn"
-            data-i18n-aria-label="challenges_page.refresh_btn">
+            aria-label="Refresh" data-i18n-title="common.refresh"
+            data-i18n-aria-label="common.refresh">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"
               class="sync-icon" aria-hidden="true">
               <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
@@ -892,8 +947,8 @@
           <div class="hub-filters-group stats-filters-wrap">
             <select id="stats-replays-mode-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_modes">All Modes</option>
-              <option value="pinpoint" data-i18n="challenges_page.mode_pinpoint">🎯 Pinpoint</option>
-              <option value="unshuffle" data-i18n="challenges_page.mode_unshuffle">🔀 Unshuffle</option>
+              <option value="pinpoint" data-i18n="replay.filter_mode_pinpoint">🎯 Pinpoint</option>
+              <option value="unshuffle" data-i18n="replay.filter_mode_unshuffle">🔀 Unshuffle</option>
             </select>
             <select id="stats-replays-type-filter" class="hub-select select-input">
               <option value="all" data-i18n="replay.filter_all_types">All Types</option>
@@ -1117,7 +1172,7 @@
         <!-- Footers -->
         <div id="modal-local-footer" class="modal-footer">
           <button type="button" id="local-cancel-btn" class="btn-secondary"
-            data-i18n="report.cancel_btn">Cancel</button>
+            data-i18n="common.cancel">Cancel</button>
           <button type="button" id="start-match-btn" class="btn-primary">
             <span class="btn-icon" aria-hidden="true">🚀</span>
             <span data-i18n="setup.start_btn">Start Game</span>
@@ -1126,7 +1181,7 @@
 
         <div id="modal-challenge-footer" class="modal-footer hidden">
           <button type="button" id="challenge-cancel-btn" class="btn-secondary"
-            data-i18n="report.cancel_btn">Cancel</button>
+            data-i18n="common.cancel">Cancel</button>
           <button type="button" id="challenge-generate-btn" class="btn-primary">
             <span class="btn-icon" aria-hidden="true">✨</span>
             <span data-i18n="admin.generate_label">Create Challenge Link</span>

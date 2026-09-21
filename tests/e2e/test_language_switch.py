@@ -185,7 +185,7 @@ async def test_pinpoint_gameplay_and_reveal_dynamic_language_switch(page: Page) 
     await _toggle_language(page)
 
     await expect(next_round_btn).to_contain_text(re.compile(r'Próxima Rodada|Ver Resultados'))
-    await expect(reveal_table).to_contain_text('Pontuação')
+    await expect(reveal_table).to_contain_text('Pontos')
 
     # Toggle back to English
     await _toggle_language(page)
@@ -429,7 +429,7 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
     await _toggle_language(page)
     await expect(page.locator('#stats-page-heading')).to_have_text('Perfil do Jogador')
     await expect(page.locator('#profile-back-to-hub-btn')).to_contain_text('Voltar para Jogadores')
-    await expect(page.locator('.player-profile-view h3').first).to_contain_text('Precisão de Localização')
+    await expect(page.locator('.player-profile-view h3').first).to_contain_text('Precisão de Local')
 
     # Realtime toggle back to English
     await _toggle_language(page)

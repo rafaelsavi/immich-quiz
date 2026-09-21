@@ -8,12 +8,57 @@
 
 /* ----------------------------------------------------------------- Container & Shell */
 .match-review-card,
-.match-review-shell,
-.review-content {
+.match-review-shell {
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+
+.review-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.summary-winner:empty {
+  display: none;
+}
+
+/* Framed Standings Table */
+.review-content > .table-scroll {
+  border: 1px solid var(--border-light, #e0e5f2);
+  border-radius: var(--radius-md, 12px);
+  background: var(--card, #ffffff);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
+}
+
+[data-theme="dark"] .review-content > .table-scroll {
+  border-color: var(--border-light, #334155);
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: none;
+}
+
+/* Encapsulated Review Deck Console */
+.review-content > .summary-review-deck {
+  margin-top: 0;
+  border: 1px solid var(--border-light, #e0e5f2);
+  border-radius: var(--radius-lg, 14px);
+  background: var(--bg-surface-secondary, #f8fafc);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.04));
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .review-content > .summary-review-deck {
+  border-color: var(--border-light, #334155);
+  background: rgba(15, 23, 42, 0.55);
+  box-shadow: none;
 }
 
 /* ----------------------------------------------------------------- Header */
@@ -81,13 +126,14 @@
 #summary-table th,
 #grand-reveal-table th {
   text-align: left;
-  padding: 0.5rem 0.75rem;
+  padding: 0.65rem 0.85rem;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted, #64748b);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1.5px solid var(--border-light, #e0e5f2);
+  background: var(--bg-surface-secondary, #f8fafc);
   vertical-align: middle;
 }
 
@@ -95,7 +141,7 @@
 .standings-table td,
 #summary-table td,
 #grand-reveal-table td {
-  padding: 0.65rem 0.75rem;
+  padding: 0.7rem 0.85rem;
   border-bottom: 1px solid var(--border-light, #e0e5f2);
   color: var(--ink, #0f172a);
   vertical-align: middle;
@@ -107,6 +153,7 @@
 [data-theme="dark"] #grand-reveal-table th {
   color: var(--text-muted, #94a3b8);
   border-bottom-color: var(--border-light, #334155);
+  background: rgba(30, 41, 59, 0.7);
 }
 
 [data-theme="dark"] .summary-table td,
@@ -201,8 +248,14 @@
   justify-content: center;
   gap: 0.85rem;
   flex-wrap: wrap;
-  margin-top: 1rem;
+  margin-top: 0.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-light, #e0e5f2);
   width: 100%;
+}
+
+[data-theme="dark"] .summary-actions {
+  border-top-color: var(--border-light, #334155);
 }
 
 .summary-actions button,
@@ -275,6 +328,15 @@
     font-size: 1.5rem;
   }
 
+  .review-content {
+    gap: 1.1rem;
+  }
+
+  .review-content > .summary-review-deck {
+    padding: 0.75rem 0.6rem;
+    border-radius: var(--radius-md, 12px);
+  }
+
   .summary-table th,
   .standings-table th,
   #summary-table th,
@@ -294,6 +356,7 @@
   .summary-actions {
     flex-direction: column;
     width: 100%;
+    padding-top: 1rem;
   }
 
   .summary-actions button,

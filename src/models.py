@@ -52,11 +52,10 @@ class PeopleMode(str, Enum):
 
 
 class PlayMode(str, Enum):
-    """Match session mode ('local' couch multiplayer, 'challenge' async match seed, 'room' live room)."""
+    """Match session mode ('local' couch multiplayer, 'challenge' async match seed)."""
 
     local = 'local'
     challenge = 'challenge'
-    room = 'room'
 
 
 class SyncStatus(str, Enum):
@@ -862,8 +861,6 @@ class LeaderboardEntry(BaseModel):
     filter_summary: str | None = None
     challenge_id: str | None = None
     challenge_title: str | None = None
-    room_id: str | None = None
-    room_name: str | None = None
     awards: list[str] = Field(default_factory=list)
 
 

@@ -314,17 +314,7 @@
   letter-spacing: normal;
 }
 
-/* Play Mode: Room (Warm Amber) */
-.badge-type.badge-type-room,
-.replay-item-badges .badge-tag.badge-type-room {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
-  border-color: rgba(245, 158, 11, 0.28);
-  box-shadow: none;
-  border-radius: 6px;
-  text-transform: none;
-  letter-spacing: normal;
-}
+
 
 /* Game Mode: Pinpoint (Teal Accent) */
 .badge-mode,
@@ -554,12 +544,6 @@
   border-color: rgba(167, 139, 250, 0.35);
 }
 
-[data-theme="dark"] .badge-type.badge-type-room,
-[data-theme="dark"] .replay-item-badges .badge-tag.badge-type-room {
-  background: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.35);
-}
 
 [data-theme="dark"] .badge-mode,
 [data-theme="dark"] .badge-mode.badge-mode-pinpoint,

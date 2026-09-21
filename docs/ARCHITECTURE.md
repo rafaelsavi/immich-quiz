@@ -29,7 +29,11 @@ immich-quiz/
 │   │                    calculate_date_decay, accuracy_pct.
 │   ├── i18n.py          Backend localization for filter summaries and tooltips.
 │   ├── version.py       Semantic application version string (APP_VERSION).
+│   ├── auth/            Authentication and Role-Based Access Control (RBAC).
+│   │   ├── models.py    Role enum (GUEST, USER, CREATOR) and AuthContext dataclass.
+│   │   └── service.py   Cloudflare Access header resolver and require_role dependency.
 │   ├── api/
+│   │   ├── auth_routes.py Identity and role introspection endpoint (/api/auth/me).
 │   │   ├── routes.py    Standard local match API endpoints (setup, question, answer, result).
 │   │   └── challenge_routes.py Async & hybrid multiplayer challenge endpoints (create, start, question, answer, leaderboard, deactivate).
 │   ├── game/            Modular game mode system and session orchestration.
@@ -316,6 +320,55 @@ date) in-memory and never exposes it through the question or answer responses.
 key during the lifespan startup phase. Keys that fail are excluded from
 `/api/libraries` and reported in the `unavailable` field; the app continues
 with the remaining keys rather than refusing to start.
+
+---
+
+## Access Control & Role-Based Permissions (RBAC)
+
+The application enforces a 3-tier hierarchical role architecture:
+
+- **`Guest`**: Can play public multiplayer challenges (`/play/:token`), submit answers, and view challenge outcomes. Cannot view player directories, historical match replays, or create games.
+- **`User`**: (Family and regular players). Can play games, explore the Player Directory (`/players`), browse Match Replays (`/replays`), and view public challenge feeds. Cannot access raw Immich libraries, initiate metadata sync, create local games, or moderate photos.
+- **`Creator`**: (Instance owner). Full administrative privileges across all endpoints and UI screens.
+
+### Zero Trust Authentication Model
+
+- **Disabled Mode (`AUTH_MODE=disabled`)**: Default setting for local development and CI testing. Everyone resolves to `Creator`, preserving backward compatibility.
+- **Cloudflare Access Mode (`AUTH_MODE=cloudflare`)**: Resolves identity from the edge-injected `Cf-Access-Authenticated-User-Email` header. Emails matching `CF_CREATOR_EMAILS` receive `Creator`, emails matching `CF_USER_EMAILS` receive `User`, and unrecognized or missing headers resolve to `Guest`.
+- **Backend Enforcement**: FastAPI routes are protected via `dependencies=[Depends(require_role(min_role))]`, rejecting unauthorized callers with HTTP 403 Forbidden.
+- **Client-Side Guards**: Navigation router enforces `ROUTE_MIN_ROLES`, redirecting unauthorized URL transitions to `/` with localized user-friendly toast alerts.
+
+---
+
+## Internationalization (i18n) Architecture
+
+The application provides first-class bilingual support for English (`en-US`) and Brazilian Portuguese (`pt-BR`) across all backend API metadata and frontend Single-Page Application (SPA) screens.
+
+### Strict 4-File Parity Mandate
+
+The localization system maintains exactly four catalogs with 100% identical top-level key counts, key names, and hierarchical structure:
+
+1. `locales/en-US.json` (Backend reference English catalog)
+2. `locales/pt-BR.json` (Backend reference Portuguese catalog)
+3. `static/js/modules/locales/en_US.js` (Frontend ES module English catalog)
+4. `static/js/modules/locales/pt_BR.js` (Frontend ES module Portuguese catalog)
+
+This parity is enforced on every commit and CI run via automated regression test `test_strict_4_locale_file_parity`.
+
+### Namespaces & Semantic Organization
+
+- **`common.*`**: Universal UI actions and controls shared across multiple modals, screen headers, and dialogs (`common.cancel`, `common.refresh`, `common.loading`, `common.back`, `common.close`, `common.clear`, `common.retry`, `common.copy`, `common.copied`, `common.pts`). Prevents cross-domain borrowing.
+- **`meta.*`**: Unified match specification panel (`match_meta.js`) describing game configuration, round lengths, and photo library scopes (`meta.scope_heading`, `meta.scope_all_desc`, `meta.scope_shared_desc`).
+- **`mode.*`**: Core game mode labels and concise chip descriptions (`mode.pinpoint`, `mode.unshuffle`, `mode.pinpoint_desc`, `mode.unshuffle_desc`).
+- **`setup.*`**: Pre-game configuration, library selector, and player name inputs.
+- **`game.*` & `reveal.*`**: In-game guessing controls, timer, round reveal breakdown, and true answer presentation.
+- **`summary.*`**: Post-game review deck, performance podium, and medal awards.
+- **`challenges_page.*`**: Multiplayer challenge lobby, hero metrics, card statuses, and host actions.
+- **`stats.*`**: Player statistics hub, career analytics KPIs, accuracy tiers, and parameterized match counters.
+- **`replay.*`**: Historical match replay catalog, filter controls, round stepper, and telemetry viewers.
+- **`auth.*`**: Role-based access control badges and permission alerts.
+
+Dynamic units and plural forms must always use parameterized interpolation (`{count}` or `{0}`) via `t("...", count)` or `plural(...)` rather than hardcoded string concatenation.
 
 ---
 

@@ -551,7 +551,7 @@ export const challengeSummary = {
 
           const trueIcon = createPinIcon("★", "#22c55e");
           const trueMarker = L.marker(trueLatLng, { icon: trueIcon })
-            .bindPopup(`<b>${t("game.actual_location")}</b>`)
+            .bindPopup(`<b>${t("reveal.actual_location")}</b>`)
             .addTo(challengeSession.carouselMap);
           challengeSession.carouselLayers.push(trueMarker);
 

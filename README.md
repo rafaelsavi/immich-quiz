@@ -28,6 +28,7 @@ Play locally with friends on a single screen via **👥 Pass & Play**, or share 
 - **📊 Player Statistics & Profiles (`/players`)**: Explore lifetime stats, win rates, medal podiums, 4-tier accuracy distributions for Location & Date, and player match histories.
 - **🎬 Match Reviews & Replays (`/replays` & `/game/{match_id}/replay`)**: Review completed games with an outcome hero (winner podium, final standings) and interactive segmented review deck featuring round-by-round replays, full-game journey maps, and photo memories.
 - **Reported Assets Dashboard (`/reported`)**: Review reported photo metadata inconsistencies (GPS, date, notes), open direct Immich Web edit links, and resolve reports in real time.
+- **🔐 Role-Based Access Control (Cloudflare Zero Trust & Local Dev)**: Three access tiers (Creator, Player, Guest) protecting host administration, player statistics, and public multiplayer challenge gameplay.
 
 ### Library Filters & Preflight
 
@@ -98,6 +99,43 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `APP_PORT`                       | No       | `8010`        | Port the app listens on                                                               |
 | `LOG_LEVEL`                      | No       | `INFO`        | Global logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`)                        |
 | `LANGUAGE`                       | No       | `EN`          | UI language (`EN` for English, `PT` for Brazilian Portuguese)                         |
+| `AUTH_MODE`                      | No       | `disabled`    | Access control mode (`disabled` for single-tenant / full host access; `cloudflare` for Zero Trust header enforcement) |
+| `CF_CREATOR_EMAILS`              | No       | —             | Comma-separated emails granted Creator role (game creation, filter setup, library inspection, reported asset moderation) |
+| `CF_USER_EMAILS`                 | No       | —             | Comma-separated emails granted User role (join & play challenges, explore stats directory, view match replays)       |
+| `DEV_MOCK_EMAIL`                 | No       | —             | Optional mock email for local dev testing with `AUTH_MODE=cloudflare` without a live edge tunnel                    |
+
+### Role-Based Access Control (Cloudflare Zero Trust)
+
+Immich Quiz supports granular access control to separate host administrative capabilities from player and guest access:
+
+| Role | Lobby View | Challenges | Stats & Replays | Library Config & Pass & Play | Reported Assets |
+| :----- | :----------- | :----------- | :---------------- | :----------------------------- | :---------------- |
+| **👑 Creator** | Setup Card (full filters) | Create & Play | Full Access | Full Access | Full Access |
+| **👥 Player (User)** | Welcome Card (code input) | Join & Play | Full Access | No | No |
+| **🎟️ Guest** | Welcome Card (code input) | Direct Link / Code Play | No | No | No |
+
+#### Cloudflare Zero Trust Setup
+
+When exposing Immich Quiz behind a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) with Cloudflare Access:
+
+1. Configure an Access Application in your Cloudflare Zero Trust dashboard protecting your quiz subdomain.
+2. Under Access Policies, define which email addresses or identity providers can authenticate.
+3. In your `.env` file, enable Cloudflare authentication mode and map verified email addresses:
+
+   ```env
+   AUTH_MODE=cloudflare
+   CF_CREATOR_EMAILS=host@yourdomain.com
+   CF_USER_EMAILS=friend1@example.com,friend2@example.com
+   ```
+
+4. Cloudflare automatically injects the `Cf-Access-Authenticated-User-Email` header upon successful authentication. Requests without this header or with unlisted emails automatically receive the **Guest** role (allowing public or shared challenge participation without exposing host configurations or player directories).
+
+#### Local Development & Testing
+
+When running locally (`localhost` or `127.0.0.1`):
+
+- By default (`AUTH_MODE=disabled`), all requests are granted Creator privileges for seamless local administration and pass & play gaming.
+- To test Player or Guest access under `AUTH_MODE=cloudflare` without a live edge tunnel, configure `DEV_MOCK_EMAIL=user@example.com` in `.env` to simulate verified user identity resolution.
 
 ### Immich API Key Permissions
 

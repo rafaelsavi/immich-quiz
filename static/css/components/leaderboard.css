@@ -591,11 +591,7 @@ td {
   border-color: rgba(112, 72, 232, 0.25);
 }
 
-.playmode-badge.mode-room {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
-  border-color: rgba(245, 158, 11, 0.28);
-}
+
 
 [data-theme="dark"] .playmode-badge.mode-local {
   background: rgba(148, 163, 184, 0.14);
@@ -609,11 +605,7 @@ td {
   border-color: rgba(167, 139, 250, 0.35);
 }
 
-[data-theme="dark"] .playmode-badge.mode-room {
-  background: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.35);
-}
+
 
 .col-play-mode {
   white-space: nowrap;

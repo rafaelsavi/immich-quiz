@@ -12,6 +12,8 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 
+from src.auth.models import Role
+from src.auth.service import require_role
 from src.game.challenge_service import ChallengeService, get_challenge_total_rounds
 from src.immich.client import ImmichClient, ImmichClientError
 from src.models import (
@@ -74,7 +76,9 @@ def get_metadata_store(request: Request) -> MetadataStore:
 # =====================================================================
 
 
-@challenge_router.post('/create', response_model=ChallengeCreateResponse)
+@challenge_router.post(
+    '/create', response_model=ChallengeCreateResponse, dependencies=[Depends(require_role(Role.CREATOR))]
+)
 async def create_challenge(
     payload: ChallengeCreateRequest,
     request: Request,
@@ -102,7 +106,7 @@ async def create_challenge(
     )
 
 
-@challenge_router.get('/list', response_model=ChallengeListResponse)
+@challenge_router.get('/list', response_model=ChallengeListResponse, dependencies=[Depends(require_role(Role.USER))])
 async def list_challenges(
     request: Request,
     limit: int = 50,
@@ -163,7 +167,11 @@ async def list_challenges(
     return ChallengeListResponse(challenges=items)
 
 
-@challenge_router.post('/{challenge_id}/deactivate', response_model=ChallengeDeactivateResponse)
+@challenge_router.post(
+    '/{challenge_id}/deactivate',
+    response_model=ChallengeDeactivateResponse,
+    dependencies=[Depends(require_role(Role.CREATOR))],
+)
 async def deactivate_challenge(
     challenge_id: str,
     challenge_store: ChallengeStore = Depends(get_challenge_store),

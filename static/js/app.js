@@ -12,6 +12,7 @@ import {
   setNavigationGuard,
   RouteType,
   parseRoute,
+  canAccessRoute,
 } from "./modules/router.js";
 import {
   t,
@@ -23,7 +24,7 @@ import {
   normalizeLanguage,
 } from "./modules/i18n.js";
 import { toggleAudio, updateAudioUi } from "./modules/audio.js";
-import { api } from "./modules/api.js";
+import { api, getAuthMe, hasRole } from "./modules/api.js";
 import {
   toggleMapFullscreen,
   syncFullscreenButtons,
@@ -36,7 +37,7 @@ import { loadLeaderboard, handleSortClick, updateLeaderboardScope, renderLeaderb
 import { clearTimer, startTimer, refreshTimerLanguage } from "./modules/timer.js";
 import { refreshRoundMeta } from "./modules/formatters.js";
 import { bindGlobalShortcuts, markShortcutCooldown } from "./modules/shortcuts.js";
-import { shareMatchSummary } from "./modules/summary/share.js";
+import { shareMatchSummary, showShareToast } from "./modules/summary/share.js";
 import {
   initPlayerInput,
   initLibraries,
@@ -181,6 +182,12 @@ async function routeToActiveGame(matchId) {
 }
 
 async function handleRoute(route) {
+  if (!canAccessRoute(route.type, state.auth.role)) {
+    const msg = state.auth.role === "guest" ? t("auth.access_restricted_user") : t("auth.access_restricted_creator");
+    showShareToast(msg);
+    navigate("/", { replace: true });
+    return;
+  }
   document.documentElement.classList.remove("route-non-lobby");
   if (el.homeNavBtn) {
     el.homeNavBtn.classList.toggle("active", route.type === RouteType.LOBBY);
@@ -573,10 +580,12 @@ async function ensureLobbyInitialized() {
 
   lobbyInitPromise = (async () => {
     try {
-      initPlayerInput();
-      initWheelScrolls();
-      await initLibraries();
-      await loadLeaderboard();
+      if (hasRole("creator")) {
+        initPlayerInput();
+        initWheelScrolls();
+        await initLibraries();
+        await loadLeaderboard();
+      }
       isLobbyInitialized = true;
     } catch (err) {
       console.error("Lobby initialization failed:", err);
@@ -589,6 +598,115 @@ async function ensureLobbyInitialized() {
 }
 
 setEnsureLobbyInitializedFn(ensureLobbyInitialized);
+
+/**
+ * Apply role-based visibility to navigation buttons, setup/home cards, and identity badge.
+ */
+function applyAuthUi() {
+  const role = state.auth.role;
+  document.documentElement.setAttribute("data-role", role);
+
+  // Nav buttons: hide for guests (Challenges, Players, Replays)
+  if (el.challengesNavBtn) el.challengesNavBtn.classList.toggle("hidden", !hasRole("user"));
+  if (el.statsNavBtn) el.statsNavBtn.classList.toggle("hidden", !hasRole("user"));
+  if (el.replaysNavBtn) el.replaysNavBtn.classList.toggle("hidden", !hasRole("user"));
+
+  // Setup card vs Home card (when on lobby or home card)
+  const isLobby = !el.setupCard?.classList.contains("hidden") || !el.homeCard?.classList.contains("hidden");
+  if (isLobby || window.location.pathname === "/" || window.location.pathname === "") {
+    if (el.setupCard) el.setupCard.classList.toggle("hidden", role !== "creator");
+    if (el.homeCard) el.homeCard.classList.toggle("hidden", role === "creator");
+    if (el.leaderboardCard) el.leaderboardCard.classList.toggle("hidden", role !== "creator");
+  }
+
+  // Identity badge
+  if (el.identityBadge) {
+    if (role === "guest") {
+      el.identityBadge.classList.add("hidden");
+    } else {
+      const displayName =
+        state.auth.name ||
+        (state.auth.email ? state.auth.email.split("@")[0] : (role === "creator" ? "Host" : "Player"));
+      const roleLabel = role === "creator" ? t("auth.role_creator") : t("auth.role_player");
+      el.identityBadge.textContent = `👤 ${displayName} · ${roleLabel}`;
+      el.identityBadge.classList.remove("hidden");
+    }
+  }
+}
+
+/**
+ * Wire up interactive events for #home-card (challenge code join + quick links).
+ */
+function initHomeCard() {
+  function handleJoin() {
+    const raw = el.homeChallengeCodeInput ? el.homeChallengeCodeInput.value.trim() : "";
+    if (!raw) {
+      if (el.homeJoinError) {
+        el.homeJoinError.textContent = t("home.invalid_code");
+        el.homeJoinError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    let token = raw;
+    const playMatch = raw.match(/\/play\/([^/?#]+)/i);
+    if (playMatch) {
+      token = playMatch[1];
+    }
+    token = token.trim();
+    if (!token || !/^[a-zA-Z0-9_-]{3,64}$/.test(token)) {
+      if (el.homeJoinError) {
+        el.homeJoinError.textContent = t("home.invalid_code");
+        el.homeJoinError.classList.remove("hidden");
+      }
+      return;
+    }
+
+    if (el.homeJoinError) {
+      el.homeJoinError.classList.add("hidden");
+    }
+    navigate(`/play/${encodeURIComponent(token)}`);
+  }
+
+  if (el.homeJoinBtn) {
+    el.homeJoinBtn.addEventListener("click", handleJoin);
+  }
+  if (el.homeChallengeCodeInput) {
+    el.homeChallengeCodeInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleJoin();
+      }
+    });
+    el.homeChallengeCodeInput.addEventListener("input", () => {
+      if (el.homeJoinError && !el.homeJoinError.classList.contains("hidden")) {
+        el.homeJoinError.classList.add("hidden");
+      }
+    });
+  }
+
+  const quickChallenges = document.getElementById("home-quick-challenges");
+  if (quickChallenges) {
+    quickChallenges.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/challenges");
+    });
+  }
+  const quickPlayers = document.getElementById("home-quick-players");
+  if (quickPlayers) {
+    quickPlayers.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/players");
+    });
+  }
+  const quickReplays = document.getElementById("home-quick-replays");
+  if (quickReplays) {
+    quickReplays.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/replays");
+    });
+  }
+}
 
 (async function bootstrap() {
   initSegmentedControls();
@@ -618,8 +736,14 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
   updateHeaderChallengeBadge();
   refreshActiveScreenLanguage();
   syncFullscreenButtons();
+  initHomeCard();
 
   setNavigationGuard((toRoute, fromRoute) => {
+    if (!canAccessRoute(toRoute.type, state.auth.role)) {
+      const msg = state.auth.role === "guest" ? t("auth.access_restricted_user") : t("auth.access_restricted_creator");
+      showShareToast(msg);
+      return false;
+    }
     if (fromRoute.type === RouteType.GAME_ACTIVE && isGameActive()) {
       if (toRoute.path !== fromRoute.path) {
         const label = t("game.abandon_exit");
@@ -644,6 +768,19 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
     return true;
   });
 
+  // ---------- Auth init: fetch role and apply UI visibility ----------
+  try {
+    const authData = await getAuthMe();
+    state.auth.role = authData.role || "creator";
+    state.auth.email = authData.email || null;
+    state.auth.name = authData.name || null;
+    state.auth.authenticated = Boolean(authData.authenticated);
+  } catch (err) {
+    console.warn("Auth fetch failed, defaulting to creator:", err);
+    state.auth.role = "creator";
+  }
+  applyAuthUi();
+
   if (
     typeof window !== "undefined" &&
     (window.location.hostname === "localhost" ||
@@ -658,7 +795,9 @@ setEnsureLobbyInitializedFn(ensureLobbyInitialized);
   initUiConfig().catch((err) => console.warn("UI config error:", err));
 
   // Background load challenges to populate header challenges badge and preheat challenges page
-  loadChallengesList().catch((err) => console.warn("Challenges startup error:", err));
+  if (hasRole("user")) {
+    loadChallengesList().catch((err) => console.warn("Challenges startup error:", err));
+  }
 
   // Initialize router immediately so non-lobby routes display instantly without flash of lobby
   initRouter(handleRoute);

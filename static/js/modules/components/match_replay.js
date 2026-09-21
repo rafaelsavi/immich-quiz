@@ -119,8 +119,8 @@ export class PinpointReplayStrategy {
         .bindPopup(`
           <div style="font-size: 0.86rem;">
             <strong style="color: ${escapeHtml(pColor)};">${escapeHtml(g.player_name)}</strong><br>
-            ${escapeHtml(t("summary.col_total"))}: <strong>+${g.round_score} pts</strong><br>
-            ${g.distance_km != null ? `${escapeHtml(t("summary.col_location"))}: ${formatDistance(g.distance_km)}<br>` : ""}
+            ${escapeHtml(t("reveal.col_points"))}: <strong>+${g.round_score} pts</strong><br>
+            ${g.distance_km != null ? `${escapeHtml(t("reveal.col_location"))}: ${formatDistance(g.distance_km)}<br>` : ""}
             ${g.time_taken_seconds != null ? `⏱️ ${g.time_taken_seconds}s` : ""}
           </div>
         `);

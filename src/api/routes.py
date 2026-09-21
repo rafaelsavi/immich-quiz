@@ -5,6 +5,8 @@ from typing import Annotated, Any
 from cachetools import TTLCache
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
+from src.auth.models import Role
+from src.auth.service import require_role
 from src.config import AppSettings
 from src.game.service import GameService
 from src.i18n import SupportedLanguage, parse_accept_language
@@ -131,7 +133,7 @@ async def ui_config(request: Request) -> dict[str, object]:
     }
 
 
-@router.get('/libraries')
+@router.get('/libraries', dependencies=[Depends(require_role(Role.CREATOR))])
 async def libraries(request: Request, immich: ImmichClient = Depends(get_immich_client)) -> dict[str, object]:
     names = immich.list_libraries()
     available = request.app.state.available_libraries
@@ -142,7 +144,7 @@ async def libraries(request: Request, immich: ImmichClient = Depends(get_immich_
     }
 
 
-@router.get('/albums')
+@router.get('/albums', dependencies=[Depends(require_role(Role.CREATOR))])
 async def albums(
     libraries: list[str] | None = Query(default=None),
     metadata_store: MetadataStore = Depends(get_metadata_store),
@@ -151,7 +153,7 @@ async def albums(
     return {'albums': res}
 
 
-@router.get('/filters', response_model=LibraryFiltersResponse)
+@router.get('/filters', response_model=LibraryFiltersResponse, dependencies=[Depends(require_role(Role.CREATOR))])
 async def library_filters(
     request: Request,
     libraries: list[str] | None = Query(default=None),
@@ -170,7 +172,7 @@ async def library_filters(
     return response
 
 
-@router.get('/sync/status', response_model=SyncStateResponse)
+@router.get('/sync/status', response_model=SyncStateResponse, dependencies=[Depends(require_role(Role.CREATOR))])
 async def sync_status(
     request: Request,
     sync_engine: SyncEngine = Depends(get_sync_engine),
@@ -179,7 +181,7 @@ async def sync_status(
     return sync_engine.get_sync_status(available_libraries=available)
 
 
-@router.post('/sync', response_model=SyncStateResponse)
+@router.post('/sync', response_model=SyncStateResponse, dependencies=[Depends(require_role(Role.CREATOR))])
 async def trigger_sync(
     request: Request,
     force_full: bool = Query(default=False),
@@ -212,7 +214,7 @@ async def trigger_sync(
     return sync_engine.get_sync_status(available_libraries=available)
 
 
-@router.get('/leaderboard', response_model=list[LeaderboardEntry])
+@router.get('/leaderboard', response_model=list[LeaderboardEntry], dependencies=[Depends(require_role(Role.USER))])
 async def leaderboard(
     query: Annotated[LeaderboardQuery, Query()],
     store: LeaderboardStore = Depends(get_leaderboard_store),
@@ -220,7 +222,9 @@ async def leaderboard(
     return store.list_entries(query)
 
 
-@router.get('/players/names', response_model=list[PlayerNameSuggestion])
+@router.get(
+    '/players/names', response_model=list[PlayerNameSuggestion], dependencies=[Depends(require_role(Role.USER))]
+)
 async def player_names(
     q: str = Query(default='', max_length=100),
     limit: int = Query(default=10, ge=1, le=50),
@@ -230,7 +234,7 @@ async def player_names(
     return await asyncio.to_thread(store.get_known_player_names, q, limit)
 
 
-@router.get('/players', response_model=list[PlayerSummaryItem])
+@router.get('/players', response_model=list[PlayerSummaryItem], dependencies=[Depends(require_role(Role.USER))])
 async def players_directory(
     search: str = Query(default='', max_length=100),
     sort_by: str = Query(default='matches', pattern='^(matches|win_rate|points|name)$'),
@@ -241,7 +245,11 @@ async def players_directory(
     return await asyncio.to_thread(store.get_all_players_directory, search, sort_by, limit)
 
 
-@router.get('/players/{player_name}/profile', response_model=PlayerProfileResponse)
+@router.get(
+    '/players/{player_name}/profile',
+    response_model=PlayerProfileResponse,
+    dependencies=[Depends(require_role(Role.USER))],
+)
 async def player_profile(
     player_name: str,
     store: LeaderboardStore = Depends(get_leaderboard_store),
@@ -253,7 +261,7 @@ async def player_profile(
     return profile
 
 
-@router.get('/matches', response_model=list[MatchHistoryItem])
+@router.get('/matches', response_model=list[MatchHistoryItem], dependencies=[Depends(require_role(Role.USER))])
 async def list_matches(
     game_mode: str | None = Query(default=None),
     play_mode: str | None = Query(default=None),
@@ -273,7 +281,9 @@ async def list_matches(
     )
 
 
-@router.get('/match/{match_id}/replay', response_model=MatchReplayResponse)
+@router.get(
+    '/match/{match_id}/replay', response_model=MatchReplayResponse, dependencies=[Depends(require_role(Role.USER))]
+)
 async def match_replay(
     match_id: str,
     store: LeaderboardStore = Depends(get_leaderboard_store),
@@ -288,7 +298,7 @@ async def match_replay(
     return replay
 
 
-@router.post('/game/preflight', response_model=PreflightResponse)
+@router.post('/game/preflight', response_model=PreflightResponse, dependencies=[Depends(require_role(Role.CREATOR))])
 async def game_preflight(
     setup: PreflightRequest,
     game_service: GameService = Depends(get_game_service),
@@ -296,7 +306,7 @@ async def game_preflight(
     return await game_service.preflight(setup)
 
 
-@router.post('/game/setup', response_model=GameSetupResponse)
+@router.post('/game/setup', response_model=GameSetupResponse, dependencies=[Depends(require_role(Role.CREATOR))])
 async def game_setup(
     setup: GameSetupRequest,
     game_service: GameService = Depends(get_game_service),
@@ -423,7 +433,9 @@ async def flag_asset(
     )
 
 
-@router.get('/assets/flagged', response_model=list[FlaggedAssetItem])
+@router.get(
+    '/assets/flagged', response_model=list[FlaggedAssetItem], dependencies=[Depends(require_role(Role.CREATOR))]
+)
 async def list_flagged_assets(
     request: Request,
     limit: int = Query(default=100, ge=1, le=1000),
@@ -446,7 +458,7 @@ async def list_flagged_assets(
     ]
 
 
-@router.delete('/assets/flagged/{asset_id}')
+@router.delete('/assets/flagged/{asset_id}', dependencies=[Depends(require_role(Role.CREATOR))])
 async def unflag_asset(
     asset_id: str,
     metadata_store: MetadataStore = Depends(get_metadata_store),

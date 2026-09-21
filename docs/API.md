@@ -38,6 +38,26 @@ Response:
 }
 ```
 
+### GET /api/auth/me
+
+Returns the resolved role, authenticated email, name, and authentication status for the current request.
+
+Response:
+
+```json
+{
+  "role": "creator",
+  "email": "user@example.com",
+  "name": "Rafael",
+  "authenticated": true
+}
+```
+
+- `role`: Current user privilege level (`"guest"`, `"user"`, or `"creator"`).
+- `email`: Authenticated email string or `null` if unauthenticated.
+- `name`: Display name or `null`.
+- `authenticated`: Boolean indicating whether identity was verified.
+
 ## Setup, Sync & Metadata
 
 ### GET /api/libraries
@@ -539,8 +559,6 @@ Response:
     "play_mode": "local",
     "challenge_id": null,
     "challenge_title": null,
-    "room_id": null,
-    "room_name": null,
     "config": {
       "rounds": 10,
       "round_length": "1m",

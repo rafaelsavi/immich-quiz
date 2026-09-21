@@ -61,13 +61,11 @@ CREATE TABLE IF NOT EXISTS challenges (
     is_active          INTEGER NOT NULL
 );
 
--- 2. Matches (Every finished local, challenge, or room game)
+-- 2. Matches (Every finished local or challenge game)
 CREATE TABLE IF NOT EXISTS matches (
     match_id           TEXT PRIMARY KEY,
     challenge_id       TEXT,
-    room_id            TEXT,                          -- Secure Room Session UUID (if live multiplayer)
-    room_name          TEXT,                          -- e.g. "Rafael's Lounge" (optional display name)
-    play_mode          TEXT NOT NULL,                 -- 'local', 'challenge', 'room'
+    play_mode          TEXT NOT NULL,                 -- 'local', 'challenge'
     played_at          TEXT NOT NULL,
     libraries_json     TEXT,
     game_mode          TEXT NOT NULL,
@@ -165,7 +163,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_challenge_sessions_unique_player
 -- Indices for rapid querying and filtering
 CREATE INDEX IF NOT EXISTS idx_matches_played_at ON matches(played_at DESC);
 CREATE INDEX IF NOT EXISTS idx_matches_challenge_id ON matches(challenge_id);
-CREATE INDEX IF NOT EXISTS idx_matches_room_id ON matches(room_id);
 CREATE INDEX IF NOT EXISTS idx_matches_play_mode ON matches(play_mode);
 CREATE INDEX IF NOT EXISTS idx_matches_filter_scope ON matches(
     rounds, round_length, location_mode, date_mode, game_mode, is_custom_filtered
@@ -624,8 +621,6 @@ class LeaderboardStore:
         *,
         play_mode: PlayMode = PlayMode.local,
         challenge_id: str | None = None,
-        room_id: str | None = None,
-        room_name: str | None = None,
         duration_seconds: float | None = None,
         player_times: dict[str, float] | None = None,
         round_guesses: list[dict[str, Any]] | None = None,
@@ -659,19 +654,17 @@ class LeaderboardStore:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO matches (
-                    match_id, challenge_id, room_id, room_name, play_mode, played_at,
+                    match_id, challenge_id, play_mode, played_at,
                     libraries_json, game_mode,
                     rounds, round_length, player_count, location_mode, date_mode,
                     album_names_json, album_ids_json, person_ids_json, person_names_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     match_id,
                     challenge_id,
-                    room_id,
-                    room_name,
                     play_mode.value,
                     played_at,
                     libraries_json,
@@ -1009,8 +1002,6 @@ class LeaderboardStore:
             m.duration_seconds,
             m.play_mode,
             m.challenge_id,
-            m.room_id,
-            m.room_name,
             c.title AS challenge_title
         FROM match_entries e
         JOIN matches m ON e.match_id = m.match_id
@@ -1069,8 +1060,6 @@ class LeaderboardStore:
                     filter_summary=row['filter_summary'],
                     challenge_id=row['challenge_id'],
                     challenge_title=row['challenge_title'],
-                    room_id=row['room_id'],
-                    room_name=row['room_name'],
                 )
             )
 
@@ -1442,14 +1431,14 @@ class LeaderboardStore:
             conn.execute(
                 """
                 INSERT INTO matches (
-                    match_id, challenge_id, room_id, room_name, play_mode, played_at,
+                    match_id, challenge_id, play_mode, played_at,
                     libraries_json, game_mode,
                     rounds, round_length, player_count, location_mode, date_mode,
                     album_names_json, album_ids_json, person_ids_json, person_names_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
                 ) VALUES (
-                    ?, ?, NULL, NULL, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?,
+                    ?, ?, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
                 )
                 ON CONFLICT(match_id) DO UPDATE SET
@@ -1596,13 +1585,13 @@ class LeaderboardStore:
             conn.execute(
                 """
                 INSERT INTO matches (
-                    match_id, challenge_id, room_id, room_name, play_mode, played_at,
+                    match_id, challenge_id, play_mode, played_at,
                     libraries_json, game_mode,
                     rounds, round_length, player_count, location_mode, date_mode,
                     album_names_json, album_ids_json, person_ids_json, person_names_json, people_mode,
                     countries_json, cities_json, min_date, max_date,
                     include_shared, is_custom_filtered, filter_summary, duration_seconds
-                ) VALUES (?, ?, NULL, NULL, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, 'challenge', ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(match_id) DO UPDATE SET
                     played_at=excluded.played_at,
                     libraries_json=excluded.libraries_json,

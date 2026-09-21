@@ -44,7 +44,7 @@ export function renderLandingScreen(data, savedSession, onStart, onSeeResults) {
     mainActionHtml = `
       <div class="challenge-single-path">
         <div class="challenge-single-header">
-          <h3 data-i18n="admin.status_expired">${t("admin.status_expired")}</h3>
+          <h3 data-i18n="challenges_page.status_expired">${t("challenges_page.status_expired")}</h3>
           <p data-i18n="challenge.error_expired">${t("challenge.error_expired")}</p>
         </div>
         <button type="button" class="btn btn-primary btn-large challenge-path-btn" id="challenge-see-results-btn">

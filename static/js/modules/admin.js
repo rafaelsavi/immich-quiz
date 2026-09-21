@@ -83,7 +83,7 @@ export function generateAutoChallengeTitle() {
     const fullTitle = `${cleanSummary}${suffix}`;
     return fullTitle.length > 100 ? fullTitle.slice(0, 99) + "…" : fullTitle;
   }
-  const defaultTitle = `${modeName} • ${rounds} Rounds`;
+  const defaultTitle = `${modeName} • ${t("challenges_page.rounds_count", rounds)}`;
   return defaultTitle.length > 100 ? defaultTitle.slice(0, 99) + "…" : defaultTitle;
 }
 

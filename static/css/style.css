@@ -24,6 +24,7 @@
 @import "./components/replay.css";
 @import "./components/review_deck.css";
 @import "./components/summary.css";
+@import "./components/auth.css";
 
 /* Game Mode specific styles */
 @import "./modes/pinpoint.css";

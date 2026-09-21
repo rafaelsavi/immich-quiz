@@ -204,7 +204,7 @@ export function getMatchMetaCategories(data) {
       icon: "🔗",
       label: tOr("meta.shared_label", "Shared"),
       val: tOr("meta.shared_included", "Included"),
-      title: t("challenges_page.scope_shared") || "Shared albums included",
+      title: tOr("meta.scope_shared_desc", "Shared albums included"),
     });
   }
 
@@ -213,9 +213,9 @@ export function getMatchMetaCategories(data) {
     libItems.push({
       type: "all",
       icon: "🌐",
-      label: tOr("challenges_page.scope_heading", "Scope"),
+      label: tOr("meta.scope_heading", "Photo Filters"),
       val: tOr("meta.scope_all", "Full Library"),
-      title: t("challenges_page.scope_all") || "All Photos (Full Library)",
+      title: tOr("meta.scope_all_desc", "All Photos (Full Library)"),
     });
   }
 

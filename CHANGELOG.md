@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Role-Based Access Control (RBAC) & Cloudflare Zero Trust Integration**:
+  - Three-tier hierarchical role model (`Guest < User < Creator`) powered by Cloudflare Access authenticated email headers (`Cf-Access-Authenticated-User-Email`) with seamless local/CI fallback (`AUTH_MODE=disabled` granting full Creator privileges).
+  - Configurable access control via environment variables: `AUTH_MODE`, `CF_CREATOR_EMAILS`, `CF_USER_EMAILS`, and `DEV_MOCK_EMAIL`.
+  - Secure backend role protection dependency (`require_role(min_role)`) enforcing HTTP 403 Forbidden across admin, metadata, sync, and photo moderation endpoints.
+  - New session endpoint `GET /api/auth/me` providing current user identity, role, and authentication status to the frontend.
+  - Dedicated Home Landing Card (`#home-card`) conditionally displayed for Guests and Users when Game Setup is hidden, featuring a challenge code/link join input and Quick Link shortcuts to Active Challenges, Player Directory, and Match Replays.
+  - Lightweight Identity Badge in header displaying user name and role badge (`👤 Host · Creator`, `👤 Alice · Player`).
+  - Client-side navigation guards blocking unauthorized route transitions with localized toast alerts and automatic redirect to Home.
+  - Restricted local Pass & Play `#leaderboard-card` exclusively to the Creator role, ensuring Player (User) and Guest landing views share the clean `#home-card` without extraneous local server match tables.
+  - Role-specific CSS styling in `static/css/components/auth.css` and 100% strict 4-file parity across all 4 locales.
+- **Universal Controls (`common.*`) & Semantic I18n Namespaces**:
+  - Introduced dedicated universal action keys (`common.cancel`, `common.refresh`, `common.loading`, `common.back`, `common.close`, `common.clear`, `common.retry`, `common.copy`, `common.copied`, `common.pts`) to eliminate cross-domain key borrowing across modals and screen headers.
+  - Added domain-specific specification metadata keys (`meta.scope_heading`, `meta.scope_all_desc`, `meta.scope_shared_desc`) and challenge card status/action keys (`challenges_page.status_active`, `challenges_page.status_expired`, `challenges_page.status_deactivated`, `challenges_page.created_at_label`, `challenges_page.deactivate_confirm`, `challenges_page.deactivate_success`, `challenges_page.pinpoint_desc`, `challenges_page.unshuffle_desc`).
+  - Added parameterized dynamic match counters (`stats.match_count_single`, `stats.match_count_plural`) and replay filter mode tokens (`replay.filter_mode_pinpoint`, `replay.filter_mode_unshuffle`).
+
+### Changed
+
+- **Match Review Layout Modularization & Visual Borders (`.review-content`)**:
+  - Restructured `.review-content` with modular layout flow (`gap: 1.5rem`), eliminating the monolithic vertical list feeling across Game Results summary, Challenge Grand Reveal, and Match Replays.
+  - Framed the Standings Table (`.table-scroll`) into a dedicated scoreboard card with rounded border, subtle shadow, and tinted table header contrast (`--bg-surface-secondary`) in light and dark modes.
+  - Encapsulated the Universal Review Deck (`#summary-review-deck`) within an interactive console container matching the `.match-meta-category` design system, wrapping the 3-tab switcher, round stepper, photo/map canvas, and round breakdown into a cohesive inspection card.
+  - Grounded bottom action button bars (`.summary-actions`) with a clean horizontal hairline border separator.
+  - Optimized responsive behavior for mobile screens (`@media (max-width: 640px)`) with condensed padding and gap tuning.
+- **Concise Terminology Standardization ("Choose the Smaller" Heuristic)**:
+  - Unified terminology across both English and Brazilian Portuguese locales, systematically favoring shorter, punchier, and cleaner terms to eliminate visual clutter and prevent line-wrapping:
+    - **`Local` vs `Localização`**: Standardized Brazilian Portuguese location dimension to `Local` (5 chars vs 11 chars) across setup targets, mode descriptions, map prompts, reveal labels, and player analytics (`setup.goal_location`, `meta.targets_loc_date`, `meta.targets_loc_only`, `challenges_page.pinpoint_desc`, `mode.pinpoint.goal_location_desc`, `game.location_guess_label`, `reveal.actual_location`, `stats.location_accuracy`, `stats.perfect_location_rounds`, `reported_page.filter_location`).
+    - **`Ranking` vs `Classificação`**: Standardized Brazilian Portuguese standings to `Ranking` (7 chars vs 13 chars) across leaderboard cards, standing toggle buttons, loading states, and profile achievements (`leaderboard.heading`, `challenges_page.view_standings`, `challenges_page.hide_standings`, `challenges_page.leaderboard_loading`, `stats.feature_podiums_desc`).
+    - **`Pontos` vs `Pontuação`**: Standardized Brazilian Portuguese score tables and invitations to `Pontos` (6 chars vs 9 chars) across reveal headers, challenge tables, and summary banners (`reveal.col_score`, `challenges_page.score_col`, `summary.scores_header`, `challenge.invite_message`).
+    - **`Encerrar` vs `Desativar`**: Standardized challenge expiration actions in Portuguese to `Encerrar` / `Encerrado` (8 chars vs 9 chars) for natural competition lifecycle wording (`challenges_page.deactivate_btn`, `challenges_page.status_deactivated`, `challenges_page.deactivate_confirm`, `challenges_page.deactivate_success`).
+    - **`Creator` vs `Host`**: Standardized to `Creator` / `Criador` across challenge card metadata, search placeholders, access restriction warnings, and RBAC roles (`auth.role_creator`, `auth.access_restricted_creator`, `challenges_page.search_placeholder`).
+    - **`Photo` vs `Image`**: Standardized to `Photo` / `Foto` everywhere (`game.fullscreen_image_title` aligned with all photo actions and review views).
+    - **`Player` vs `Participant`**: Standardized to `Player` / `Jogador` across challenge attendee counters, loading spinners, and empty states (`challenge.participants`, `challenge.loading_count`, `challenges_page.no_participants_yet`).
+    - **`Match` vs `Game` Semantic Boundary**: Preserved clean conceptual boundary between `Game` / `Jogo` (the playable activity: `Prepare Game`, `Start Game`, `Local Game`) and `Match` / `Partida` (the playthrough instance/archive: `Match Replay`, `Matches Played`, `past matches`, `future matches`).
+- **I18n Domain Decoupling & Modernization**:
+  - Decoupled borrowed keys across `static/index.html` (modals and filter selectors), `match_meta.js`, `screens/challenges.js`, `challenge/landing.js`, `screens/stats.js`, `screens/replay.js`, and `match_replay.js`.
+  - Localized dynamic counts in `player_autocomplete.js` and default challenge title rounds count in `admin.js`.
+
+### Fixed
+
+- **Missing Translation Key in Challenge Summary**:
+  - Fixed missing key reference `t("game.actual_location")` in `static/js/modules/challenge/summary.js` to correctly resolve to `t("reveal.actual_location")`.
+
+### Removed
+
+- **Unimplemented Game Room References**:
+  - Removed all dead code and database schema columns (`room_id`, `room_name`, `PlayMode.room`, `idx_matches_room_id`) across backend models and SQLite schema, leaving only the two supported play modes: Local (`local`) and Challenge (`challenge`).
+  - Removed dead frontend room badge styles (`.playmode-badge.mode-room`, `.badge-type-room`) and corresponding locale keys (`leaderboard.mode_room`, `leaderboard.mode_room_desc`) across all 4 locale files.
+- **Pruned 104 Obsolete Legacy I18n Keys**:
+  - Safely removed abandoned legacy keys from obsolete admin modals, old setup tabs/layouts, pre-Review-Deck headings, reveal table column headers, and legacy challenge intermissions across all four locale files simultaneously (`locales/en-US.json`, `locales/pt-BR.json`, `static/js/modules/locales/en_US.js`, `static/js/modules/locales/pt_BR.js`) while maintaining 100% strict key parity.
+
 ## [3.1.0] - 2026-09-20
 
 ### Added
