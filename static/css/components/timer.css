@@ -301,3 +301,57 @@
 .fullscreen-timer .fs-timer-fill.is-critical {
   animation: timerFillPulse 0.5s ease-in-out infinite alternate;
 }
+
+/* ==========================================================================
+   Dark Mode: Timer Component
+   ========================================================================== */
+[data-theme="dark"] .timer-row {
+  background: #131b2e;
+  border-color: #26344d;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .timer-head {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] #timer-remaining {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .timer-track {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .timer-row.is-paused {
+  background: rgba(217, 119, 6, 0.12);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+[data-theme="dark"] .timeout-notice {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .fullscreen-timer {
+  background: linear-gradient(to top, rgba(11, 15, 25, 0.94), rgba(11, 15, 25, 0.82));
+  border-top-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .fullscreen-timer .fs-timer-head {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .fullscreen-timer .fs-timer-remaining {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .fullscreen-timer .fs-timer-track {
+  background: #1e293b;
+  border-color: #334155;
+}
+

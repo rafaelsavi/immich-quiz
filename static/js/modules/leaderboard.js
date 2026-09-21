@@ -90,7 +90,7 @@ export function getPlayModeInfo(mode) {
     default:
       return {
         label: t("leaderboard.mode_local"),
-        icon: "👥",
+        icon: "🕹️",
         className: "mode-local",
         title: t("leaderboard.mode_local_desc") !== "leaderboard.mode_local_desc" ? t("leaderboard.mode_local_desc") : "Local Match",
       };

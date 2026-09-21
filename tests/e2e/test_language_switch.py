@@ -274,7 +274,7 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
     await expect(page.locator('#stats-replays-mode-filter option[value="pinpoint"]')).to_have_text('🎯 Pinpoint')
     await expect(page.locator('#stats-replays-mode-filter option[value="unshuffle"]')).to_have_text('🔀 Unshuffle')
     await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('All Types')
-    await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('👥 Local Match')
+    await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('🕹️ Local Match')
     await expect(page.locator('#stats-replays-type-filter option[value="challenge"]')).to_have_text('⚔️ Challenge')
 
     # 2. Toggle to Portuguese in realtime
@@ -290,7 +290,7 @@ async def test_stats_hub_and_replay_dynamic_language_switch(page: Page) -> None:
     await expect(page.locator('#stats-replays-mode-filter option[value="pinpoint"]')).to_have_text('🎯 Pinpoint')
     await expect(page.locator('#stats-replays-mode-filter option[value="unshuffle"]')).to_have_text('🔀 Embaralhado')
     await expect(page.locator('#stats-replays-type-filter option[value="all"]')).to_have_text('Todos os Tipos')
-    await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('👥 Partida Local')
+    await expect(page.locator('#stats-replays-type-filter option[value="local"]')).to_have_text('🕹️ Partida Local')
     await expect(page.locator('#stats-replays-type-filter option[value="challenge"]')).to_have_text('⚔️ Desafio')
 
     # Players page in Portuguese

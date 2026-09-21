@@ -320,7 +320,7 @@ export function showSyncCompletedPopup(status) {
     if (totalAssets > 0) {
       chips.push(`
         <span class="sync-popup-stat-chip">
-          <span class="stat-icon" aria-hidden="true">📷</span>
+          <span class="stat-icon" aria-hidden="true">📸</span>
           <span class="stat-val">${formatNumber(totalAssets)}</span>
         </span>
       `);

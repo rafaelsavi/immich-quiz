@@ -266,7 +266,7 @@ function renderMatchesHistory(matches) {
       const typeLabel = isChallenge
         ? t("replay.play_mode_challenge")
         : t("replay.play_mode_local");
-      const typeIcon = isChallenge ? "⚔️" : "👥";
+      const typeIcon = isChallenge ? "⚔️" : "🕹️";
       const typeClass = isChallenge
         ? " badge-type-challenge"
         : " badge-type-local";

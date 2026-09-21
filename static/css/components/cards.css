@@ -549,3 +549,130 @@ html.route-non-lobby #leaderboard-card {
   }
 }
 
+/* ==========================================================================
+   Dark Mode Cards & Surfaces
+   ========================================================================== */
+[data-theme="dark"] .card {
+  background: var(--card, #131b2e);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow), var(--card-highlight);
+}
+
+[data-theme="dark"] #quiz-image,
+[data-theme="dark"] .media-frame {
+  background: #0c1322;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .media-placeholder {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .polaroid-card {
+  background: #172136;
+  border: 1px solid #283750;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .polaroid-card:hover {
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .polaroid-img-wrap {
+  background: #0c1220;
+}
+
+[data-theme="dark"] .polaroid-location {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .polaroid-date {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .game-instructions {
+  background: #0c1322;
+  border-color: #26344d;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .stat-chip {
+  background: #172136;
+  border-color: #283750;
+  color: #f1f5f9;
+}
+
+/* ==========================================================================
+   Dark Mode: Mode Buttons, Segmented Controls & Checkbox Overrides
+   ========================================================================== */
+[data-theme="dark"] .mode-btn {
+  background: var(--card, #131b2e);
+  border-color: #26344d;
+  color: var(--ink, #f1f5f9);
+}
+
+[data-theme="dark"] .mode-btn:hover {
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .mode-btn.active {
+  border-color: var(--accent, #0f7c7f);
+  background: rgba(15, 124, 127, 0.12);
+  box-shadow: 0 4px 14px rgba(15, 124, 127, 0.22);
+}
+
+[data-theme="dark"] .mode-btn .mode-title {
+  color: var(--ink, #f1f5f9);
+}
+
+[data-theme="dark"] .mode-btn .mode-desc {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .mode-btn.multi-select::after,
+[data-theme="dark"] .mode-btn.is-checkbox::after {
+  border-color: #475569;
+  background: #1e293b;
+}
+
+[data-theme="dark"] .mode-btn.multi-select.active::after,
+[data-theme="dark"] .mode-btn.is-checkbox.active::after {
+  border-color: var(--accent, #0f7c7f);
+  background: var(--accent, #0f7c7f);
+}
+
+/* Segmented Controls */
+[data-theme="dark"] .segmented-control {
+  background: #0f172a;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .segmented-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .segmented-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .segmented-btn.active {
+  background: #1e293b;
+  color: #f1f5f9;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+/* Mode Help Button */
+[data-theme="dark"] .mode-help-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .mode-help-btn:hover {
+  background: #334155;
+  color: #f1f5f9;
+}
+
+

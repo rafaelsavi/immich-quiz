@@ -137,3 +137,27 @@
   font-size: 0.75rem;
   color: #8c97ad;
 }
+
+/* ==========================================================================
+   Dark Mode Date Range Slider
+   ========================================================================== */
+[data-theme="dark"] .range-slider-track {
+  background: #283750;
+}
+
+[data-theme="dark"] .range-thumb::-webkit-slider-thumb {
+  background: #0f172a;
+  border-color: #2dd4bf;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .range-thumb::-moz-range-thumb {
+  background: #0f172a;
+  border-color: #2dd4bf;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="dark"] .range-slider-ticks {
+  color: #64748b;
+}
+

@@ -592,3 +592,53 @@
 [data-theme="dark"] .summary-replay-section {
   border-color: #334155;
 }
+
+/* ==========================================================================
+   Dark Mode: Replay Header, Round Stepper, Viewer Controls
+   ========================================================================== */
+[data-theme="dark"] .replay-page-header {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .replay-round-stepper {
+  background: #0f172a;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .replay-round-indicator {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-icon-control {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-icon-control:hover:not(:disabled) {
+  background: #334155;
+  border-color: var(--accent, #0f7c7f);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .replay-main-heading {
+  color: #f1f5f9;
+}
+
+/* Player Guesses Section in Replay Viewer */
+[data-theme="dark"] .replay-guesses-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .replay-guess-row {
+  border-bottom-color: #26344d;
+}
+
+[data-theme="dark"] .replay-guess-player-name {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .replay-guess-detail {
+  color: #94a3b8;
+}

@@ -97,6 +97,7 @@ import {
   refreshReplayPageLanguage,
 } from "./modules/screens/replay.js";
 import { initSettingsMenu } from "./modules/components/settings_menu.js";
+import { initTheme, updateThemeUi } from "./modules/theme.js";
 
 // Re-export / configure global mode accessor
 
@@ -515,6 +516,7 @@ function refreshActiveScreenLanguage() {
   applyLanguage();
   updateLanguageUi();
   updateAudioUi();
+  updateThemeUi();
   renderSyncStatus(getLastSyncStatus());
   refreshFilterComponentsLanguage();
   updateLeaderboardScope();
@@ -717,6 +719,7 @@ function initHomeCard() {
   initStats();
   initReplay();
   initSettingsMenu();
+  initTheme();
 
   if (el.statsNavBtn) {
     el.statsNavBtn.addEventListener("click", (e) => {

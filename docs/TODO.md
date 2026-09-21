@@ -29,6 +29,11 @@ This document lists planned features, design ideas, and technical debt items for
   - [x] Frontend client-side navigation guards with localized alerts and auto-redirect to `/`.
   - [x] Lightweight identity & role badge in header (`GET /api/auth/me`).
 
+- Dark mode missing improvement: accordion-title; date-range-slider; multi-select-dropdown
+- dont forget no need for theme "auto". Keep button switch only between light and dark
+- player-kpis-grid is too big for what it displays. Make design more compact
+- "mode-buttons guess-mode-buttons" should update ranking table the same way it updates preflight
+
 - [ ] v3.3.0 **Improve Share Functionality & Social Scorecards**
 
 - [ ] v3.4.0 **Add Support for Videos**

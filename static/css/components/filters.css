@@ -659,3 +659,93 @@
   }
 }
 
+/* ==========================================================================
+   Dark Mode Filters Accordion & Controls
+   ========================================================================== */
+[data-theme="dark"] .filters-accordion {
+  background: #131b2e;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .filters-accordion:hover {
+  border-color: #3b4d70;
+}
+
+[data-theme="dark"] .filters-accordion-header {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .filters-accordion-content {
+  border-top-color: #202c42;
+}
+
+[data-theme="dark"] .accordion-arrow {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .filter-source-pill {
+  background: #172136;
+  border-color: #283750;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .filter-source-pill:hover {
+  background: #202c46;
+  border-color: #3b4d70;
+}
+
+[data-theme="dark"] .filter-source-pill.active {
+  background: rgba(15, 124, 127, 0.22);
+  border-color: #2dd4bf;
+  color: #2dd4bf;
+}
+
+/* People Mode Toggle (ANY / ALL) */
+[data-theme="dark"] .people-mode-toggle {
+  background: #0f172a;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .people-mode-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .people-mode-btn:hover {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .people-mode-btn.active {
+  background: #1e293b;
+  color: #f1f5f9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Preflight Count Badge */
+[data-theme="dark"] .preflight-count {
+  background: rgba(45, 212, 191, 0.1);
+  border-color: rgba(45, 212, 191, 0.25);
+  color: #2dd4bf;
+}
+
+/* Preflight Warning */
+[data-theme="dark"] .preflight-warning {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.28);
+}
+
+/* Filters Summary Badge */
+[data-theme="dark"] .filters-summary-badge {
+  background: rgba(45, 212, 191, 0.1);
+  border-color: rgba(45, 212, 191, 0.25);
+  color: #2dd4bf;
+}
+
+/* Sync Popup */
+[data-theme="dark"] .sync-popup {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+

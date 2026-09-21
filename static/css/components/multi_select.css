@@ -378,3 +378,68 @@
     max-width: 120px;
   }
 }
+
+/* ==========================================================================
+   Dark Mode Multi-Select Dropdowns & Controls
+   ========================================================================== */
+[data-theme="dark"] .multi-select-trigger {
+  background: #141d2e;
+  border-color: #283650;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .multi-select-trigger:hover {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .multi-select-dropdown {
+  background: #131b2e;
+  border-color: #283750;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="dark"] .multi-select-search-wrap {
+  background: #0c1220;
+  border-bottom-color: #243048;
+}
+
+[data-theme="dark"] .multi-select-search {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .multi-select-search::placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .multi-select-header-actions {
+  background: #0c1220;
+  border-bottom-color: #243048;
+}
+
+[data-theme="dark"] .multi-select-option {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .multi-select-option:hover {
+  background: #1c273e;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .multi-select-option.selected {
+  background: rgba(15, 124, 127, 0.22);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .multi-select-tag {
+  background: #1c273e;
+  border: 1px solid #2d3b59;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .multi-select-count-badge {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .multi-select-empty {
+  color: #64748b;
+}

@@ -431,3 +431,46 @@
     justify-content: center;
   }
 }
+
+/* ==========================================================================
+   Dark Mode: Reported Moderation Components
+   ========================================================================== */
+[data-theme="dark"] .reported-item-card {
+  background: #131b2e;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .reported-item-card:hover {
+  border-color: rgba(244, 63, 94, 0.45);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .reported-item-card.active {
+  background: linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(244, 63, 94, 0.03) 100%), #131b2e;
+  box-shadow: 0 4px 16px rgba(244, 63, 94, 0.22);
+}
+
+[data-theme="dark"] .reported-inspection-panel {
+  background: #131b2e;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .inspection-header-box {
+  border-bottom-color: #26344d;
+}
+
+[data-theme="dark"] .inspection-issue-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .inspection-notes-text {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .inspection-actions-footer {
+  border-top-color: #26344d;
+}
+

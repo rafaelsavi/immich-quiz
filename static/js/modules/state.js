@@ -106,6 +106,8 @@ export const state = {
 };
 
 export const el = {
+  themeToggleBtn: document.getElementById("theme-toggle-btn"),
+  themeIcon: document.getElementById("theme-icon"),
   langToggleBtn: document.getElementById("lang-toggle-btn"),
   langIcon: document.getElementById("lang-icon"),
   audioToggleBtn: document.getElementById("audio-toggle-btn"),

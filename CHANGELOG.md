@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Dark Mode Redesign & Gear Menu Theme Switcher (Clear / Dark / Auto)**:
+  - Added dedicated theme switcher button (`#theme-toggle-btn`) inside settings gear dropdown cycling through **Auto** (System preference), **Clear** (Light), and **Dark**.
+  - Zero-flash persistence using `localStorage` (`immich_quiz_theme`) and inline `<head>` script preventing light theme flash on page load and deep links.
+  - Added dynamic `prefers-color-scheme: dark` media query synchronization when in Auto mode.
+  - Added modular `static/js/modules/theme.js` with crisp SVG icons and localized tooltips across all 4 locales (`theme.auto`, `theme.light`, `theme.dark`, `theme.toggle_title`).
+- **Dark Mode Aesthetic Overhaul Across All Surfaces**:
+  - Deep midnight-slate palette (`#0b0f19` body, `#131b2e` cards, `#0c1322` secondary surfaces) with ambient glow backdrop shapes.
+  - Full dark mode coverage for form controls, `<select>` dropdowns with customized slate SVGs, multi-selects, filter accordions, date range sliders, player chips, modals, and Leaflet map controls/popups.
+  - Fixed white container boxes in Pinpoint (`#map-guess-wrap`, `#date-guess-wrap`) and Unshuffle (`.shuffle-card-row`, `.shuffle-timeline-header`) during dark mode gameplay.
+
 - **Role-Based Access Control (RBAC) & Cloudflare Zero Trust Integration**:
   - Three-tier hierarchical role model (`Guest < User < Creator`) powered by Cloudflare Access authenticated email headers (`Cf-Access-Authenticated-User-Email`) with seamless local/CI fallback (`AUTH_MODE=disabled` granting full Creator privileges).
   - Configurable access control via environment variables: `AUTH_MODE`, `CF_CREATOR_EMAILS`, `CF_USER_EMAILS`, and `DEV_MOCK_EMAIL`.
@@ -26,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Application Icon & Emoji Unification (1-to-1 Semantic Bonding)**:
+  - Resolved the dual-use collision of `👥` (Busts in Silhouette) between **Local Game** and the **Players Directory**:
+    - Reserved `👥` exclusively for **Players** (Player Directory, Player Profiles, Player Counts, and Player Guesses).
+    - Assigned `🕹️` (Joystick) to **Local Game / Local Match** across Prepare Game modal tabs, Game Results badges, Leaderboard tags, Replays catalog filters, and all 4 locale files (`replay.filter_type_local`).
+  - Unified photo asset representation in sync metrics (`sync.js`) from `📷` to `📸` (matching Home hero and Photo Memories).
+  - Unified date filter indicator in match specifications (`match_meta.js`) from `🗓️` to `📅` (matching all date chips and date accuracy dimensions).
 - **Match Review Layout Modularization & Visual Borders (`.review-content`)**:
   - Restructured `.review-content` with modular layout flow (`gap: 1.5rem`), eliminating the monolithic vertical list feeling across Game Results summary, Challenge Grand Reveal, and Match Replays.
   - Framed the Standings Table (`.table-scroll`) into a dedicated scoreboard card with rounded border, subtle shadow, and tinted table header contrast (`--bg-surface-secondary`) in light and dark modes.

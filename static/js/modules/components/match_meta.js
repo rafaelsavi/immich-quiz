@@ -190,7 +190,7 @@ export function getMatchMetaCategories(data) {
     const datesLabel = tOr("meta.dates_label", "Dates");
     libItems.push({
       type: "dates",
-      icon: "🗓️",
+      icon: "📅",
       label: datesLabel,
       val: dateVal,
       title: `${datesLabel}: ${dateVal}`,

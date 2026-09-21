@@ -91,6 +91,7 @@ immich-quiz/
         │   ├── reveal_table.js Standardized 2-tier grouped header reveal table with score rollups.
         │   ├── review_deck.js Universal 3-tab review deck (Match Replay, Journey Map, Photo Memories) with Leaflet dimension invalidation and location mode gating.
         │   ├── round_stage.js Single source of truth for photo canvas, batch photo tabs, Leaflet map split view, and metadata caption pill chips across Live Pinpoint Reveal, Live Unshuffle Reveal, Match Replay, and Summary views.
+        │   ├── settings_menu.js Settings gear dropdown menu with click-outside and Escape dismissal.
         │   └── share_box.js Reusable, standardized share URL box, icon-only action button row, and QR code component.
         ├── challenge/   Modular challenge play mode sub-package:
         │   ├── session.js   Challenge state store, localStorage keys, reset, and map cleanup.
@@ -134,6 +135,7 @@ immich-quiz/
         ├── shortcuts.js Global keyboard navigation (<kbd>Space</kbd> / <kbd>Enter</kbd>).
         ├── state.js     Centralized reactive application state store.
         ├── sync.js      Library metadata sync trigger, polling, and status badges.
+        ├── theme.js     Clear / Dark / Auto theme controller, zero-flash persistence, and OS color scheme sync.
         └── timer.js     Silky-smooth 60 FPS countdown timer, smart time formatting (M:SS), pause/resume, audio ticks, and timeout dispatch.
 └── tests/               Test suites and quality verification harness (mirrors src/ structure).
     ├── conftest.py      Pytest fixtures, mock Immich test client, and synthetic asset factories.

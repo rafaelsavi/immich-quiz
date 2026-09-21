@@ -77,7 +77,7 @@ export function renderReplayTitleHeader(data = null) {
     }
     const dateText = formatDateTime(data.played_at);
     titleEl.innerHTML = `
-      <span class="badge-tag badge-type badge-type-local">👥 ${t("replay.play_mode_local")}</span>
+      <span class="badge-tag badge-type badge-type-local">🕹️ ${t("replay.play_mode_local")}</span>
       <span class="meta-separator" aria-hidden="true">•</span>
       <span class="replay-match-date">${escapeHtml(dateText)}</span>
     `;
@@ -127,7 +127,7 @@ export function renderSummaryTitleHeader(data = null) {
   } else {
     if (badgeEl) {
       badgeEl.className = "badge-tag badge-type badge-type-local";
-      badgeEl.innerHTML = `👥 ${t("replay.play_mode_local")}`;
+      badgeEl.innerHTML = `🕹️ ${t("replay.play_mode_local")}`;
     }
     if (headingEl) {
       headingEl.setAttribute("data-i18n", "summary.heading");

@@ -37,3 +37,15 @@
   margin-bottom: 0.8rem;
 }
 
+/* ==========================================================================
+   Dark Mode Pinpoint Guessing Wrappers
+   ========================================================================== */
+[data-theme="dark"] #map-guess-wrap,
+[data-theme="dark"] #date-guess-wrap,
+[data-theme="dark"] .pinpoint-map-wrap,
+[data-theme="dark"] .pinpoint-date-wrap {
+  border-color: #26344d;
+  background: #131b2e;
+}
+
+
