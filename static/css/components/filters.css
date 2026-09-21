@@ -675,12 +675,46 @@
   color: #f8fafc;
 }
 
+[data-theme="dark"] .accordion-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .accordion-toggle-btn {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .accordion-icon {
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .accordion-title-wrap:hover .accordion-title {
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .filters-accordion-meta .match-meta-item {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .filters-accordion-meta .match-meta-item-val {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .filters-accordion-meta .match-meta-item-label {
+  color: #94a3b8;
+}
+
 [data-theme="dark"] .filters-accordion-content {
   border-top-color: #202c42;
 }
 
 [data-theme="dark"] .accordion-arrow {
   color: #94a3b8;
+}
+
+[data-theme="dark"] .filters-accordion-header:hover .accordion-arrow {
+  color: #2dd4bf;
 }
 
 [data-theme="dark"] .filter-source-pill {

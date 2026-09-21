@@ -209,3 +209,16 @@ def test_start_match_includes_date_range_slider_payload() -> None:
     assert 'const { minDate, maxDate } = dateRangeSlider' in content
     assert 'min_date: minDate' in content
     assert 'max_date: maxDate' in content
+
+
+def test_range_slider_track_and_input_reset() -> None:
+    reset_css = STATIC_DIR / 'css' / 'base' / 'reset.css'
+    assert reset_css.exists()
+    reset_content = reset_css.read_text(encoding='utf-8')
+    assert ':not([type="range"])' in reset_content
+
+    slider_css = RANGE_SLIDER_CSS.read_text(encoding='utf-8')
+    assert '.range-slider-track' in slider_css
+    assert 'border-radius: 999px' in slider_css
+    assert '[data-theme="dark"] .range-slider-track' in slider_css
+    assert '[data-theme="dark"] .range-slider-fill' in slider_css

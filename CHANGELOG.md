@@ -9,15 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Dark Mode Redesign & Gear Menu Theme Switcher (Clear / Dark / Auto)**:
-  - Added dedicated theme switcher button (`#theme-toggle-btn`) inside settings gear dropdown cycling through **Auto** (System preference), **Clear** (Light), and **Dark**.
+- **Dark Mode Redesign & Gear Menu Theme Switcher (Clear / Dark)**:
+  - Dedicated theme switcher button (`#theme-toggle-btn`) inside settings gear dropdown toggling directly between **Clear** (Light) and **Dark** color schemes.
   - Zero-flash persistence using `localStorage` (`immich_quiz_theme`) and inline `<head>` script preventing light theme flash on page load and deep links.
-  - Added dynamic `prefers-color-scheme: dark` media query synchronization when in Auto mode.
-  - Added modular `static/js/modules/theme.js` with crisp SVG icons and localized tooltips across all 4 locales (`theme.auto`, `theme.light`, `theme.dark`, `theme.toggle_title`).
+  - Modular `static/js/modules/theme.js` with crisp SVG icons and localized tooltips across all 4 locales (`theme.light`, `theme.dark`, `theme.toggle_title`).
 - **Dark Mode Aesthetic Overhaul Across All Surfaces**:
   - Deep midnight-slate palette (`#0b0f19` body, `#131b2e` cards, `#0c1322` secondary surfaces) with ambient glow backdrop shapes.
-  - Full dark mode coverage for form controls, `<select>` dropdowns with customized slate SVGs, multi-selects, filter accordions, date range sliders, player chips, modals, and Leaflet map controls/popups.
+  - Full dark mode coverage for form controls, `<select>` dropdowns with customized slate SVGs, multi-select dropdowns (`.multi-select-actions`, search inputs, action buttons, scrollbars), filter accordions (`.accordion-title`, `.accordion-icon`, meta items), date range sliders (`#date-range-slider` fill, track, thumbs, ticks), player chips, modals, and Leaflet map controls/popups.
   - Fixed white container boxes in Pinpoint (`#map-guess-wrap`, `#date-guess-wrap`) and Unshuffle (`.shuffle-card-row`, `.shuffle-timeline-header`) during dark mode gameplay.
+- **Detailed Leaderboard Scope Pill Tooltip & Frontend Filter Tooltip Formatting**:
+  - Implemented `formatFilterTooltip(data)` and `getActiveFilterTooltip()` in `static/js/modules/setup_filters.js`, bringing client-side parity to the backend `GameFilterConfig.format_filter_tooltip()`.
+  - Updated `updateLeaderboardScope()` in `static/js/modules/leaderboard.js` to populate `title` on `#leaderboard-scope-pill` with the multiline filter breakdown (libraries, albums, countries, cities, people, date ranges, shared status) and game mode/length metadata on hover.
+- **Live Leaderboard Synchronization on Guess Mode Toggles**:
+  - Configured `onGuessModeChanged()` in `static/js/modules/setup_filters.js` to invoke `loadLeaderboardDebounced()` whenever guess mode targets (`.guess-mode-buttons`) are toggled, keeping preflight media counts and all-time ranking records synchronized in real time.
+  - Enhanced `updateLeaderboardScope()` in `static/js/modules/leaderboard.js` to dynamically reflect specific active targets (`(Location)` or `(Date)`) in `#leaderboard-scope-pill` when Pinpoint is selectively filtered.
 
 - **Role-Based Access Control (RBAC) & Cloudflare Zero Trust Integration**:
   - Three-tier hierarchical role model (`Guest < User < Creator`) powered by Cloudflare Access authenticated email headers (`Cf-Access-Authenticated-User-Email`) with seamless local/CI fallback (`AUTH_MODE=disabled` granting full Creator privileges).
@@ -36,6 +41,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Range Slider Track Groove, Thumb Contrast & Input Style Isolation**:
+  - Excluded `input[type="range"]` (along with checkbox and radio inputs) from generic text input styles in `static/css/base/reset.css`, preventing dark mode background (`--input-bg`) and border colors from covering the underlying track groove, active gradient fill, and secondary thumb handle.
+  - Redesigned `.range-slider-track` with deep tactile groove styling featuring subtle bevel highlights (`0 1px 0 rgba(255, 255, 255, 0.85)` in clear mode, `0 1px 0 rgba(255, 255, 255, 0.05)` in dark mode) and rich inset shadows.
+  - Implemented tactile `cursor: grab` and `cursor: grabbing` on thumbs, vibrant gradient active fill, dynamic handle z-index layering on focus/pointerdown so handles never block each other, click-to-seek track navigation, and muted styling for disabled slider states.
 - **Compact Player KPI Overview Grid (`.player-kpis-grid`)**:
   - Aligned `.player-kpis-grid` selector with `.player-kpi-grid` in `static/css/components/stats.css` and established a balanced 4-column single-row layout on desktop/tablet (`repeat(4, 1fr)`).
   - Streamlined `.player-kpi-card` design with condensed padding (`0.65rem 0.85rem`), tighter vertical rhythm, refined typography (`font-size: 1.35rem` for values, `0.74rem` uppercase labels, and `0.85rem` legible subtext on PC), subtle lift hover effects, and a 2x2 symmetrical layout on mobile screens (`@media (max-width: 768px)`).

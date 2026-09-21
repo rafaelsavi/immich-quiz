@@ -34,9 +34,8 @@
         document.documentElement.classList.add("route-non-lobby");
       }
       try {
-        var s = localStorage.getItem("immich_quiz_theme") || "auto";
-        var isDark = s === "dark" || (s === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
-        document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+        var s = localStorage.getItem("immich_quiz_theme") === "dark" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", s);
         document.documentElement.setAttribute("data-theme-setting", s);
       } catch (_) {}
     })();
@@ -86,9 +85,9 @@
           </button>
           <div class="settings-menu" id="settings-menu" role="menu" aria-label="Settings">
             <button type="button" id="theme-toggle-btn" class="header-icon-btn theme-toggle-btn settings-menu-btn"
-              data-i18n-title="theme.auto" data-i18n-aria-label="theme.toggle_title"
-              title="Theme: Auto" aria-label="Switch Theme">
-              <span id="theme-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="theme-svg" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg></span>
+              data-i18n-title="theme.light" data-i18n-aria-label="theme.toggle_title"
+              title="Theme: Clear" aria-label="Switch Theme">
+              <span id="theme-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="theme-svg" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
             </button>
             <button type="button" id="lang-toggle-btn" class="header-icon-btn lang-toggle-btn settings-menu-btn"
               title="Language: English" aria-label="Switch Language">

@@ -45,7 +45,7 @@ label {
   font-weight: 600;
 }
 
-input,
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
 select,
 button {
   width: 100%;
@@ -146,7 +146,7 @@ select[multiple] {
   filter: blur(80px);
 }
 
-[data-theme="dark"] input,
+[data-theme="dark"] input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
 [data-theme="dark"] select,
 [data-theme="dark"] textarea {
   background: var(--input-bg, #141d2e);
@@ -154,21 +154,21 @@ select[multiple] {
   color: var(--ink, #f8fafc);
 }
 
-[data-theme="dark"] input::placeholder,
+[data-theme="dark"] input:not([type="range"]):not([type="checkbox"]):not([type="radio"])::placeholder,
 [data-theme="dark"] textarea::placeholder {
   color: #64748b;
 }
 
-[data-theme="dark"] input:hover,
+[data-theme="dark"] input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):hover,
 [data-theme="dark"] select:hover,
 [data-theme="dark"] textarea:hover {
   border-color: #475569;
 }
 
-[data-theme="dark"] input:focus,
+[data-theme="dark"] input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus,
 [data-theme="dark"] select:focus,
 [data-theme="dark"] textarea:focus,
-[data-theme="dark"] input:focus-visible,
+[data-theme="dark"] input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):focus-visible,
 [data-theme="dark"] select:focus-visible,
 [data-theme="dark"] textarea:focus-visible {
   border-color: var(--accent, #0f7c7f);

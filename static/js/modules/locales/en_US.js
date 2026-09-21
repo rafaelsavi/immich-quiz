@@ -316,7 +316,6 @@ export default {
   "audio.enabled": "Sound Effects: Enabled",
   "audio.muted": "Sound Effects: Muted",
   "audio.toggle_title": "Toggle Sound Effects",
-  "theme.auto": "Theme: Auto",
   "theme.light": "Theme: Clear",
   "theme.dark": "Theme: Dark",
   "theme.toggle_title": "Switch Theme",

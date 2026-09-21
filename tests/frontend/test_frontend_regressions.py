@@ -466,9 +466,13 @@ def test_leaderboard_enhancements_markup_and_modules() -> None:
     assert 'people' in api_js, 'api.js must support people query parameter'
     assert 'albums' in api_js, 'api.js must support albums query parameter'
     assert 'people_mode' in api_js, 'api.js must support people_mode query parameter'
-    assert 'loadLeaderboardDebounced' in leaderboard_js, 'leaderboard.js must export loadLeaderboardDebounced'
     assert 'getActiveFilterSummary' in setup_filters_js, 'setup_filters.js must export getActiveFilterSummary'
+    assert 'getActiveFilterTooltip' in setup_filters_js, 'setup_filters.js must export getActiveFilterTooltip'
+    assert 'formatFilterTooltip' in setup_filters_js, 'setup_filters.js must export formatFilterTooltip'
     assert 'isCustomFilteredActive' in setup_filters_js, 'setup_filters.js must export isCustomFilteredActive'
+    assert 'leaderboardScopePill.title' in leaderboard_js, (
+        'leaderboard.js must set title tooltip on leaderboardScopePill'
+    )
 
 
 def test_filter_persistence_and_people_mode_lifecycle() -> None:
@@ -2298,3 +2302,45 @@ def test_standings_table_compact_badges_and_no_redundant_crown() -> None:
 
     # 3. Dead .winner-crown CSS is removed from challenge.css
     assert '.winner-crown' not in challenge_css
+
+
+def test_theme_and_dark_mode_improvements_and_guess_mode_leaderboard() -> None:
+    """Verify theme switch is strictly light/dark without auto,
+    dark mode styles for accordion, date slider, and multi-select,
+    and guess mode toggles update the ranking table.
+    """
+    theme_js = (JS_DIR / 'modules' / 'theme.js').read_text(encoding='utf-8')
+    setup_filters_js = (JS_DIR / 'modules' / 'setup_filters.js').read_text(encoding='utf-8')
+    leaderboard_js = (JS_DIR / 'modules' / 'leaderboard.js').read_text(encoding='utf-8')
+    filters_css = (STATIC_DIR / 'css' / 'components' / 'filters.css').read_text(encoding='utf-8')
+    slider_css = (STATIC_DIR / 'css' / 'components' / 'range_slider.css').read_text(encoding='utf-8')
+    multi_css = (STATIC_DIR / 'css' / 'components' / 'multi_select.css').read_text(encoding='utf-8')
+
+    # 1. Theme toggle strictly switches between light and dark
+    assert 'VALID_THEMES = ["light", "dark"]' in theme_js
+    assert '"auto"' not in theme_js
+    assert 'toggleTheme' in theme_js
+
+    # 2. Guess mode change triggers leaderboard reload
+    on_guess_func = setup_filters_js.split('function onGuessModeChanged')[1].split('function updatePreflightCount')[0]
+    assert 'loadLeaderboardDebounced()' in on_guess_func
+    assert 'triggerPreflightDebounced()' in on_guess_func
+
+    # 3. Leaderboard scope pill reflects location / date mode
+    assert 'locActive && !dateActive' in leaderboard_js
+    assert '!locActive && dateActive' in leaderboard_js
+
+    # 4. Dark mode styling for accordion title and controls
+    assert '[data-theme="dark"] .accordion-title' in filters_css
+    assert '[data-theme="dark"] .accordion-toggle-btn' in filters_css
+    assert '[data-theme="dark"] .filters-accordion-meta .match-meta-item' in filters_css
+
+    # 5. Dark mode styling for date range slider
+    assert '[data-theme="dark"] .slider-value-readout' in slider_css
+    assert '[data-theme="dark"] .range-slider-fill' in slider_css
+    assert '[data-theme="dark"] .range-slider-track' in slider_css
+
+    # 6. Dark mode styling for multi-select dropdown
+    assert '[data-theme="dark"] .multi-select-actions' in multi_css
+    assert '[data-theme="dark"] .btn-text-action' in multi_css
+    assert '[data-theme="dark"] .multi-select-summary' in multi_css

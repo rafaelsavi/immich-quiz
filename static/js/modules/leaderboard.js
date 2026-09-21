@@ -2,7 +2,7 @@ import { state, el } from "./state.js";
 import { api, setupFilterParams } from "./api.js";
 import { buildCell, createRankBadge, escapeHtml } from "./formatters.js";
 import { t, formatDateTime } from "./i18n.js";
-import { getActiveFilterSummary } from "./setup_filters.js";
+import { getActiveFilterSummary, getActiveFilterTooltip } from "./setup_filters.js";
 import { navigate } from "./router.js";
 
 export function formatAccuracy(pct) {
@@ -19,11 +19,30 @@ export function updateLeaderboardScope() {
   const lengthText = t(lengthKey) !== lengthKey ? t(lengthKey) : lengthVal;
 
   const gameMode = (state && state.gameMode) || "pinpoint";
-  const modeText = gameMode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
+  let modeText = gameMode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
+
+  if (gameMode === "pinpoint") {
+    const locEl = el.goalLocation;
+    const dateEl = el.goalDate;
+    const locCard = document.getElementById("card-goal-location");
+    const dateCard = document.getElementById("card-goal-date");
+    const locActive = locEl ? Boolean(locEl.checked) : (locCard ? locCard.classList.contains("active") : true);
+    const dateActive = dateEl ? Boolean(dateEl.checked) : (dateCard ? dateCard.classList.contains("active") : true);
+
+    if (locActive && !dateActive) {
+      modeText += ` (${t("setup.goal_location")})`;
+    } else if (!locActive && dateActive) {
+      modeText += ` (${t("setup.goal_date")})`;
+    }
+  }
 
   const filterScope = typeof getActiveFilterSummary === "function" ? getActiveFilterSummary() : t("leaderboard.scope_all");
+  const scopeText = `${modeText} • ${lengthText} • ${filterScope}`;
 
-  el.leaderboardScopePill.textContent = `${modeText} • ${lengthText} • ${filterScope}`;
+  el.leaderboardScopePill.textContent = scopeText;
+
+  const filterTooltip = typeof getActiveFilterTooltip === "function" ? getActiveFilterTooltip() : null;
+  el.leaderboardScopePill.title = filterTooltip ? `${modeText} • ${lengthText}\n\n${filterTooltip}` : scopeText;
 }
 
 let _leaderboardAbortCtrl = null;

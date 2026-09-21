@@ -98,24 +98,29 @@ async def test_preflight_count_updates_with_guess_mode(page: Page) -> None:
     import re
 
     # 1. Initially both Location and Date are active -> "15 photos with GPS & date"
+    scope_pill = page.locator('#leaderboard-scope-pill')
     await expect(preflight_count).to_be_visible()
     await expect(preflight_count).to_contain_text('15 photos with GPS & date')
     await expect(preflight_count).to_have_attribute('title', 'Total: 50 | GPS: 20 | Date: 35 | Eligible: 15')
+    await expect(scope_pill).to_have_attribute('title', 'Pinpoint • 1 min • Full Library')
 
     # 2. Toggle Date OFF -> Location (GPS) only -> "20 photos with GPS"
     await date_card.click()
     await expect(preflight_count).to_contain_text('20 photos with GPS')
     await expect(preflight_count).to_have_attribute('title', 'Total: 50 | GPS: 20 | Date: 35 | Eligible: 20')
+    await expect(scope_pill).to_have_attribute('title', 'Pinpoint (Location) • 1 min • Full Library')
 
     # 3. Toggle Date back ON -> Both active -> "15 photos with GPS & date"
     await date_card.click()
     await expect(preflight_count).to_contain_text('15 photos with GPS & date')
     await expect(preflight_count).to_have_attribute('title', 'Total: 50 | GPS: 20 | Date: 35 | Eligible: 15')
+    await expect(scope_pill).to_have_attribute('title', 'Pinpoint • 1 min • Full Library')
 
     # 4. Toggle Location OFF -> Date only -> "35 photos with date"
     await loc_card.click()
     await expect(preflight_count).to_contain_text('35 photos with date')
     await expect(preflight_count).to_have_attribute('title', 'Total: 50 | GPS: 20 | Date: 35 | Eligible: 35')
+    await expect(scope_pill).to_have_attribute('title', 'Pinpoint (Date) • 1 min • Full Library')
 
     # 5. Attempting to toggle Date OFF when it's the only active mode triggers shake warning and stays active
     await date_card.click()
