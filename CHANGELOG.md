@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Compact Player KPI Overview Grid (`.player-kpis-grid`)**:
+  - Aligned `.player-kpis-grid` selector with `.player-kpi-grid` in `static/css/components/stats.css` and established a balanced 4-column single-row layout on desktop/tablet (`repeat(4, 1fr)`).
+  - Streamlined `.player-kpi-card` design with condensed padding (`0.65rem 0.85rem`), tighter vertical rhythm, refined typography (`font-size: 1.35rem` for values, `0.74rem` uppercase labels, and `0.85rem` legible subtext on PC), subtle lift hover effects, and a 2x2 symmetrical layout on mobile screens (`@media (max-width: 768px)`).
 - **Application Icon & Emoji Unification (1-to-1 Semantic Bonding)**:
   - Resolved the dual-use collision of `👥` (Busts in Silhouette) between **Local Game** and the **Players Directory**:
     - Reserved `👥` exclusively for **Players** (Player Directory, Player Profiles, Player Counts, and Player Guesses).
