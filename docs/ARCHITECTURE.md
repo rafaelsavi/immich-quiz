@@ -335,8 +335,12 @@ The application enforces a 3-tier hierarchical role architecture:
 
 ### Zero Trust Authentication Model
 
-- **Disabled Mode (`AUTH_MODE=disabled`)**: Default setting for local development and CI testing. Everyone resolves to `Creator`, preserving backward compatibility.
-- **Cloudflare Access Mode (`AUTH_MODE=cloudflare`)**: Resolves identity from the edge-injected `Cf-Access-Authenticated-User-Email` header. Emails matching `CF_CREATOR_EMAILS` receive `Creator`, emails matching `CF_USER_EMAILS` receive `User`, and unrecognized or missing headers resolve to `Guest`.
+- **Disabled Mode (`AUTH_MODE=disabled`)**: Default setting for local development and CI testing. Everyone resolves to `Creator`, preserving backward compatibility. Display name defaults to `'Host'`.
+- **Cloudflare Access & Reverse Proxy Mode (`AUTH_MODE=cloudflare`)**: Resolves identity from incoming headers (`Cf-Access-Authenticated-User-Email`, `Cf-Access-Authenticated-User-Name`, `X-User-Name`, `X-Auth-Name`, `X-Forwarded-User`, `Remote-User`) or extracts claims from the `Cf-Access-Jwt-Assertion` token payload.
+  - Identifiers matching `CF_CREATOR_EMAILS` (by verified email or lowercase username) receive `Creator`.
+  - Identifiers matching `CF_USER_EMAILS` receive `User`.
+  - Unrecognized or missing headers resolve to `Guest`.
+  - User display name resolves from custom name headers, JWT claims, or falls back to capitalized email prefix.
 - **Backend Enforcement**: FastAPI routes are protected via `dependencies=[Depends(require_role(min_role))]`, rejecting unauthorized callers with HTTP 403 Forbidden.
 - **Client-Side Guards**: Navigation router enforces `ROUTE_MIN_ROLES`, redirecting unauthorized URL transitions to `/` with localized user-friendly toast alerts.
 

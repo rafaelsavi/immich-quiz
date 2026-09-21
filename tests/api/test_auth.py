@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import json
 from pathlib import Path
 
 import pytest
@@ -238,3 +240,106 @@ def test_auth_me_and_route_rbac_cloudflare_mode(tmp_path: Path) -> None:
         # Creator accessing User route (/api/leaderboard) -> 200
         resp = client.get('/api/leaderboard', headers=creator_headers)
         assert resp.status_code == 200
+
+
+def test_resolve_role_name_headers_and_jwt() -> None:
+    """Verify display name resolution from custom headers and JWT assertion."""
+    settings = AppSettings(
+        immich_server_url='https://placeholder.example.com/api',
+        immich_libraries={'family': 'token'},
+        data_path=Path('/tmp'),
+        auth_mode='cloudflare',
+        cf_creator_emails=frozenset({'creator@example.com', 'admin_user'}),
+        cf_user_emails=frozenset({'user1@example.com', 'alice'}),
+    )
+    app = FastAPI()
+    app.state.settings = settings
+
+    def make_req(headers_dict: dict[str, str]) -> Request:
+        headers = [(k.lower().encode('utf-8'), v.encode('utf-8')) for k, v in headers_dict.items()]
+        return Request({'type': 'http', 'app': app, 'headers': headers})
+
+    # 1. Cloudflare dynamic name header + email
+    ctx = _resolve_role_cloudflare(
+        make_req(
+            {
+                'cf-access-authenticated-user-email': 'creator@example.com',
+                'cf-access-authenticated-user-name': 'Rafael Savi',
+            }
+        )
+    )
+    assert ctx.role == Role.CREATOR
+    assert ctx.email == 'creator@example.com'
+    assert ctx.name == 'Rafael Savi'
+    assert ctx.authenticated is True
+
+    # 2. Reverse proxy / Caddy X-User-Name header without email, matched by username allowlist
+    ctx = _resolve_role_cloudflare(make_req({'x-user-name': 'alice'}))
+    assert ctx.role == Role.USER
+    assert ctx.email is None
+    assert ctx.name == 'alice'
+    assert ctx.authenticated is True
+
+    # 3. Reverse proxy X-Forwarded-User header
+    ctx = _resolve_role_cloudflare(make_req({'x-forwarded-user': 'admin_user'}))
+    assert ctx.role == Role.CREATOR
+    assert ctx.name == 'admin_user'
+    assert ctx.authenticated is True
+
+    # 4. JWT assertion payload decoding
+    claims = {'name': 'Alice Wonderland', 'email': 'user1@example.com', 'sub': '12345'}
+    claims_json = json.dumps(claims).encode('utf-8')
+    payload_b64 = base64.urlsafe_b64encode(claims_json).decode('ascii').rstrip('=')
+    jwt_mock = f'header.{payload_b64}.signature'
+
+    ctx = _resolve_role_cloudflare(make_req({'cf-access-jwt-assertion': jwt_mock}))
+    assert ctx.role == Role.USER
+    assert ctx.email == 'user1@example.com'
+    assert ctx.name == 'Alice Wonderland'
+    assert ctx.authenticated is True
+
+    # 5. Unknown username only -> Guest with name preserved
+    ctx = _resolve_role_cloudflare(make_req({'x-user-name': 'stranger'}))
+    assert ctx.role == Role.GUEST
+    assert ctx.name == 'stranger'
+    assert ctx.authenticated is True
+
+
+def test_resolve_role_loopback_dev_parameters() -> None:
+    """Verify loopback requests can simulate email and name for local development."""
+    settings = AppSettings(
+        immich_server_url='https://placeholder.example.com/api',
+        immich_libraries={'family': 'token'},
+        data_path=Path('/tmp'),
+        auth_mode='cloudflare',
+        cf_creator_emails=frozenset({'dev@example.com'}),
+    )
+    app = FastAPI()
+    app.state.settings = settings
+
+    def make_loopback_req(headers_dict: dict[str, str], query: str = '') -> Request:
+        headers = [(k.lower().encode('utf-8'), v.encode('utf-8')) for k, v in headers_dict.items()]
+        scope = {
+            'type': 'http',
+            'app': app,
+            'client': ('127.0.0.1', 50000),
+            'headers': headers,
+            'query_string': query.encode('utf-8'),
+        }
+        return Request(scope)
+
+    # 1. Loopback headers x-dev-email and x-dev-name
+    req = make_loopback_req({'x-dev-email': 'dev@example.com', 'x-dev-name': 'Dev Master'})
+    ctx = _resolve_role_cloudflare(req)
+    assert ctx.role == Role.CREATOR
+    assert ctx.email == 'dev@example.com'
+    assert ctx.name == 'Dev Master'
+    assert ctx.authenticated is True
+
+    # 2. Loopback query parameters dev_email and dev_name
+    req = make_loopback_req({}, query='dev_email=dev@example.com&dev_name=Dev+Param')
+    ctx = _resolve_role_cloudflare(req)
+    assert ctx.role == Role.CREATOR
+    assert ctx.email == 'dev@example.com'
+    assert ctx.name == 'Dev Param'
+    assert ctx.authenticated is True

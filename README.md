@@ -102,7 +102,6 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `AUTH_MODE`                      | No       | `disabled`    | Access control mode (`disabled` for single-tenant / full host access; `cloudflare` for Zero Trust header enforcement) |
 | `CF_CREATOR_EMAILS`              | No       | —             | Comma-separated emails granted Creator role (game creation, filter setup, library inspection, reported asset moderation) |
 | `CF_USER_EMAILS`                 | No       | —             | Comma-separated emails granted User role (join & play challenges, explore stats directory, view match replays)       |
-| `DEV_MOCK_EMAIL`                 | No       | —             | Optional mock email for local dev testing with `AUTH_MODE=cloudflare` without a live edge tunnel                    |
 
 ### Role-Based Access Control (Cloudflare Zero Trust)
 
@@ -120,22 +119,80 @@ When exposing Immich Quiz behind a [Cloudflare Tunnel](https://developers.cloudf
 
 1. Configure an Access Application in your Cloudflare Zero Trust dashboard protecting your quiz subdomain.
 2. Under Access Policies, define which email addresses or identity providers can authenticate.
-3. In your `.env` file, enable Cloudflare authentication mode and map verified email addresses:
+3. In your `.env` file, enable Cloudflare authentication mode and map verified email addresses or usernames:
 
    ```env
    AUTH_MODE=cloudflare
-   CF_CREATOR_EMAILS=host@yourdomain.com
-   CF_USER_EMAILS=friend1@example.com,friend2@example.com
+   CF_CREATOR_EMAILS=host@yourdomain.com,admin_user
+   CF_USER_EMAILS=friend1@example.com,friend2@example.com,alice
    ```
 
-4. Cloudflare automatically injects the `Cf-Access-Authenticated-User-Email` header upon successful authentication. Requests without this header or with unlisted emails automatically receive the **Guest** role (allowing public or shared challenge participation without exposing host configurations or player directories).
+4. Cloudflare automatically injects the `Cf-Access-Authenticated-User-Email` header upon successful authentication. Requests without this header or with unlisted identifiers automatically receive the **Guest** role (allowing public or shared challenge participation without exposing host configurations or player directories).
+
+#### User Name & Display Name Resolution
+
+Immich Quiz resolves the player display name using the following priority order:
+
+1. **Custom Name Headers**:
+   - `Cf-Access-Authenticated-User-Name`
+   - `X-User-Name`
+   - `X-Auth-Name`
+   - `X-Forwarded-User-Name` / `X-Forwarded-User`
+   - `Remote-User`
+2. **Cloudflare JWT Claims (`Cf-Access-Jwt-Assertion`)**:
+   - The edge JWT payload is safely inspected for claims: `name`, `preferred_username`, `user_name`, or `given_name`.
+3. **Email Fallback**:
+   - If no explicit name header or claim is provided, the display name falls back to the capitalized email prefix (`email.split('@')[0].capitalize()`).
+
+> [!TIP]
+> **Allowlist Matching by Username**: You can specify usernames alongside emails in `CF_CREATOR_EMAILS` and `CF_USER_EMAILS`. Immich Quiz validates both the verified email and the resolved lowercase username/name.
+
+#### Configuring User Names in Cloudflare Zero Trust
+
+To pass the real user display name instead of the email prefix:
+
+1. In your **Cloudflare Zero Trust** dashboard, navigate to **Access** > **Applications**.
+2. Edit your Immich Quiz application and select the **Policies** or **Settings** tab.
+3. Under **HTTP Request Header Modification** (or Gateway HTTP policies):
+   - **Action**: Add Header
+   - **Header Name**: `Cf-Access-Authenticated-User-Name` (or `X-User-Name`)
+   - **Header Value**: `@{identity.name}` (or `@{identity.common_name}`)
+4. Alternatively, Immich Quiz automatically decodes the `name` claim from the standard `Cf-Access-Jwt-Assertion` header if your Identity Provider supplies it.
+
+#### Configuring Caddy Reverse Proxy
+
+If using **Caddy** as a reverse proxy in front of Immich Quiz:
+
+- **Behind Cloudflare Access**: Caddy automatically forwards incoming `Cf-Access-*` headers to upstream. You can also normalize them:
+  ```caddy
+  quiz.yourdomain.com {
+      reverse_proxy 127.0.0.1:8010
+  }
+  ```
+
+- **With Caddy HTTP Basic Auth or Forward Auth**: Forward user identity directly via `X-User-Name`:
+  ```caddy
+  quiz.yourdomain.com {
+      # Example with Caddy basicauth:
+      basicauth {
+          rafael $2a$14$...
+          alice  $2a$14$...
+      }
+
+      reverse_proxy 127.0.0.1:8010 {
+          header_up X-User-Name {http.auth.user.id}
+          # Optional email header if available:
+          # header_up X-User-Email {http.auth.user.email}
+      }
+  }
+  ```
 
 #### Local Development & Testing
 
 When running locally (`localhost` or `127.0.0.1`):
 
 - By default (`AUTH_MODE=disabled`), all requests are granted Creator privileges for seamless local administration and pass & play gaming.
-- To test Player or Guest access under `AUTH_MODE=cloudflare` without a live edge tunnel, configure `DEV_MOCK_EMAIL=user@example.com` in `.env` to simulate verified user identity resolution.
+- When running with `AUTH_MODE=cloudflare` locally, loopback requests (`127.0.0.1` or `localhost`) accept `X-Dev-Email` / `X-Dev-Name` headers or query parameters `?dev_email=...&dev_name=...` to simulate verified user identity and role assignment.
 
 ### Immich API Key Permissions
 

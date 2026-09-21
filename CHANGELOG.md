@@ -24,9 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configured `onGuessModeChanged()` in `static/js/modules/setup_filters.js` to invoke `loadLeaderboardDebounced()` whenever guess mode targets (`.guess-mode-buttons`) are toggled, keeping preflight media counts and all-time ranking records synchronized in real time.
   - Enhanced `updateLeaderboardScope()` in `static/js/modules/leaderboard.js` to dynamically reflect specific active targets (`(Location)` or `(Date)`) in `#leaderboard-scope-pill` when Pinpoint is selectively filtered.
 
-- **Role-Based Access Control (RBAC) & Cloudflare Zero Trust Integration**:
+- **Role-Based Access Control (RBAC) & Cloudflare Zero Trust / Reverse Proxy Integration**:
   - Three-tier hierarchical role model (`Guest < User < Creator`) powered by Cloudflare Access authenticated email headers (`Cf-Access-Authenticated-User-Email`) with seamless local/CI fallback (`AUTH_MODE=disabled` granting full Creator privileges).
-  - Configurable access control via environment variables: `AUTH_MODE`, `CF_CREATOR_EMAILS`, `CF_USER_EMAILS`, and `DEV_MOCK_EMAIL`.
+  - Enhanced identity and user name resolution supporting custom headers (`Cf-Access-Authenticated-User-Name`, `X-User-Name`, `X-Auth-Name`, `X-Forwarded-User-Name`, `X-Forwarded-User`, `Remote-User`) and decoding identity claims (`name`, `preferred_username`, `user_name`) from the `Cf-Access-Jwt-Assertion` token payload.
+  - Flexible allowlist matching in `CF_CREATOR_EMAILS` and `CF_USER_EMAILS` accepting both email addresses and usernames for seamless Cloudflare and Caddy reverse proxy setups.
+  - Configurable access control via environment variables: `AUTH_MODE`, `CF_CREATOR_EMAILS`, and `CF_USER_EMAILS`.
   - Secure backend role protection dependency (`require_role(min_role)`) enforcing HTTP 403 Forbidden across admin, metadata, sync, and photo moderation endpoints.
   - New session endpoint `GET /api/auth/me` providing current user identity, role, and authentication status to the frontend.
   - Dedicated Home Landing Card (`#home-card`) conditionally displayed for Guests and Users when Game Setup is hidden, featuring a challenge code/link join input and Quick Link shortcuts to Active Challenges, Player Directory, and Match Replays.

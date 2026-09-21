@@ -28,8 +28,8 @@ class AuthContext:
 
     @property
     def authenticated(self) -> bool:
-        """Whether the request carries a verified identity (email present)."""
-        return self.email is not None
+        """Whether the request carries a verified identity (email or user name present)."""
+        return self.email is not None or (self.name is not None and self.name != 'Host')
 
     def has_role(self, min_role: Role) -> bool:
         """Return ``True`` if this context meets or exceeds *min_role*."""

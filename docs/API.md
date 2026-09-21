@@ -40,7 +40,7 @@ Response:
 
 ### GET /api/auth/me
 
-Returns the resolved role, authenticated email, name, and authentication status for the current request.
+Returns the resolved role, authenticated email, display name, and authentication status for the current request.
 
 Response:
 
@@ -55,8 +55,8 @@ Response:
 
 - `role`: Current user privilege level (`"guest"`, `"user"`, or `"creator"`).
 - `email`: Authenticated email string or `null` if unauthenticated.
-- `name`: Display name or `null`.
-- `authenticated`: Boolean indicating whether identity was verified.
+- `name`: Resolved display name or `null`. Resolved from identity headers (`Cf-Access-Authenticated-User-Name`, `X-User-Name`, `X-Auth-Name`, `X-Forwarded-User-Name`, `X-Forwarded-User`, `Remote-User`), the decoded `Cf-Access-Jwt-Assertion` token (`name`, `preferred_username`, `user_name`), or falling back to capitalized email prefix.
+- `authenticated`: Boolean indicating whether identity was verified (via email, name header, or JWT assertion).
 
 ## Setup, Sync & Metadata
 
