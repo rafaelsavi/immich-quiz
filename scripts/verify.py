@@ -90,6 +90,73 @@ def check_types() -> None:
     run_cmd(['uv', 'run', 'mypy', 'src'], 'Running type checker (Mypy)')
 
 
+def check_privacy_and_paths() -> None:
+    log_step('Checking privacy hygiene & local path prevention')
+    start = time.perf_counter()
+    forbidden_patterns = [
+        ('Windows User Profile Path', re.compile(r'[a-zA-Z]:[/\\]+Users[/\\]+', re.IGNORECASE)),
+        (
+            'Windows Development/Personal Folder Path',
+            re.compile(r'[a-zA-Z]:[/\\]+(?:Projects|Development|Documents|Downloads|Desktop)[/\\]+', re.IGNORECASE),
+        ),
+        (
+            'Linux/macOS User Home Directory Path',
+            re.compile(r'(?:^|[\s"\'`=(])/(?:home|Users)/[a-zA-Z0-9_\-\.]+/(?!api/|users/)', re.IGNORECASE),
+        ),
+        (
+            'AI Assistant Brain/Artifact Path',
+            re.compile(
+                r'(?:\.gemini[/\\]+antigravity-ide|antigravity-ide[/\\]+brain|brain[/\\]+[0-9a-fA-F-]{36})',
+                re.IGNORECASE,
+            ),
+        ),
+    ]
+    excluded_files = {'tests/test_privacy_and_paths.py'}
+
+    try:
+        res = subprocess.run(
+            ['git', 'ls-files'],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            check=True,
+        )
+        tracked = [REPO_ROOT / f.strip() for f in res.stdout.splitlines() if f.strip()]
+    except Exception:
+        ignored_dirs = {'.git', '.venv', '__pycache__', 'dist', 'build', 'data'}
+        tracked = [p for p in REPO_ROOT.rglob('*') if p.is_file() and not any(part in ignored_dirs for part in p.parts)]
+
+    violations: list[str] = []
+    for file_path in tracked:
+        rel = str(file_path.relative_to(REPO_ROOT)).replace('\\', '/')
+        if rel in excluded_files:
+            continue
+        try:
+            content = file_path.read_text(encoding='utf-8', errors='ignore')
+        except Exception:
+            continue
+
+        for line_no, line in enumerate(content.splitlines(), 1):
+            for rule_name, pattern in forbidden_patterns:
+                if pattern.search(line):
+                    violations.append(f'  [{rule_name}] {rel}:{line_no} -> {line.strip()}')
+
+    duration = time.perf_counter() - start
+    if violations:
+        log_error(f'Privacy check failed: {len(violations)} hardcoded local path(s) detected ({duration:.2f}s):')
+        for v in violations:
+            print(v, file=sys.stderr)
+        print(
+            '\nPlease use relative paths (Path(__file__).parent), pytest tmp_path fixture, '
+            'or environment variables (%LOCALAPPDATA%, %ProgramFiles%) instead.\n',
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    log_success(f'Privacy hygiene check passed ({duration:.2f}s)')
+
+
 def run_tests(quick: bool = False, pytest_args: list[str] | None = None) -> None:
     cmd = ['uv', 'run', 'pytest']
     if not quick:
@@ -254,7 +321,10 @@ def main() -> None:
     # 3. Types
     check_types()
 
-    # 4. Tests
+    # 4. Privacy & Local Paths
+    check_privacy_and_paths()
+
+    # 5. Tests
     if not args.skip_tests:
         run_tests(quick=args.quick, pytest_args=args.pytest_args)
     else:

@@ -1,0 +1,27 @@
+#!/bin/sh
+# Git pre-commit hook checking privacy hygiene & local path prevention.
+# Prevents committing files containing hardcoded local machine paths or personal identifiers.
+
+echo "=========================================="
+echo "Running Pre-Commit Privacy Hygiene Check"
+echo "=========================================="
+
+uv run python -c "
+import sys
+from scripts.verify import check_privacy_and_paths
+
+try:
+    check_privacy_and_paths()
+except SystemExit as exc:
+    sys.exit(exc.code)
+"
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo "❌ Pre-commit privacy check failed. Commit aborted."
+    echo "Remove any hardcoded local paths, user directories, or artifact paths before committing."
+    exit 1
+fi
+
+echo "✅ Privacy check passed!"
+exit 0

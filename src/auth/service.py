@@ -103,6 +103,10 @@ def _resolve_role_cloudflare(request: Request) -> AuthContext:
             raw_email = jwt_email
 
     # 4. In local development without Cloudflare edge proxy, allow loopback dev headers
+    # --- DEV TESTING HOOK ---
+    # To quickly test a specific identity in code without headers or query params, uncomment:
+    # raw_email = "creator@example.com"  # or "user@example.com", etc.
+    # raw_name = "Fulano"
     client_host = request.client.host if request.client else ''
     is_loopback = client_host in ('127.0.0.1', 'localhost', '::1', 'testclient')
 
@@ -145,6 +149,9 @@ def _resolve_role_cloudflare(request: Request) -> AuthContext:
 
 def _resolve_role_disabled(settings: Any = None) -> AuthContext:
     """When auth is disabled everyone is a Creator (backward-compatible default)."""
+    # --- DEV TESTING HOOK ---
+    # To test custom name/email under AUTH_MODE=disabled without Cloudflare:
+    # return AuthContext(role=Role.CREATOR, email="admin@example.com", name="Creator")
     return AuthContext(role=Role.CREATOR, email=None, name='Host')
 
 
@@ -155,6 +162,10 @@ async def get_current_auth(request: Request) -> AuthContext:
     - ``"disabled"``   → always Creator (dev / CI / standalone)
     - ``"cloudflare"`` → inspect Cloudflare Access headers
     """
+    # --- DEV TESTING HOOK ---
+    # To bypass all resolvers and immediately simulate any role (GUEST, USER, CREATOR):
+    # return AuthContext(role=Role.USER, email="test@example.com", name="Tester")
+
     settings = request.app.state.settings
     mode = settings.auth_mode
 

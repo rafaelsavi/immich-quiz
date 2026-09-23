@@ -41,6 +41,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added domain-specific specification metadata keys (`meta.scope_heading`, `meta.scope_all_desc`, `meta.scope_shared_desc`) and challenge card status/action keys (`challenges_page.status_active`, `challenges_page.status_expired`, `challenges_page.status_deactivated`, `challenges_page.created_at_label`, `challenges_page.deactivate_confirm`, `challenges_page.deactivate_success`, `challenges_page.pinpoint_desc`, `challenges_page.unshuffle_desc`).
   - Added parameterized dynamic match counters (`stats.match_count_single`, `stats.match_count_plural`) and replay filter mode tokens (`replay.filter_mode_pinpoint`, `replay.filter_mode_unshuffle`).
 
+- **Automated Privacy Hygiene & Local Path Prevention Suite**:
+  - Added `tests/test_privacy_and_paths.py` validating that no tracked repository files contain hardcoded local machine paths, user home directories, AI assistant artifact paths, or personal filesystem references.
+  - Integrated `check_privacy_and_paths()` directly into `scripts/verify.py` and `.githooks/pre-commit` to prevent committing or pushing local machine paths.
+  - Added Section 10 ("Privacy & Local Path Prevention Mandate") to `AGENTS.md`.
+
 ### Changed
 
 - **Range Slider Track Groove, Thumb Contrast & Input Style Isolation**:
@@ -78,6 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Privacy Hygiene & Local Path Leaks**:
+  - Removed accidental hardcoded developer local machine and AI artifact paths from `tests/e2e/test_sync_popup.py`, replacing with pytest `tmp_path` fixture.
+  - Sanitized developer authentication testing hooks in `src/auth/service.py` to prevent exposing personal names.
+  - Normalized hardcoded Git paths in documentation and agent rules (`AGENTS.md`, `.agents/rules/environment.md`) to environment variables (`%ProgramFiles%`).
 - **Missing Translation Key in Challenge Summary**:
   - Fixed missing key reference `t("game.actual_location")` in `static/js/modules/challenge/summary.js` to correctly resolve to `t("reveal.actual_location")`.
 
