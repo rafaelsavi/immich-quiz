@@ -10,7 +10,7 @@ This document lists planned features, design ideas, and technical debt items for
 
 - [ ] v3.4.0 **Add Support for Videos**
   - [ ] Integrate Immich video streaming adapter using transcoded preview streams (`/api/asset/video/playback/{id}` or `encoded-video`) instead of raw 4K originals.
-  - [ ] Implement in-game video player UI with autoplay, seamless loop, mute/unmute toggle, and poster image fallback.
+  - [ ] Implement in-game video player UI, seamless loop, and poster image fallback.
   - [ ] Update metadata sync and preflight filter to index video duration and ensure video GPS/date metadata validity.
   - [ ] Add library filter "Media Type" toggle (*Photos Only*, *Videos Only*, *Photos & Videos*).
 

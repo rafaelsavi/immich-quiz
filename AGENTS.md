@@ -105,7 +105,10 @@ This document provides context, architectural constraints, and standards for AI 
 
 ## 8. Documentation & Git Workflow
 
-- **Changelog Maintenance**: Update `CHANGELOG.md` under `[Unreleased]` for any notable feature, fix, removal, or refactoring following the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) standard (`Added`, `Changed`, `Fixed`, `Removed`).
+- **Changelog Maintenance (Strict User-Facing Focus)**:
+  - Update `CHANGELOG.md` under `[Unreleased]` following the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) standard (`Added`, `Changed`, `Fixed`, `Removed`).
+  - **User-Facing Only**: Document **only** changes directly noticeable and relevant to end users (new gameplay capabilities, UI/UX polish, player settings, and visible bug fixes).
+  - **Exclude Developer Internals**: Never include internal maintenance items, tests, code refactorings, database schema mechanics, dead code/key pruning, linter rules, or private API details. Write from the player's perspective in concise, user-friendly language.
 - **Synchronize Project Documentation**:
   - When modifying or adding API endpoints, update `docs/API.md` with request/response schemas, parameters, and descriptions.
   - When modifying architecture, components, ES modules, or stylesheets, update `docs/ARCHITECTURE.md`.

@@ -50,7 +50,7 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 |----------------------|------------------------------------------------------------|-----------------------------------------------------|
 | `:latest`            | Latest official stable release (multi-arch: amd64 / arm64) | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
 | `:rc`                | Latest Release Candidate build                             | `docker pull ghcr.io/rafaelsavi/immich-quiz:rc`     |
-| `:v3.0.0` / `:3.0.0` | Specific semantic release version                          | `docker pull ghcr.io/rafaelsavi/immich-quiz:v3.0.0` |
+| `:v3.2.0` / `:3.2.0` | Specific semantic release version                          | `docker pull ghcr.io/rafaelsavi/immich-quiz:v3.2.0` |
 | `:<sha>`             | Exact commit hash build                                    | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
 ### Starting the server
@@ -95,9 +95,10 @@ Docker Compose reads configuration directly from your `.env` file via `env_file`
 | `AUTO_SYNC_ON_STARTUP`           | No       | `true`        | Auto-trigger metadata sync in the background on server startup                        |
 | `AUTO_DELTA_SYNC_INTERVAL_HOURS` | No       | `6`           | Interval in hours for periodic delta metadata sync (`0` disables)                     |
 | `AUTO_FULL_SYNC_INTERVAL_HOURS`  | No       | `120`         | Interval in hours for periodic full metadata sync & pruning (`0` disables)            |
+| `SYNC_COOLDOWN_SECONDS`          | No       | `60`          | Cooldown period in seconds between manual sync triggers (`0` disables)                |
 | `APP_HOST`                       | No       | `127.0.0.1`   | Set to `0.0.0.0` in Docker so the port is reachable from the host                     |
 | `APP_PORT`                       | No       | `8010`        | Port the app listens on                                                               |
-| `LOG_LEVEL`                      | No       | `INFO`        | Global logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`)                        |
+| `LOG_LEVEL`                      | No       | `INFO`        | Global logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Optional subsystem overrides: `LOG_LEVEL_SCORING`, `LOG_LEVEL_SYNC`, `LOG_LEVEL_IMMICH`, `LOG_LEVEL_MATCH`, `LOG_LEVEL_API`, `LOG_LEVEL_STORAGE` |
 | `LANGUAGE`                       | No       | `EN`          | UI language (`EN` for English, `PT` for Brazilian Portuguese)                         |
 | `AUTH_MODE`                      | No       | `disabled`    | Access control mode (`disabled` for single-tenant / full host access; `cloudflare` for Zero Trust header enforcement) |
 | `CF_CREATOR_EMAILS`              | No       | —             | Comma-separated emails granted Creator role (game creation, filter setup, library inspection, reported asset moderation) |
@@ -175,7 +176,7 @@ If using **Caddy** as a reverse proxy in front of Immich Quiz:
   quiz.yourdomain.com {
       # Example with Caddy basicauth:
       basicauth {
-          rafael $2a$14$...
+          admin  $2a$14$...
           alice  $2a$14$...
       }
 
@@ -263,7 +264,7 @@ If you use VS Code, pre-configured tasks and launch files are available in `.vsc
 
 - **Run / Debug App (`F5`)**: Use the `FastAPI: Debug App (Uvicorn)` launch profile or press **F5** to start the app with debugging and hot reload.
 - **Run Tasks (`Ctrl+Shift+B` / `Cmd+Shift+B`)**: Access project tasks via **Terminal > Run Task**:
-  - `Run App`: Start the dev server (`uv run python src/main.py`).
+  - `Run App`: Start the dev server (`uv run python -m src.main`).
   - `Run Pytest`: Execute unit and integration tests.
   - `Run E2E Tests (Playwright)`: Execute Playwright browser test suite.
   - `Run All CI Checks`: Run Ruff, Mypy, and Pytest coverage in sequence.

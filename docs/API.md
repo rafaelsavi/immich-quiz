@@ -7,7 +7,17 @@ errors return `400`, `404` or `409` with an actionable `detail` message.
 
 All HTTP requests accept an optional `X-Request-ID` header. If omitted, the server automatically generates a unique 12-character request ID. The `X-Request-ID` is echoed in all HTTP response headers and bound to all structured backend logs emitted during request processing for distributed tracing.
 
-## System & Config
+### Role-Based Access Control (RBAC)
+
+When `AUTH_MODE=cloudflare` is enabled, endpoints enforce minimum role privileges:
+
+- **👑 Creator**: Full host administration (library inspection, filter discovery, game creation, background metadata sync, and reported asset moderation).
+- **👥 User**: Player access (browsing active challenges, player directory & analytics, and match replay archives).
+- **🎟️ Guest**: Public challenge gameplay (joining challenges via capability tokens, submitting guesses, polling standings, and viewing results).
+
+When `AUTH_MODE=disabled` (default for local development and self-hosting), all requests are automatically granted full Creator privileges.
+
+## System & Config (Public)
 
 ### GET /api/health
 
@@ -18,7 +28,7 @@ Response:
 ```json
 {
   "status": "ok",
-  "version": "3.0.0",
+  "version": "3.2.0",
   "database": "connected"
 }
 ```
@@ -34,7 +44,7 @@ Response:
   "language": "EN",
   "score_max_points": 100,
   "immich_web_url": "https://immich.example.com",
-  "version": "3.0.0"
+  "version": "3.2.0"
 }
 ```
 
@@ -48,7 +58,7 @@ Response:
 {
   "role": "creator",
   "email": "user@example.com",
-  "name": "Rafael",
+  "name": "Host",
   "authenticated": true
 }
 ```
@@ -58,7 +68,7 @@ Response:
 - `name`: Resolved display name or `null`. Resolved from identity headers (`Cf-Access-Authenticated-User-Name`, `X-User-Name`, `X-Auth-Name`, `X-Forwarded-User-Name`, `X-Forwarded-User`, `Remote-User`), the decoded `Cf-Access-Jwt-Assertion` token (`name`, `preferred_username`, `user_name`), or falling back to capitalized email prefix.
 - `authenticated`: Boolean indicating whether identity was verified (via email, name header, or JWT assertion).
 
-## Setup, Sync & Metadata
+## Setup, Sync & Metadata (👑 Creator)
 
 ### GET /api/libraries
 
@@ -146,9 +156,9 @@ Response:
 
 Triggers an asynchronous background metadata sync across all configured libraries from Immich into `data/metadata.db` and invalidates cached filter options.
 
-* `force_full=false` (default): Executes an incremental **Delta Sync** querying assets modified after `last_immich_updated_at`.
-* `force_full=true`: Forces a **Full Sync** scanning all assets and pruning deleted media (bypasses cooldown timer).
-* `bypass_cooldown=false` (default): Enforces rate limiting cooldown period (configured via `SYNC_COOLDOWN_SECONDS`, default 60s). Set `true` to bypass.
+- `force_full=false` (default): Executes an incremental **Delta Sync** querying assets modified after `last_immich_updated_at`.
+- `force_full=true`: Forces a **Full Sync** scanning all assets and pruning deleted media (bypasses cooldown timer).
+- `bypass_cooldown=false` (default): Enforces rate limiting cooldown period (configured via `SYNC_COOLDOWN_SECONDS`, default 60s). Set `true` to bypass.
 
 Returns the updated `sync_state` (200 OK) immediately while the background task runs.
 
@@ -156,7 +166,7 @@ Returns **429 Too Many Requests** with `Retry-After` header if called during coo
 
 ---
 
-## Game Setup & Preflight
+## Game Setup & Preflight (👑 Creator)
 
 ### POST /api/game/preflight
 
@@ -236,11 +246,11 @@ Request:
 }
 ```
 
-* `game_mode` supports `"pinpoint"` (default) or `"unshuffle"`.
-* `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
-* `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
-* `album_names` (list) are resolved server-side from `albums`.
-* `people_mode` supports `"ANY"` (Any person) or `"ALL"` (All selected people together).
+- `game_mode` supports `"pinpoint"` (default) or `"unshuffle"`.
+- `round_count` must be 5, 10 or 20; at least one mode (`location_mode` or `date_mode`) must be enabled.
+- `round_length` supports `"30s"`, `"1m"`, `"2m"`, `"5m"`, or `"unlimited"`.
+- `album_names` (list) are resolved server-side from `albums`.
+- `people_mode` supports `"ANY"` (Any person) or `"ALL"` (All selected people together).
 
 Response:
 
@@ -266,13 +276,13 @@ Response:
 
 Body: `{"match_id": "match-uuid-1234", "played_asset_ids": []}`
 
-* Returns the sanitized question payload (no EXIF, coordinates or capture date).
-* In **Pinpoint** mode: returns a single photo (`asset_id`, `media_url`).
-* In **Unshuffle** mode: returns a batch of 3 photos (`batch_photos`) and lettered map pins (`batch_pins`).
-* One photo (or batch) is drawn per round and shared by every player in that round so scores are comparable.
-* Tracks candidate diversity ($\ge 100\text{m}$ distance, $\ge 60\text{s}$ time separation) and prioritizes least-played photos (`times_played ASC`).
-* `409` when the match is finished or has no remaining turns.
-* `404` when no eligible asset is available.
+- Returns the sanitized question payload (no EXIF, coordinates or capture date).
+- In **Pinpoint** mode: returns a single photo (`asset_id`, `media_url`).
+- In **Unshuffle** mode: returns a batch of 3 photos (`batch_photos`) and lettered map pins (`batch_pins`).
+- One photo (or batch) is drawn per round and shared by every player in that round so scores are comparable.
+- Tracks candidate diversity ($\ge 100\text{m}$ distance, $\ge 60\text{s}$ time separation) and prioritizes least-played photos (`times_played ASC`).
+- `409` when the match is finished or has no remaining turns.
+- `404` when no eligible asset is available.
 
 Pinpoint Response Example:
 
@@ -330,10 +340,10 @@ Unshuffle Response Example:
 
 ### GET /api/media/{asset_id}
 
-* Only asset IDs issued as a question in a live match are served (returns `404` for any unauthorized asset ID).
-* Automatically resolves the asset's source library from metadata storage.
-* Proxies re-encoded preview thumbnail bytes from Immich (carries no EXIF/GPS payload).
-* If loading fails, marks the asset as invalid in `metadata.db` to prevent future selection.
+- Only asset IDs issued as a question in a live match are served (returns `404` for any unauthorized asset ID).
+- Automatically resolves the asset's source library from metadata storage.
+- Proxies re-encoded preview thumbnail bytes from Immich (carries no EXIF/GPS payload).
+- If loading fails, marks the asset as invalid in `metadata.db` to prevent future selection.
 
 ### POST /api/answer
 
@@ -372,8 +382,8 @@ Unshuffle Request:
 }
 ```
 
-* Returns **acknowledgement only** (`round_complete`, `waiting_for`, etc.) without revealing answers before other players take their turn.
-* A question can be answered once. Subsequent submissions return `409`.
+- Returns **acknowledgement only** (`round_complete`, `waiting_for`, etc.) without revealing answers before other players take their turn.
+- A question can be answered once. Subsequent submissions return `409`.
 
 Response:
 
@@ -394,8 +404,8 @@ Response:
 
 Body: `{"match_id": "match-uuid-1234", "round_number": 1}`
 
-* Reveals actual coordinates, city, country, capture date, and all players' guesses and scores.
-* `409` while any player in the round still owes an answer.
+- Reveals actual coordinates, city, country, capture date, and all players' guesses and scores.
+- `409` while any player in the round still owes an answer.
 
 Response Example:
 
@@ -519,24 +529,24 @@ Queries persistent SQLite leaderboard history (`data/leaderboard.db`).
 
 Query Parameters:
 
-* `rounds`: Filter by round count (`5`, `10`, `20`)
-* `round_length`: Filter by timer setting (`30s`, `1m`, `2m`, `5m`, `unlimited`)
-* `location_mode`: Filter by location mode enabled (`true`/`false`)
-* `date_mode`: Filter by date mode enabled (`true`/`false`)
-* `game_mode`: Filter by game mode (`pinpoint`, `unshuffle`)
-* `libraries`: Filter by JSON array or comma-separated library names
-* `albums`: Filter by JSON array or comma-separated album names or IDs
-* `player_name`: Filter by player name
-* `countries`: Filter by JSON array or comma-separated countries
-* `cities`: Filter by JSON array or comma-separated cities
-* `people`: Filter by JSON array or comma-separated person names or IDs
-* `people_mode`: Filter by person match mode (`ANY`, `ALL`)
-* `min_date`: Filter by earliest capture date (`YYYY-MM-DD`)
-* `max_date`: Filter by latest capture date (`YYYY-MM-DD`)
-* `include_shared`: Filter by shared album media inclusion (`true`/`false`)
-* `is_custom_filtered`: Filter by preset vs customized dataset (`true`/`false`)
-* `exact_filter_match`: Filter by strict exact filter combination vs loose match (`true`/`false`, default `true`)
-* `limit`: Maximum number of entries to return
+- `rounds`: Filter by round count (`5`, `10`, `20`)
+- `round_length`: Filter by timer setting (`30s`, `1m`, `2m`, `5m`, `unlimited`)
+- `location_mode`: Filter by location mode enabled (`true`/`false`)
+- `date_mode`: Filter by date mode enabled (`true`/`false`)
+- `game_mode`: Filter by game mode (`pinpoint`, `unshuffle`)
+- `libraries`: Filter by JSON array or comma-separated library names
+- `albums`: Filter by JSON array or comma-separated album names or IDs
+- `player_name`: Filter by player name
+- `countries`: Filter by JSON array or comma-separated countries
+- `cities`: Filter by JSON array or comma-separated cities
+- `people`: Filter by JSON array or comma-separated person names or IDs
+- `people_mode`: Filter by person match mode (`ANY`, `ALL`)
+- `min_date`: Filter by earliest capture date (`YYYY-MM-DD`)
+- `max_date`: Filter by latest capture date (`YYYY-MM-DD`)
+- `include_shared`: Filter by shared album media inclusion (`true`/`false`)
+- `is_custom_filtered`: Filter by preset vs customized dataset (`true`/`false`)
+- `exact_filter_match`: Filter by strict exact filter combination vs loose match (`true`/`false`, default `true`)
+- `limit`: Maximum number of entries to return
 
 Response:
 
@@ -582,7 +592,7 @@ Response:
 
 ---
 
-## Player Statistics & Profiles API
+## Player Statistics & Profiles API (👥 User / Creator)
 
 Endpoints powering the Player Directory, career statistics, accuracy tier distributions, and player name autocomplete.
 
@@ -592,8 +602,8 @@ Returns autocomplete suggestions for known player names ordered by recency and m
 
 Query Parameters:
 
-* `q`: Search query substring (default `""`, max 100 characters).
-* `limit`: Maximum suggestions to return (1–50, default `10`).
+- `q`: Search query substring (default `""`, max 100 characters).
+- `limit`: Maximum suggestions to return (1–50, default `10`).
 
 Response (`200 OK`):
 
@@ -613,9 +623,9 @@ Returns player directory cards with high-level stats and career metrics across m
 
 Query Parameters:
 
-* `search`: Case-insensitive name filter (default `""`, max 100 characters).
-* `sort_by`: Sorting field: `matches` (default), `win_rate`, `points`, or `name`.
-* `limit`: Maximum players to return (1–200, default `50`).
+- `search`: Case-insensitive name filter (default `""`, max 100 characters).
+- `sort_by`: Sorting field: `matches` (default), `win_rate`, `points`, or `name`.
+- `limit`: Maximum players to return (1–200, default `50`).
 
 Response (`200 OK`):
 
@@ -640,7 +650,7 @@ Returns comprehensive career performance analytics, symmetrical 4-tier accuracy 
 
 Path Parameters:
 
-* `player_name`: The player's exact or case-insensitive name.
+- `player_name`: The player's exact or case-insensitive name.
 
 Response (`200 OK`):
 
@@ -707,7 +717,7 @@ Response (`200 OK`):
 
 ---
 
-## Match History & Interactive Replay API
+## Match History & Interactive Replay API (👥 User / Creator)
 
 Endpoints providing searchable match records and detailed step-by-step replay data with round media, actual coordinates, and player guesses.
 
@@ -717,11 +727,11 @@ Returns a paginated list of completed matches for the Match Replays catalog.
 
 Query Parameters:
 
-* `game_mode`: Filter by game mode (`pinpoint`, `unshuffle`).
-* `play_mode`: Filter by play mode (`local`, `challenge`).
-* `player`: Filter by participating player name.
-* `limit`: Page size (1–100, default `30`).
-* `offset`: Pagination offset (default `0`).
+- `game_mode`: Filter by game mode (`pinpoint`, `unshuffle`).
+- `play_mode`: Filter by play mode (`local`, `challenge`).
+- `player`: Filter by participating player name.
+- `limit`: Page size (1–100, default `30`).
+- `offset`: Pagination offset (default `0`).
 
 Response (`200 OK`):
 
@@ -742,7 +752,7 @@ Response (`200 OK`):
     "top_accuracy_pct": 96.4,
     "challenge_id": "ch_7b8fd9a46828",
     "challenge_title": "Summer Roadtrip 2024",
-    "challenge_creator": "Rafael"
+    "challenge_creator": "Host"
   }
 ]
 ```
@@ -753,7 +763,7 @@ Fetches round-by-round replay datasets including photo assets, true location coo
 
 Path Parameters:
 
-* `match_id`: Unique identifier of the completed match.
+- `match_id`: Unique identifier of the completed match.
 
 Response (`200 OK`):
 
@@ -830,7 +840,10 @@ Response (`200 OK`):
 
 ---
 
-## Flagged Asset Management
+## Flagged Asset Management (👑 Creator)
+
+> [!NOTE]
+> `POST /api/assets/flag` is accessible to all roles (Guests, Players, and Creators) during active gameplay. Querying and resolving flagged photos require the **👑 Creator** role.
 
 ### POST /api/assets/flag
 
@@ -869,7 +882,7 @@ Lists reported asset issues for administrative inspection.
 
 Query Parameters:
 
-* `limit`: Maximum number of records to return (1–1000, default `100`).
+- `limit`: Maximum number of records to return (1–1000, default `100`).
 
 Response:
 
@@ -903,7 +916,7 @@ Response:
 
 ---
 
-## Host Challenge Management API
+## Host Challenge Management API (👑 Creator / 👥 User)
 
 Administrative endpoints for creating, monitoring, and deactivating multiplayer challenge matches. These routes belong to the host/administrator and should be kept protected behind authentication.
 
@@ -987,7 +1000,7 @@ Response (`200 OK`):
 
 ---
 
-## Public Player Challenge API
+## Public Player Challenge API (🎟️ Capability Token / Public)
 
 Public endpoints powering participant gameplay, live social polling, photo inspection, and inconsistency reporting. All public traffic is scoped under `/play/api/*` and `/play/media/*` for simple Zero Trust and reverse proxy bypass rules.
 
@@ -1055,7 +1068,7 @@ Fetches the sanitized question payload for round `round_index`. Requires `X-Play
 
 Headers:
 
-* `X-Player-Token`: Player session token.
+- `X-Player-Token`: Player session token.
 
 Response (`200 OK`):
 
@@ -1079,7 +1092,7 @@ Submits a guess for the specified round and returns immediate personal reveal sc
 
 Headers:
 
-* `X-Player-Token`: Player session token.
+- `X-Player-Token`: Player session token.
 
 Request (Pinpoint Mode):
 
@@ -1150,13 +1163,13 @@ Retrieves challenge standings, overall scores, and Fog of War filtered round gue
 
 Headers:
 
-* `X-Player-Token`: (Optional) Player session token.
+- `X-Player-Token`: (Optional) Player session token.
 
 **Fog of War Rules**:
 
-* Unauthenticated callers on active matches receive overall player standings (`leaderboard`), but `round_guesses` and `round_history` are strictly redacted (`[]`) to prevent inspecting future round coordinates or dates.
-* Players who supply `X-Player-Token` only see round guesses and history for rounds they have already completed ($\le \text{completed\_round}$).
-* Once the challenge concludes (or for players who have finished all rounds), full round history and guesses are visible.
+- Unauthenticated callers on active matches receive overall player standings (`leaderboard`), but `round_guesses` and `round_history` are strictly redacted (`[]`) to prevent inspecting future round coordinates or dates.
+- Players who supply `X-Player-Token` only see round guesses and history for rounds they have already completed ($\le \text{completed\_round}$).
+- Once the challenge concludes (or for players who have finished all rounds), full round history and guesses are visible.
 
 Response (`200 OK`):
 
@@ -1260,20 +1273,20 @@ Scoped media proxy for challenge participants. Strips all EXIF, GPS, and timesta
 
 **Security Constraints**:
 
-* The `capability_token` must correspond to an active, unexpired challenge.
-* The requested `asset_id` must be an explicit member of that challenge's photo pool.
-* Arbitrary asset lookups return HTTP `404 Not Found`.
+- The `capability_token` must correspond to an active, unexpired challenge.
+- The requested `asset_id` must be an explicit member of that challenge's photo pool.
+- Arbitrary asset lookups return HTTP `404 Not Found`.
 
 Headers:
 
-* `Cache-Control`: `public, max-age=86400, immutable`
-* `ETag`: `"asset-uuid-101"`
+- `Cache-Control`: `public, max-age=86400, immutable`
+- `ETag`: `"asset-uuid-101"`
 
 Response (`200 OK` / `304 Not Modified`): Image stream (`image/jpeg`, etc.).
 
 ---
 
-## Player Statistics, Directory & Match Replays
+## Player Statistics, Directory & Match Replays (👥 User / Creator)
 
 ### GET /api/players/names
 
@@ -1281,15 +1294,15 @@ Query autocomplete suggestions for known player names ordered by recency and mat
 
 Query Parameters:
 
-* `q` (optional): Filter prefix/substring (case-insensitive).
-* `limit` (optional, default: 10, max: 50): Number of items to return.
+- `q` (optional): Filter prefix/substring (case-insensitive).
+- `limit` (optional, default: 10, max: 50): Number of items to return.
 
 Response (`200 OK`):
 
 ```json
 [
   {
-    "player_name": "Rafael",
+    "player_name": "Alex",
     "match_count": 14,
     "last_played_at": "2026-09-11T20:15:00Z",
     "avatar_color": "#0f7c7f"
@@ -1303,16 +1316,16 @@ Query the player directory roster with lifetime summary metrics and sorting opti
 
 Query Parameters:
 
-* `search` (optional): Filter player names by substring.
-* `sort_by` (optional, default: `matches`): Sort order (`matches`, `win_rate`, `points`, `name`).
-* `limit` (optional, default: 50, max: 200): Limit results.
+- `search` (optional): Filter player names by substring.
+- `sort_by` (optional, default: `matches`): Sort order (`matches`, `win_rate`, `points`, `name`).
+- `limit` (optional, default: 50, max: 200): Limit results.
 
 Response (`200 OK`):
 
 ```json
 [
   {
-    "player_name": "Rafael",
+    "player_name": "Alex",
     "avatar_color": "#0f7c7f",
     "matches_played": 14,
     "matches_won": 9,
@@ -1333,7 +1346,7 @@ Response (`200 OK`):
 ```json
 {
   "player": {
-    "player_name": "Rafael",
+    "player_name": "Alex",
     "avatar_color": "#0f7c7f",
     "legacy_title": "Legendary Cartographer",
     "matches_played": 14,
@@ -1401,11 +1414,11 @@ List paginated past match records for the Match Replays catalog.
 
 Query Parameters:
 
-* `game_mode` (optional): Filter by `pinpoint` or `unshuffle`.
-* `play_mode` (optional): Filter by `local` or `challenge`.
-* `player` (optional): Filter matches where a player participated.
-* `limit` (optional, default: 30, max: 100): Results per page.
-* `offset` (optional, default: 0): Pagination offset.
+- `game_mode` (optional): Filter by `pinpoint` or `unshuffle`.
+- `play_mode` (optional): Filter by `local` or `challenge`.
+- `player` (optional): Filter matches where a player participated.
+- `limit` (optional, default: 30, max: 100): Results per page.
+- `offset` (optional, default: 0): Pagination offset.
 
 Response (`200 OK`):
 
@@ -1420,13 +1433,13 @@ Response (`200 OK`):
     "round_length": "1m",
     "player_count": 3,
     "duration_seconds": 185.4,
-    "winners": ["Rafael"],
-    "players": ["Rafael", "Alice", "Bob"],
+    "winners": ["Alex"],
+    "players": ["Alex", "Alice", "Bob"],
     "top_score": 1850,
     "top_accuracy_pct": 92.5,
     "challenge_id": "ch_7b8fd9a46828",
     "challenge_title": "Summer Roadtrip 2024",
-    "challenge_creator": "Rafael"
+    "challenge_creator": "Host"
   }
 ]
 ```
@@ -1447,8 +1460,8 @@ Response (`200 OK`):
   "round_length": "1m",
   "challenge_id": "ch_98765",
   "challenge_title": "Summer Roadtrip 2026",
-  "challenge_creator": "Rafael",
-  "players": ["Rafael", "Alice", "Bob"],
+  "challenge_creator": "Host",
+  "players": ["Alex", "Alice", "Bob"],
   "rounds_data": [
     {
       "round_number": 1,
@@ -1462,7 +1475,7 @@ Response (`200 OK`):
       "batch_photos": [],
       "player_guesses": [
         {
-          "player_name": "Rafael",
+          "player_name": "Alex",
           "player_color": "#0f7c7f",
           "location_score": 98,
           "date_score": 100,
@@ -1494,9 +1507,9 @@ Immich Quiz implements multi-layered security controls across both Local and Cha
 
 Question endpoints (`POST /api/question`, `GET /play/api/{token}/question/{round}`) never expose answer metadata:
 
-* No EXIF metadata, camera models, or timestamps
-* No GPS coordinates (latitude / longitude)
-* No reverse-geocoded place, city, or country names
+- No EXIF metadata, camera models, or timestamps
+- No GPS coordinates (latitude / longitude)
+- No reverse-geocoded place, city, or country names
 
 ### 2. EXIF & GPS Metadata Stripping on Image Proxies
 
@@ -1506,10 +1519,10 @@ All media proxies (`GET /api/media/{asset_id}`, `GET /play/media/{capability_tok
 
 The media proxy verifies that requested assets belong to an authorized context:
 
-* In Local mode, the asset must belong to the active in-memory match session.
-* In Challenge mode (`/play/media/{token}/{asset_id}`), the asset must belong strictly to that active, valid challenge seed.
-* In Moderation mode, the asset must currently be in the flagged asset registry.
-* Arbitrary asset ID probing returns HTTP `404 Not Found`.
+- In Local mode, the asset must belong to the active in-memory match session.
+- In Challenge mode (`/play/media/{token}/{asset_id}`), the asset must belong strictly to that active, valid challenge seed.
+- In Moderation mode, the asset must currently be in the flagged asset registry.
+- Arbitrary asset ID probing returns HTTP `404 Not Found`.
 
 ### 4. Server-Enforced Fog of War
 

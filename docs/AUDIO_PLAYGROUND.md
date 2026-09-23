@@ -8,7 +8,7 @@ To facilitate testing, tuning, and designing sound effects without having to pla
 
 ## Accessing the Playground
 
-When the app server is running (e.g., via `uv run -m src.main` or Docker):
+When the app server is running (e.g., via `uv run python -m src.main` or Docker):
 
 - **Direct Route**: [`http://localhost:8010/audio-playground`](http://localhost:8010/audio-playground)
 - **Static File Route**: [`http://localhost:8010/static/audio-playground.html`](http://localhost:8010/static/audio-playground.html)

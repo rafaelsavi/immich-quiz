@@ -1,4 +1,4 @@
-"""Playwright E2E tests for Clear/Dark/Auto theme switching via settings gear menu."""
+"""Playwright E2E tests for Clear / Dark theme switching via settings gear menu."""
 
 from __future__ import annotations
 
@@ -14,32 +14,24 @@ async def _open_settings_menu(page: Page) -> None:
 
 
 async def test_theme_switch_default_and_cycle(page: Page) -> None:
-    """Verify default auto theme, gear menu theme toggle presence, and cycling between auto, light, and dark."""
+    """Verify default light (Clear) theme, gear menu theme toggle presence, and cycling between Clear and Dark."""
     # Ensure fresh state
     await page.goto('/')
     await page.evaluate("() => localStorage.removeItem('immich_quiz_theme')")
     await page.reload()
     await page.wait_for_selector('#setup-card')
 
-    # 1. Verify default theme state
+    # 1. Verify default theme state (light / Clear)
     theme_setting = await page.evaluate("() => document.documentElement.getAttribute('data-theme-setting')")
-    assert theme_setting == 'auto'
+    assert theme_setting == 'light'
 
     await _open_settings_menu(page)
     theme_btn = page.locator('#theme-toggle-btn')
     await expect(theme_btn).to_be_visible()
-    await expect(theme_btn).to_have_attribute('title', 'Theme: Auto')
+    await expect(theme_btn).to_have_attribute('title', 'Theme: Clear')
     await expect(theme_btn).to_have_attribute('aria-label', 'Switch Theme')
 
-    # 2. Cycle Auto -> Light (Clear)
-    await theme_btn.click()
-    await expect(page.locator('html')).to_have_attribute('data-theme-setting', 'light')
-    await expect(page.locator('html')).to_have_attribute('data-theme', 'light')
-    await expect(theme_btn).to_have_attribute('title', 'Theme: Clear')
-    stored = await page.evaluate("() => localStorage.getItem('immich_quiz_theme')")
-    assert stored == 'light'
-
-    # 3. Cycle Light -> Dark
+    # 2. Cycle Light -> Dark
     await theme_btn.click()
     await expect(page.locator('html')).to_have_attribute('data-theme-setting', 'dark')
     await expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
@@ -47,12 +39,13 @@ async def test_theme_switch_default_and_cycle(page: Page) -> None:
     stored = await page.evaluate("() => localStorage.getItem('immich_quiz_theme')")
     assert stored == 'dark'
 
-    # 4. Cycle Dark -> Auto
+    # 3. Cycle Dark -> Light (Clear)
     await theme_btn.click()
-    await expect(page.locator('html')).to_have_attribute('data-theme-setting', 'auto')
-    await expect(theme_btn).to_have_attribute('title', 'Theme: Auto')
+    await expect(page.locator('html')).to_have_attribute('data-theme-setting', 'light')
+    await expect(page.locator('html')).to_have_attribute('data-theme', 'light')
+    await expect(theme_btn).to_have_attribute('title', 'Theme: Clear')
     stored = await page.evaluate("() => localStorage.getItem('immich_quiz_theme')")
-    assert stored == 'auto'
+    assert stored == 'light'
 
 
 async def test_theme_persistence_on_reload(page: Page) -> None:
@@ -63,9 +56,8 @@ async def test_theme_persistence_on_reload(page: Page) -> None:
     await _open_settings_menu(page)
     theme_btn = page.locator('#theme-toggle-btn')
 
-    # Switch to Dark (Auto -> Light -> Dark)
-    await theme_btn.click()  # -> light
-    await theme_btn.click()  # -> dark
+    # Switch to Dark (Light -> Dark)
+    await theme_btn.click()
     await expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
 
     # Reload page
@@ -76,10 +68,11 @@ async def test_theme_persistence_on_reload(page: Page) -> None:
     await expect(page.locator('html')).to_have_attribute('data-theme', 'dark')
     await expect(page.locator('html')).to_have_attribute('data-theme-setting', 'dark')
 
-    # Restore to Auto
+    # Restore to Light
     await _open_settings_menu(page)
-    await theme_btn.click()  # -> auto
-    await expect(page.locator('html')).to_have_attribute('data-theme-setting', 'auto')
+    await theme_btn.click()  # -> light
+    await expect(page.locator('html')).to_have_attribute('data-theme-setting', 'light')
+    await expect(page.locator('html')).to_have_attribute('data-theme', 'light')
 
 
 async def test_theme_button_language_translation(page: Page) -> None:
@@ -87,34 +80,30 @@ async def test_theme_button_language_translation(page: Page) -> None:
     await page.goto('/')
     await page.wait_for_selector('#setup-card')
 
-    # Ensure English
+    # Ensure English and light
     await page.evaluate("() => localStorage.setItem('immich_quiz_language', 'en-US')")
-    await page.evaluate("() => localStorage.setItem('immich_quiz_theme', 'auto')")
+    await page.evaluate("() => localStorage.setItem('immich_quiz_theme', 'light')")
     await page.reload()
 
     await _open_settings_menu(page)
     theme_btn = page.locator('#theme-toggle-btn')
-    await expect(theme_btn).to_have_attribute('title', 'Theme: Auto')
+    await expect(theme_btn).to_have_attribute('title', 'Theme: Clear')
     await expect(theme_btn).to_have_attribute('aria-label', 'Switch Theme')
 
     # Switch language to Portuguese
     lang_btn = page.locator('#lang-toggle-btn')
     await lang_btn.click()
 
-    # Verify Portuguese translation
-    await expect(theme_btn).to_have_attribute('title', 'Tema: Automático')
-    await expect(theme_btn).to_have_attribute('aria-label', 'Alternar Tema')
-
-    # Cycle to Claro (Light)
-    await theme_btn.click()
+    # Verify Portuguese translation (Clear -> Claro)
     await expect(theme_btn).to_have_attribute('title', 'Tema: Claro')
+    await expect(theme_btn).to_have_attribute('aria-label', 'Alternar Tema')
 
     # Cycle to Escuro (Dark)
     await theme_btn.click()
     await expect(theme_btn).to_have_attribute('title', 'Tema: Escuro')
 
-    # Restore to English and Auto
+    # Restore to English
     await lang_btn.click()
     await expect(theme_btn).to_have_attribute('title', 'Theme: Dark')
-    await theme_btn.click()  # -> auto
-    await expect(theme_btn).to_have_attribute('title', 'Theme: Auto')
+    await theme_btn.click()  # -> light (Clear)
+    await expect(theme_btn).to_have_attribute('title', 'Theme: Clear')

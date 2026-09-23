@@ -5,98 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.2.0] - 2026-09-23
 
 ### Added
 
-- **Dark Mode Redesign & Gear Menu Theme Switcher (Clear / Dark)**:
-  - Dedicated theme switcher button (`#theme-toggle-btn`) inside settings gear dropdown toggling directly between **Clear** (Light) and **Dark** color schemes.
-  - Zero-flash persistence using `localStorage` (`immich_quiz_theme`) and inline `<head>` script preventing light theme flash on page load and deep links.
-  - Modular `static/js/modules/theme.js` with crisp SVG icons and localized tooltips across all 4 locales (`theme.light`, `theme.dark`, `theme.toggle_title`).
-- **Dark Mode Aesthetic Overhaul Across All Surfaces**:
-  - Deep midnight-slate palette (`#0b0f19` body, `#131b2e` cards, `#0c1322` secondary surfaces) with ambient glow backdrop shapes.
-  - Full dark mode coverage for form controls, `<select>` dropdowns with customized slate SVGs, multi-select dropdowns (`.multi-select-actions`, search inputs, action buttons, scrollbars), filter accordions (`.accordion-title`, `.accordion-icon`, meta items), date range sliders (`#date-range-slider` fill, track, thumbs, ticks), player chips, modals, and Leaflet map controls/popups.
-  - Fixed white container boxes in Pinpoint (`#map-guess-wrap`, `#date-guess-wrap`) and Unshuffle (`.shuffle-card-row`, `.shuffle-timeline-header`) during dark mode gameplay.
-- **Detailed Leaderboard Scope Pill Tooltip & Frontend Filter Tooltip Formatting**:
-  - Implemented `formatFilterTooltip(data)` and `getActiveFilterTooltip()` in `static/js/modules/setup_filters.js`, bringing client-side parity to the backend `GameFilterConfig.format_filter_tooltip()`.
-  - Updated `updateLeaderboardScope()` in `static/js/modules/leaderboard.js` to populate `title` on `#leaderboard-scope-pill` with the multiline filter breakdown (libraries, albums, countries, cities, people, date ranges, shared status) and game mode/length metadata on hover.
-- **Live Leaderboard Synchronization on Guess Mode Toggles**:
-  - Configured `onGuessModeChanged()` in `static/js/modules/setup_filters.js` to invoke `loadLeaderboardDebounced()` whenever guess mode targets (`.guess-mode-buttons`) are toggled, keeping preflight media counts and all-time ranking records synchronized in real time.
-  - Enhanced `updateLeaderboardScope()` in `static/js/modules/leaderboard.js` to dynamically reflect specific active targets (`(Location)` or `(Date)`) in `#leaderboard-scope-pill` when Pinpoint is selectively filtered.
-
-- **Role-Based Access Control (RBAC) & Cloudflare Zero Trust / Reverse Proxy Integration**:
-  - Three-tier hierarchical role model (`Guest < User < Creator`) powered by Cloudflare Access authenticated email headers (`Cf-Access-Authenticated-User-Email`) with seamless local/CI fallback (`AUTH_MODE=disabled` granting full Creator privileges).
-  - Enhanced identity and user name resolution supporting custom headers (`Cf-Access-Authenticated-User-Name`, `X-User-Name`, `X-Auth-Name`, `X-Forwarded-User-Name`, `X-Forwarded-User`, `Remote-User`) and decoding identity claims (`name`, `preferred_username`, `user_name`) from the `Cf-Access-Jwt-Assertion` token payload.
-  - Flexible allowlist matching in `CF_CREATOR_EMAILS` and `CF_USER_EMAILS` accepting both email addresses and usernames for seamless Cloudflare and Caddy reverse proxy setups.
-  - Configurable access control via environment variables: `AUTH_MODE`, `CF_CREATOR_EMAILS`, and `CF_USER_EMAILS`.
-  - Secure backend role protection dependency (`require_role(min_role)`) enforcing HTTP 403 Forbidden across admin, metadata, sync, and photo moderation endpoints.
-  - New session endpoint `GET /api/auth/me` providing current user identity, role, and authentication status to the frontend.
-  - Dedicated Home Landing Card (`#home-card`) conditionally displayed for Guests and Users when Game Setup is hidden, featuring a challenge code/link join input and Quick Link shortcuts to Active Challenges, Player Directory, and Match Replays.
-  - Lightweight Identity Badge in header displaying user name and role badge (`👤 Host · Creator`, `👤 Alice · Player`).
-  - Client-side navigation guards blocking unauthorized route transitions with localized toast alerts and automatic redirect to Home.
-  - Restricted local Pass & Play `#leaderboard-card` exclusively to the Creator role, ensuring Player (User) and Guest landing views share the clean `#home-card` without extraneous local server match tables.
-  - Role-specific CSS styling in `static/css/components/auth.css` and 100% strict 4-file parity across all 4 locales.
-- **Universal Controls (`common.*`) & Semantic I18n Namespaces**:
-  - Introduced dedicated universal action keys (`common.cancel`, `common.refresh`, `common.loading`, `common.back`, `common.close`, `common.clear`, `common.retry`, `common.copy`, `common.copied`, `common.pts`) to eliminate cross-domain key borrowing across modals and screen headers.
-  - Added domain-specific specification metadata keys (`meta.scope_heading`, `meta.scope_all_desc`, `meta.scope_shared_desc`) and challenge card status/action keys (`challenges_page.status_active`, `challenges_page.status_expired`, `challenges_page.status_deactivated`, `challenges_page.created_at_label`, `challenges_page.deactivate_confirm`, `challenges_page.deactivate_success`, `challenges_page.pinpoint_desc`, `challenges_page.unshuffle_desc`).
-  - Added parameterized dynamic match counters (`stats.match_count_single`, `stats.match_count_plural`) and replay filter mode tokens (`replay.filter_mode_pinpoint`, `replay.filter_mode_unshuffle`).
-
-- **Automated Privacy Hygiene & Local Path Prevention Suite**:
-  - Added `tests/test_privacy_and_paths.py` validating that no tracked repository files contain hardcoded local machine paths, user home directories, AI assistant artifact paths, or personal filesystem references.
-  - Integrated `check_privacy_and_paths()` directly into `scripts/verify.py` and `.githooks/pre-commit` to prevent committing or pushing local machine paths.
-  - Added Section 10 ("Privacy & Local Path Prevention Mandate") to `AGENTS.md`.
+- **Dark Mode & Theme Switcher**: Full dark mode redesign with a quick toggle in the settings menu between Clear and Dark themes across all screens, dialogs, maps, and controls.
+- **Access Control & Player Landing**: Role-tailored views (Guest, Player, Creator) with an identity badge in the header and a simplified Home landing screen for joining challenges directly.
+- **Leaderboard Scope Tooltip & Dynamic Updates**: Filter breakdown tooltip on the leaderboard scope pill with real-time ranking updates when changing guess modes.
 
 ### Changed
 
-- **Range Slider Track Groove, Thumb Contrast & Input Style Isolation**:
-  - Excluded `input[type="range"]` (along with checkbox and radio inputs) from generic text input styles in `static/css/base/reset.css`, preventing dark mode background (`--input-bg`) and border colors from covering the underlying track groove, active gradient fill, and secondary thumb handle.
-  - Redesigned `.range-slider-track` with deep tactile groove styling featuring subtle bevel highlights (`0 1px 0 rgba(255, 255, 255, 0.85)` in clear mode, `0 1px 0 rgba(255, 255, 255, 0.05)` in dark mode) and rich inset shadows.
-  - Implemented tactile `cursor: grab` and `cursor: grabbing` on thumbs, vibrant gradient active fill, dynamic handle z-index layering on focus/pointerdown so handles never block each other, click-to-seek track navigation, and muted styling for disabled slider states.
-- **Compact Player KPI Overview Grid (`.player-kpis-grid`)**:
-  - Aligned `.player-kpis-grid` selector with `.player-kpi-grid` in `static/css/components/stats.css` and established a balanced 4-column single-row layout on desktop/tablet (`repeat(4, 1fr)`).
-  - Streamlined `.player-kpi-card` design with condensed padding (`0.65rem 0.85rem`), tighter vertical rhythm, refined typography (`font-size: 1.35rem` for values, `0.74rem` uppercase labels, and `0.85rem` legible subtext on PC), subtle lift hover effects, and a 2x2 symmetrical layout on mobile screens (`@media (max-width: 768px)`).
-- **Application Icon & Emoji Unification (1-to-1 Semantic Bonding)**:
-  - Resolved the dual-use collision of `👥` (Busts in Silhouette) between **Local Game** and the **Players Directory**:
-    - Reserved `👥` exclusively for **Players** (Player Directory, Player Profiles, Player Counts, and Player Guesses).
-    - Assigned `🕹️` (Joystick) to **Local Game / Local Match** across Prepare Game modal tabs, Game Results badges, Leaderboard tags, Replays catalog filters, and all 4 locale files (`replay.filter_type_local`).
-  - Unified photo asset representation in sync metrics (`sync.js`) from `📷` to `📸` (matching Home hero and Photo Memories).
-  - Unified date filter indicator in match specifications (`match_meta.js`) from `🗓️` to `📅` (matching all date chips and date accuracy dimensions).
-- **Match Review Layout Modularization & Visual Borders (`.review-content`)**:
-  - Restructured `.review-content` with modular layout flow (`gap: 1.5rem`), eliminating the monolithic vertical list feeling across Game Results summary, Challenge Grand Reveal, and Match Replays.
-  - Framed the Standings Table (`.table-scroll`) into a dedicated scoreboard card with rounded border, subtle shadow, and tinted table header contrast (`--bg-surface-secondary`) in light and dark modes.
-  - Encapsulated the Universal Review Deck (`#summary-review-deck`) within an interactive console container matching the `.match-meta-category` design system, wrapping the 3-tab switcher, round stepper, photo/map canvas, and round breakdown into a cohesive inspection card.
-  - Grounded bottom action button bars (`.summary-actions`) with a clean horizontal hairline border separator.
-  - Optimized responsive behavior for mobile screens (`@media (max-width: 640px)`) with condensed padding and gap tuning.
-- **Concise Terminology Standardization ("Choose the Smaller" Heuristic)**:
-  - Unified terminology across both English and Brazilian Portuguese locales, systematically favoring shorter, punchier, and cleaner terms to eliminate visual clutter and prevent line-wrapping:
-    - **`Local` vs `Localização`**: Standardized Brazilian Portuguese location dimension to `Local` (5 chars vs 11 chars) across setup targets, mode descriptions, map prompts, reveal labels, and player analytics (`setup.goal_location`, `meta.targets_loc_date`, `meta.targets_loc_only`, `challenges_page.pinpoint_desc`, `mode.pinpoint.goal_location_desc`, `game.location_guess_label`, `reveal.actual_location`, `stats.location_accuracy`, `stats.perfect_location_rounds`, `reported_page.filter_location`).
-    - **`Ranking` vs `Classificação`**: Standardized Brazilian Portuguese standings to `Ranking` (7 chars vs 13 chars) across leaderboard cards, standing toggle buttons, loading states, and profile achievements (`leaderboard.heading`, `challenges_page.view_standings`, `challenges_page.hide_standings`, `challenges_page.leaderboard_loading`, `stats.feature_podiums_desc`).
-    - **`Pontos` vs `Pontuação`**: Standardized Brazilian Portuguese score tables and invitations to `Pontos` (6 chars vs 9 chars) across reveal headers, challenge tables, and summary banners (`reveal.col_score`, `challenges_page.score_col`, `summary.scores_header`, `challenge.invite_message`).
-    - **`Encerrar` vs `Desativar`**: Standardized challenge expiration actions in Portuguese to `Encerrar` / `Encerrado` (8 chars vs 9 chars) for natural competition lifecycle wording (`challenges_page.deactivate_btn`, `challenges_page.status_deactivated`, `challenges_page.deactivate_confirm`, `challenges_page.deactivate_success`).
-    - **`Creator` vs `Host`**: Standardized to `Creator` / `Criador` across challenge card metadata, search placeholders, access restriction warnings, and RBAC roles (`auth.role_creator`, `auth.access_restricted_creator`, `challenges_page.search_placeholder`).
-    - **`Photo` vs `Image`**: Standardized to `Photo` / `Foto` everywhere (`game.fullscreen_image_title` aligned with all photo actions and review views).
-    - **`Player` vs `Participant`**: Standardized to `Player` / `Jogador` across challenge attendee counters, loading spinners, and empty states (`challenge.participants`, `challenge.loading_count`, `challenges_page.no_participants_yet`).
-    - **`Match` vs `Game` Semantic Boundary**: Preserved clean conceptual boundary between `Game` / `Jogo` (the playable activity: `Prepare Game`, `Start Game`, `Local Game`) and `Match` / `Partida` (the playthrough instance/archive: `Match Replay`, `Matches Played`, `past matches`, `future matches`).
-- **I18n Domain Decoupling & Modernization**:
-  - Decoupled borrowed keys across `static/index.html` (modals and filter selectors), `match_meta.js`, `screens/challenges.js`, `challenge/landing.js`, `screens/stats.js`, `screens/replay.js`, and `match_replay.js`.
-  - Localized dynamic counts in `player_autocomplete.js` and default challenge title rounds count in `admin.js`.
+- **Range Slider Controls**: Smoother timeline date range slider with tactile grab handles, highlighted track, and click-to-seek navigation.
+- **Compact Player Stats Overview**: Streamlined 4-column overview grid for player profiles and statistics across desktop and mobile.
+- **Match Review Layout**: Redesigned match summary with dedicated scoreboard cards and an encapsulated review console.
+- **Icon & UI Terminology Polish**: Unified icons (`👥` for Players, `🕹️` for Local Game) and shorter, punchier labels across English and Brazilian Portuguese.
 
 ### Fixed
 
-- **Privacy Hygiene & Local Path Leaks**:
-  - Removed accidental hardcoded developer local machine and AI artifact paths from `tests/e2e/test_sync_popup.py`, replacing with pytest `tmp_path` fixture.
-  - Sanitized developer authentication testing hooks in `src/auth/service.py` to prevent exposing personal names.
-  - Normalized hardcoded Git paths in documentation and agent rules (`AGENTS.md`, `.agents/rules/environment.md`) to environment variables (`%ProgramFiles%`).
-- **Missing Translation Key in Challenge Summary**:
-  - Fixed missing key reference `t("game.actual_location")` in `static/js/modules/challenge/summary.js` to correctly resolve to `t("reveal.actual_location")`.
-
-### Removed
-
-- **Unimplemented Game Room References**:
-  - Removed all dead code and database schema columns (`room_id`, `room_name`, `PlayMode.room`, `idx_matches_room_id`) across backend models and SQLite schema, leaving only the two supported play modes: Local (`local`) and Challenge (`challenge`).
-  - Removed dead frontend room badge styles (`.playmode-badge.mode-room`, `.badge-type-room`) and corresponding locale keys (`leaderboard.mode_room`, `leaderboard.mode_room_desc`) across all 4 locale files.
-- **Pruned 104 Obsolete Legacy I18n Keys**:
-  - Safely removed abandoned legacy keys from obsolete admin modals, old setup tabs/layouts, pre-Review-Deck headings, reveal table column headers, and legacy challenge intermissions across all four locale files simultaneously (`locales/en-US.json`, `locales/pt-BR.json`, `static/js/modules/locales/en_US.js`, `static/js/modules/locales/pt_BR.js`) while maintaining 100% strict key parity.
+- **Challenge Summary Location**: Fixed photo location display in the challenge summary screen.
 
 ## [3.1.0] - 2026-09-20
 
