@@ -38,13 +38,13 @@
 - **🌍 GeoGuessr for Your Personal Photos**: Guess where and when your photos were taken using interactive Leaflet maps with dynamic auto-zoom and month/year timeline selectors.
 - **🔀 Unshuffle Mode**: Match photo clusters to geographic markers and arrange your memories into chronological sequence along a timeline.
 - **🕹️ Couch Multiplayer (Pass & Play)**: Gather friends around a single TV or tablet. A privacy curtain protects upcoming photos between player turns.
-- **⚔️ Asynchronous & Hybrid Challenges**: Share capability URLs (`/play/ch_...`) or instant QR codes with customizable expiration (`1h`, `6h`, `24h`, `7d`, `Never`). Opponents play at their own pace on their own devices with live opponent pin drops.
+- **⚔️ Asynchronous & Hybrid Challenges**: Share capability URLs (`/play/ch_...`) or instant QR codes with customizable expiration periods. Opponents play at their own pace on their own devices with live opponent updates.
 - **📊 Lifetime Player Directory & KPIs**: Track player records, win rates, podium medals, and 4-tier accuracy distributions for Location and Date across player profiles.
 - **🎬 Match Replays & Photo Journey**: Relive past matches with full route replays, stage cards, and high-res photo memories.
 - **⚡ Sub-Millisecond SQLite Metadata Engine**: Fast, local SQLite indexing with automatic delta and full background syncs from Immich. Zero lag during matches.
 - **🛡️ Anti-Cheat & Privacy-First**: All EXIF, GPS coordinates, and camera metadata are stripped server-side before client delivery.
 - **🔐 Granular Role-Based Access Control**: Native Cloudflare Zero Trust and reverse proxy integration with three permission tiers (👑 Creator, 👥 Player, 🎟️ Guest).
-- **🌓 Clear & Dark Themes + i18n**: Pixel-perfect aesthetic design with automatic dark/light theme switching and bilingual support in English (`en-US`) and Brazilian Portuguese (`pt-BR`).
+- **🌓 Clear & Dark Themes + i18n**: Aesthetic design with automatic dark/light theme switching and bilingual support in English (`en-US`) and Brazilian Portuguese (`pt-BR`).
 
 ---
 
