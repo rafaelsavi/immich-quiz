@@ -62,38 +62,6 @@
 
 ---
 
-## ⚡ Quick Start (30 Seconds)
-
-### 1. Minimal `docker-compose.yml`
-
-```yaml
-services:
-  immich-quiz:
-    image: ghcr.io/rafaelsavi/immich-quiz:latest
-    container_name: immich-quiz
-    restart: unless-stopped
-    ports:
-      - "8010:8010"
-    environment:
-      - IMMICH_SERVER_URL=https://photos.yourdomain.com/api
-      - IMMICH_LIBRARIES={"Family":"your_immich_api_key_here"}
-      - APP_HOST=0.0.0.0
-      - APP_PORT=8010
-      - DATA_PATH=/app/data
-    volumes:
-      - ./data:/app/data
-```
-
-### 2. Start the Server
-
-```bash
-docker compose up -d
-```
-
-Open your browser at **`http://localhost:8010`** and start playing!
-
----
-
 ## 🎮 Game Modes
 
 ### Modes & Targets
@@ -105,13 +73,16 @@ Open your browser at **`http://localhost:8010`** and start playing!
 ### Play Formats
 
 - **🕹️ Local Match (Pass & Play)**: Gather friends around a single screen. Players take turns passing the device between rounds with an overlay privacy curtain protecting upcoming photos.
-- **⚔️ Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window (`1h`, `6h`, `24h`, `48h`, `7d`, or `Never`). Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
-- **Challenges Hub (`/challenges`)**: Browse, search, share, track active challenges, and view past match summaries.
+- **⚔️ Multiplayer Challenges (Async & Hybrid)**: Click **Prepare Game** to generate an unguessable capability link (e.g. `/play/ch_...`) and QR code with a custom expiration window. Friends join from their own mobile or desktop browsers, see live opponent pin drops as rounds complete, and view the final 3D podium.
+
+### Explore
+
+- **⚔️ Challenges Hub (`/challenges`)**: Browse, join, share, and track active online challenges.
 - **📊 Player Statistics & Profiles (`/players`)**: Explore lifetime stats, win rates, medal podiums, 4-tier accuracy distributions for Location & Date, and player match histories.
 - **🎬 Match Reviews & Replays (`/replays` & `/game/{match_id}/replay`)**: Review completed games with an outcome hero (winner podium, final standings) and interactive segmented review deck featuring round-by-round replays, full-game journey maps, and photo memories.
 - **Reported Assets Dashboard (`/reported`)**: Review reported photo metadata inconsistencies (GPS, date, notes), open direct Immich Web edit links, and resolve reports in real time.
 
-### Library Filters & Live Preflight
+### Select your media pool
 
 Optionally filter photos by album, custom date range, country, city, or tagged people (with Any / All matching). A live preflight indicator verifies that enough diverse, geotagged, and dated photos exist before the match starts.
 
@@ -134,20 +105,12 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 | `:v3.2.0` / `:3.2.0` | Specific semantic release version                          | `docker pull ghcr.io/rafaelsavi/immich-quiz:v3.2.0` |
 | `:<sha>`             | Exact commit hash build                                    | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
-### Starting with `.env` Configuration
+### Quick Start
 
-Create your `.env` configuration file from `.env.example`:
+Use the example files:
 
-```bash
-cp .env.example .env
-```
-
-Start the container with Docker Compose using the provided [docker-compose.example.yml](docker-compose.example.yml):
-
-```bash
-cp docker-compose.example.yml docker-compose.yml
-docker compose up -d
-```
+- [.env.example](.env.example)
+- [docker-compose.example.yml](docker-compose.example.yml)
 
 ### Environment Variables
 
