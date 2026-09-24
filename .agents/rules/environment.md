@@ -8,7 +8,7 @@
     - Running application / scripts: `uv run python -m src.main` or `uv run python path/to/script.py`
   - Python version is 3.13 (`.venv` managed by `uv`). Never invoke unmanaged global `python` or bare `pip`.
 - **Git Binary & Sandbox Permissions**:
-  - Git for Windows is installed at `C:\Program Files\Git\cmd\git.exe` (invoked as `git`).
+  - Git for Windows is installed at `%ProgramFiles%\Git\cmd\git.exe` (invoked as `git`).
   - In agent runner environments (such as the Antigravity sandbox on Windows), commands executing `git`, `uv`, `python`, `pytest`, or Playwright MUST run with sandbox isolation bypassed (`BypassSandbox: true`) because Git repository metadata, the base Python runtime (`%LOCALAPPDATA%\Programs\Python\Python313\`), and Playwright caches live in user profile directories outside the workspace root.
 - **Playwright & Browser Automation**:
   - Playwright is fully installed and managed inside the Python environment (`playwright>=1.50.0`, `pytest-playwright`).

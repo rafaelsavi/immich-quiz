@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from src.api.auth_routes import auth_router
 from src.api.challenge_routes import challenge_router, play_router
 from src.api.routes import invalidate_filters_cache, router
 from src.app_logging import LoggingContextMiddleware, get_logger, setup_logging
@@ -251,6 +252,7 @@ def create_app(settings: AppSettings | None = None) -> FastAPI:
             },
         )
 
+    app.include_router(auth_router)
     app.include_router(router)
     app.include_router(challenge_router)
     app.include_router(play_router)

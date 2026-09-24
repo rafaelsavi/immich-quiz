@@ -314,17 +314,7 @@
   letter-spacing: normal;
 }
 
-/* Play Mode: Room (Warm Amber) */
-.badge-type.badge-type-room,
-.replay-item-badges .badge-tag.badge-type-room {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
-  border-color: rgba(245, 158, 11, 0.28);
-  box-shadow: none;
-  border-radius: 6px;
-  text-transform: none;
-  letter-spacing: normal;
-}
+
 
 /* Game Mode: Pinpoint (Teal Accent) */
 .badge-mode,
@@ -554,12 +544,6 @@
   border-color: rgba(167, 139, 250, 0.35);
 }
 
-[data-theme="dark"] .badge-type.badge-type-room,
-[data-theme="dark"] .replay-item-badges .badge-tag.badge-type-room {
-  background: rgba(245, 158, 11, 0.18);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.35);
-}
 
 [data-theme="dark"] .badge-mode,
 [data-theme="dark"] .badge-mode.badge-mode-pinpoint,
@@ -607,4 +591,54 @@
 
 [data-theme="dark"] .summary-replay-section {
   border-color: #334155;
+}
+
+/* ==========================================================================
+   Dark Mode: Replay Header, Round Stepper, Viewer Controls
+   ========================================================================== */
+[data-theme="dark"] .replay-page-header {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .replay-round-stepper {
+  background: #0f172a;
+  border-color: #26344d;
+}
+
+[data-theme="dark"] .replay-round-indicator {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-icon-control {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-icon-control:hover:not(:disabled) {
+  background: #334155;
+  border-color: var(--accent, #0f7c7f);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .replay-main-heading {
+  color: #f1f5f9;
+}
+
+/* Player Guesses Section in Replay Viewer */
+[data-theme="dark"] .replay-guesses-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .replay-guess-row {
+  border-bottom-color: #26344d;
+}
+
+[data-theme="dark"] .replay-guess-player-name {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .replay-guess-detail {
+  color: #94a3b8;
 }

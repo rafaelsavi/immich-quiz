@@ -162,6 +162,30 @@
   justify-content: center;
 }
 
+.theme-toggle-btn {
+  overflow: hidden;
+}
+
+#theme-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+  stroke: currentColor;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.theme-toggle-btn:hover .theme-svg {
+  transform: rotate(20deg) scale(1.12);
+}
+
 .header-icon-btn:hover,
 .audio-toggle-btn:hover {
   transform: scale(1.08);
@@ -388,4 +412,104 @@ button:disabled {
     font-size: 0.78rem;
   }
 }
+
+/* ==========================================================================
+   Dark Mode Buttons & Control Styles
+   ========================================================================== */
+[data-theme="dark"] .header-icon-btn,
+[data-theme="dark"] .audio-toggle-btn {
+  background: #141c2e;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .header-icon-btn:hover,
+[data-theme="dark"] .audio-toggle-btn:hover {
+  background: #1f2b45;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+[data-theme="dark"] .challenges-nav-btn.active,
+[data-theme="dark"] .home-nav-btn.active,
+[data-theme="dark"] .stats-nav-btn.active,
+[data-theme="dark"] .players-nav-btn.active,
+[data-theme="dark"] .replays-nav-btn.active {
+  border-color: #2dd4bf;
+  background: rgba(15, 124, 127, 0.25);
+  box-shadow: 0 0 0 2.5px rgba(45, 212, 191, 0.22);
+}
+
+[data-theme="dark"] .settings-menu {
+  background: rgba(19, 27, 46, 0.95);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .btn-secondary {
+  background: #172033;
+  border-color: #2b3954;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background: #202c46;
+  border-color: #3b4d70;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .btn-danger {
+  background: #251215;
+  border-color: #5a1c22;
+  color: #f87171;
+}
+
+[data-theme="dark"] .btn-danger:hover {
+  background: #35161b;
+  border-color: #7f1d1d;
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .btn-ghost {
+  background: #172033;
+  border-color: #2b3954;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-ghost:hover {
+  background: #202c46;
+  border-color: #3b4d70;
+}
+
+[data-theme="dark"] .btn-icon-action {
+  background: #172033;
+  border-color: #2b3954;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-icon-action:hover {
+  background: #202c46;
+  border-color: var(--accent, #0f7c7f);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .map-fullscreen-btn,
+[data-theme="dark"] .shuffle-card-fullscreen-btn {
+  background: #172033;
+  border-color: #2b3954;
+  color: #f1f5f9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .map-fullscreen-btn:hover,
+[data-theme="dark"] .shuffle-card-fullscreen-btn:hover {
+  background: #202c46;
+  border-color: var(--accent, #0f7c7f);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .fs-icon {
+  stroke: #cbd5e1;
+}
+
 

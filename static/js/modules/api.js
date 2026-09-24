@@ -2,6 +2,28 @@ import { state, el } from "./state.js";
 import { getSelectedPeopleMode } from "./setup_filters.js";
 import { getCollator } from "./i18n.js";
 
+const ROLE_LEVELS = { guest: 0, user: 1, creator: 2 };
+
+/**
+ * Check if the current auth role meets a minimum role requirement.
+ * @param {string} minRole - "guest", "user", or "creator"
+ * @returns {boolean}
+ */
+export function hasRole(minRole) {
+  return (ROLE_LEVELS[state.auth.role] ?? 0) >= (ROLE_LEVELS[minRole] ?? 0);
+}
+
+/**
+ * Fetch the current user's auth context from the backend.
+ * @returns {Promise<{role: string, email: string|null, name: string|null, authenticated: boolean}>}
+ */
+export async function getAuthMe() {
+  const resp = await fetch("/api/auth/me");
+  if (!resp.ok) return { role: "creator", email: null, name: null, authenticated: false };
+  return resp.json();
+}
+
+
 export async function api(path, options = {}) {
   const { headers, ...restOptions } = options;
   const response = await fetch(path, {

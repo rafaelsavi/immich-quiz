@@ -30,7 +30,7 @@ When a match concludes:
 
 ## 🛠️ How to Customize Award Conditions & Thresholds
 
-All award presentation logic is located in `static/js/modules/summary/awards.js` inside the `renderAwards(summary, playerStats)` function, and internationalized in `static/js/modules/i18n.js`.
+All award presentation logic is located in `static/js/modules/summary/awards.js` inside the `renderAwards(summary, playerStats)` function, and localized across the four application locale files.
 
 ### 1. Adjusting Award Criteria
 
@@ -48,9 +48,9 @@ Open `static/js/modules/summary/awards.js` and locate `function renderAwards(sum
 
 To add a new award (e.g. "Clutch Finisher" or "Comeback King"):
 
-1. **Add translation strings** in `static/js/modules/i18n.js` under both `"en"` and `"pt"` sections:
+1. **Add translation keys** across all four locale files simultaneously (`locales/en-US.json`, `locales/pt-BR.json`, `static/js/modules/locales/en_US.js`, `static/js/modules/locales/pt_BR.js`):
 
-   ```javascript
+   ```json
    "award.my_award": "🚀 Clutch Finisher",
    "award.my_award_desc": "Highest score in the final round",
    ```

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-09-24
+
+### Added
+
+- **Dark Mode & Theme Switcher**: Full dark mode redesign with a quick toggle in the settings menu between Clear and Dark themes across all screens, dialogs, maps, and controls.
+- **Access Control & Player Landing**: Role-tailored views (Guest, Player, Creator) with an identity badge in the header and a simplified Home landing screen for joining challenges directly.
+- **Leaderboard Scope Tooltip & Dynamic Updates**: Filter breakdown tooltip on the leaderboard scope pill with real-time ranking updates when changing guess modes.
+
+### Changed
+
+- **Range Slider Controls**: Smoother timeline date range slider with tactile grab handles, highlighted track, and click-to-seek navigation.
+- **Compact Player Stats Overview**: Streamlined 4-column overview grid for player profiles and statistics across desktop and mobile.
+- **Match Review Layout**: Redesigned match summary with dedicated scoreboard cards and an encapsulated review console.
+- **Icon & UI Terminology Polish**: Unified icons (`👥` for Players, `🕹️` for Local Game) and shorter, punchier labels across English and Brazilian Portuguese.
+
+### Fixed
+
+- **Challenge Summary Location**: Fixed photo location display in the challenge summary screen.
+
 ## [3.1.0] - 2026-09-20
 
 ### Added

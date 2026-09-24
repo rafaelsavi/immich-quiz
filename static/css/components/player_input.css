@@ -371,10 +371,47 @@
   flex-shrink: 0;
 }
 
+/* Dark Mode Player Input & Chips */
+[data-theme="dark"] .player-input-container {
+  background: #141d2e;
+  border-color: #283650;
+}
+
+[data-theme="dark"] .player-input-container:hover {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .player-input-container:focus-within {
+  background: #141d2e;
+  border-color: var(--accent, #0f7c7f);
+}
+
+[data-theme="dark"] .player-input-field {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .player-input-field::placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .player-chip {
+  background: #1c273e;
+  border-color: #2d3b59;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .player-chip:hover {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .player-chip-remove {
+  color: #94a3b8;
+}
+
 [data-theme="dark"] .player-autocomplete-dropdown {
-  background: #1e293b;
-  border-color: #334155;
-  box-shadow: 0 14px 32px -4px rgba(0, 0, 0, 0.55), 0 6px 14px -4px rgba(0, 0, 0, 0.35);
+  background: #131b2e;
+  border-color: #283750;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.65), 0 6px 14px -4px rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="dark"] .player-autocomplete-item:hover,

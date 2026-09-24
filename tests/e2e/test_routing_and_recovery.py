@@ -292,6 +292,8 @@ async def test_in_game_navigation_guard_and_abandon_dialog(page: Page) -> None:
     await page.goto('/')
     await start_date_only_match(page, rounds=5)
     await expect(page.locator('#game-card')).to_be_visible()
+    await expect(page.locator('#game-exit-btn')).to_be_visible()
+    await page.wait_for_timeout(200)
 
     # 1. Dismiss abandonment dialog: Player stays in game
     dismissed = False

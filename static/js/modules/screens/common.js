@@ -21,6 +21,7 @@ export function showCard(cardEl) {
   clearRevealAnimation();
   [
     el.setupCard,
+    el.homeCard,
     el.gameCard,
     el.summaryCard,
     el.gameEndedCard,

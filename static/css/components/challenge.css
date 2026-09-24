@@ -2021,3 +2021,110 @@ tr.highlight-player-row {
   }
 }
 
+/* ==========================================================================
+   Dark Mode: Challenge Components
+   ========================================================================== */
+/* Mini Podium Avatars (Challenge Standings) */
+[data-theme="dark"] .mini-podium-avatar {
+  background: #1e293b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .mini-podium-item.podium-1st .mini-podium-avatar {
+  background: rgba(234, 179, 8, 0.18);
+}
+
+[data-theme="dark"] .mini-podium-name {
+  color: #f1f5f9;
+}
+
+/* Challenge Landing & Path Cards */
+[data-theme="dark"] .challenge-path-card {
+  background: var(--card, #131b2e);
+  border-color: #26344d;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .challenge-path-card:hover {
+  border-color: #3b4d70;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .challenge-path-resume {
+  background: linear-gradient(145deg, rgba(15, 124, 127, 0.1) 0%, rgba(15, 124, 127, 0.02) 100%), var(--card, #131b2e);
+  border-color: rgba(45, 212, 191, 0.35);
+}
+
+[data-theme="dark"] .challenge-path-resume:hover {
+  border-color: var(--accent, #0f7c7f);
+  box-shadow: 0 8px 24px rgba(15, 124, 127, 0.2);
+}
+
+[data-theme="dark"] .challenge-path-icon {
+  background: rgba(45, 212, 191, 0.12);
+}
+
+[data-theme="dark"] .challenge-path-new .challenge-path-icon {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+[data-theme="dark"] .challenge-path-new {
+  border-color: #334155;
+  background: var(--card, #131b2e);
+}
+
+[data-theme="dark"] .challenge-path-new:hover {
+  border-color: #475569;
+}
+
+/* Participants & Player Pills */
+[data-theme="dark"] .challenge-participants {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .challenge-player-pill {
+  background: rgba(45, 212, 191, 0.08);
+  border-color: rgba(45, 212, 191, 0.2);
+}
+
+/* Divider Badge */
+[data-theme="dark"] .challenge-paths-divider .divider-badge {
+  background: #0f172a;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .challenge-paths-divider .divider-line {
+  background: #334155;
+}
+
+/* Challenge Path Badge */
+[data-theme="dark"] .challenge-path-badge {
+  background: rgba(45, 212, 191, 0.12);
+  color: #2dd4bf;
+}
+
+/* Challenge Live Pill */
+[data-theme="dark"] .challenge-live-pill {
+  background: rgba(15, 23, 42, 0.65);
+  border-color: #334155;
+}
+
+/* Activity Toast */
+[data-theme="dark"] .activity-toast {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .activity-toast-score {
+  background: rgba(45, 212, 191, 0.12);
+  color: #2dd4bf;
+}
+
+/* Standings Table Wrap */
+[data-theme="dark"] .standings-table-wrap {
+  border-color: #334155;
+}
+

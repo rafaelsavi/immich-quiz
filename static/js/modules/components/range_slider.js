@@ -5,6 +5,7 @@ import { t, formatDate } from "../i18n.js";
  */
 export class DateRangeSlider {
   constructor(config) {
+    this.wrapEl = config.wrapEl || (config.minThumb ? config.minThumb.closest(".range-slider-wrap") : null);
     this.minThumb = config.minThumb || null;
     this.maxThumb = config.maxThumb || null;
     this.fillEl = config.fillEl || null;
@@ -26,6 +27,8 @@ export class DateRangeSlider {
       if (minVal > maxVal) {
         this.minThumb.value = String(maxVal);
       }
+      this.minThumb.style.zIndex = "4";
+      this.maxThumb.style.zIndex = "3";
       this.updateVisuals();
       this.onChange();
     };
@@ -36,20 +39,84 @@ export class DateRangeSlider {
       if (maxVal < minVal) {
         this.maxThumb.value = String(minVal);
       }
+      this.maxThumb.style.zIndex = "4";
+      this.minThumb.style.zIndex = "3";
       this.updateVisuals();
       this.onChange();
     };
 
+    this._onMinPointerDown = () => {
+      this.minThumb.style.zIndex = "4";
+      this.maxThumb.style.zIndex = "3";
+    };
+
+    this._onMaxPointerDown = () => {
+      this.maxThumb.style.zIndex = "4";
+      this.minThumb.style.zIndex = "3";
+    };
+
     this.minThumb.addEventListener("input", this._onMinInput);
+    this.minThumb.addEventListener("pointerdown", this._onMinPointerDown);
+    this.minThumb.addEventListener("focus", this._onMinPointerDown);
+
     this.maxThumb.addEventListener("input", this._onMaxInput);
+    this.maxThumb.addEventListener("pointerdown", this._onMaxPointerDown);
+    this.maxThumb.addEventListener("focus", this._onMaxPointerDown);
+
+    this._onTrackClick = (e) => {
+      if (!this.allMonths.length || !this.minThumb || !this.maxThumb) return;
+      if (this.minThumb.disabled || this.maxThumb.disabled) return;
+      if (!this.wrapEl) return;
+
+      const rect = this.wrapEl.getBoundingClientRect();
+      if (!rect.width) return;
+      const clickX = e.clientX - rect.left;
+      const pct = Math.max(0, Math.min(1, clickX / rect.width));
+      const maxIdx = Math.max(1, this.allMonths.length - 1);
+      const targetVal = Math.round(pct * maxIdx);
+
+      const minVal = parseInt(this.minThumb.value, 10);
+      const maxVal = parseInt(this.maxThumb.value, 10);
+
+      const distToMin = Math.abs(targetVal - minVal);
+      const distToMax = Math.abs(targetVal - maxVal);
+
+      if (distToMin <= distToMax) {
+        this.minThumb.value = String(Math.min(targetVal, maxVal));
+        this.minThumb.style.zIndex = "4";
+        this.maxThumb.style.zIndex = "3";
+      } else {
+        this.maxThumb.value = String(Math.max(targetVal, minVal));
+        this.maxThumb.style.zIndex = "4";
+        this.minThumb.style.zIndex = "3";
+      }
+
+      this.updateVisuals();
+      this.onChange();
+    };
+
+    if (this.wrapEl) {
+      this.wrapEl.addEventListener("click", this._onTrackClick);
+    }
   }
 
   destroy() {
-    if (this.minThumb && this._onMinInput) {
-      this.minThumb.removeEventListener("input", this._onMinInput);
+    if (this.minThumb) {
+      if (this._onMinInput) this.minThumb.removeEventListener("input", this._onMinInput);
+      if (this._onMinPointerDown) {
+        this.minThumb.removeEventListener("pointerdown", this._onMinPointerDown);
+        this.minThumb.removeEventListener("focus", this._onMinPointerDown);
+      }
     }
-    if (this.maxThumb && this._onMaxInput) {
-      this.maxThumb.removeEventListener("input", this._onMaxInput);
+    if (this.maxThumb) {
+      if (this._onMaxInput) this.maxThumb.removeEventListener("input", this._onMaxInput);
+      if (this._onMaxPointerDown) {
+        this.maxThumb.removeEventListener("pointerdown", this._onMaxPointerDown);
+        this.maxThumb.removeEventListener("focus", this._onMaxPointerDown);
+      }
+    }
+    if (this.wrapEl && this._onTrackClick) {
+      this.wrapEl.removeEventListener("click", this._onTrackClick);
     }
   }
 
@@ -156,6 +223,10 @@ export class DateRangeSlider {
   }
 
   updateVisuals() {
+    if (this.wrapEl) {
+      this.wrapEl.classList.toggle("disabled", this.allMonths.length === 0);
+    }
+
     if (this.allMonths.length === 0) {
       if (this.readoutEl) this.readoutEl.textContent = t("setup.all_dates");
       if (this.fillEl) {

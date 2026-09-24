@@ -1,0 +1,331 @@
+/* =====================================================================
+   Role-Based Access Control & Home Card Styles
+   ===================================================================== */
+
+/* Identity Badge in Header */
+.identity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  transition: all 0.2s ease;
+}
+
+[data-theme="dark"] .identity-badge {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Home Card (Guest & User Landing View) */
+#home-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.home-hero {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.home-hero-icon {
+  font-size: 3rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.15));
+  animation: heroIconBounce 3s ease-in-out infinite;
+}
+
+@keyframes heroIconBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.home-welcome-heading {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+[data-theme="dark"] .home-welcome-heading {
+  color: #f8fafc;
+}
+
+.home-welcome-desc {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .home-welcome-desc {
+  color: #94a3b8;
+}
+
+/* Challenge Code Box */
+.home-challenge-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-lg, 16px);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .home-challenge-box {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.2);
+}
+
+.home-box-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+  letter-spacing: 0.01em;
+}
+
+[data-theme="dark"] .home-box-label {
+  color: #cbd5e1;
+}
+
+.home-input-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.home-challenge-code-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.75rem 1rem;
+  font-size: 1.05rem;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  transition: all 0.2s ease;
+}
+
+.home-challenge-code-input:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+[data-theme="dark"] .home-challenge-code-input {
+  background: rgba(0, 0, 0, 0.25);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .home-challenge-code-input:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+.home-join-btn {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 0.75rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: var(--radius-md, 10px);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.home-box-help {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin: 0;
+}
+
+[data-theme="dark"] .home-box-help {
+  color: #94a3b8;
+}
+
+.home-join-error {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm, 6px);
+}
+
+[data-theme="dark"] .home-join-error {
+  color: #f87171;
+}
+
+/* Quick Links Grid */
+.home-quick-links {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.home-quick-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0;
+}
+
+[data-theme="dark"] .home-quick-heading {
+  color: #cbd5e1;
+}
+
+.home-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.home-quick-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md, 12px);
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.home-quick-card:hover {
+  transform: translateY(-2px);
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .home-quick-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .home-quick-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(56, 189, 248, 0.3);
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.25);
+}
+
+.home-quick-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.home-quick-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-quick-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+[data-theme="dark"] .home-quick-title {
+  color: #f8fafc;
+}
+
+.home-quick-desc {
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+[data-theme="dark"] .home-quick-desc {
+  color: #94a3b8;
+}
+
+.home-quick-arrow {
+  font-size: 1.1rem;
+  color: #94a3b8;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.home-quick-card:hover .home-quick-arrow {
+  transform: translateX(3px);
+  color: #0284c7;
+}
+
+[data-theme="dark"] .home-quick-card:hover .home-quick-arrow {
+  color: #38bdf8;
+}
+
+/* Role-specific conditional visibility via CSS tokens */
+[data-role="guest"] #home-quick-links {
+  display: none !important;
+}
+
+[data-role="guest"] #challenges-nav-btn,
+[data-role="guest"] #stats-nav-btn,
+[data-role="guest"] #replays-nav-btn {
+  display: none !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #home-card {
+    padding: 1.5rem 1rem;
+    gap: 1.5rem;
+  }
+
+  .home-quick-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-join-btn {
+    justify-content: center;
+  }
+}

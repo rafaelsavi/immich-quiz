@@ -158,8 +158,15 @@ export function returnToSetup({ updateUrl = true } = {}) {
   state.startingMatch = false;
   clearActiveMatchSession();
   resetGameUi();
-  showCard(el.setupCard);
-  el.leaderboardCard.classList.remove("hidden");
+  if (state.auth && state.auth.role !== "creator") {
+    showCard(el.homeCard);
+    if (el.leaderboardCard) {
+      el.leaderboardCard.classList.add("hidden");
+    }
+  } else {
+    showCard(el.setupCard);
+    if (el.leaderboardCard) el.leaderboardCard.classList.remove("hidden");
+  }
   const submitBtn = el.setupSubmitBtn || document.querySelector("#setup-form button[type=submit]");
   if (submitBtn) {
     const warning = document.getElementById("preflight-warning");

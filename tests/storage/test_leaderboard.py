@@ -525,7 +525,7 @@ def test_leaderboard_include_shared_and_album_ids_isolation(tmp_path: Path) -> N
     assert album_res[0].config.albums == ['alb-1']
 
 
-def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
+def test_leaderboard_challenge_fields(tmp_path: Path) -> None:
     db_path = tmp_path / 'leaderboard.db'
     store = LeaderboardStore(db_path)
     db = DatabaseManager(db_path)
@@ -537,8 +537,6 @@ def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
     assert 'libraries_json' in challenge_cols
 
     match_cols = [c['name'] for c in db.fetch_all('PRAGMA table_info(matches)')]
-    assert 'room_id' in match_cols
-    assert 'room_name' in match_cols
     assert 'challenge_id' in match_cols
     assert 'play_mode' in match_cols
     assert 'libraries_json' in match_cols
@@ -573,33 +571,16 @@ def test_leaderboard_challenge_and_room_fields(tmp_path: Path) -> None:
         player_scores={'Alice': {'total': 950}},
     )
 
-    # 4. Append a match that occurred in a live room
-    store.append_match(
-        match_id='m-room-1',
-        config=BaseGameConfig(libraries=['family'], round_count=5),
-        play_mode=PlayMode.room,
-        room_id='rm_uuid_456',
-        room_name="Rafael's Lounge",
-        player_scores={'Bob': {'total': 880}},
-    )
-
-    # 5. Query and assert LeaderboardEntry fields
+    # 4. Query and assert LeaderboardEntry fields
     entries = store.list_entries(LeaderboardQuery(libraries=['family']))
-    assert len(entries) == 2
+    assert len(entries) == 1
 
     # Check challenge entry (Alice)
-    alice_entry = next(e for e in entries if e.player_name == 'Alice')
+    alice_entry = entries[0]
+    assert alice_entry.player_name == 'Alice'
     assert alice_entry.play_mode == PlayMode.challenge
     assert alice_entry.challenge_id == 'ch_test1'
     assert alice_entry.challenge_title == 'Summer 2024 Roadtrip'
-    assert alice_entry.room_id is None
-
-    # Check room entry (Bob)
-    bob_entry = next(e for e in entries if e.player_name == 'Bob')
-    assert bob_entry.play_mode == PlayMode.room
-    assert bob_entry.room_id == 'rm_uuid_456'
-    assert bob_entry.room_name == "Rafael's Lounge"
-    assert bob_entry.challenge_title is None
 
 
 def test_leaderboard_multi_library_json_storage_and_query(tmp_path: Path) -> None:
@@ -1034,8 +1015,6 @@ def test_leaderboard_schema_migration_adds_missing_columns(tmp_path: Path) -> No
     CREATE TABLE matches (
         match_id TEXT PRIMARY KEY,
         challenge_id TEXT,
-        room_id TEXT,
-        room_name TEXT,
         play_mode TEXT NOT NULL DEFAULT 'local',
         played_at TEXT NOT NULL,
         libraries_json TEXT,

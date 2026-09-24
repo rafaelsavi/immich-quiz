@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from playwright.async_api import Page, expect
 
 
@@ -164,9 +162,8 @@ async def test_sync_popup_visual_screenshot_and_escape_dismiss(page: Page, tmp_p
     popup = page.locator('#sync-popup')
     await expect(popup).to_be_visible(timeout=5000)
 
-    # Capture screenshot of the sync popup and accordion header
-    screenshot_dir = Path('C:/Users/Rafael Savi/.gemini/antigravity-ide/brain/19451007-cca5-42cd-8fb2-ae194705e7d3')
-    screenshot_path = screenshot_dir / 'sync_popup.png'
+    # Capture screenshot to pytest tmp_path to verify rendering without leaking local paths
+    screenshot_path = tmp_path / 'sync_popup.png'
     await page.screenshot(path=str(screenshot_path))
 
     # Dismiss via Escape

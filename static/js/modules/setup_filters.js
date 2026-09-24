@@ -488,7 +488,7 @@ export function getCurrentSetupFilterData() {
   const selectedCities = cityMultiSelect ? cityMultiSelect.getSelectedItems().map((c) => c.name || c.id) : [];
   const selectedPeople = peopleMultiSelect ? peopleMultiSelect.getSelectedItems().map((p) => p.name || p.id) : [];
   const { minDate, maxDate } = dateRangeSlider ? dateRangeSlider.getSelectedRange() : { minDate: null, maxDate: null };
-  const includeShared = el.includeSharedCheckbox ? el.includeSharedCheckbox.checked : false;
+  const includeShared = el.includeSharedCheckbox ? Boolean(el.includeSharedCheckbox.checked) : false;
 
   return {
     libraries: selectedLibs,
@@ -498,116 +498,182 @@ export function getCurrentSetupFilterData() {
     cities: selectedCities,
     people: selectedPeople,
     person_names: selectedPeople,
+    people_mode: getSelectedPeopleMode(),
     min_date: minDate,
     max_date: maxDate,
     include_shared: includeShared,
   };
 }
 
+export function getActiveFilterCount(data = getCurrentSetupFilterData()) {
+  let count = 0;
+  if (data.libraries && data.libraries.length > 0) count++;
+  if (data.album_names && data.album_names.length > 0) count++;
+  if (data.countries && data.countries.length > 0) count++;
+  if (data.cities && data.cities.length > 0) count++;
+  if (data.person_names && data.person_names.length > 0) count++;
+  if (data.min_date || data.max_date) count++;
+  if (data.include_shared) count++;
+  return count;
+}
+
+export function isCustomFilteredActive(data = getCurrentSetupFilterData()) {
+  return getActiveFilterCount(data) > 0;
+}
+
 export function updateFiltersSummaryBadge() {
   const badge = el.filtersSummaryBadge;
   const metaContainer = document.getElementById("filters-accordion-meta");
-
-  let count = 0;
-  if (libraryMultiSelect && libraryMultiSelect.getSelectedIds().length > 0) count++;
-  if (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0) count++;
-  if (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0) count++;
-  if (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0) count++;
-  if (peopleMultiSelect && peopleMultiSelect.getSelectedIds().length > 0) count++;
-  if (dateRangeSlider) {
-    const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
-    if (minDate || maxDate) count++;
-  }
-  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) count++;
+  const data = getCurrentSetupFilterData();
+  const count = getActiveFilterCount(data);
 
   if (badge) {
-    if (count === 0) {
-      badge.textContent = t("setup.filters_summary_default");
-    } else {
-      badge.textContent = t("setup.filters_active_count", count);
-    }
+    badge.textContent = count === 0 ? t("setup.filters_summary_default") : t("setup.filters_active_count", count);
   }
 
   if (metaContainer) {
-    const data = getCurrentSetupFilterData();
     const { libItems } = getMatchMetaCategories(data);
     metaContainer.innerHTML = renderMatchMetaItemsHtml(libItems);
   }
 }
 
-export function isCustomFilteredActive() {
-  if (libraryMultiSelect && libraryMultiSelect.getSelectedIds().length > 0) return true;
-  if (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0) return true;
-  if (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0) return true;
-  if (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0) return true;
-  if (peopleMultiSelect && peopleMultiSelect.getSelectedIds().length > 0) return true;
-  if (dateRangeSlider) {
-    const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
-    if (minDate || maxDate) return true;
+/**
+ * Format arbitrary filter data into a concise summary string.
+ * Mirrors GameFilterConfig.format_filter_summary in src/models.py.
+ * @param {Object} [data] - Filter configuration object.
+ * @returns {string}
+ */
+export function formatFilterSummary(data) {
+  if (!data) {
+    return t("filters.full_library") !== "filters.full_library"
+      ? t("filters.full_library")
+      : t("leaderboard.scope_all");
   }
-  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) return true;
-  return false;
-}
 
-export function getActiveFilterSummary() {
-  const activeCount =
-    (libraryMultiSelect && libraryMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
-    (albumMultiSelect && albumMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
-    (countryMultiSelect && countryMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
-    (cityMultiSelect && cityMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
-    (peopleMultiSelect && peopleMultiSelect.getSelectedIds().length > 0 ? 1 : 0) +
-    (dateRangeSlider && (dateRangeSlider.getSelectedRange().minDate || dateRangeSlider.getSelectedRange().maxDate) ? 1 : 0) +
-    (el.includeSharedCheckbox && el.includeSharedCheckbox.checked ? 1 : 0);
-
+  const activeCount = getActiveFilterCount(data);
   const maxItems = activeCount > 1 ? 1 : 2;
   const parts = [];
-  if (libraryMultiSelect) {
-    const libs = libraryMultiSelect.getSelectedItems();
-    if (libs.length > 0 && libs.length <= maxItems) parts.push(libs.map((l) => l.name).join(", "));
-    else if (libs.length > maxItems) parts.push(t("filters.libraries_count", libs.length));
-  }
-  if (albumMultiSelect) {
-    const albums = albumMultiSelect.getSelectedItems();
-    if (albums.length > 0 && albums.length <= maxItems) parts.push(albums.map((a) => a.name).join(", "));
-    else if (albums.length > maxItems) parts.push(t("filters.albums_count", albums.length));
-  }
-  if (countryMultiSelect) {
-    const countries = countryMultiSelect.getSelectedItems();
-    if (countries.length > 0 && countries.length <= maxItems) parts.push(countries.map((c) => c.name).join(", "));
-    else if (countries.length > maxItems) parts.push(t("filters.countries_count", countries.length));
-  }
-  if (cityMultiSelect) {
-    const cities = cityMultiSelect.getSelectedItems();
-    if (cities.length > 0 && cities.length <= maxItems) parts.push(cities.map((c) => c.name).join(", "));
-    else if (cities.length > maxItems) parts.push(t("filters.cities_count", cities.length));
-  }
-  if (peopleMultiSelect) {
-    const people = peopleMultiSelect.getSelectedItems();
-    if (people.length > 0 && people.length <= maxItems) parts.push(people.map((p) => p.name).join(", "));
-    else if (people.length > maxItems) parts.push(t("filters.people_count", people.length));
-  }
-  if (dateRangeSlider) {
-    const { minDate, maxDate } = dateRangeSlider.getSelectedRange();
-    if (minDate && maxDate) {
-      const y1 = minDate.substring(0, 7).replace("-", "/");
-      const y2 = maxDate.substring(0, 7).replace("-", "/");
+
+  const libs = data.libraries || [];
+  if (libs.length > 0 && libs.length <= maxItems) parts.push(libs.map((l) => (typeof l === "object" ? l.name : l)).join(", "));
+  else if (libs.length > maxItems) parts.push(t("filters.libraries_count", libs.length));
+
+  const albums = data.album_names || data.albums || [];
+  if (albums.length > 0 && albums.length <= maxItems) parts.push(albums.map((a) => (typeof a === "object" ? a.name : a)).join(", "));
+  else if (albums.length > maxItems) parts.push(t("filters.albums_count", albums.length));
+
+  const countries = data.countries || [];
+  if (countries.length > 0 && countries.length <= maxItems) parts.push(countries.map((c) => (typeof c === "object" ? c.name : c)).join(", "));
+  else if (countries.length > maxItems) parts.push(t("filters.countries_count", countries.length));
+
+  const cities = data.cities || [];
+  if (cities.length > 0 && cities.length <= maxItems) parts.push(cities.map((c) => (typeof c === "object" ? c.name : c)).join(", "));
+  else if (cities.length > maxItems) parts.push(t("filters.cities_count", cities.length));
+
+  const people = data.person_names || data.people || [];
+  if (people.length > 0 && people.length <= maxItems) parts.push(people.map((p) => (typeof p === "object" ? p.name : p)).join(", "));
+  else if (people.length > maxItems) parts.push(t("filters.people_count", people.length));
+
+  if (data.min_date || data.max_date) {
+    const y1 = data.min_date ? String(data.min_date).substring(0, 7).replace("-", "/") : "";
+    const y2 = data.max_date ? String(data.max_date).substring(0, 7).replace("-", "/") : "";
+    if (y1 && y2) {
       parts.push(t("filters.date_range", y1, y2));
-    } else if (minDate) {
-      const y1 = minDate.substring(0, 7).replace("-", "/");
+    } else if (y1) {
       parts.push(t("filters.date_from", y1));
-    } else if (maxDate) {
-      const y2 = maxDate.substring(0, 7).replace("-", "/");
+    } else if (y2) {
       parts.push(t("filters.date_until", y2));
     }
   }
-  if (el.includeSharedCheckbox && el.includeSharedCheckbox.checked) {
+
+  if (data.include_shared) {
     parts.push(t("filters.shared"));
   }
+
   const fullLibraryLabel =
     t("filters.full_library") !== "filters.full_library"
       ? t("filters.full_library")
       : t("leaderboard.scope_all");
   return parts.length > 0 ? parts.join(" • ") : fullLibraryLabel;
+}
+
+/**
+ * Return condensed summary string for the current active setup filters.
+ * @returns {string}
+ */
+export function getActiveFilterSummary() {
+  return formatFilterSummary(getCurrentSetupFilterData());
+}
+
+/**
+ * Format arbitrary filter data into a multiline detailed tooltip string listing all active filter values.
+ * Mirrors GameFilterConfig.format_filter_tooltip in src/models.py.
+ * @param {Object} [data] - Filter configuration object.
+ * @returns {string|null}
+ */
+export function formatFilterTooltip(data) {
+  if (!data) return null;
+  const lines = [];
+
+  const libraries = data.libraries || [];
+  if (libraries.length > 0) {
+    const label = libraries.length > 1 ? t("tooltip.libraries") : t("tooltip.library");
+    lines.push(`${label}: ${libraries.map((l) => (typeof l === "object" ? l.name : l)).join(", ")}`);
+  }
+
+  const albumNames = data.album_names || data.albums || [];
+  if (albumNames.length > 0) {
+    const label = albumNames.length > 1 ? t("tooltip.albums") : t("tooltip.album");
+    lines.push(`${label}: ${albumNames.map((a) => (typeof a === "object" ? a.name : a)).join(", ")}`);
+  }
+
+  const countries = data.countries || [];
+  if (countries.length > 0) {
+    lines.push(`${t("tooltip.countries")}: ${countries.map((c) => (typeof c === "object" ? c.name : c)).join(", ")}`);
+  }
+
+  const cities = data.cities || [];
+  if (cities.length > 0) {
+    lines.push(`${t("tooltip.cities")}: ${cities.map((c) => (typeof c === "object" ? c.name : c)).join(", ")}`);
+  }
+
+  const personNames = data.person_names || data.people || [];
+  if (personNames.length > 0) {
+    const namesStr = personNames.map((p) => (typeof p === "object" ? p.name : p)).join(", ");
+    if (personNames.length > 1) {
+      const mode = String(data.people_mode || "ANY").toUpperCase();
+      const prefix = mode === "ALL" ? t("tooltip.people_all") : t("tooltip.people_any");
+      lines.push(`${prefix}: ${namesStr}`);
+    } else {
+      lines.push(`${t("tooltip.person_single")}: ${namesStr}`);
+    }
+  }
+
+  if (data.min_date || data.max_date) {
+    const minDateStr = data.min_date ? String(data.min_date).substring(0, 7).replace("-", "/") : "";
+    const maxDateStr = data.max_date ? String(data.max_date).substring(0, 7).replace("-", "/") : "";
+    if (minDateStr && maxDateStr) {
+      lines.push(t("tooltip.dates_range", minDateStr, maxDateStr));
+    } else if (minDateStr) {
+      lines.push(t("tooltip.dates_from", minDateStr));
+    } else if (maxDateStr) {
+      lines.push(t("tooltip.dates_until", maxDateStr));
+    }
+  }
+
+  if (data.include_shared) {
+    lines.push(t("tooltip.shared"));
+  }
+
+  return lines.length > 0 ? lines.join("\n") : null;
+}
+
+/**
+ * Return detailed multiline tooltip string for the current active setup filters.
+ * @returns {string|null}
+ */
+export function getActiveFilterTooltip() {
+  return formatFilterTooltip(getCurrentSetupFilterData());
 }
 
 export function showPreflightWarning(message) {
@@ -695,6 +761,7 @@ export function onGuessModeChanged() {
   }
 
   triggerPreflightDebounced();
+  loadLeaderboardDebounced();
 }
 
 export function updatePreflightCount(preflight) {

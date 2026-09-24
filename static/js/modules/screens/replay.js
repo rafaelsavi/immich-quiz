@@ -151,7 +151,7 @@ async function loadMatchesHistory() {
   if (mode) url += `&game_mode=${encodeURIComponent(mode)}`;
   if (type) url += `&play_mode=${encodeURIComponent(type)}`;
 
-  container.innerHTML = `<div class="challenges-loading">${t("challenges_page.loading")}</div>`;
+  container.innerHTML = `<div class="challenges-loading">${t("common.loading")}</div>`;
 
   try {
     const res = await fetch(url);
@@ -263,14 +263,13 @@ function renderMatchesHistory(matches) {
       const modeIcon = m.game_mode === "unshuffle" ? "🔀" : "🎯";
       const modeLabel = m.game_mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
       const isChallenge = m.play_mode === "challenge";
-      const isRoom = m.play_mode === "room";
       const typeLabel = isChallenge
         ? t("replay.play_mode_challenge")
-        : (isRoom ? t("replay.play_mode_room") : t("replay.play_mode_local"));
-      const typeIcon = isChallenge ? "⚔️" : (isRoom ? "🏠" : "👥");
+        : t("replay.play_mode_local");
+      const typeIcon = isChallenge ? "⚔️" : "🕹️";
       const typeClass = isChallenge
         ? " badge-type-challenge"
-        : (isRoom ? " badge-type-room" : " badge-type-local");
+        : " badge-type-local";
       const modeClass = m.game_mode === "unshuffle"
         ? " badge-mode-unshuffle"
         : " badge-mode-pinpoint";

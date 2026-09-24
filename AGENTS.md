@@ -105,7 +105,10 @@ This document provides context, architectural constraints, and standards for AI 
 
 ## 8. Documentation & Git Workflow
 
-- **Changelog Maintenance**: Update `CHANGELOG.md` under `[Unreleased]` for any notable feature, fix, removal, or refactoring following the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) standard (`Added`, `Changed`, `Fixed`, `Removed`).
+- **Changelog Maintenance (Strict User-Facing Focus)**:
+  - Update `CHANGELOG.md` under `[Unreleased]` following the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) standard (`Added`, `Changed`, `Fixed`, `Removed`).
+  - **User-Facing Only**: Document **only** changes directly noticeable and relevant to end users (new gameplay capabilities, UI/UX polish, player settings, and visible bug fixes).
+  - **Exclude Developer Internals**: Never include internal maintenance items, tests, code refactorings, database schema mechanics, dead code/key pruning, linter rules, or private API details. Write from the player's perspective in concise, user-friendly language.
 - **Synchronize Project Documentation**:
   - When modifying or adding API endpoints, update `docs/API.md` with request/response schemas, parameters, and descriptions.
   - When modifying architecture, components, ES modules, or stylesheets, update `docs/ARCHITECTURE.md`.
@@ -124,7 +127,7 @@ This document provides context, architectural constraints, and standards for AI 
     - Running application / scripts: `uv run python -m src.main` or `uv run python path/to/script.py`
   - Python version is 3.13 (`.venv` managed by `uv`). Never invoke unmanaged global `python` or bare `pip`.
 - **Git Binary & Sandbox Permissions**:
-  - Git for Windows is installed at `C:\Program Files\Git\cmd\git.exe` (invoked as `git`).
+  - Git for Windows is installed at `%ProgramFiles%\Git\cmd\git.exe` (invoked as `git`).
   - In agent runner environments (such as the Antigravity sandbox on Windows), commands executing `git`, `uv`, `python`, `pytest`, or Playwright MUST run with sandbox isolation bypassed (`BypassSandbox: true`) because the Git repository metadata, the base Python runtime (`%LOCALAPPDATA%\Programs\Python\Python313\`), and Playwright caches live in user profile directories outside the workspace root.
 - **Playwright & Browser Automation**:
   - Playwright is fully installed and managed inside the Python environment (`playwright>=1.50.0`, `pytest-playwright`).
@@ -132,3 +135,15 @@ This document provides context, architectural constraints, and standards for AI 
     `uv run playwright install chromium`
   - **Running E2E tests**: Execute `uv run pytest tests/e2e/`.
   - **Ad-hoc Browser Automation / Screenshots**: When taking page screenshots, inspecting DOM, or verifying responsive layouts, always execute Python Playwright scripts via `uv run python` using `playwright.async_api` or `playwright.sync_api` with `headless=True` (pointing to the local dev server on port `8020` or dynamically launched test server). Never rely on external browser driver downloads.
+
+---
+
+## 10. Privacy & Local Path Prevention Mandate
+
+- **Strict Ban on Hardcoded Local / Personal Paths**:
+  - Never hardcode absolute user profile directories (e.g. user home directories on Windows, macOS, or Linux), Windows drive letters with local paths, or personal usernames in tests, documentation, scripts, or application source code.
+  - Never hardcode AI assistant artifact paths (e.g. `.gemini/`, `antigravity-ide/`, `brain/<id>/`).
+- **Dynamic & Sandbox-Safe Path Resolution**:
+  - For tests requiring filesystem output (such as screenshots, generated media, or temporary databases), always use pytest's `tmp_path` fixture or memory buffers (`io.BytesIO`).
+  - For repository-relative resources, always resolve relative to `Path(__file__)`.
+  - For Windows environment directories, use standardized environment variables (`%LOCALAPPDATA%`, `%ProgramFiles%`) rather than absolute machine paths.

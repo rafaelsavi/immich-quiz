@@ -1045,3 +1045,101 @@
   color: var(--ink);
   line-height: 1.45;
 }
+
+/* ==========================================================================
+   Dark Mode Modals, Sheets & Overlays
+   ========================================================================== */
+[data-theme="dark"] .modal-card,
+[data-theme="dark"] .prepare-game-card,
+[data-theme="dark"] .overlay-content,
+[data-theme="dark"] .mode-help-card,
+[data-theme="dark"] .shuffle-help-card,
+[data-theme="dark"] .pinpoint-help-card {
+  background: #131b2e;
+  border: 1px solid #283750;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom: 1px solid #243048;
+}
+
+[data-theme="dark"] .modal-header h3 {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .modal-close-btn {
+  background: #1c273e;
+  border-color: #2d3b59;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .modal-close-btn:hover {
+  background: #253350;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .modal-tabs {
+  background: #0c1220;
+  border-color: #243048;
+}
+
+[data-theme="dark"] .modal-tab-btn {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .modal-tab-btn:hover {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .modal-tab-btn.active {
+  background: #1d273f;
+  color: #f8fafc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .share-url-container {
+  background: #0c1220;
+  border-color: #243048;
+}
+
+[data-theme="dark"] .share-url-input {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-copy-link,
+[data-theme="dark"] .btn-native-share,
+[data-theme="dark"] .btn-qr-code {
+  background: #172033;
+  border-color: #2b3954;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .btn-copy-link:hover,
+[data-theme="dark"] .btn-native-share:hover,
+[data-theme="dark"] .btn-qr-code:hover {
+  background: #202c46;
+  border-color: #3b4d70;
+}
+
+[data-theme="dark"] .challenge-qr-card {
+  background: #172136;
+  border-color: #283750;
+}
+
+[data-theme="dark"] .share-meta-badge {
+  background: #0c1220;
+  border-color: #283750;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .qr-scan-hint {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .mode-help-section ul,
+[data-theme="dark"] .shuffle-help-section ul,
+[data-theme="dark"] .pinpoint-help-section ul {
+  color: #cbd5e1;
+}

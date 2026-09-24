@@ -25,6 +25,12 @@ export const state = {
   immichWebUrl: null,
   audioEnabled: true,
   scoreMaxPoints: 100,
+  auth: {
+    role: "creator",  // default: full access (matches AUTH_MODE=disabled backend)
+    email: null,
+    name: null,
+    authenticated: false,
+  },
   lastMatchConfig: null,
   lastSummary: null,
   playedAssetIds: [],
@@ -100,6 +106,8 @@ export const state = {
 };
 
 export const el = {
+  themeToggleBtn: document.getElementById("theme-toggle-btn"),
+  themeIcon: document.getElementById("theme-icon"),
   langToggleBtn: document.getElementById("lang-toggle-btn"),
   langIcon: document.getElementById("lang-icon"),
   audioToggleBtn: document.getElementById("audio-toggle-btn"),
@@ -112,6 +120,11 @@ export const el = {
   replaysNavBtn: document.getElementById("replays-nav-btn"),
   headerChallengesBadge: document.getElementById("header-challenges-badge"),
   setupCard: document.getElementById("setup-card"),
+  homeCard: document.getElementById("home-card"),
+  homeChallengeCodeInput: document.getElementById("home-challenge-code-input"),
+  homeJoinBtn: document.getElementById("home-join-btn"),
+  homeJoinError: document.getElementById("home-join-error"),
+  identityBadge: document.getElementById("identity-badge"),
   gameCard: document.getElementById("game-card"),
   summaryCard: document.getElementById("summary-card"),
   challengeCard: document.getElementById("challenge-card"),

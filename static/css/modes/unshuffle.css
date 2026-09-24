@@ -334,4 +334,49 @@
   cursor: not-allowed;
 }
 
+/* ==========================================================================
+   Dark Mode Unshuffle Gameplay Styles
+   ========================================================================== */
+[data-theme="dark"] .shuffle-card-row {
+  background: #131b2e;
+  border-color: #283750;
+}
+
+[data-theme="dark"] .shuffle-card-thumb-wrap {
+  background: #0c1220;
+}
+
+[data-theme="dark"] .shuffle-card-thumb-lg {
+  border-color: #283750;
+}
+
+[data-theme="dark"] .shuffle-timeline-header.oldest {
+  background: rgba(2, 132, 199, 0.16);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .shuffle-timeline-header.newest {
+  background: rgba(148, 163, 184, 0.14);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .shuffle-rank-btn {
+  background: #1c273e;
+  border-color: #2d3b59;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .shuffle-help-btn {
+  background: #141c2e;
+  border-color: #283750;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .shuffle-help-btn:hover {
+  background: #1e2a44;
+}
+
+
 

@@ -378,3 +378,140 @@
     max-width: 120px;
   }
 }
+
+/* ==========================================================================
+   Dark Mode Multi-Select Dropdowns & Controls
+   ========================================================================== */
+[data-theme="dark"] .multi-select-trigger {
+  background: #141d2e;
+  border-color: #283650;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .multi-select-trigger:hover {
+  border-color: #475569;
+}
+
+[data-theme="dark"] .multi-select-trigger:focus-visible,
+[data-theme="dark"] .multi-select-trigger[aria-expanded="true"] {
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+}
+
+[data-theme="dark"] .multi-select-value .placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .multi-select-summary {
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .multi-select-clear,
+[data-theme="dark"] .multi-select-arrow,
+[data-theme="dark"] .search-icon,
+[data-theme="dark"] .search-clear-btn {
+  color: #64748b;
+}
+
+[data-theme="dark"] .multi-select-clear:hover,
+[data-theme="dark"] .search-clear-btn:hover {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .multi-select-dropdown {
+  background: #131b2e;
+  border-color: #283750;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="dark"] .multi-select-search-wrap {
+  background: #0c1220;
+  border-bottom-color: #243048;
+}
+
+[data-theme="dark"] .multi-select-search {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .multi-select-search::placeholder {
+  color: #64748b;
+}
+
+[data-theme="dark"] .multi-select-actions {
+  background: #0c1220;
+  border-bottom-color: #243048;
+}
+
+[data-theme="dark"] .btn-text-action {
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .btn-text-action:hover {
+  color: #5eead4;
+  opacity: 1;
+}
+
+[data-theme="dark"] .multi-select-option {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .multi-select-option:hover {
+  background: #1c273e;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .multi-select-option.selected {
+  background: rgba(15, 124, 127, 0.22);
+  color: #2dd4bf;
+}
+
+[data-theme="dark"] .multi-select-option input[type="checkbox"] {
+  accent-color: #2dd4bf;
+}
+
+[data-theme="dark"] .multi-select-option-sub {
+  color: #64748b;
+}
+
+[data-theme="dark"] .multi-select-tag {
+  background: #1c273e;
+  border: 1px solid #2d3b59;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .tag-remove {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .tag-remove:hover {
+  color: #f87171;
+}
+
+[data-theme="dark"] .multi-select-count-badge {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .multi-select-count-badge.zero {
+  color: #475569;
+}
+
+[data-theme="dark"] .multi-select-empty {
+  color: #64748b;
+}
+
+[data-theme="dark"] .multi-select-options::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-theme="dark"] .multi-select-options::-webkit-scrollbar-track {
+  background: #0c1220;
+}
+
+[data-theme="dark"] .multi-select-options::-webkit-scrollbar-thumb {
+  background: #283750;
+  border-radius: 3px;
+}
+
+[data-theme="dark"] .multi-select-options::-webkit-scrollbar-thumb:hover {
+  background: #3b4d70;
+}

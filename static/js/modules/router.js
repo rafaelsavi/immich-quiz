@@ -23,6 +23,38 @@ export const RouteType = {
   UNKNOWN: "UNKNOWN",
 };
 
+/**
+ * Minimum role required for each route type.
+ * Routes not listed default to "guest" (public).
+ */
+export const ROUTE_MIN_ROLES = {
+  [RouteType.LOBBY]: "guest",
+  [RouteType.GAME_ACTIVE]: "guest",
+  [RouteType.GAME_SUMMARY]: "guest",
+  [RouteType.CHALLENGE]: "guest",
+  [RouteType.CHALLENGE_SUMMARY]: "guest",
+  [RouteType.CHALLENGES]: "user",
+  [RouteType.PLAYERS]: "user",
+  [RouteType.PLAYER_PROFILE]: "user",
+  [RouteType.REPLAYS]: "user",
+  [RouteType.GAME_REPLAY]: "user",
+  [RouteType.REPORTED]: "creator",
+};
+
+const _ROLE_LEVELS = { guest: 0, user: 1, creator: 2 };
+
+/**
+ * Check if a role string meets the minimum requirement for a route type.
+ * @param {string} routeType - A RouteType value
+ * @param {string} role - "guest", "user", or "creator"
+ * @returns {boolean}
+ */
+export function canAccessRoute(routeType, role) {
+  const minRole = ROUTE_MIN_ROLES[routeType] || "guest";
+  return (_ROLE_LEVELS[role] ?? 0) >= (_ROLE_LEVELS[minRole] ?? 0);
+}
+
+
 const ROUTE_DEFINITIONS = [
   {
     type: RouteType.LOBBY,

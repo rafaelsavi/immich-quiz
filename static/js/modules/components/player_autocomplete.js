@@ -3,6 +3,8 @@
  * Fetches recent and frequent players from /api/players/names
  * Provides accessible keyboard navigation, colored avatar initials, and match count pill.
  */
+import { t } from "../i18n.js";
+
 export class PlayerAutocomplete {
   /**
    * @param {HTMLInputElement} inputEl - Target text input
@@ -133,7 +135,9 @@ export class PlayerAutocomplete {
       .map((item, idx) => {
         const initial = (item.player_name || '?').charAt(0).toUpperCase();
         const color = item.color || '#3b82f6';
-        const matchLabel = item.match_count === 1 ? '1 match' : `${item.match_count} matches`;
+        const matchLabel = item.match_count === 1
+          ? t("stats.match_count_single", 1)
+          : t("stats.match_count_plural", item.match_count || 0);
 
         return `
           <div class="player-autocomplete-item" role="option" data-index="${idx}">

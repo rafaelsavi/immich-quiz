@@ -444,23 +444,23 @@ export function renderChallenges() {
     const isActive = isChallengeActive(ch);
     const modeEmoji = ch.game_mode === "unshuffle" ? "🔀" : "🎯";
     const modeLabel = ch.game_mode === "unshuffle" ? t("mode.unshuffle") : t("mode.pinpoint");
-    const modeDesc = ch.game_mode === "unshuffle" ? t("admin.shuffle_desc") : t("admin.pinpoint_desc");
+    const modeDesc = ch.game_mode === "unshuffle" ? t("challenges_page.unshuffle_desc") : t("challenges_page.pinpoint_desc");
 
     // Status pill
     let statusPillHtml = "";
 
     if (!ch.is_active) {
-      statusPillHtml = `<span class="challenge-status-pill status-deactivated"><span class="status-dot"></span>${t("admin.status_deactivated")}</span>`;
+      statusPillHtml = `<span class="challenge-status-pill status-deactivated"><span class="status-dot"></span>${t("challenges_page.status_deactivated")}</span>`;
     } else if (ch.expires_at) {
       const expTime = new Date(ch.expires_at).getTime();
       const diffMs = expTime - now;
       if (diffMs > 0) {
-        statusPillHtml = `<span class="challenge-status-pill status-active"><span class="status-dot pulse"></span>${t("admin.status_active")} • ${formatRelativeTime(diffMs, false)}</span>`;
+        statusPillHtml = `<span class="challenge-status-pill status-active"><span class="status-dot pulse"></span>${t("challenges_page.status_active")} • ${formatRelativeTime(diffMs, false)}</span>`;
       } else {
-        statusPillHtml = `<span class="challenge-status-pill status-expired"><span class="status-dot"></span>${t("admin.status_expired")}</span>`;
+        statusPillHtml = `<span class="challenge-status-pill status-expired"><span class="status-dot"></span>${t("challenges_page.status_expired")}</span>`;
       }
     } else {
-      statusPillHtml = `<span class="challenge-status-pill status-active"><span class="status-dot pulse"></span>${t("admin.status_active")}</span>`;
+      statusPillHtml = `<span class="challenge-status-pill status-active"><span class="status-dot pulse"></span>${t("challenges_page.status_active")}</span>`;
     }
 
     const participantCount = ch.total_participants || 0;
@@ -522,7 +522,7 @@ export function renderChallenges() {
         <div class="card-host-row">
           <span class="host-name">${t("challenges_page.host_label", escapeHtml(ch.creator_name))}</span>
           <span class="host-dot">•</span>
-          <span class="created-date">${t("admin.created_at_label")}: ${formatDate(ch.created_at)}</span>
+          <span class="created-date">${t("challenges_page.created_at_label")}: ${formatDate(ch.created_at)}</span>
         </div>
 
         <!-- Unified Match Meta: Game Setup & Library Filters -->
@@ -799,12 +799,12 @@ async function renderStandingsDrawerContent(challengeId, capabilityToken) {
  * @param {string} challengeTitle
  */
 async function confirmAndDeactivate(challengeId, challengeTitle) {
-  const confirmed = window.confirm(t("admin.deactivate_confirm", challengeTitle));
+  const confirmed = window.confirm(t("challenges_page.deactivate_confirm", challengeTitle));
   if (!confirmed) return;
 
   try {
     await api(`/api/challenge/${challengeId}/deactivate`, { method: "POST" });
-    showShareToast(t("admin.deactivate_success"));
+    showShareToast(t("challenges_page.deactivate_success"));
     _cachedStandings.delete(challengeId);
     await loadChallengesList();
   } catch (err) {
