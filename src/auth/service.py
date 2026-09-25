@@ -52,17 +52,51 @@ def _extract_identity_from_jwt(jwt_token: str) -> tuple[str | None, str | None]:
         if not isinstance(data, dict):
             return None, None
 
+        # Build list of candidate claim containers to support Cloudflare's
+        # various payload layouts:
+        # 1. Root level claims (standard JWT)
+        # 2. 'oidc_fields' (Cloudflare Access OIDC attribute mappings)
+        # 3. 'identity' (nested user identity object)
+        # 4. 'identity.oidc_fields'
+        # 5. 'custom' / 'custom_claims' / 'user_identity'
+        containers: list[dict[str, Any]] = [data]
+        for key in ('oidc_fields', 'identity', 'custom', 'custom_claims', 'user_identity'):
+            val = data.get(key)
+            if isinstance(val, dict):
+                containers.append(val)
+                if key == 'identity':
+                    nested_oidc = val.get('oidc_fields')
+                    if isinstance(nested_oidc, dict):
+                        containers.append(nested_oidc)
+
         name: str | None = None
-        for claim in ('name', 'preferred_username', 'user_name', 'given_name', 'nickname'):
-            val = data.get(claim)
-            if isinstance(val, str) and val.strip():
-                name = val.strip()
+        for container in containers:
+            for claim in ('name', 'preferred_username', 'user_name', 'nickname', 'display_name'):
+                v = container.get(claim)
+                if isinstance(v, str) and v.strip():
+                    name = v.strip()
+                    break
+            if name:
+                break
+
+            given = container.get('given_name')
+            if isinstance(given, str) and given.strip():
+                family = container.get('family_name')
+                if isinstance(family, str) and family.strip():
+                    name = f'{given.strip()} {family.strip()}'
+                else:
+                    name = given.strip()
                 break
 
         email: str | None = None
-        raw_email = data.get('email')
-        if isinstance(raw_email, str) and raw_email.strip():
-            email = raw_email.strip().lower()
+        for container in containers:
+            for claim in ('email', 'user_email', 'mail'):
+                v = container.get(claim)
+                if isinstance(v, str) and v.strip():
+                    email = v.strip().lower()
+                    break
+            if email:
+                break
 
         return name, email
     except Exception as exc:

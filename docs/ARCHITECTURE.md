@@ -343,6 +343,7 @@ The application enforces a 3-tier hierarchical role architecture:
   - User display name resolves from custom name headers, JWT claims, or falls back to capitalized email prefix.
 - **Backend Enforcement**: FastAPI routes are protected via `dependencies=[Depends(require_role(min_role))]`, rejecting unauthorized callers with HTTP 403 Forbidden.
 - **Client-Side Guards**: Navigation router enforces `ROUTE_MIN_ROLES`, redirecting unauthorized URL transitions to `/` with localized user-friendly toast alerts.
+- **Full Specification**: See [`docs/AUTH.md`](AUTH.md) for detailed claim extraction hierarchy, reverse proxy integration (Caddy, Nginx), and local testing protocols.
 
 ---
 

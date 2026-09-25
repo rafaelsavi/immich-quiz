@@ -298,7 +298,35 @@ def test_resolve_role_name_headers_and_jwt() -> None:
     assert ctx.name == 'Alice Wonderland'
     assert ctx.authenticated is True
 
-    # 5. Unknown username only -> Guest with name preserved
+    # 5. JWT assertion with Cloudflare Access OIDC attribute mapping (nested in oidc_fields)
+    cf_oidc_claims = {
+        'email': 'creator@example.com',
+        'sub': '67890',
+        'oidc_fields': {'name': 'Rafael Savi'},
+    }
+    cf_oidc_b64 = base64.urlsafe_b64encode(json.dumps(cf_oidc_claims).encode('utf-8')).decode('ascii').rstrip('=')
+    ctx = _resolve_role_cloudflare(make_req({'cf-access-jwt-assertion': f'header.{cf_oidc_b64}.sig'}))
+    assert ctx.role == Role.CREATOR
+    assert ctx.email == 'creator@example.com'
+    assert ctx.name == 'Rafael Savi'
+    assert ctx.authenticated is True
+
+    # 6. JWT assertion with deeply nested identity.oidc_fields and given_name/family_name
+    nested_claims = {
+        'sub': '11111',
+        'identity': {
+            'email': 'user1@example.com',
+            'oidc_fields': {'given_name': 'Alice', 'family_name': 'Wonderland'},
+        },
+    }
+    nested_b64 = base64.urlsafe_b64encode(json.dumps(nested_claims).encode('utf-8')).decode('ascii').rstrip('=')
+    ctx = _resolve_role_cloudflare(make_req({'cf-access-jwt-assertion': f'header.{nested_b64}.sig'}))
+    assert ctx.role == Role.USER
+    assert ctx.email == 'user1@example.com'
+    assert ctx.name == 'Alice Wonderland'
+    assert ctx.authenticated is True
+
+    # 7. Unknown username only -> Guest with name preserved
     ctx = _resolve_role_cloudflare(make_req({'x-user-name': 'stranger'}))
     assert ctx.role == Role.GUEST
     assert ctx.name == 'stranger'
