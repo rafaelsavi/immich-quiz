@@ -102,7 +102,7 @@ The official Docker image is published to GitHub Container Registry (GHCR):
 |----------------------|------------------------------------------------------------|-----------------------------------------------------|
 | `:latest`            | Latest official stable release (multi-arch: amd64 / arm64) | `docker pull ghcr.io/rafaelsavi/immich-quiz:latest` |
 | `:rc`                | Latest Release Candidate build                             | `docker pull ghcr.io/rafaelsavi/immich-quiz:rc`     |
-| `:v3.2.0` / `:3.2.0` | Specific semantic release version                          | `docker pull ghcr.io/rafaelsavi/immich-quiz:v3.2.0` |
+| `:v3.2.1` / `:3.2.1` | Specific semantic release version                          | `docker pull ghcr.io/rafaelsavi/immich-quiz:v3.2.1` |
 | `:<sha>`             | Exact commit hash build                                    | `docker pull ghcr.io/rafaelsavi/immich-quiz:<sha>`  |
 
 ### Quick Start
@@ -146,76 +146,23 @@ Use the example files:
 
 ---
 
-## 🔐 Role-Based Access Control (Cloudflare Zero Trust)
+## 🔐 Role-Based Access Control (Zero Trust)
 
-Immich Quiz supports granular access control to separate host administrative capabilities from player and guest access:
+Immich Quiz features a zero-trust, role-based access control (RBAC) architecture to separate host administration from player gameplay:
 
-| Role                 | Lobby View                | Challenges              | Stats & Replays | Library Config & Pass & Play | Reported Assets |
-|:---------------------|:--------------------------|:------------------------|:----------------|:-----------------------------|:----------------|
-| **👑 Creator**       | Setup Card (full filters) | Create & Play           | Full Access     | Full Access                  | Full Access     |
-| **👥 Player (User)** | Welcome Card (code input) | Join & Play             | Full Access     | No                           | No              |
-| **🎟️ Guest**         | Welcome Card (code input) | Direct Link / Code Play | No              | No                           | No              |
+| Role | Lobby View | Challenges Hub | Stats & Directory | Replay Viewer | Library Config & Moderation |
+|:---|:---|:---|:---|:---|:---|
+| **👑 Creator** | Setup Card (full filters) | Create, Manage & Play | Full Access | Full Access | Full Access |
+| **👥 Player (User)** | Welcome Card (code input) | Join & Play | Full Access | Full Access | Restricted |
+| **🎟️ Guest** | Welcome Card (code input) | Direct Link / Code Play | Restricted | Restricted | Restricted |
 
-### Cloudflare Zero Trust Setup
+- **Local / Single-Player**: Default mode (`AUTH_MODE=disabled`) automatically grants full Creator access with display name `'Host'`.
+- **Zero Trust / Production**: Set `AUTH_MODE=cloudflare` to enforce verified identity headers from Cloudflare Access or a reverse proxy. Unrecognized callers receive the Guest role.
+- **Allowlists**: Specify authorized emails or usernames in `CF_CREATOR_EMAILS` and `CF_USER_EMAILS`.
 
-When exposing Immich Quiz behind a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) with Cloudflare Access:
+📖 **For complete Cloudflare Access setup, OIDC display name mapping, and reverse proxy configs (Caddy, Nginx, Traefik), see [`docs/AUTH.md`](docs/AUTH.md).**
 
-1. Configure an Access Application in your Cloudflare Zero Trust dashboard protecting your quiz subdomain.
-2. Under Access Policies, define which email addresses or identity providers can authenticate.
-3. In your `.env` file, enable Cloudflare authentication mode and map verified email addresses or usernames:
-
-   ```env
-   AUTH_MODE=cloudflare
-   CF_CREATOR_EMAILS=host@yourdomain.com,admin_user
-   CF_USER_EMAILS=friend1@example.com,friend2@example.com,alice
-   ```
-
-4. Cloudflare automatically injects the `Cf-Access-Authenticated-User-Email` header upon successful authentication. Requests without this header or with unlisted identifiers automatically receive the **Guest** role (allowing public or shared challenge participation without exposing host configurations or player directories).
-
-### User Name & Display Name Resolution
-
-Immich Quiz resolves the player display name using the following priority order:
-
-1. **Custom Name Headers**:
-   - `Cf-Access-Authenticated-User-Name`
-   - `X-User-Name`
-   - `X-Auth-Name`
-   - `X-Forwarded-User-Name` / `X-Forwarded-User`
-   - `Remote-User`
-2. **Cloudflare JWT Claims (`Cf-Access-Jwt-Assertion`)**:
-   - The edge JWT payload is safely inspected for claims: `name`, `preferred_username`, `user_name`, or `given_name`.
-3. **Email Fallback**:
-   - If no explicit name header or claim is provided, the display name falls back to the capitalized email prefix (`email.split('@')[0].capitalize()`).
-
-> [!TIP]
-> **Allowlist Matching by Username**: You can specify usernames alongside emails in `CF_CREATOR_EMAILS` and `CF_USER_EMAILS`. Immich Quiz validates both the verified email and the resolved lowercase username/name.
-
-### Configuring Caddy Reverse Proxy
-
-If using **Caddy** as a reverse proxy in front of Immich Quiz:
-
-- **Behind Cloudflare Access**: Caddy automatically forwards incoming `Cf-Access-*` headers to upstream:
-
-  ```caddy
-  quiz.yourdomain.com {
-      reverse_proxy 127.0.0.1:8010
-  }
-  ```
-
-- **With Caddy HTTP Basic Auth or Forward Auth**: Forward user identity directly via `X-User-Name`:
-
-  ```caddy
-  quiz.yourdomain.com {
-      basicauth {
-          admin  $2a$14$...
-          alice  $2a$14$...
-      }
-
-      reverse_proxy 127.0.0.1:8010 {
-          header_up X-User-Name {http.auth.user.id}
-      }
-  }
-  ```
+---
 
 ### Immich API Key Permissions
 
